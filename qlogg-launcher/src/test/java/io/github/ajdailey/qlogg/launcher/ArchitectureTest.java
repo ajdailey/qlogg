@@ -1,0 +1,371 @@
+package io.github.ajdailey.qlogg.launcher;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaAccess;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaConstructorCall;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.Location;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
+import java.beans.XMLDecoder;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Module, security and thread-ownership rules over every class except the bootstrap, which has its
+ * own test.
+ */
+class ArchitectureTest {
+  private static final String ROOT = "io.github.ajdailey.qlogg";
+  private static final String CORE = ROOT + ".core..";
+  private static final String APP = ROOT + ".app..";
+  private static final String UI = ROOT + ".ui..";
+  private static final String LAUNCHER = ROOT + ".launcher..";
+  private static final String WORKERS = ROOT + ".core.concurrent.Workers";
+  private static final String[] VIEWS = {ROOT + ".ui.swt..", ROOT + ".app.view.."};
+
+  private static JavaClasses classes;
+
+  @BeforeAll
+  static void importClasses() {
+    classes =
+        new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .withImportOption(
+                new ImportOption() {
+                  @Override
+                  public boolean includes(Location location) {
+                    return !location.contains("-tests.jar");
+                  }
+                })
+            .importPackages(ROOT);
+  }
+
+  @Test
+  void swtOnlyInViewsAndLauncher() {
+    noClasses()
+        .that()
+        .resideOutsideOfPackages(ROOT + ".ui.swt..", LAUNCHER)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.eclipse.swt..")
+        .check(classes);
+  }
+
+  /**
+   * Only SWT's public API is used, so the same code runs on GTK3 and GTK4 and on every platform's
+   * SWT build. The internal namespace holds the backend bindings.
+   */
+  @Test
+  void noSwtInternals() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.eclipse.swt.internal..")
+        .check(classes);
+  }
+
+  @Test
+  void layering() {
+    noClasses()
+        .that()
+        .resideInAPackage(CORE)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(APP, UI, LAUNCHER)
+        .check(classes);
+    noClasses()
+        .that()
+        .resideInAPackage(APP)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(UI, LAUNCHER)
+        .check(classes);
+    noClasses()
+        .that()
+        .resideInAnyPackage(
+            ROOT + ".core.io..",
+            ROOT + ".core.text..",
+            ROOT + ".core.index..",
+            ROOT + ".core.search..",
+            ROOT + ".core.watch..",
+            ROOT + ".core.concurrent..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage(ROOT + ".core.model..")
+        .check(classes);
+    noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".app.view..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            ROOT + ".app.controller..",
+            ROOT + ".app.config..",
+            ROOT + ".app.cli..",
+            ROOT + ".app.ipc..")
+        .check(classes);
+    noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".ui.swt..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            ROOT + ".core.io..", ROOT + ".core.index..", ROOT + ".core.concurrent..")
+        .check(classes);
+  }
+
+  @Test
+  void utilitiesDependOnNoOtherPackage() {
+    noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".core.util..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            ROOT + ".core.concurrent..",
+            ROOT + ".core.io..",
+            ROOT + ".core.text..",
+            ROOT + ".core.index..",
+            ROOT + ".core.search..",
+            ROOT + ".core.watch..",
+            ROOT + ".core.model..",
+            APP,
+            UI,
+            LAUNCHER)
+        .check(classes);
+  }
+
+  @Test
+  void everyUiTextIsUsed() {
+    JavaClass text = classes.get(UiText.class);
+    List<String> unused = new ArrayList<String>();
+    for (JavaField field : text.getFields()) {
+      if (!field.getModifiers().contains(JavaModifier.ENUM)) {
+        continue;
+      }
+      boolean used = false;
+      for (JavaAccess<?> access : field.getAccessesToSelf()) {
+        if (!access.getOriginOwner().equals(text)) {
+          used = true;
+        }
+      }
+      if (!used) {
+        unused.add(field.getName());
+      }
+    }
+    assertEquals(List.of(), unused);
+  }
+
+  @Test
+  void noPackageCycles() {
+    slices().matching(ROOT + ".(**)").should().beFreeOfCycles().check(classes);
+  }
+
+  @Test
+  void logbackOnlyInLauncher() {
+    noClasses()
+        .that()
+        .resideOutsideOfPackage(LAUNCHER)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("ch.qos.logback..")
+        .check(classes);
+  }
+
+  @Test
+  void noOutboundNetwork() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("java.net.http..")
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(URLConnection.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(Socket.class)
+        .orShould()
+        .callMethod(URL.class, "openStream")
+        .check(classes);
+    noClasses()
+        .that()
+        .resideOutsideOfPackage(ROOT + ".app.ipc..")
+        .should()
+        .dependOnClassesThat()
+        .haveFullyQualifiedName("java.nio.channels.SocketChannel")
+        .orShould()
+        .dependOnClassesThat()
+        .haveFullyQualifiedName("java.nio.channels.ServerSocketChannel")
+        .check(classes);
+  }
+
+  @Test
+  void noProcessesDeserializationOrWeakRandom() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .areAssignableTo(ProcessBuilder.class)
+        .orShould()
+        .callMethod(Runtime.class, "exec", String.class)
+        .orShould()
+        .callMethod(Runtime.class, "exec", String[].class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(ObjectInputStream.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(ObjectOutputStream.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(XMLDecoder.class)
+        .orShould()
+        .dependOnClassesThat(weakRandom())
+        .check(classes);
+  }
+
+  @Test
+  void onlyMainExits() {
+    noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(Main.class.getName())
+        .should()
+        .callMethod(System.class, "exit", int.class)
+        .orShould()
+        .callMethod(Runtime.class, "halt", int.class)
+        .check(classes);
+  }
+
+  @Test
+  void noSyncExec() {
+    noClasses()
+        .should()
+        .callMethod("org.eclipse.swt.widgets.Display", "syncExec", Runnable.class.getName())
+        .check(classes);
+  }
+
+  @Test
+  void onlyTheDispatcherPostsToTheDisplay() {
+    noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(ROOT + ".ui.swt.SwtUiDispatcher")
+        .should()
+        .callMethod("org.eclipse.swt.widgets.Display", "asyncExec", Runnable.class.getName())
+        .orShould()
+        .callMethod("org.eclipse.swt.widgets.Display", "timerExec", "int", Runnable.class.getName())
+        .check(classes);
+  }
+
+  @Test
+  void viewsNeverBlock() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(VIEWS)
+        .should()
+        .callMethodWhere(call(Future.class, "get"))
+        .orShould()
+        .callMethodWhere(call(Thread.class, "join"))
+        .orShould()
+        .dependOnClassesThat()
+        .resideInAPackage("java.nio.channels..")
+        .check(classes);
+  }
+
+  @Test
+  void controllersNeverWait() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(ROOT + ".app.controller..", ROOT + ".app.command..")
+        .should()
+        .callMethodWhere(call(Future.class, "get"))
+        .orShould()
+        .callMethodWhere(call(Thread.class, "join|sleep"))
+        .orShould()
+        .callMethodWhere(call(OperationHandle.class, "await"))
+        .orShould()
+        .callMethodWhere(call(CountDownLatch.class, "await"))
+        .check(classes);
+  }
+
+  @Test
+  void onlyWorkersCreatesThreads() {
+    noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(WORKERS)
+        .should()
+        .callConstructorWhere(newInstanceOf(Thread.class))
+        .orShould()
+        .callMethodWhere(call(Thread.class, "ofVirtual|ofPlatform|startVirtualThread"))
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(Executors.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(ThreadPoolExecutor.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(ScheduledThreadPoolExecutor.class)
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(ForkJoinPool.class)
+        .check(classes);
+  }
+
+  /** Matches {@code java.util.Random} and its subtypes except {@code SecureRandom}. */
+  private static DescribedPredicate<JavaClass> weakRandom() {
+    return new DescribedPredicate<JavaClass>("assignable to Random but not SecureRandom") {
+      @Override
+      public boolean test(JavaClass type) {
+        return type.isAssignableTo(Random.class) && !type.isAssignableTo(SecureRandom.class);
+      }
+    };
+  }
+
+  /** Matches a call to a method of {@code owner} or a subtype whose name matches the pattern. */
+  private static DescribedPredicate<JavaMethodCall> call(
+      final Class<?> owner, final String namePattern) {
+    return new DescribedPredicate<JavaMethodCall>(
+        "call " + owner.getSimpleName() + "." + namePattern) {
+      @Override
+      public boolean test(JavaMethodCall call) {
+        return call.getTarget().getName().matches(namePattern)
+            && call.getTarget().getOwner().isAssignableTo(owner);
+      }
+    };
+  }
+
+  /** Matches a constructor call creating {@code type} or a subtype. */
+  private static DescribedPredicate<JavaConstructorCall> newInstanceOf(final Class<?> type) {
+    return new DescribedPredicate<JavaConstructorCall>("new " + type.getSimpleName()) {
+      @Override
+      public boolean test(JavaConstructorCall call) {
+        return call.getTarget().getOwner().isAssignableTo(type);
+      }
+    };
+  }
+}

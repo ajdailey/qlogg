@@ -1,0 +1,35 @@
+# Maven
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Eclipse / Buildship
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# JVM crash and diagnostic output
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+*.jfr
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Root-level markdown other than the project README is local working material.
+/*.md
+!README.md
+
+# Packaging output
+/dist/

@@ -1,0 +1,178 @@
+package io.github.ajdailey.qlogg.app.config;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.github.ajdailey.qlogg.app.command.Binding;
+import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.app.command.KeyStroke;
+import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
+import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/** Options, UI state, positions and the session through their files. */
+class StateStoresTest {
+  @TempDir Path temp;
+
+  private SettingsLocation location() {
+    return new SettingsLocation(SettingsMode.EXPLICIT, temp);
+  }
+
+  @Test
+  void optionsAndStateRoundTrip() {
+    ShortcutOverrides shortcuts =
+        ShortcutOverrides.NONE
+            .with(
+                CommandId.OPEN,
+                List.of(
+                    new Binding(
+                        CommandId.OPEN,
+                        KeyStroke.parse("Ctrl+Shift+K"),
+                        null,
+                        Binding.Scope.WINDOW)))
+            .with(CommandId.RELOAD, List.of());
+    Options options =
+        new Options(
+            new FontSettings("Mono Mock", 12, 14, true, true),
+            7,
+            new MonitorSettings(500, false),
+            "UTF-8",
+            false,
+            shortcuts,
+            List.of("/mock/a.log", "/mock/b.log"),
+            true);
+    UiState state =
+        UiState.DEFAULTS
+            .withWindow(new WindowState(-5, 10, 900, 600, true), 55)
+            .withSearch(new SearchToggles(false, true, false, true, false, false, false))
+            .withLineNumbers(false, true)
+            .withOpenDirectory("/mock")
+            .addRecent("/mock/a.log", 7)
+            .addRecent("/mock/c.log", 7)
+            .withDialog("options", new UiState.Size(640, 480));
+    ConfigStore store = new ConfigStore(location());
+    assertTrue(store.save(Preferences.DEFAULTS.withOptions(options).withState(state)));
+    Preferences loaded = new ConfigStore(location()).load();
+    assertEquals(options, loaded.options());
+    assertEquals(state, loaded.state());
+    assertEquals(List.of("/mock/c.log", "/mock/a.log"), loaded.state().recentFiles());
+  }
+
+  @Test
+  void invalidValuesFallBackToDefaults() throws Exception {
+    Files.writeString(
+        temp.resolve(SettingsLocation.MARKER),
+        "font.size=900\nrecent.count=x\nencoding.default=no-such-charset\nwindow.maximized=yes\n"
+            + "monitor.pollMillis=5\nshortcut.OPEN.count=1\nshortcut.OPEN.0=nowhere F2\n",
+        StandardCharsets.ISO_8859_1);
+    Preferences loaded = new ConfigStore(location()).load();
+    assertEquals(0, loaded.options().font().size());
+    assertEquals(Options.DEFAULTS.recentCount(), loaded.options().recentCount());
+    assertEquals("ISO-8859-1", loaded.options().defaultEncoding());
+    assertFalse(loaded.state().window().maximized());
+    assertEquals(1000, loaded.options().monitor().pollMillis());
+    assertEquals(List.of(), loaded.options().shortcuts().bindings(CommandId.OPEN));
+  }
+
+  @Test
+  void positionsKeepTheMostRecentEntries() throws Exception {
+    PositionStore store = new PositionStore(location());
+    for (int i = 0; i < PositionStore.MAX_ENTRIES + 5; i++) {
+      store.put(Path.of("/mock/" + i + ".log"), i, i + 1, 2);
+    }
+    store.setEncoding(Path.of("/mock/9.log"), StandardCharsets.UTF_16BE);
+    assertTrue(store.save());
+    assertFalse(store.save());
+    PositionStore loaded = new PositionStore(location());
+    loaded.load();
+    assertEquals(PositionStore.MAX_ENTRIES, loaded.size());
+    assertEquals(PositionStore.Entry.NONE, loaded.get(Path.of("/mock/0.log")));
+    assertEquals(new PositionStore.Entry(9, 10, 2, "UTF-16BE"), loaded.get(Path.of("/mock/9.log")));
+    assertEquals(StandardCharsets.UTF_16BE, loaded.get(Path.of("/mock/9.log")).charset());
+    assertNull(loaded.get(Path.of("/mock/20.log")).charset());
+  }
+
+  @Test
+  void aMalformedPositionsFileIsKeptAsInvalid() throws Exception {
+    Files.writeString(temp.resolve(PositionStore.FILE), "version=2\n");
+    PositionStore store = new PositionStore(location());
+    store.load();
+    assertEquals(0, store.size());
+    store.put(Path.of("/mock/a.log"), 1, 2, 3);
+    assertTrue(store.save());
+    assertEquals("version=2\n", Files.readString(temp.resolve(PositionStore.FILE + ".invalid")));
+  }
+
+  @Test
+  void sessionRoundTripsTabsNamesFollowAndMarks() {
+    SessionStore store = new SessionStore(location());
+    Session session =
+        new Session(
+            List.of(
+                new Session.Tab("/mock/a.log", "Alpha", true, new long[] {0, 0, 3, 7}),
+                new Session.Tab("/mock/b.log", "", false, new long[0])),
+            1);
+    assertTrue(store.save(session));
+    Session loaded = new SessionStore(location()).load();
+    assertEquals(1, loaded.active());
+    assertEquals(2, loaded.tabs().size());
+    Session.Tab tab = loaded.tabs().get(0);
+    assertEquals("Alpha", tab.name());
+    assertTrue(tab.follow());
+    assertArrayEquals(new long[] {0, 0, 3, 7}, tab.marks());
+    assertEquals("", loaded.tabs().get(1).name());
+  }
+
+  @Test
+  void eachWindowKeepsItsOwnTabs() {
+    SessionStore store = new SessionStore(location());
+    Session first = new Session(List.of(new Session.Tab("/mock/a.log", "", false, new long[0])), 0);
+    Session second =
+        new Session(
+            List.of(
+                new Session.Tab("/mock/b.log", "Beta", true, new long[0]),
+                new Session.Tab("/mock/c.log", "", false, new long[] {4, 4})),
+            1);
+    Session empty = new Session(List.of(), -1);
+    assertTrue(store.saveWindows(List.of(first, second, empty)));
+    List<Session> loaded = new SessionStore(location()).loadWindows();
+    assertEquals(3, loaded.size());
+    assertEquals("/mock/a.log", loaded.get(0).tabs().get(0).path());
+    assertEquals(1, loaded.get(1).active());
+    assertEquals("Beta", loaded.get(1).tabs().get(0).name());
+    assertArrayEquals(new long[] {4, 4}, loaded.get(1).tabs().get(1).marks());
+    assertTrue(loaded.get(2).tabs().isEmpty());
+    assertEquals("/mock/a.log", new SessionStore(location()).load().tabs().get(0).path());
+  }
+
+  @Test
+  void markRangesConvertBothWays() {
+    MutableLineSet marks = new MutableLineSet();
+    for (long line : new long[] {1, 2, 3, 9, 70000, 70001}) {
+      marks.add(line);
+    }
+    long[] ranges = SessionStore.ranges(marks, 100);
+    assertArrayEquals(new long[] {1, 3, 9, 9, 70000, 70001}, ranges);
+    assertEquals("1-3,9,70000-70001", SessionStore.formatMarks(ranges));
+    assertArrayEquals(ranges, SessionStore.parseMarks("1-3,9,70000-70001", 100));
+    assertArrayEquals(new long[] {1, 3}, SessionStore.ranges(marks, 1));
+    assertArrayEquals(new long[] {1, 3}, SessionStore.parseMarks("1-3,2,9", 100));
+    MutableLineSet back = new MutableLineSet();
+    assertTrue(SessionStore.addRanges(ranges, back));
+    assertEquals(6, back.size());
+  }
+
+  @Test
+  void aMissingSessionIsEmpty() {
+    assertEquals(0, new SessionStore(location()).load().tabs().size());
+  }
+}
