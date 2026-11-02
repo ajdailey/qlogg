@@ -138,12 +138,12 @@ Compiled and tested against the build host's SWT fragment.
   (menus, scroll bars, fields, buttons, tabs) take the theme from
   `Display.setDarkThemePreferred`. On GTK `SwtThemeService.preferDark` calls
   it and the theme's dark variant applies at once. win32 widgets read it only
-  when created, and cocoa SWT reads its system colors only when the Display is
-  created: a later call on cocoa switches the text color over backgrounds
-  still in the old appearance. On both, `SwtThemeService.open` sets it before
-  the first Shell, on cocoa replacing the Display when the theme differs from
-  the system appearance; `preferDark` does nothing, and `showsNow` reports
-  whether the startup setting matches a request. `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
+  when created, so `SwtThemeService.open` sets it before the first Shell,
+  `preferDark` does nothing, and `showsNow` reports whether the startup
+  setting matches a request. On cocoa native widgets always follow the system
+  appearance and nothing calls it: cocoa SWT caches its widget colors under
+  the system appearance, and a different application appearance draws text
+  in that appearance over the cached backgrounds (white on light gray). `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
   `SWT.Settings` into a change event; on GTK SWT reads the system setting once
   at Display creation, so a change made while QLogg runs applies at the next
   start.
@@ -177,7 +177,7 @@ event loop:
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
 | Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
 | User guide | `GuideWindow`: an SWT `Browser` with JavaScript off on the guide's copy, and Close. A `LocationListener` refuses every location but that file (with or without an anchor) and `about:blank`. An `SWTException` or `SWTError` from a browser call, or a page not loaded 15 s after the load request (a `UiDispatcher.timerExec`, so the UI thread does not wait), closes the window and calls `ApplicationController.showGuideElsewhere`: the OS browser, else a notice naming the copy. A failure during `create` returns null instead, and the controller takes the same fallback. A bound that expires during one of `GuideWindow`'s own browser or shell calls closes the window after that call returns: on Cocoa an SWT timer runs inside any nested run loop a native call spins. A second Documentation reloads the page, restarts the bound and activates the window |
-| About QLogg | Logo at the top left (the palette's icon variant at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `Program.launch` with the fixed project URL |
+| About QLogg | Logo at the top left (the icon variant for the window background's luminance, at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `Program.launch` with the fixed project URL |
 
 ## Log view
 

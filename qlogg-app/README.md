@@ -206,7 +206,7 @@ window; `new ApplicationController(set, view)` adds a window to a set.
 - `theme()` is the `ThemeController`; the View menu's theme items call
   `setTheme`, which saves `ui.theme` and, when `ThemeController.setMode`
   reports that native controls show the theme only from the next start
-  (Windows, macOS), shows `THEME_RESTART_MESSAGE` through `showInfo`. A palette change recolors every tab's
+  (Windows), shows `THEME_RESTART_MESSAGE` through `showInfo`. A palette change recolors every tab's
   match highlight, whose default color is the palette's, and the color
   labels: on a dark palette a label still at its default colors paints with
   the dark default (`ColorLabel.forPalette`). Colors the user set are never

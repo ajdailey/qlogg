@@ -51,7 +51,8 @@ public interface ThemeService {
    * Reports whether native controls show a {@link #preferDark} request now.
    *
    * @param dark the request
-   * @return true when they show it now; false when they show it from the next start
+   * @return false when they show it from the next start; else true, also where native controls
+   *     follow only the system
    */
   boolean showsNow(boolean dark);
 }

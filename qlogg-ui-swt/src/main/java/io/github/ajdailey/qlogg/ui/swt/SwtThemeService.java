@@ -18,11 +18,11 @@ import org.eclipse.swt.widgets.Listener;
  *
  * <p>Native controls take the theme from {@link Display#setDarkThemePreferred}. GTK applies a
  * change at once, so {@link #preferDark} calls it there. win32 controls read it only when created,
- * and cocoa SWT reads its system colors (widget, list and text backgrounds) only when the Display
- * is created: a later call turns cocoa's text light or dark over backgrounds still in the old
- * appearance, leaving text unreadable. On both, {@link #open} sets it at startup, {@link
- * #preferDark} does nothing, and {@link #showsNow} reports whether the startup setting matches a
- * request.
+ * so {@link #open} sets it before the first Shell and {@link #showsNow} reports whether that
+ * startup setting matches a request. On cocoa native controls always follow the system appearance
+ * and the service never calls it: cocoa SWT reads its widget colors once, under the system
+ * appearance, and an application appearance that differs draws text in its own appearance over
+ * those backgrounds, white on light gray or black on dark gray. Do not pin the cocoa appearance.
  */
 public final class SwtThemeService implements ThemeService {
   private static final boolean GTK = "gtk".equals(SWT.getPlatform());
@@ -31,7 +31,7 @@ public final class SwtThemeService implements ThemeService {
   private final List<ThemeListener> listeners = new ArrayList<ThemeListener>();
   private final Display display;
   private boolean dark;
-  private boolean nativeDark;
+  private final boolean nativeDark;
 
   /**
    * Creates the service with native controls following the system; call on the UI thread.
@@ -39,14 +39,13 @@ public final class SwtThemeService implements ThemeService {
    * @param display the Display
    */
   public SwtThemeService(Display display) {
-    this(display, false, false);
+    this(display, false);
   }
 
-  private SwtThemeService(Display display, boolean pinned, boolean pinnedDark) {
+  private SwtThemeService(Display display, boolean nativeDark) {
     this.display = display;
+    this.nativeDark = nativeDark;
     dark = Display.isSystemDarkTheme();
-    // win32 controls stay light unless told otherwise; cocoa controls follow the system.
-    nativeDark = pinned ? pinnedDark : COCOA && dark;
     display.addListener(
         SWT.Settings,
         new Listener() {
@@ -55,9 +54,6 @@ public final class SwtThemeService implements ThemeService {
             boolean now = Display.isSystemDarkTheme();
             if (now != dark) {
               dark = now;
-              if (COCOA && !pinned) {
-                nativeDark = now;
-              }
               for (ThemeListener listener : new ArrayList<ThemeListener>(listeners)) {
                 listener.systemThemeChanged(now);
               }
@@ -67,37 +63,20 @@ public final class SwtThemeService implements ThemeService {
   }
 
   /**
-   * Sets the native controls' theme for {@code mode} before the first Shell exists and creates the
-   * service. On cocoa, when the theme differs from the system appearance, the Display is disposed
-   * and replaced, so the new one reads its system colors in that theme.
+   * Creates the service and, for light or dark off cocoa, sets the native controls' theme; call
+   * before the first Shell exists.
    *
    * @param display a Display with no Shell
    * @param mode the theme setting
-   * @return the service; its {@link #display} is the one to use
+   * @return the service
    */
   public static SwtThemeService open(Display display, ThemeMode mode) {
-    if (mode == ThemeMode.SYSTEM) {
+    if (mode == ThemeMode.SYSTEM || COCOA) {
       return new SwtThemeService(display);
     }
-    boolean systemDark = Display.isSystemDarkTheme();
-    boolean value = ThemeController.resolve(mode, systemDark).dark();
+    boolean value = ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark();
     display.setDarkThemePreferred(value);
-    Display shown = display;
-    if (COCOA && value != systemDark) {
-      display.dispose();
-      shown = new Display();
-      shown.setDarkThemePreferred(value);
-    }
-    return new SwtThemeService(shown, true, value);
-  }
-
-  /**
-   * Returns the Display the service was created for.
-   *
-   * @return the Display
-   */
-  public Display display() {
-    return display;
+    return new SwtThemeService(display, value);
   }
 
   @Override
@@ -119,6 +98,7 @@ public final class SwtThemeService implements ThemeService {
 
   @Override
   public boolean showsNow(boolean value) {
-    return GTK || value == nativeDark;
+    // cocoa controls follow the system at every start, so a restart changes nothing.
+    return GTK || COCOA || value == nativeDark;
   }
 }

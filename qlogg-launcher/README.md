@@ -39,8 +39,8 @@ debug log file when `-l` or `log.file` asks for it.
 `Gui` runs on the calling thread, which becomes the UI thread. It resolves
 `ui.theme` before the first Shell; for light and dark,
 `SwtThemeService.open` also sets the native widgets' theme (system leaves them
-to the OS), so on Windows and macOS a theme change reaches them at the next
-start. It creates
+to the OS), so on Windows a theme change reaches them at the next start; on
+macOS they always follow the OS. It creates
 `Workers` and loads the default time zone's rules on a `qlogg-lifecycle-`
 worker, so the first open does not read the JDK time-zone data on the UI
 thread. It creates the `MemoryBudget` from `Runtime.maxMemory()`, the document

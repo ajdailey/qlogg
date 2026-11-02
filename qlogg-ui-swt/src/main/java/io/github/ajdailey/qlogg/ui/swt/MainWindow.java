@@ -1800,7 +1800,9 @@ public final class MainWindow implements MainView, ApplicationListener {
             controller.showLicenses();
           }
         };
-    Icons.Variant variant = palette.dark() ? Icons.Variant.DARK : Icons.Variant.LIGHT;
+    // Native chrome can differ from the palette (cocoa, win32 before a restart).
+    Icons.Variant variant =
+        ToolIcons.dark(shell.getBackground()) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
     new AboutDialog(shell, info, variant, licenses, this).open();
   }
 
