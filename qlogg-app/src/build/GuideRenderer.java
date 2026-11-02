@@ -3,14 +3,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.commonmark.Extension;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.Heading;
+import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Image;
 import org.commonmark.node.Link;
 import org.commonmark.node.Node;
@@ -57,6 +61,13 @@ public final class GuideRenderer {
     Node document = parser.parse(Files.readString(source, StandardCharsets.UTF_8));
     Inliner inliner = new Inliner(source.getParent());
     document.accept(inliner);
+    if (inliner.failure == null) {
+      for (String target : inliner.targets) {
+        if (!inliner.ids.contains(target)) {
+          inliner.failure = "a link names no heading: #" + target;
+        }
+      }
+    }
     if (inliner.failure != null) {
       throw new IOException(source + ": " + inliner.failure);
     }
@@ -78,6 +89,8 @@ public final class GuideRenderer {
   private static final class Inliner extends AbstractVisitor {
     private final Path base;
     private final Map<String, Integer> slugs = new HashMap<String, Integer>();
+    private final Set<String> ids = new HashSet<String>();
+    private final List<String> targets = new ArrayList<String>();
     private String title = "QLogg";
     private String failure;
 
@@ -95,7 +108,12 @@ public final class GuideRenderer {
       Integer seen = slugs.get(slug);
       slugs.put(slug, seen == null ? 1 : seen + 1);
       String id = seen == null ? slug : slug + "-" + seen;
-      heading.prependChild(new AnchorNode(id));
+      ids.add(id);
+      // A plain HtmlInline: the HTML renderer picks a node's renderer by its exact class, so a
+      // subclass renders as nothing.
+      HtmlInline anchor = new HtmlInline();
+      anchor.setLiteral("<a id=\"" + id + "\"></a>");
+      heading.prependChild(anchor);
       visitChildren(heading);
     }
 
@@ -103,6 +121,8 @@ public final class GuideRenderer {
     public void visit(Link link) {
       if (!link.getDestination().startsWith("#")) {
         failure = "a link leaves the page: " + link.getDestination();
+      } else {
+        targets.add(link.getDestination().substring(1));
       }
       visitChildren(link);
     }
@@ -149,13 +169,6 @@ public final class GuideRenderer {
         }
       }
       return slug.toString();
-    }
-  }
-
-  /** An empty anchor carrying a heading's id. */
-  private static final class AnchorNode extends org.commonmark.node.HtmlInline {
-    AnchorNode(String id) {
-      setLiteral("<a id=\"" + id + "\"></a>");
     }
   }
 }

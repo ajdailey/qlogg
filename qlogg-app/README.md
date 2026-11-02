@@ -582,8 +582,9 @@ copies commonmark-java 0.28.0 and its GFM tables extension (BSD-2-Clause,
 build only) and runs `src/build/GuideRenderer.java` with the Java source
 launcher: `docs/user-guide.md` becomes one HTML page under
 `target/generated-resources/guide`, each image a `data:` URI and each heading
-the id of its GitHub anchor. A link that leaves the page, or an image that is
-not a PNG beside the guide, fails the build. `writeCopy` streams the page to
+an `<a id>` with its GitHub anchor. A link that leaves the page or names no
+heading, or an image that is not a PNG beside the guide, fails the build;
+`UserGuidePageTest` checks the shipped page's links against its anchors. `writeCopy` streams the page to
 `<settings>/cache/guide.html` (owner-only folder, `AtomicFiles`) on a
 `qlogg-lifecycle-` worker; the controller then calls `MainView.showGuide`,
 else `showGuideElsewhere`: `launch` on the copy, else a notice naming it. The
