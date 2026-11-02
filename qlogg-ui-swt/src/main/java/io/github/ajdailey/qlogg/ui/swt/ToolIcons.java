@@ -2,7 +2,10 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTException;
@@ -14,6 +17,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.ToolItem;
 
 /**
  * The toolbar and toggle icons, rendered at build time from the SVG set into {@code
@@ -87,8 +91,10 @@ final class ToolIcons {
   private static final int DARK_BACKGROUND = 128;
 
   private final Display display;
+  private final Control owner;
   private final Map<String, Image> images = new HashMap<String, Image>();
-  private final boolean darkBackground;
+  private final Map<ToolItem, String> items = new LinkedHashMap<ToolItem, String>();
+  private boolean darkBackground;
 
   /**
    * Creates the set for controls with the owner's background; the images are disposed with it.
@@ -97,15 +103,69 @@ final class ToolIcons {
    */
   ToolIcons(Control owner) {
     this.display = owner.getDisplay();
+    this.owner = owner;
     this.darkBackground = dark(owner.getBackground());
+    final Listener settings =
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            reink();
+          }
+        };
+    display.addListener(SWT.Settings, settings);
     owner.addListener(
         SWT.Dispose,
         new Listener() {
           @Override
           public void handleEvent(Event event) {
+            display.removeListener(SWT.Settings, settings);
             dispose();
           }
         });
+  }
+
+  /**
+   * Shows an icon on a tool item and keeps it in the owner's ink across {@link #reink}.
+   *
+   * @param item the item
+   * @param name one of the name constants
+   * @return false when the PNG is missing from the jar and the item shows no image
+   */
+  boolean apply(ToolItem item, String name) {
+    Image image = get(name);
+    if (image == null) {
+      return false;
+    }
+    item.setImage(image);
+    items.put(item, name);
+    return true;
+  }
+
+  /**
+   * Reads the owner's background again and, when it calls for the other ink, replaces the image of
+   * every item given to {@link #apply}. Native controls change background with the theme.
+   */
+  void reink() {
+    if (owner.isDisposed()) {
+      return;
+    }
+    boolean now = dark(owner.getBackground());
+    if (now == darkBackground) {
+      return;
+    }
+    darkBackground = now;
+    List<Image> old = new ArrayList<Image>(images.values());
+    images.clear();
+    for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
+      if (!entry.getKey().isDisposed()) {
+        entry.getKey().setImage(get(entry.getValue()));
+      }
+    }
+    for (Image image : old) {
+      if (image != null) {
+        image.dispose();
+      }
+    }
   }
 
   /**

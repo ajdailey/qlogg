@@ -175,7 +175,11 @@ Save Filtered Results write the lines to a file in UTF-8.
 The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
 Files), markers for tabs, trailing spaces and line ends, hiding ANSI color
 sequences (for display, copy and search), the overview bar, and the light,
-dark and system themes.
+dark and system themes. Light and dark also apply to menus, scroll bars and
+other controls: at once on Linux and macOS, at the next start on Windows,
+which says so when you change it, and where only the title bar, scroll bars,
+menu bar and lists turn dark. On Linux
+the GTK theme must have a dark variant.
 
 ## Scratchpad
 

@@ -920,7 +920,13 @@ public enum UiText {
   /** Options Folding error: no pattern at all. */
   OPTIONS_FOLD_EMPTY,
   /** Options Folding error: the most continuation patterns kept. */
-  OPTIONS_FOLD_TOO_MANY;
+  OPTIONS_FOLD_TOO_MANY,
+
+  // Theme restart notice.
+  /** Title of the notice that native controls change at the next start. */
+  THEME_RESTART_TITLE,
+  /** The notice that native controls change at the next start. */
+  THEME_RESTART_MESSAGE;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

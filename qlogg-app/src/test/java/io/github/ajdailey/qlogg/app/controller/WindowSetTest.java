@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.log.RecentLog;
+import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
@@ -47,6 +48,7 @@ class WindowSetTest {
   private WindowSet set;
   private ApplicationController first;
   private FakeView firstView;
+  private boolean nativeLive = true;
 
   /** A log file that opens unless told to fail. */
   private final class FakeLogFiles implements LogFiles {
@@ -96,7 +98,27 @@ class WindowSetTest {
             ApplicationControllerTest.services(workers, MemoryBudget.of(1L << 28)),
             config,
             Preferences.DEFAULTS,
-            ThemeService.LIGHT);
+            new ThemeService() {
+              @Override
+              public boolean systemDark() {
+                return false;
+              }
+
+              @Override
+              public void addListener(ThemeListener listener) {
+                // The setting never changes.
+              }
+
+              @Override
+              public void preferDark(boolean dark) {
+                // No native controls.
+              }
+
+              @Override
+              public boolean showsNow(boolean dark) {
+                return nativeLive;
+              }
+            });
     set.setLogging(recent, logFiles);
     set.setFactory(
         new WindowSet.Factory() {
@@ -156,6 +178,17 @@ class WindowSetTest {
             return window.documents().size() == before + 1;
           }
         });
+  }
+
+  @Test
+  void aThemeNativeControlsShowOnlyAfterRestartIsAnnounced() {
+    first.execute(CommandId.THEME_DARK);
+    assertEquals(List.of(), firstView.infos);
+    nativeLive = false;
+    first.execute(CommandId.THEME_LIGHT);
+    assertEquals(
+        List.of(UiText.THEME_RESTART_TITLE.text() + ": " + UiText.THEME_RESTART_MESSAGE.text()),
+        firstView.infos);
   }
 
   @Test

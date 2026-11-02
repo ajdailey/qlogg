@@ -7,7 +7,7 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 
-/** A one-line error with an OK button; modal, opened without a nested event loop. */
+/** A one-line error or message with an OK button; modal, opened without a nested event loop. */
 final class ErrorDialog {
   private final Shell shell;
 

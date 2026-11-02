@@ -243,13 +243,16 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
-   * Sets {@code ui.theme}, saves it and applies the palette.
+   * Sets {@code ui.theme}, saves it and applies the palette. When native controls show the theme
+   * only from the next start, says so.
    *
    * @param mode the theme
    */
   public void setTheme(ThemeMode mode) {
     setPreferences(preferences.get().withTheme(mode));
-    theme.setMode(mode);
+    if (!theme.setMode(mode)) {
+      view.showInfo(UiText.THEME_RESTART_TITLE.text(), UiText.THEME_RESTART_MESSAGE.text());
+    }
   }
 
   @Override

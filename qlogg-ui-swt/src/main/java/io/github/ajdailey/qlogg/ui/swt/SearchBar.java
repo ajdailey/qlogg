@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
@@ -199,13 +198,15 @@ public final class SearchBar {
     unbind();
   }
 
+  /** Re-inks the row's icons after a theme change ({@link ToolIcons#reink}). */
+  void reinkIcons() {
+    icons.reink();
+  }
+
   /** Adds an icon tool item; its tooltip names the option and, when bound, its key. */
   private ToolItem item(ToolBar parent, int style, String icon, UiText tip, CommandId command) {
     ToolItem item = new ToolItem(parent, style);
-    Image image = icons.get(icon);
-    if (image != null) {
-      item.setImage(image);
-    } else {
+    if (!icons.apply(item, icon)) {
       item.setText(tip.text());
     }
     item.setData(TIP, tip);

@@ -134,8 +134,13 @@ Compiled and tested against the build host's SWT fragment.
 - Every label, title and message comes from `UiText`.
 - The palette comes from `ApplicationController.theme()`. A change recolors
   both log views and the overview bar at once: each disposes its
-  `PaletteColors` and creates them from the new palette. Native widgets follow
-  the system. `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
+  `PaletteColors` and creates them from the new palette. Native widgets
+  (menus, scroll bars, fields, buttons, tabs) follow
+  `SwtThemeService.preferDark`, which calls `Display.setDarkThemePreferred`:
+  cocoa switches the application's appearance and GTK the theme's dark
+  variant at once; on win32 it does nothing, because win32 widgets read the
+  setting only when created; `showsNow` reports whether the startup setting
+  (`startWith`) matches a request. `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
   `SWT.Settings` into a change event; on GTK SWT reads the system setting once
   at Display creation, so a change made while QLogg runs applies at the next
   start.
@@ -270,9 +275,11 @@ nothing while the bar is hidden.
 - `ToolIcons` loads the toolbar, toggle and dialog icons from
   `icons/tool/NAME-light-16.png` (dark ink) or `NAME-dark-16.png` (light
   ink), with the 32 px PNG at 200% zoom. The ink follows the owning
-  control's background, because toolbars are native and do not follow the
-  QLogg palette. Images are created on first use and disposed with the
-  owner.
+  control's background, because toolbars are native: on Windows they stay
+  light under the dark palette. `reink` reads the background again and swaps
+  the image of every item given to `apply`; it runs on `SWT.Settings` and on
+  the UI turn after a palette change, once native controls have restyled.
+  Images are created on first use and disposed with the owner.
 - `src/icons/*.svg` is the hand-authored icon set (16 px grid, strokes in
   `currentColor`). At `generate-resources` the build copies JSVG (MIT, build
   only) and runs `src/build/IconRenderer.java` with the Java source launcher,

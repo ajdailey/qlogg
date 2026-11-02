@@ -204,7 +204,9 @@ window; `new ApplicationController(set, view)` adds a window to a set.
   label commands read the focused view's selected text on a worker, then
   change the document's labels.
 - `theme()` is the `ThemeController`; the View menu's theme items call
-  `setTheme`, which saves `ui.theme`. A palette change recolors every tab's
+  `setTheme`, which saves `ui.theme` and, when `ThemeController.setMode`
+  reports that native controls show the theme only from the next start
+  (Windows), shows `THEME_RESTART_MESSAGE` through `showInfo`. A palette change recolors every tab's
   match highlight, whose default color is the palette's, and the color
   labels: on a dark palette a label still at its default colors paints with
   the dark default (`ColorLabel.forPalette`). Colors the user set are never
@@ -594,7 +596,9 @@ view also calls `showGuideElsewhere` when its guide window fails after
 `Palette` holds the log view, gutter bullet and overview bar colors as `Rgb`
 values (`LIGHT`, `DARK`). `ThemeController` resolves `ThemeMode` against
 `ThemeService.systemDark()` and pushes a new palette to `PaletteListener`s;
-`SYSTEM` follows the service's change events. Highlighter colors are not
+`SYSTEM` follows the service's change events. Each mode change, and each
+system change in `SYSTEM`, also calls `ThemeService.preferDark` so native
+controls match the palette. Highlighter colors are not
 remapped.
 
 ## Recent log lines (`app.log`)

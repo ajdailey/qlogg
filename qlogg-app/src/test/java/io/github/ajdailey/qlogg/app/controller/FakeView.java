@@ -19,6 +19,7 @@ final class FakeView implements MainView {
   boolean disposed;
   String clipboard;
   final List<String> errors = new ArrayList<String>();
+  final List<String> infos = new ArrayList<String>();
   final List<String> texts = new ArrayList<String>();
   final List<String> notices = new ArrayList<String>();
   int quickFindFocused;
@@ -175,6 +176,11 @@ final class FakeView implements MainView {
   @Override
   public void showError(String title, String message) {
     errors.add(title + ": " + message);
+  }
+
+  @Override
+  public void showInfo(String title, String message) {
+    infos.add(title + ": " + message);
   }
 
   @Override

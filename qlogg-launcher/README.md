@@ -37,9 +37,10 @@ launch opens its own window, as with `-m`. A launch that stays then opens the
 debug log file when `-l` or `log.file` asks for it.
 
 `Gui` runs on the calling thread, which becomes the UI thread. It resolves
-`ui.theme` against `SwtThemeService` before the first Shell; on win32 a dark
-palette also calls `Display.setDarkThemePreferred(true)`, which native widgets
-read only then, so a theme change reaches them at the next start. It creates
+`ui.theme` against `SwtThemeService` before the first Shell; light and dark
+also call `Display.setDarkThemePreferred` (system leaves native widgets to the
+OS). win32 widgets read it only then, so on Windows a theme change reaches
+them at the next start. It creates
 `Workers` and loads the default time zone's rules on a `qlogg-lifecycle-`
 worker, so the first open does not read the JDK time-zone data on the UI
 thread. It creates the `MemoryBudget` from `Runtime.maxMemory()`, the document

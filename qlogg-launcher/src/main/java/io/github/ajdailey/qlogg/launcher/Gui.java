@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.log.EventLoopWatchdog;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeController;
+import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
@@ -37,7 +38,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTError;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -48,8 +48,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Composes the application and runs the SWT event loop on the calling thread, which becomes the UI
- * thread. The theme resolves before the first Shell: on win32 a dark palette also calls {@code
- * Display.setDarkThemePreferred(true)}, which native widgets read only then, so a later switch
+ * thread. The theme resolves before the first Shell: light and dark also call {@code
+ * Display.setDarkThemePreferred}, which win32 native widgets read only then, so a later switch
  * reaches them at the next start. Startup after the Display exists does not block it: the
  * command-line files open on workers once the first window is shown, each in a tab, following with
  * {@code -f}; each further window of a restored session opens with its tabs. At {@code -d 2} and
@@ -162,8 +162,8 @@ final class Gui {
               options.defaultCharset());
       final SwtThemeService system = new SwtThemeService(display);
       final Palette palette = ThemeController.resolve(preferences.theme(), system.systemDark());
-      if (palette.dark() && "win32".equals(SWT.getPlatform())) {
-        display.setDarkThemePreferred(true);
+      if (preferences.theme() != ThemeMode.SYSTEM) {
+        system.startWith(palette.dark());
       }
       warmTimeZone(workers);
       // Per-process log pruning.

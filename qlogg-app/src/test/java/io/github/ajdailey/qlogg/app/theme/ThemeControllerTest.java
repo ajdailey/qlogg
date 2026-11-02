@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.theme;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,6 +25,8 @@ class ThemeControllerTest {
   private static final class FakeSystem implements ThemeService {
     boolean dark;
     final List<ThemeListener> listeners = new ArrayList<ThemeListener>();
+    final List<Boolean> preferred = new ArrayList<Boolean>();
+    boolean live = true;
 
     @Override
     public boolean systemDark() {
@@ -33,6 +36,16 @@ class ThemeControllerTest {
     @Override
     public void addListener(ThemeListener listener) {
       listeners.add(listener);
+    }
+
+    @Override
+    public void preferDark(boolean value) {
+      preferred.add(value);
+    }
+
+    @Override
+    public boolean showsNow(boolean value) {
+      return live;
     }
 
     void flip(boolean value) {
@@ -71,6 +84,29 @@ class ThemeControllerTest {
     theme.setMode(ThemeMode.DARK);
     assertEquals(List.of(Palette.DARK, Palette.LIGHT, Palette.DARK), seen);
     assertEquals(ThemeMode.DARK, theme.mode());
+  }
+
+  @Test
+  void nativeControlsFollowEachModeChangeAndTheSystemOnlyInSystemMode() {
+    FakeSystem system = new FakeSystem();
+    ThemeController theme = new ThemeController(system, ThemeMode.LIGHT);
+    assertEquals(List.of(), system.preferred);
+    theme.setMode(ThemeMode.DARK);
+    system.flip(true);
+    theme.setMode(ThemeMode.SYSTEM);
+    system.flip(false);
+    theme.setMode(ThemeMode.LIGHT);
+    system.flip(true);
+    assertEquals(List.of(true, true, false, false), system.preferred);
+  }
+
+  @Test
+  void setModeReportsWhetherNativeControlsChangeNow() {
+    FakeSystem system = new FakeSystem();
+    ThemeController theme = new ThemeController(system, ThemeMode.LIGHT);
+    assertTrue(theme.setMode(ThemeMode.DARK));
+    system.live = false;
+    assertFalse(theme.setMode(ThemeMode.LIGHT));
   }
 
   @Test

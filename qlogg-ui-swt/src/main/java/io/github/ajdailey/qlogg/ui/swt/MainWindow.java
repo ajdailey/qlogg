@@ -470,10 +470,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   private void toolItem(
       ToolBar bar, final CommandId command, String icon, UiText label, int style) {
     ToolItem item = new ToolItem(bar, style);
-    Image image = toolIcons.get(icon);
-    if (image != null) {
-      item.setImage(image);
-    } else {
+    if (!toolIcons.apply(item, icon)) {
       item.setText(label.text());
     }
     item.setToolTipText(toolTip(command));
@@ -956,6 +953,17 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (overviewBar != null) {
       overviewBar.setPalette(next);
     }
+    // Native controls restyle after the theme call returns; re-ink the icons on the next turn.
+    dispatcher.asyncExec(
+        new Runnable() {
+          @Override
+          public void run() {
+            if (!shell.isDisposed()) {
+              toolIcons.reink();
+              searchBar.reinkIcons();
+            }
+          }
+        });
   }
 
   /**
@@ -1834,6 +1842,13 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showError(String title, String message) {
+    if (!shell.isDisposed()) {
+      new ErrorDialog(shell, title, message).open();
+    }
+  }
+
+  @Override
+  public void showInfo(String title, String message) {
     if (!shell.isDisposed()) {
       new ErrorDialog(shell, title, message).open();
     }

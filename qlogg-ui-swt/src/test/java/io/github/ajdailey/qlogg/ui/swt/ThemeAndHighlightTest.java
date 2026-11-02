@@ -1,7 +1,9 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
@@ -49,6 +52,8 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.ToolBar;
+import org.eclipse.swt.widgets.ToolItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -179,6 +184,26 @@ class ThemeAndHighlightTest {
 
   private static RGB rgb(Rgb color) {
     return new RGB(color.red(), color.green(), color.blue());
+  }
+
+  @Test
+  void toolIconsTakeTheOtherInkWhenTheOwnerTurnsDark() {
+    Shell shell = new Shell(display);
+    ToolBar bar = new ToolBar(shell, SWT.FLAT);
+    bar.setBackground(new Color(240, 240, 240));
+    ToolIcons icons = new ToolIcons(bar);
+    ToolItem item = new ToolItem(bar, SWT.PUSH);
+    assertTrue(icons.apply(item, ToolIcons.OPEN));
+    Image light = item.getImage();
+    assertFalse(icons.darkBackground());
+    icons.reink();
+    assertSame(light, item.getImage());
+    bar.setBackground(new Color(30, 30, 30));
+    icons.reink();
+    assertTrue(icons.darkBackground());
+    assertNotSame(light, item.getImage());
+    assertTrue(light.isDisposed());
+    shell.dispose();
   }
 
   @Test
