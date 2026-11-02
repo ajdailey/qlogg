@@ -135,12 +135,15 @@ Compiled and tested against the build host's SWT fragment.
 - The palette comes from `ApplicationController.theme()`. A change recolors
   both log views and the overview bar at once: each disposes its
   `PaletteColors` and creates them from the new palette. Native widgets
-  (menus, scroll bars, fields, buttons, tabs) follow
-  `SwtThemeService.preferDark`, which calls `Display.setDarkThemePreferred`:
-  cocoa switches the application's appearance and GTK the theme's dark
-  variant at once; on win32 it does nothing, because win32 widgets read the
-  setting only when created; `showsNow` reports whether the startup setting
-  (`startWith`) matches a request. `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
+  (menus, scroll bars, fields, buttons, tabs) take the theme from
+  `Display.setDarkThemePreferred`. On GTK `SwtThemeService.preferDark` calls
+  it and the theme's dark variant applies at once. win32 widgets read it only
+  when created, and cocoa SWT reads its system colors only when the Display is
+  created: a later call on cocoa switches the text color over backgrounds
+  still in the old appearance. On both, `SwtThemeService.open` sets it before
+  the first Shell, on cocoa replacing the Display when the theme differs from
+  the system appearance; `preferDark` does nothing, and `showsNow` reports
+  whether the startup setting matches a request. `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
   `SWT.Settings` into a change event; on GTK SWT reads the system setting once
   at Display creation, so a change made while QLogg runs applies at the next
   start.
@@ -172,7 +175,7 @@ event loop:
 | Switch to File | `SwitchFileDialog`: the open files by path and a filter field matching any part of it, ignoring case; Up and Down in the field move the selection, Enter or a double click shows the tab |
 | Configure Highlighters | Highlighter Sets tab: the sets (Add, Remove, Move Up, Move Down, Import, Export, name) and the selected set's highlighters (Add, Remove, Move Up, Move Down) with the editor (pattern, Regex, Ignore case, whole line, Enabled, text and background colors through `ColorField`, opacity, variance); a pattern that does not compile is reported below. Color Labels tab: name, colors and cycle membership per label. Match Highlight tab: on or off, theme color or a chosen one, variance. Import adds the sets of a chosen file whose ids are new. OK saves |
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
-| Command-Line Options, Licenses | Modeless read-only monospace text with Copy |
+| Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
 | User guide | `GuideWindow`: an SWT `Browser` with JavaScript off on the guide's copy, and Close. A `LocationListener` refuses every location but that file (with or without an anchor) and `about:blank`. An `SWTException` or `SWTError` from a browser call, or a page not loaded 15 s after the load request (a `UiDispatcher.timerExec`, so the UI thread does not wait), closes the window and calls `ApplicationController.showGuideElsewhere`: the OS browser, else a notice naming the copy. A failure during `create` returns null instead, and the controller takes the same fallback. A bound that expires during one of `GuideWindow`'s own browser or shell calls closes the window after that call returns: on Cocoa an SWT timer runs inside any nested run loop a native call spins. A second Documentation reloads the page, restarts the bound and activates the window |
 | About QLogg | Logo at the top left (the palette's icon variant at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `Program.launch` with the fixed project URL |
 

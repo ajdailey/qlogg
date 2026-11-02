@@ -15,7 +15,6 @@ import io.github.ajdailey.qlogg.app.log.EventLoopWatchdog;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeController;
-import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
@@ -48,17 +47,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Composes the application and runs the SWT event loop on the calling thread, which becomes the UI
- * thread. The theme resolves before the first Shell: light and dark also call {@code
- * Display.setDarkThemePreferred}, which win32 native widgets read only then, so a later switch
- * reaches them at the next start. Startup after the Display exists does not block it: the
- * command-line files open on workers once the first window is shown, each in a tab, following with
- * {@code -f}; each further window of a restored session opens with its tabs. At {@code -d 2} and
- * above an {@link EventLoopWatchdog} logs UI-thread stalls. A primary instance's {@link
- * InstanceServer} delivers handed files to {@link WindowSet#openHandoff}; quit closes it before the
- * workers. A JVM shutdown hook ({@link ShutdownHook}) runs the quit when the process is ended
- * without it. A primary with the debug log file attached deletes other processes' old log files on
- * a lifecycle worker ({@link FileLog#prune}). The loop ends when every window is disposed, then the
- * Display is disposed and {@link #run} returns.
+ * thread. The theme resolves before the first Shell: light and dark also set the native controls'
+ * theme ({@link SwtThemeService#open}), which on win32 and cocoa a later switch reaches only at the
+ * next start. Startup after the Display exists does not block it: the command-line files open on
+ * workers once the first window is shown, each in a tab, following with {@code -f}; each further
+ * window of a restored session opens with its tabs. At {@code -d 2} and above an {@link
+ * EventLoopWatchdog} logs UI-thread stalls. A primary instance's {@link InstanceServer} delivers
+ * handed files to {@link WindowSet#openHandoff}; quit closes it before the workers. A JVM shutdown
+ * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. A primary with
+ * the debug log file attached deletes other processes' old log files on a lifecycle worker ({@link
+ * FileLog#prune}). The loop ends when every window is disposed, then the Display is disposed and
+ * {@link #run} returns.
  */
 final class Gui {
   /** Bytes per block cache block. */
@@ -135,14 +134,15 @@ final class Gui {
                 && options.loadLastSession());
     List<Session> sessions = restore ? config.sessions().loadWindows() : List.of();
     Display.setAppName("QLogg");
-    Display display;
+    final SwtThemeService system;
     try {
-      display = new Display();
+      system = SwtThemeService.open(new Display(), preferences.theme());
     } catch (UnsatisfiedLinkError | SWTError e) {
       err.println("qlogg: SWT failed to start: " + LogText.oneLine(e.getMessage()));
       LOG.debug("SWT failed to start", e);
       return Launcher.EXIT_SWT;
     }
+    final Display display = system.display();
     try (Workers workers =
         new Workers(Runtime.getRuntime().availableProcessors(), new Launcher.FailureLogger())) {
       MemoryBudget budget = MemoryBudget.fromRuntime();
@@ -160,11 +160,7 @@ final class Gui {
               new BlockCache(CACHE_BLOCK_BYTES, cacheBytes),
               budget,
               options.defaultCharset());
-      final SwtThemeService system = new SwtThemeService(display);
       final Palette palette = ThemeController.resolve(preferences.theme(), system.systemDark());
-      if (preferences.theme() != ThemeMode.SYSTEM) {
-        system.startWith(palette.dark());
-      }
       warmTimeZone(workers);
       // Per-process log pruning.
       if (server != null && logFiles instanceof FileLog fileLog && fileLog.attached()) {

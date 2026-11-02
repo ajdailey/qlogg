@@ -1768,9 +1768,27 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showText(String title, String text) {
-    TextWindow window = new TextWindow(shell, title, text, this);
+    Shell owner = modalOwner();
+    TextWindow window = new TextWindow(owner, title, text, this, owner != shell);
     window.open();
     remember(window.shell(), "text");
+  }
+
+  /** Returns the innermost visible modal dialog over the main window, or the main window. */
+  private Shell modalOwner() {
+    Shell owner = shell;
+    boolean found = true;
+    while (found) {
+      found = false;
+      for (Shell child : owner.getShells()) {
+        if (child.isVisible() && (child.getStyle() & SWT.APPLICATION_MODAL) != 0) {
+          owner = child;
+          found = true;
+          break;
+        }
+      }
+    }
+    return owner;
   }
 
   @Override

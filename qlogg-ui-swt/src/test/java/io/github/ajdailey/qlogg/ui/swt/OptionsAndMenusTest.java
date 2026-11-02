@@ -141,6 +141,23 @@ class OptionsAndMenusTest {
     return EventLoop.runUntil(display, condition, BOUND);
   }
 
+  // Regression: Licenses from the modal About opened a modeless window that GTK showed behind
+  // About, with no input.
+  @Test
+  void textOverAModalDialogOpensModalAndOwnedByIt() {
+    Shell about = Dialogs.shell(window.shell(), "About", true);
+    try {
+      Dialogs.open(about, SWT.DEFAULT, SWT.DEFAULT);
+      window.showText("Licenses", "mock license text");
+      Shell[] owned = about.getShells();
+      assertEquals(1, owned.length);
+      assertTrue((owned[0].getStyle() & SWT.APPLICATION_MODAL) != 0);
+      assertTrue(owned[0].isVisible());
+    } finally {
+      about.dispose();
+    }
+  }
+
   @Test
   void aClickInTheBulletColumnTogglesTheMark() {
     LogCanvas canvas = window.canvas();

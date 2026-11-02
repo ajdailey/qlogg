@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -204,6 +205,20 @@ class ThemeAndHighlightTest {
     assertNotSame(light, item.getImage());
     assertTrue(light.isDisposed());
     shell.dispose();
+  }
+
+  @Test
+  void openKeepsTheDisplayOffCocoaAndReportsWhenASwitchWaitsForRestart() {
+    // On cocoa open may replace the fixture's Display.
+    assumeFalse("cocoa".equals(SWT.getPlatform()));
+    try {
+      SwtThemeService service = SwtThemeService.open(display, ThemeMode.DARK);
+      assertSame(display, service.display());
+      assertTrue(service.showsNow(true));
+      assertEquals("gtk".equals(SWT.getPlatform()), service.showsNow(false));
+    } finally {
+      display.setDarkThemePreferred(false);
+    }
   }
 
   @Test

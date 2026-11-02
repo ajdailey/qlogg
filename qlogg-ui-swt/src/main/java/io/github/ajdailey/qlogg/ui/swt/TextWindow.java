@@ -13,7 +13,9 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * A modeless window of read-only monospace text with Copy and Close: usage text, licenses, the log.
+ * A resizable window of read-only monospace text with Copy and Close: usage text, licenses, the
+ * log. Modeless, or modal when opened over a modal dialog: GTK gives input only to the newest modal
+ * shell, so a modeless window opened from one shows behind it and takes no input.
  */
 final class TextWindow {
   private final Shell shell;
@@ -22,7 +24,14 @@ final class TextWindow {
   private String content;
 
   TextWindow(Shell parent, String title, String initial, final ClipboardService clipboard) {
-    shell = Dialogs.shell(parent, title, false);
+    this(parent, title, initial, clipboard, false);
+  }
+
+  TextWindow(
+      Shell parent, String title, String initial, final ClipboardService clipboard, boolean modal) {
+    shell =
+        Dialogs.shell(
+            parent, title, modal ? SWT.SHELL_TRIM | SWT.APPLICATION_MODAL : SWT.SHELL_TRIM);
     content = initial;
     text = new Text(shell, SWT.MULTI | SWT.READ_ONLY | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
     final Font font =

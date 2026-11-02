@@ -29,7 +29,18 @@ final class Dialogs {
    * @return the shell, laid out as one grid column
    */
   static Shell shell(Shell parent, String title, boolean modal) {
-    int style = modal ? SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL : SWT.SHELL_TRIM;
+    return shell(parent, title, modal ? SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL : SWT.SHELL_TRIM);
+  }
+
+  /**
+   * Creates a dialog shell with a given style.
+   *
+   * @param parent the owning shell
+   * @param title the title
+   * @param style the {@link Shell} style
+   * @return the shell, laid out as one grid column
+   */
+  static Shell shell(Shell parent, String title, int style) {
     Shell shell = new Shell(parent, style);
     shell.setText(title);
     GridLayout layout = new GridLayout(1, false);
