@@ -542,6 +542,34 @@ class ArchitectureTest {
         "java.util.concurrent.AbstractExecutorService");
   }
 
+  // Document opening.
+
+  @Test
+  void onlyTheOpenerOpensDocuments() {
+    onlyTheOpenerOpensDocumentsRule().check(classes);
+  }
+
+  @Test
+  void openerRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        onlyTheOpenerOpensDocumentsRule(),
+        ROOT + ".app.controller.archfixture.ControllerViolations$OpensDocuments",
+        "LogDocument.open",
+        "LogDocument.ofText");
+  }
+
+  private static ArchRule onlyTheOpenerOpensDocumentsRule() {
+    return noClasses()
+        .that()
+        .resideInAPackage(APP)
+        .and()
+        .haveNameNotMatching(
+            ROOT.replace(".", "\\.") + "\\.app\\.controller\\.DocumentOpener(\\$.*)?")
+        .should()
+        .callMethodWhere(call(LogDocument.class, "open|ofText"))
+        .because("DocumentOpener closes a document whose open ends after its window closed");
+  }
+
   /**
    * Checks a rule against one fixture class: every fragment appears in the failure report, and no
    * fragment prefixed {@code !} does.

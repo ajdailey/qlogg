@@ -1,7 +1,5 @@
 package io.github.ajdailey.qlogg.app.controller;
 
-import io.github.ajdailey.qlogg.app.about.AboutInfo;
-import io.github.ajdailey.qlogg.app.about.UserGuide;
 import io.github.ajdailey.qlogg.app.cli.CommandLineParser;
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
@@ -14,7 +12,6 @@ import io.github.ajdailey.qlogg.app.config.PositionStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SearchToggles;
 import io.github.ajdailey.qlogg.app.config.Session;
-import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.config.WindowState;
@@ -23,7 +20,6 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightFile;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.highlight.LabelState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
-import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.scratch.TransformListener;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
@@ -38,14 +34,12 @@ import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
-import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
-import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
@@ -60,8 +54,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -127,8 +119,6 @@ public final class ApplicationController implements DocumentHost {
 
   private static final Logger LOG = LoggerFactory.getLogger(ApplicationController.class);
 
-  private static final int MARK_COPY_BATCH = 4096;
-
   private final WindowSet set;
   private final Workers workers;
   private final UiDispatcher ui;
@@ -136,7 +126,6 @@ public final class ApplicationController implements DocumentHost {
   private final ConfigStore config;
   private final AtomicReference<Preferences> preferences;
   private final List<ApplicationListener> listeners = new ArrayList<ApplicationListener>();
-  private final Set<LogDocument> unclaimed = ConcurrentHashMap.newKeySet();
   private final QuickFindController quickFind;
   private final ThemeController theme;
   private final FileMonitor monitor;
@@ -148,8 +137,10 @@ public final class ApplicationController implements DocumentHost {
   private SearchOptions searchOptions = SearchOptions.DEFAULTS;
   private int pastes;
   private boolean shuttingDown;
-  // Window close: set before the close sweep; a worker that finishes an open later closes it.
-  private volatile boolean closed;
+  // Open, paste, reload and session restore workers, and the claim of what they open.
+  private final DocumentOpener opener;
+  // About, licenses, log, debug log file, folders, issue report and user guide.
+  private final HelpController help;
   // Wrap, folding, block selection, save, scratchpad, search across files, selectors.
   private final ViewFeatures features;
 
@@ -215,6 +206,8 @@ public final class ApplicationController implements DocumentHost {
     this.features = new ViewFeatures(this, workers, ui, view);
     this.monitor = set.monitor();
     this.searchOptions = options(current.state().search());
+    this.opener = new DocumentOpener(workers, ui, config, new Claims());
+    this.help = new HelpController(set, view, this::isShuttingDown);
     set.register(this);
   }
 
@@ -632,27 +625,8 @@ public final class ApplicationController implements DocumentHost {
    * there instead of opening a second tab.
    */
   private void open(final List<FileRequest> files, final boolean follow, final boolean handed) {
-    if (shuttingDown || files.isEmpty()) {
-      return;
-    }
-    final List<FileRequest> requests = List.copyOf(files);
-    final DocumentServices opening = set.services();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.INDEX,
-            new Runnable() {
-              @Override
-              public void run() {
-                for (FileRequest request : requests) {
-                  if (closed) {
-                    break;
-                  }
-                  load(request.path(), request.line(), follow, null, opening, handed);
-                }
-              }
-            });
-    if (!started) {
-      LOG.warn("Cannot open {} files: workers are closed", requests.size());
+    if (!shuttingDown) {
+      opener.open(files, follow, handed, set.services());
     }
   }
 
@@ -667,66 +641,16 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
-   * Opens a file with its remembered encoding override and adds session marks; runs on a worker.
-   *
-   * @param marks session mark ranges, or null
-   * @return the document, or null when it did not open
+   * Shows a document the opener delivered: a new tab, or the tab or other window that shows its
+   * file already. The opening position is {@code +line:N}, else follow, else the remembered
+   * position.
    */
-  private LogDocument load(
-      Path path,
-      final long line,
-      final boolean follow,
-      final long[] marks,
-      DocumentServices opening,
-      final boolean handed) {
-    try {
-      final LogDocument document = LogDocument.open(path, forcedEncoding(path), opening);
-      unclaimed.add(document);
-      if (closeIfWindowClosed(document)) {
-        return null;
-      }
-      final boolean marksComplete =
-          marks == null || SessionStore.addRanges(marks, document.marks());
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              opened(document, line, follow, marks != null, marksComplete, handed);
-            }
-          });
-      return document;
-    } catch (IOException e) {
-      final String message = LogText.oneLine(e.getMessage());
-      LOG.warn("Cannot open {}: {}", LogText.oneLine(path), message);
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              if (!shuttingDown) {
-                view.showError(UiText.OPEN_FAILED_TITLE.text(), message);
-              }
-            }
-          });
-      return null;
-    }
-  }
-
-  /**
-   * Claims an opened document; during shutdown it stays unclaimed, and shutdown closes it. The
-   * opening position is {@code +line:N}, else follow, else the remembered position.
-   */
-  private void opened(
-      LogDocument document,
-      long line,
-      boolean follow,
-      boolean marksCopied,
-      boolean marksComplete,
-      boolean handed) {
-    if (shuttingDown || !unclaimed.remove(document)) {
-      return;
-    }
+  private void opened(LogDocument document, DocumentOpener.Opening opening) {
+    long line = opening.line();
+    boolean follow = opening.follow();
     DocumentController shown = find(document.path());
-    ApplicationController holder = handed && shown == null ? set.holderOf(document.path()) : null;
+    ApplicationController holder =
+        opening.handed() && shown == null ? set.holderOf(document.path()) : null;
     if (holder != null) {
       closeOnWorker(document);
       holder.showHanded(document.path(), line, follow);
@@ -740,9 +664,9 @@ public final class ApplicationController implements DocumentHost {
       for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
         listener.documentOpened(shown);
       }
-      if (marksCopied) {
+      if (opening.marksCopied()) {
         shown.restore(LabelState.EMPTY, document.marks().size() > 0);
-        if (!marksComplete) {
+        if (!opening.marksComplete()) {
           view.showNotice(UiText.NOTICE_MARKS_NOT_KEPT.text());
         }
       }
@@ -750,6 +674,53 @@ public final class ApplicationController implements DocumentHost {
       rememberRecent(document);
     }
     present(shown, line, follow);
+  }
+
+  /**
+   * Receives what the opener delivers; every call runs on the UI thread while the window is open.
+   */
+  private final class Claims implements DocumentOpener.OpenListener {
+    @Override
+    public void opened(LogDocument document, DocumentOpener.Opening opening) {
+      ApplicationController.this.opened(document, opening);
+    }
+
+    @Override
+    public void openFailed(String message) {
+      view.showError(UiText.OPEN_FAILED_TITLE.text(), message);
+    }
+
+    @Override
+    public void pasteFailed(String message) {
+      view.showNotice(message);
+    }
+
+    @Override
+    public void reopened(
+        DocumentController old, LogDocument document, FileChange change, boolean marksComplete) {
+      ApplicationController.this.reopened(old, document, change, marksComplete);
+    }
+
+    @Override
+    public void reopenFailed(DocumentController old, String message) {
+      ApplicationController.this.reopenFailed(old, message);
+    }
+
+    @Override
+    public void restoredName(Path path, String name) {
+      DocumentController controller = find(path);
+      if (controller != null) {
+        setTabName(controller, name);
+      }
+    }
+
+    @Override
+    public void restoredActive(Path path) {
+      DocumentController controller = find(path);
+      if (controller != null) {
+        activate(controller);
+      }
+    }
   }
 
   /** Shows a tab, at a line when given, following when asked or by {@code follow.onLoad}. */
@@ -785,57 +756,7 @@ public final class ApplicationController implements DocumentHost {
       view.showNotice(UiText.NOTICE_CLIPBOARD_EMPTY.text());
       return;
     }
-    final String name = UiText.CLIPBOARD_TAB.format(++pastes);
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.INDEX,
-            new Runnable() {
-              @Override
-              public void run() {
-                pasted(name, text);
-              }
-            });
-    if (!started) {
-      LOG.debug("Clipboard not opened: workers are closed");
-    }
-  }
-
-  /** Runs on a worker. */
-  private void pasted(String name, String text) {
-    try {
-      final LogDocument document = LogDocument.ofText(name, text, MAX_PASTED_BYTES, set.services());
-      unclaimed.add(document);
-      if (closeIfWindowClosed(document)) {
-        return;
-      }
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              opened(document, 0, false, false, true, false);
-            }
-          });
-    } catch (IOException e) {
-      final String message =
-          e instanceof LogDocument.PastedTextException refused
-              ? UiText.NOTICE_CLIPBOARD_TOO_LARGE.format(
-                  mebibytes(refused.size()), mebibytes(refused.limit()))
-              : LogText.oneLine(e.getMessage());
-      LOG.warn("Clipboard text not opened: {}", message);
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              if (!shuttingDown) {
-                view.showNotice(message);
-              }
-            }
-          });
-    }
-  }
-
-  private static double mebibytes(long bytes) {
-    return bytes / (double) (1L << 20);
+    opener.paste(UiText.CLIPBOARD_TAB.format(++pastes), text, MAX_PASTED_BYTES, set.services());
   }
 
   /**
@@ -992,7 +913,7 @@ public final class ApplicationController implements DocumentHost {
       view.showNotice(UiText.NOTICE_NO_FILE.text());
       return;
     }
-    launch(folder);
+    help.launch(folder);
   }
 
   /**
@@ -1028,7 +949,7 @@ public final class ApplicationController implements DocumentHost {
                               UiText.NOTICE_EDITOR_REFUSED.format(
                                   String.valueOf(path.getFileName())));
                         } else {
-                          launch(path);
+                          help.launch(path);
                         }
                       }
                     });
@@ -1058,13 +979,6 @@ public final class ApplicationController implements DocumentHost {
       return false;
     }
     return Files.isExecutable(path);
-  }
-
-  private void launch(Path target) {
-    if (!view.launch(target)) {
-      LOG.warn("No application opened {}", LogText.oneLine(target));
-      view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
-    }
   }
 
   private DocumentController find(Path path) {
@@ -1309,80 +1223,20 @@ public final class ApplicationController implements DocumentHost {
       return;
     }
     reopening.add(old);
-    final Path path = old.document().path();
-    final DocumentServices opening = set.services();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.INDEX,
-            new Runnable() {
-              @Override
-              public void run() {
-                try {
-                  final LogDocument document =
-                      LogDocument.open(path, forcedEncoding(path), opening);
-                  unclaimed.add(document);
-                  if (closeIfWindowClosed(document)) {
-                    return;
-                  }
-                  final boolean marksComplete =
-                      change != null || copyMarks(old.document().marks(), document.marks());
-                  ui.asyncExec(
-                      new Runnable() {
-                        @Override
-                        public void run() {
-                          reopened(old, document, change, marksComplete);
-                        }
-                      });
-                } catch (IOException e) {
-                  final String message = LogText.oneLine(e.getMessage());
-                  LOG.warn("Cannot reload {}: {}", LogText.oneLine(path), message);
-                  ui.asyncExec(
-                      new Runnable() {
-                        @Override
-                        public void run() {
-                          reopening.remove(old);
-                          if (!shuttingDown && !old.isClosed()) {
-                            view.showNotice(
-                                UiText.NOTICE_RELOAD_FAILED.format(old.state().title(), message));
-                          }
-                        }
-                      });
-                }
-              }
-            });
-    if (!started) {
+    if (!opener.reopen(old, change, set.services())) {
       reopening.remove(old);
     }
   }
 
-  /**
-   * Copies marks into a reopened document; runs on a worker.
-   *
-   * @return false when the {@code RESULTS} share refused part of them, which keeps the earlier part
-   */
-  static boolean copyMarks(MutableLineSet from, MutableLineSet to) {
-    long[] batch = new long[MARK_COPY_BATCH];
-    long next = 0;
-    while (true) {
-      int count = from.fill(next, batch);
-      if (count == 0) {
-        return true;
-      }
-      if (!to.addSorted(batch, count)) {
-        return false;
-      }
-      if (count < batch.length) {
-        return true;
-      }
-      next = batch[count - 1] + 1;
+  private void reopenFailed(DocumentController old, String message) {
+    reopening.remove(old);
+    if (!old.isClosed()) {
+      view.showNotice(UiText.NOTICE_RELOAD_FAILED.format(old.state().title(), message));
     }
   }
 
   private void reopened(
       DocumentController old, LogDocument document, FileChange change, boolean marksComplete) {
-    if (shuttingDown || !unclaimed.remove(document)) {
-      return;
-    }
     reopening.remove(old);
     int index = documents.indexOf(old);
     if (index < 0) {
@@ -1507,7 +1361,7 @@ public final class ApplicationController implements DocumentHost {
       case COMMAND_LINE_OPTIONS ->
           view.showText(CommandId.COMMAND_LINE_OPTIONS.title(), CommandLineParser.usage());
       case ABOUT -> showAbout();
-      case DOCUMENTATION -> showGuide();
+      case DOCUMENTATION -> help.showGuide();
       // Options dialog, recent files, favorites, encoding and zoom.
       case OPTIONS -> view.showOptions();
       case CLEAN_RECENT -> cleanRecent();
@@ -1529,11 +1383,11 @@ public final class ApplicationController implements DocumentHost {
           moveToNewWindow(active, null, null);
         }
       }
-      case SHOW_LOG -> showLog();
+      case SHOW_LOG -> help.showLog();
       case DEBUG_LOG_FILE -> setDebugLogFile(!set.logFiles().attached());
-      case OPEN_LOG_FOLDER -> openFolder(set.logFiles().directory());
-      case OPEN_SETTINGS_FOLDER -> openFolder(config.location().directory());
-      case REPORT_ISSUE -> reportIssue();
+      case OPEN_LOG_FOLDER -> help.openFolder(set.logFiles().directory());
+      case OPEN_SETTINGS_FOLDER -> help.openFolder(config.location().directory());
+      case REPORT_ISSUE -> help.reportIssue();
       default -> {
         if (!features.execute(command)) {
           documentCommand(command);
@@ -1801,59 +1655,12 @@ public final class ApplicationController implements DocumentHost {
 
   /** Collects the About facts on a worker, then shows the dialog. */
   public void showAbout() {
-    final String toolkit = view.toolkitDescription();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                final AboutInfo info = AboutInfo.collect(toolkit, config.location());
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (!shuttingDown) {
-                          view.showAbout(info);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("About not shown: workers are closed");
-    }
+    help.showAbout();
   }
 
   /** Reads the license notices from the jar on a worker, then shows them. */
   public void showLicenses() {
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                String text;
-                try {
-                  text = AboutInfo.licenseText();
-                } catch (IOException e) {
-                  text = UiText.LICENSES_READ_FAILED.format(LogText.oneLine(e.getMessage()));
-                }
-                final String shown = text;
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (!shuttingDown) {
-                          view.showText(UiText.LICENSES_TITLE.text(), shown);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("Licenses not shown: workers are closed");
-    }
+    help.showLicenses();
   }
 
   /**
@@ -1893,7 +1700,7 @@ public final class ApplicationController implements DocumentHost {
    */
   List<LogDocument> detachAll() {
     shuttingDown = true;
-    closed = true;
+    opener.close();
     quickFind.cancelRunning();
     for (DocumentController document : documents) {
       rememberPosition(document);
@@ -1915,32 +1722,11 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
-   * Closes a document a worker opened once this window is closing; runs on that worker after adding
-   * it to {@code unclaimed}. Either this call or {@link #closeUnclaimed} closes it, whichever
-   * removes it first.
-   *
-   * @return true when the window is closing and the caller drops the document
-   */
-  private boolean closeIfWindowClosed(LogDocument document) {
-    if (!closed) {
-      return false;
-    }
-    if (unclaimed.remove(document)) {
-      document.close(LogDocument.CLOSE_BOUND);
-    }
-    return true;
-  }
-
-  /**
    * Closes documents an open finished but this window never claimed; runs on a worker after {@link
    * #detachAll}.
    */
   void closeUnclaimed() {
-    for (LogDocument document : new ArrayList<LogDocument>(unclaimed)) {
-      if (unclaimed.remove(document)) {
-        document.close(LogDocument.CLOSE_BOUND);
-      }
-    }
+    opener.closeUnclaimed();
   }
 
   /** Disposes the window. */
@@ -1961,68 +1747,8 @@ public final class ApplicationController implements DocumentHost {
    */
   public void restoreSession(final Session session) {
     set.setSessionOwner(true);
-    if (shuttingDown || session.tabs().isEmpty()) {
-      return;
-    }
-    final List<Path> paths = new ArrayList<Path>();
-    final List<Session.Tab> tabs = new ArrayList<Session.Tab>();
-    for (Session.Tab tab : session.tabs()) {
-      try {
-        Path path = Path.of(tab.path());
-        paths.add(path);
-        tabs.add(tab);
-      } catch (InvalidPathException e) {
-        LOG.warn("Session entry is not a path: {}", LogText.oneLine(e.getReason()));
-      }
-    }
-    final Session.Tab shown = session.active() >= 0 ? session.tabs().get(session.active()) : null;
-    final DocumentServices opening = set.services();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.INDEX,
-            new Runnable() {
-              @Override
-              public void run() {
-                LogDocument activeDocument = null;
-                for (int i = 0; i < tabs.size() && !closed; i++) {
-                  Session.Tab tab = tabs.get(i);
-                  long[] marks = tab.marks().length > 0 ? tab.marks() : null;
-                  LogDocument document = load(paths.get(i), 0, tab.follow(), marks, opening, false);
-                  if (document != null && !tab.name().isEmpty()) {
-                    final Path opened = document.path();
-                    final String name = tab.name();
-                    ui.asyncExec(
-                        new Runnable() {
-                          @Override
-                          public void run() {
-                            DocumentController controller = find(opened);
-                            if (controller != null && !shuttingDown) {
-                              setTabName(controller, name);
-                            }
-                          }
-                        });
-                  }
-                  if (tab == shown) {
-                    activeDocument = document;
-                  }
-                }
-                final LogDocument target = activeDocument;
-                if (target != null) {
-                  ui.asyncExec(
-                      new Runnable() {
-                        @Override
-                        public void run() {
-                          DocumentController controller = find(target.path());
-                          if (controller != null && !shuttingDown) {
-                            activate(controller);
-                          }
-                        }
-                      });
-                }
-              }
-            });
-    if (!started) {
-      LOG.warn("Session not restored: workers are closed");
+    if (!shuttingDown) {
+      opener.restore(session, set.services());
     }
   }
 
@@ -2083,15 +1809,6 @@ public final class ApplicationController implements DocumentHost {
               document.document()));
     }
     return new WindowSet.WindowDraft(tabs, shown);
-  }
-
-  /** Returns a file's remembered encoding override; runs on a worker. */
-  private Charset forcedEncoding(Path path) {
-    try {
-      return config.positions().get(SafePaths.logPath(path).given()).charset();
-    } catch (IOException e) {
-      return null;
-    }
   }
 
   private void rememberPosition(DocumentController document) {
@@ -2435,140 +2152,14 @@ public final class ApplicationController implements DocumentHost {
     return set.logFiles().attached();
   }
 
-  /** Shows the recent log lines and clears the warning marker in every window. */
-  private void showLog() {
-    List<String> lines = set.readRecent();
-    view.showLog(
-        lines.isEmpty()
-            ? UiText.SHOW_LOG_EMPTY.text()
-            : String.join(System.lineSeparator(), lines));
-  }
-
   /**
    * Opens or closes the debug log file on a worker and saves the choice; the check mark follows the
    * file, so it stays clear when the file does not open.
    *
    * @param on true to open it
    */
-  public void setDebugLogFile(final boolean on) {
-    Options options = preferences.get().options();
-    if (options.debugLogFile() != on) {
-      setPreferences(preferences.get().withOptions(options.withDebugLogFile(on)));
-    }
-    final LogFiles files = set.logFiles();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                String failure = null;
-                if (on) {
-                  try {
-                    files.attach();
-                  } catch (IOException e) {
-                    failure = LogText.oneLine(e.getMessage());
-                    LOG.warn("Cannot open the debug log file: {}", failure);
-                  }
-                } else {
-                  files.detach();
-                }
-                final String notice =
-                    failure != null
-                        ? UiText.NOTICE_LOG_FILE_FAILED.format(failure)
-                        : on
-                            ? UiText.NOTICE_LOG_FILE_ON.format(files.directory())
-                            : UiText.NOTICE_LOG_FILE_OFF.text();
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (!shuttingDown) {
-                          view.showNotice(notice);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("Debug log file not changed: workers are closed");
-    }
-  }
-
-  /** Creates a folder owner-only on a worker when missing, then opens it in the file manager. */
-  private void openFolder(final Path folder) {
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                Path created = null;
-                String failure = null;
-                try {
-                  created = SafePaths.settingsDirectory(folder);
-                } catch (IOException e) {
-                  failure = LogText.oneLine(e.getMessage());
-                  LOG.warn("Cannot create {}: {}", LogText.oneLine(folder), failure);
-                }
-                final Path target = created;
-                final String notice =
-                    failure == null ? null : UiText.NOTICE_FOLDER_FAILED.format(folder, failure);
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        if (target != null) {
-                          launch(target);
-                        } else {
-                          view.showNotice(notice);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("Folder not opened: workers are closed");
-    }
-  }
-
-  /**
-   * Collects the About runtime details on a worker, puts them on the clipboard and opens the
-   * project's issue page in the OS browser.
-   */
-  private void reportIssue() {
-    final String toolkit = view.toolkitDescription();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                final AboutInfo info = AboutInfo.collect(toolkit, config.location());
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        view.setText(String.join(System.lineSeparator(), info.details()));
-                        if (view.launchUrl(AboutInfo.ISSUES_URL)) {
-                          view.showNotice(UiText.NOTICE_ISSUE_DETAILS.text());
-                        } else {
-                          LOG.warn("No application opened the issue page");
-                          view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("Issue page not opened: workers are closed");
-    }
+  public void setDebugLogFile(boolean on) {
+    help.setDebugLogFile(on);
   }
 
   /**
@@ -2602,52 +2193,6 @@ public final class ApplicationController implements DocumentHost {
   // User guide.
 
   /**
-   * Writes the user guide to the cache folder on a worker, then shows it in a browser window, else
-   * in the application the system opens HTML with, else names the file in a notice.
-   */
-  private void showGuide() {
-    final Path settings = config.location().directory();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                Path copy = null;
-                String failure = null;
-                try {
-                  copy = UserGuide.writeCopy(settings);
-                } catch (IOException e) {
-                  failure =
-                      UserGuide.included()
-                          ? UiText.NOTICE_GUIDE_FAILED.format(LogText.oneLine(e.getMessage()))
-                          : UiText.NOTICE_NO_DOCUMENTATION.text();
-                  LOG.warn("Cannot write the user guide: {}", LogText.oneLine(e.getMessage()));
-                }
-                final Path guide = copy;
-                final String notice = failure;
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        if (guide == null) {
-                          view.showNotice(notice);
-                        } else if (!view.showGuide(guide)) {
-                          showGuideElsewhere(guide);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("User guide not shown: workers are closed");
-    }
-  }
-
-  /**
    * Opens the user guide's copy in the application the system opens HTML with, else names the file
    * in a notice. The view calls it on the UI thread when its guide window fails after {@link
    * MainView#showGuide} returned true.
@@ -2655,13 +2200,7 @@ public final class ApplicationController implements DocumentHost {
    * @param guide the guide's copy
    */
   public void showGuideElsewhere(Path guide) {
-    if (shuttingDown) {
-      return;
-    }
-    if (!view.launch(guide)) {
-      LOG.warn("No application opened {}", LogText.oneLine(guide));
-      view.showNotice(UiText.NOTICE_GUIDE_AT.format(guide));
-    }
+    help.showGuideElsewhere(guide);
   }
 
   // Handed files already open.

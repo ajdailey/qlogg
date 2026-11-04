@@ -1,7 +1,11 @@
 package io.github.ajdailey.qlogg.app.controller.archfixture;
 
+import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.AbstractExecutorService;
@@ -70,6 +74,19 @@ final class ControllerViolations {
     @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) {
       return true;
+    }
+  }
+
+  // Document opening.
+
+  /** Opens documents outside the opener. */
+  static final class OpensDocuments {
+    LogDocument file(Path path, DocumentServices services) throws IOException {
+      return LogDocument.open(path, null, services);
+    }
+
+    LogDocument text(DocumentServices services) throws IOException {
+      return LogDocument.ofText("mock", "text", 16, services);
     }
   }
 }

@@ -143,6 +143,7 @@ fails:
 | No `Future.get`, `Thread.join` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
 | No `Future.get`, `Thread.join`, `Thread.sleep`, `OperationHandle.await` or `CountDownLatch.await` in `app.controller` and `app.command` | Controllers run on the UI thread |
 | No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors` or pool constructors outside `Workers` | One owner for every thread |
+| `LogDocument.open` and `ofText` only in `app.controller.DocumentOpener` within `app` | A document whose open ends after its window closed is closed, not leaked |
 
 ## Tests
 

@@ -143,6 +143,14 @@ key bindings, the file monitor, the document services, the recent log lines
 and the debug log file. The six-argument constructors create a set with one
 window; `new ApplicationController(set, view)` adds a window to a set.
 
+Each window holds a `DocumentOpener` and a `HelpController`.
+`DocumentOpener` runs the open, paste, reload and session restore workers and
+delivers each opened document to the window on the UI thread. After the window
+closes (`detachAll`), a document whose open ends later is closed by its worker
+or by `closeUnclaimed`, never delivered. `HelpController` runs the Help
+commands below; a result that arrives after the window began closing is
+dropped.
+
 - `open(files, follow)` runs `LogDocument.open` for each file on one
   `qlogg-index-` worker, in the order given; each opens a tab after the
   others and is shown, so the last one ends shown, at its `+line:N`. A file
@@ -753,6 +761,15 @@ file (a failed attach stays unchecked), the folder items creating and opening
 their folders, Report an Issue copying the details before it opens the issue
 page, and Documentation writing the guide's copy and then showing it, opening
 it, or naming it in a notice, and a guide window failing later doing the same.
+`DocumentOpenerTest` runs the opener with a recording listener: open order and
+the `Opening` values, an open failure, a paste over the limit, a reload copying
+marks and a change on disk not copying them, a restore reporting names and the
+active tab after their opens, and closing during an open, a reload and a
+restore (held by `GatedCharset`) or after an open ended and before its
+delivery, each leaving nothing delivered, nothing unclaimed and no
+`LINE_INDEX` reservation. `HelpControllerTest` checks that a Help result
+arriving after the window began closing is dropped, a folder that cannot be
+created shows a notice, and a failed launch shows one.
 `TabMoveTest` moves a tab and checks the same `LogDocument` and open file,
 the line count, forced encoding, tab name, marks, follow, a collapsed fold,
 selection, top line, results, a kept set and the filtered view's visibility
