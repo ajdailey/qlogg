@@ -1,10 +1,8 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
-import io.github.ajdailey.qlogg.app.highlight.ColorLabel;
-import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.highlight.HighlightComposer;
 import io.github.ajdailey.qlogg.app.highlight.LabelState;
-import io.github.ajdailey.qlogg.app.highlight.MatchHighlight;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
 import io.github.ajdailey.qlogg.app.view.ClipboardService;
@@ -26,7 +24,6 @@ import io.github.ajdailey.qlogg.core.model.DocumentListener;
 import io.github.ajdailey.qlogg.core.model.DocumentStatus;
 import io.github.ajdailey.qlogg.core.model.FoldMap;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
-import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
@@ -35,18 +32,14 @@ import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.LineSet;
-import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.text.DetectionReason;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,9 +53,8 @@ import org.slf4j.LoggerFactory;
  * a change repaints both views. The document's {@link SearchController}, {@link FilteredController}
  * and {@link OverviewController} detach with it.
  *
- * <p>Both views color their rows with one {@link Highlighter} composed here, lowest priority first:
- * the active highlighter sets, the match highlight of the last search, then the document's color
- * labels. A search with combined or inverse matching has no match highlight.
+ * <p>Both views color their rows with one {@link Highlighter} built from the rules {@link
+ * HighlightComposer} composes from the settings, the last search and the document's color labels.
  *
  * <p>{@link #toggleMarks} runs {@link MarkToggle} on a {@code qlogg-search-} worker with the {@link
  * ActivityIndicator} active and progress notices at most every {@link #PROGRESS_MILLIS} ms; {@code
@@ -922,53 +914,26 @@ public final class DocumentController extends LineViewController {
     if (isClosed()) {
       return;
     }
-    HighlightSettings settings = host.highlightSettings();
-    if (autoSet != null && settings.ids().contains(autoSet)) {
-      settings = settings.withActive(List.of(autoSet));
-    }
-    List<HighlightRule> rules = new ArrayList<HighlightRule>(settings.rulesInApplyOrder());
-    HighlightRule match = matchRule(settings.match());
-    if (match != null) {
-      rules.add(match);
-    }
-    List<ColorLabel> labelSettings = settings.labels();
-    rules.addAll(labels.rules(ColorLabel.forPalette(labelSettings, host.palette().dark())));
-    Highlighter highlighter = Highlighter.of(rules);
+    Highlighter highlighter =
+        Highlighter.of(
+            HighlightComposer.compose(
+                host.highlightSettings(), autoSet, lastSearch(), labels, host.palette()));
     setHighlighter(highlighter);
     filtered.setHighlighter(highlighter);
   }
 
-  /** The rule coloring the last search's matches, or null when it has none. */
-  private HighlightRule matchRule(MatchHighlight settings) {
+  private HighlightComposer.LastSearch lastSearch() {
     SearchOptions options = highlightedOptions;
-    if (!settings.enabled()
-        || options == null
-        || highlightedText.isEmpty()
-        || options.combining()
-        || options.inverse()
-        || highlightedText.length() > HighlightRule.MAX_PATTERN_CHARS) {
-      return null;
+    if (options == null) {
+      return HighlightComposer.LastSearch.NONE;
     }
-    String pattern = highlightedText;
-    MatchMode mode = options.mode();
-    if (options.wholeWord()) {
-      String inner = mode == MatchMode.REGEX ? pattern : Pattern.quote(pattern);
-      pattern = "(?<!\\w)(?:" + inner + ")(?!\\w)";
-      mode = MatchMode.REGEX;
-      if (pattern.length() > HighlightRule.MAX_PATTERN_CHARS) {
-        return null;
-      }
-    }
-    return new HighlightRule(
-        pattern,
-        mode,
+    return new HighlightComposer.LastSearch(
+        highlightedText,
+        options.mode(),
         options.caseSensitive(),
-        false,
-        null,
-        settings.color() == null ? host.palette().match() : settings.color(),
-        255,
-        settings.variance(),
-        true);
+        options.wholeWord(),
+        options.combining(),
+        options.inverse());
   }
 
   private void searchStateChanged(SearchViewState state) {

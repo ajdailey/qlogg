@@ -24,6 +24,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.FoldMap;
+import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
@@ -468,6 +469,32 @@ class ArchitectureTest {
         .resideInAPackage(ROOT + ".app.view..")
         .because("the exporter runs on a worker; its caller posts the result to the UI thread")
         .check(classes);
+  }
+
+  // Highlight rule composition and validation.
+
+  @Test
+  void viewsDoNotComposeOrCompileHighlightRules() {
+    viewsDoNotComposeOrCompileHighlightRulesRule().check(classes);
+  }
+
+  private static ArchRule viewsDoNotComposeOrCompileHighlightRulesRule() {
+    return noClasses()
+        .that()
+        .resideInAnyPackage(VIEWS)
+        .should()
+        .callMethodWhere(call(Highlighter.class, "of|compile"))
+        .because(
+            "HighlightComposer and HighlightSetsEditor in qlogg-app compose and validate rules");
+  }
+
+  @Test
+  void highlightRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        viewsDoNotComposeOrCompileHighlightRulesRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$CompilesHighlightRule",
+        "Highlighter.compile",
+        "Highlighter.of");
   }
 
   @Test

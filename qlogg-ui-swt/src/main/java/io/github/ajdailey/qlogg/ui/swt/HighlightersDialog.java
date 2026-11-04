@@ -4,19 +4,17 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.HighlightFileListener;
 import io.github.ajdailey.qlogg.app.highlight.ColorLabel;
+import io.github.ajdailey.qlogg.app.highlight.HighlightSetsEditor;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.highlight.MatchHighlight;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
-import io.github.ajdailey.qlogg.core.model.Highlighter;
-import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.PatternSyntaxException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -36,15 +34,14 @@ import org.eclipse.swt.widgets.Text;
  * Highlighters > Configure Highlighters: three tabs. Highlighter Sets lists the sets (add, remove,
  * move, rename, import, export) and the selected set's highlighters (add, remove, move) with an
  * editor for the selected one; the higher highlighter wins. Color Labels edits each label's name,
- * colors and cycle membership. Match Highlight edits the search match coloring. The dialog edits a
- * copy; OK applies and saves it. Import and export run on a worker through the application
- * controller; import adds the sets whose ids are new.
+ * colors and cycle membership. Match Highlight edits the search match coloring. The sets are edited
+ * in a {@link HighlightSetsEditor}; OK applies and saves the result. Import and export run on a
+ * worker through the application controller.
  */
 final class HighlightersDialog {
   private final Shell shell;
   private final ApplicationController application;
-  private final List<HighlightSet> sets;
-  private final List<String> active;
+  private final HighlightSetsEditor editor;
   private final org.eclipse.swt.widgets.List setList;
   private final org.eclipse.swt.widgets.List ruleList;
   private final Text setName;
@@ -70,8 +67,7 @@ final class HighlightersDialog {
   HighlightersDialog(Shell parent, final ApplicationController application) {
     this.application = application;
     HighlightSettings settings = application.highlightSettings();
-    this.sets = new ArrayList<HighlightSet>(settings.sets());
-    this.active = new ArrayList<String>(settings.active());
+    this.editor = new HighlightSetsEditor(settings);
     shell = Dialogs.shell(parent, CommandId.EDIT_HIGHLIGHTERS.title(), true);
     TabFolder tabs = new TabFolder(shell, SWT.TOP);
     tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -116,23 +112,23 @@ final class HighlightersDialog {
           UiText.BUTTON_ADD, UiText.BUTTON_REMOVE, UiText.BUTTON_MOVE_UP, UiText.BUTTON_MOVE_DOWN
         },
         new Runnable[] {this::addRule, this::removeRule, this::ruleUp, this::ruleDown});
-    Composite editor = new Composite(setsTab, SWT.NONE);
-    editor.setLayout(new GridLayout(1, false));
-    editor.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-    Dialogs.label(editor, UiText.FILTER_PATTERN.text());
-    pattern = new Text(editor, SWT.SINGLE | SWT.BORDER);
+    Composite fields = new Composite(setsTab, SWT.NONE);
+    fields.setLayout(new GridLayout(1, false));
+    fields.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    Dialogs.label(fields, UiText.FILTER_PATTERN.text());
+    pattern = new Text(fields, SWT.SINGLE | SWT.BORDER);
     pattern.setTextLimit(HighlightRule.MAX_PATTERN_CHARS);
     GridData patternData = new GridData(SWT.FILL, SWT.CENTER, true, false);
     patternData.widthHint = 240;
     pattern.setLayoutData(patternData);
-    regex = check(editor, UiText.SEARCH_REGEX, edited);
-    ignoreCase = check(editor, UiText.RULE_IGNORE_CASE, edited);
-    wholeLine = check(editor, UiText.RULE_WHOLE_LINE, edited);
-    enabled = check(editor, UiText.RULE_ENABLED, edited);
-    foreground = new ColorField(editor, UiText.RULE_FOREGROUND.text(), false, edited);
-    background = new ColorField(editor, UiText.RULE_BACKGROUND.text(), false, edited);
-    alpha = spinner(editor, UiText.RULE_ALPHA, 255, edited);
-    variance = spinner(editor, UiText.RULE_VARIANCE, HighlightRule.MAX_VARIANCE, edited);
+    regex = check(fields, UiText.SEARCH_REGEX, edited);
+    ignoreCase = check(fields, UiText.RULE_IGNORE_CASE, edited);
+    wholeLine = check(fields, UiText.RULE_WHOLE_LINE, edited);
+    enabled = check(fields, UiText.RULE_ENABLED, edited);
+    foreground = new ColorField(fields, UiText.RULE_FOREGROUND.text(), false, edited);
+    background = new ColorField(fields, UiText.RULE_BACKGROUND.text(), false, edited);
+    alpha = spinner(fields, UiText.RULE_ALPHA, 255, edited);
+    variance = spinner(fields, UiText.RULE_VARIANCE, HighlightRule.MAX_VARIANCE, edited);
 
     Composite labelsTab = tab(tabs, UiText.HIGHLIGHTERS_TAB_LABELS, 4);
     for (int i = 0; i < ColorLabel.COUNT; i++) {
@@ -184,7 +180,7 @@ final class HighlightersDialog {
             }));
     Dialogs.button(row, UiText.BUTTON_CANCEL.text(), Dialogs.closer(shell));
     listen();
-    refillSets(sets.isEmpty() ? -1 : 0);
+    refillSets(editor.sets().isEmpty() ? -1 : 0);
   }
 
   private static Runnable nothing() {
@@ -301,14 +297,14 @@ final class HighlightersDialog {
           public void handleEvent(Event event) {
             int index = setList.getSelectionIndex();
             if (!syncing && index >= 0) {
-              sets.set(index, sets.get(index).withName(setName.getText().strip()));
-              setList.setItem(index, sets.get(index).name());
+              editor.renameSet(index, setName.getText());
+              setList.setItem(index, editor.sets().get(index).name());
             }
           }
         });
   }
 
-  /** Writes the editor into the selected rule; a pattern that does not compile is reported. */
+  /** Writes the fields into the selected rule; a pattern that does not compile is reported. */
   private void ruleEdited() {
     int s = setList.getSelectionIndex();
     int r = ruleList.getSelectionIndex();
@@ -326,16 +322,9 @@ final class HighlightersDialog {
             alpha.getSelection(),
             variance.getSelection(),
             enabled.getSelection());
-    List<HighlightRule> rules = new ArrayList<HighlightRule>(sets.get(s).rules());
-    rules.set(r, rule);
-    sets.set(s, sets.get(s).withRules(rules));
+    String invalid = editor.setRule(s, r, rule);
     ruleList.setItem(r, label(rule));
-    try {
-      Highlighter.compile(rule);
-      status.setText("");
-    } catch (PatternSyntaxException e) {
-      status.setText(UiText.RULE_INVALID.format(e.getDescription()));
-    }
+    status.setText(invalid == null ? "" : invalid);
   }
 
   private static String label(HighlightRule rule) {
@@ -343,62 +332,51 @@ final class HighlightersDialog {
   }
 
   void addSet() {
-    if (sets.size() >= HighlightSettings.MAX_SETS) {
-      return;
+    int index = editor.addSet();
+    if (index >= 0) {
+      refillSets(index);
+      setName.setFocus();
+      setName.selectAll();
     }
-    sets.add(HighlightSet.create(UiText.HIGHLIGHTERS_NEW_SET.text()));
-    refillSets(sets.size() - 1);
-    setName.setFocus();
-    setName.selectAll();
   }
 
   void removeSet() {
     int index = setList.getSelectionIndex();
     if (index >= 0) {
-      active.remove(sets.remove(index).id());
-      refillSets(Math.min(index, sets.size() - 1));
+      refillSets(editor.removeSet(index));
     }
   }
 
   void setUp() {
-    int index = setList.getSelectionIndex();
-    if (index > 0) {
-      sets.add(index - 1, sets.remove(index));
-      refillSets(index - 1);
-    }
+    moveSet(-1);
   }
 
   void setDown() {
+    moveSet(1);
+  }
+
+  private void moveSet(int delta) {
     int index = setList.getSelectionIndex();
-    if (index >= 0 && index < sets.size() - 1) {
-      sets.add(index + 1, sets.remove(index));
-      refillSets(index + 1);
+    int to = editor.moveSet(index, delta);
+    if (to != index) {
+      refillSets(to);
     }
   }
 
   void addRule() {
-    int s = setList.getSelectionIndex();
-    if (s < 0 || sets.get(s).rules().size() >= HighlightSet.MAX_RULES) {
-      return;
+    int index = editor.addRule(setList.getSelectionIndex());
+    if (index >= 0) {
+      refillRules(index);
+      pattern.setFocus();
+      pattern.selectAll();
     }
-    List<HighlightRule> rules = new ArrayList<HighlightRule>(sets.get(s).rules());
-    rules.add(
-        HighlightRule.matchOnly(
-            UiText.HIGHLIGHTERS_NEW_RULE.text(), MatchMode.REGEX, null, Rgb.of(0xffe680)));
-    sets.set(s, sets.get(s).withRules(rules));
-    refillRules(rules.size() - 1);
-    pattern.setFocus();
-    pattern.selectAll();
   }
 
   void removeRule() {
     int s = setList.getSelectionIndex();
     int r = ruleList.getSelectionIndex();
     if (s >= 0 && r >= 0) {
-      List<HighlightRule> rules = new ArrayList<HighlightRule>(sets.get(s).rules());
-      rules.remove(r);
-      sets.set(s, sets.get(s).withRules(rules));
-      refillRules(Math.min(r, rules.size() - 1));
+      refillRules(editor.removeRule(s, r));
     }
   }
 
@@ -411,19 +389,11 @@ final class HighlightersDialog {
   }
 
   private void moveRule(int delta) {
-    int s = setList.getSelectionIndex();
     int r = ruleList.getSelectionIndex();
-    if (s < 0 || r < 0) {
-      return;
+    int to = editor.moveRule(setList.getSelectionIndex(), r, delta);
+    if (to != r) {
+      refillRules(to);
     }
-    List<HighlightRule> rules = new ArrayList<HighlightRule>(sets.get(s).rules());
-    int to = r + delta;
-    if (to < 0 || to >= rules.size()) {
-      return;
-    }
-    rules.add(to, rules.remove(r));
-    sets.set(s, sets.get(s).withRules(rules));
-    refillRules(to);
   }
 
   private void importFile() {
@@ -455,13 +425,9 @@ final class HighlightersDialog {
             if (shell.isDisposed()) {
               return;
             }
-            int before = sets.size();
-            List<HighlightSet> merged =
-                HighlightSettings.DEFAULTS.withSets(sets).withImported(read).sets();
-            sets.clear();
-            sets.addAll(merged);
-            refillSets(sets.isEmpty() ? -1 : sets.size() - 1);
-            status.setText(UiText.HIGHLIGHTERS_IMPORTED.format(sets.size() - before));
+            int added = editor.importSets(read);
+            refillSets(editor.sets().size() - 1);
+            status.setText(UiText.HIGHLIGHTERS_IMPORTED.format(added));
           }
 
           @Override
@@ -480,7 +446,7 @@ final class HighlightersDialog {
     status.setText(UiText.FILTERS_WORKING.text());
     application.exportHighlights(
         path,
-        sets,
+        editor.sets(),
         new HighlightFileListener() {
           @Override
           public void done(List<HighlightSet> written) {
@@ -520,7 +486,7 @@ final class HighlightersDialog {
 
   private void refillSets(int selected) {
     setList.removeAll();
-    for (HighlightSet set : sets) {
+    for (HighlightSet set : editor.sets()) {
       setList.add(set.name().isEmpty() ? " " : set.name());
     }
     if (selected >= 0) {
@@ -528,7 +494,7 @@ final class HighlightersDialog {
     }
     syncing = true;
     try {
-      setName.setText(selected >= 0 ? sets.get(selected).name() : "");
+      setName.setText(selected >= 0 ? editor.sets().get(selected).name() : "");
       setName.setEnabled(selected >= 0);
     } finally {
       syncing = false;
@@ -542,11 +508,11 @@ final class HighlightersDialog {
     if (s >= 0) {
       syncing = true;
       try {
-        setName.setText(sets.get(s).name());
+        setName.setText(editor.sets().get(s).name());
       } finally {
         syncing = false;
       }
-      for (HighlightRule rule : sets.get(s).rules()) {
+      for (HighlightRule rule : editor.rules(s)) {
         ruleList.add(label(rule));
       }
       if (selected >= 0 && selected < ruleList.getItemCount()) {
@@ -562,7 +528,7 @@ final class HighlightersDialog {
     boolean any = s >= 0 && r >= 0;
     syncing = true;
     try {
-      HighlightRule rule = any ? sets.get(s).rules().get(r) : null;
+      HighlightRule rule = any ? editor.rules(s).get(r) : null;
       pattern.setText(any ? rule.pattern() : "");
       regex.setSelection(!any || rule.mode() == MatchMode.REGEX);
       ignoreCase.setSelection(any && !rule.caseSensitive());
@@ -602,7 +568,7 @@ final class HighlightersDialog {
     MatchHighlight match =
         new MatchHighlight(
             matchEnabled.getSelection(), matchColor.get(), matchVariance.getSelection());
-    return new HighlightSettings(sets, active, labels, match);
+    return editor.result(labels, match);
   }
 
   void open() {
@@ -614,7 +580,7 @@ final class HighlightersDialog {
   }
 
   List<HighlightSet> sets() {
-    return sets;
+    return editor.sets();
   }
 
   Text pattern() {

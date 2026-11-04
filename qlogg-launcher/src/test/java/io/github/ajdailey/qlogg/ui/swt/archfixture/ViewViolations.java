@@ -1,10 +1,13 @@
 package io.github.ajdailey.qlogg.ui.swt.archfixture;
 
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
+import io.github.ajdailey.qlogg.core.model.HighlightRule;
+import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -62,6 +65,15 @@ final class ViewViolations {
       queue.take();
       latch.await();
       handle.await(1);
+    }
+  }
+
+  // Highlight rule composition and validation.
+
+  /** Composes a highlighter and compiles a rule. */
+  static final class CompilesHighlightRule {
+    boolean compiles(HighlightRule rule) {
+      return Highlighter.of(List.of(rule)) != null && Highlighter.compile(rule) != null;
     }
   }
 }

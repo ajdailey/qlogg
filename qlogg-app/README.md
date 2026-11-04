@@ -375,13 +375,11 @@ document's `SearchController` and `FilteredController`.
   stays unindexed until a reload. Marking reserves from `RESULTS` and stops with a notice
   at the share's limit. A toggle over more than 4,096 rows reports the count
   when it ends.
-- `refreshHighlights` composes one `Highlighter` for both views, lowest
-  priority first: the active sets (`HighlightSettings.rulesInApplyOrder`), the
-  match highlight of the last search that ran (not for combined or inverse
-  searches, and whole word as a wrapped regex), then the color labels
-  (`LabelState`, charged to `HIGHLIGHT`; a state the share refuses is not
-  applied). It runs when a search starts or clears, the settings change, the
-  palette changes or a label changes.
+- `refreshHighlights` builds one `Highlighter` for both views from the rules
+  `HighlightComposer` returns. The color labels (`LabelState`) are charged to
+  `HIGHLIGHT`; a state the share refuses is not applied. It runs when a search
+  starts or clears, the settings change, the palette changes or a label
+  changes.
 - `overview()` is the `OverviewController`: bins of matches and marks per
   pixel row, computed on a `qlogg-search-` worker from `OverviewBins` while
   the bar shows, one at a time, the newest generation kept and charged to
@@ -587,6 +585,8 @@ Pure functions, tested without a document.
 |---|---|
 | `HighlightSettings` | The sets (at most 256, distinct ids), the active ids (unknown ids dropped), 9 `ColorLabel`s and the `MatchHighlight`. `rulesInApplyOrder` lists the active sets' rules so the top rule of the first active set applies last and wins; `withImported` appends only sets with new ids |
 | `HighlightFile` | The keys in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. `read` takes the user's path through `SafePaths.logFile`, refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `write` replaces the file through `AtomicFiles` |
+| `HighlightComposer` | `compose` returns one document's rules, lowest priority first: the active sets (`rulesInApplyOrder`), or only the automatic set while a set has its id; the match rule of the last search; the color labels in the palette's colors. `LastSearch` carries the search toggles the match rule reads, so `app.highlight` does not depend on `app.view` (that dependency forms a package cycle). `matchRule` returns null when the match highlight is off, for empty text, for a combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`, counting the whole-word wrap `(?<!\w)(?:...)(?!\w)` around the quoted or regex text |
+| `HighlightSetsEditor` | The Configure Highlighters list model over a copy of the sets: add, remove, move and rename sets, add, remove and move rules, at most `MAX_SETS` sets and `MAX_RULES` rules per set. Each edit returns the index to select next; an index out of range changes nothing; removing a set drops its active id. `setRule` keeps a rule that does not compile and returns `validate`'s message; `importSets` appends the sets with new ids |
 | `LabelState` | One document's labeled texts. `apply(n, text)` moves a text to label n, or removes it when it has n; `next` steps the cycle (labels with `cycle`) and removes a labeled text's label, still advancing; `EMPTY` clears and restarts the cycle. At most 256 texts; cost 56 bytes per text plus 2 per char |
 
 ## Scratchpad (`app.scratch`)
@@ -766,11 +766,13 @@ before a move ends in its first window.
 `CommandDispatchTest` runs every `CommandId` with no document, on a document
 and with its filtered view focused, and requires no exception on the UI thread
 or a worker and no activity left running. `HighlightCompositionTest` records
-the composed rules: sets last-first, then the match rule; whole word wrapping a
+the rules a document composes: sets last-first, then the match rule; whole word wrapping a
 quoted or regex pattern; the match color and variance; no match rule past
 `MAX_PATTERN_CHARS` (including a whole-word wrap that crosses it) or for an
 inverse or combined search; and an automatic set replacing the active sets
-while its id exists. `CopyReleaseTest` checks that a save over the `COPY`
+while its id exists. `HighlightComposerTest` runs the same cases on
+`HighlightComposer` with no document, plus labels last in the palette's
+colors. `CopyReleaseTest` checks that a save over the `COPY`
 share, a save whose write fails, a copy whose tab closes and a selection read
 whose tab closes all return the `COPY` charge and the activity.
 `StoreFaultsTest` (config) loads a malformed, oversized and unknown-version

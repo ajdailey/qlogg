@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -301,5 +302,24 @@ class ThemeAndHighlightTest {
     }
     controller.execute(CommandId.NO_HIGHLIGHTERS);
     assertTrue(controller.highlightSettings().active().isEmpty());
+  }
+
+  @Test
+  void theHighlightersDialogEditsTheSetsAndReportsAnInvalidPattern() {
+    HighlightersDialog dialog = new HighlightersDialog(window.shell(), controller);
+    dialog.addRule();
+    assertEquals(2, dialog.sets().get(0).rules().size());
+    dialog.pattern().setText("(open");
+    assertTrue(dialog.statusText().startsWith(UiText.RULE_INVALID.format("")));
+    assertEquals("(open", dialog.sets().get(0).rules().get(1).pattern());
+    dialog.ruleUp();
+    assertEquals("(open", dialog.sets().get(0).rules().get(0).pattern());
+    dialog.removeRule();
+    assertEquals(SET.rules(), dialog.sets().get(0).rules());
+    dialog.addSet();
+    assertEquals(2, dialog.result().sets().size());
+    dialog.removeSet();
+    assertEquals(List.of(SET), dialog.result().sets());
+    dialog.shell().dispose();
   }
 }
