@@ -296,7 +296,9 @@ class ViewFeaturesGuiTest {
                 return text.getEditable();
               }
             }));
-    assertTrue(text.getText().startsWith("<a/>" + Text.DELIMITER + "<a/>" + Text.DELIMITER));
+    // Native text controls store line breaks as CRLF (win32), CR or LF (cocoa); compare lines.
+    String formatted = text.getText().replace("\r\n", "\n").replace('\r', '\n');
+    assertTrue(formatted.startsWith("<a/>\n<a/>\n"), formatted.substring(0, 40));
     assertEquals("", pad.values().getText());
     pad.add("1700000000", true);
     text.selectAll();
