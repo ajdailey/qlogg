@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -165,8 +166,8 @@ class SmokeTest {
     TempTrees.delete(settings, Duration.ofSeconds(BOUND_SECONDS));
   }
 
-  @Test
-  void linuxBundleRunsWithoutASystemJava() throws Exception {
+  /** Unpacks the linux-x86_64 bundle and returns its {@code qlogg} directory. */
+  private Path unpackLinuxBundle() throws Exception {
     String target = System.getProperty("qlogg.target.name");
     assumeTrue("linux-x86_64".equals(target), "the host bundle is " + target);
     Path archive =
@@ -180,12 +181,16 @@ class SmokeTest {
             .start();
     assertTrue(tar.waitFor(BOUND_SECONDS, TimeUnit.SECONDS));
     assertEquals(0, tar.exitValue());
+    return unpacked.resolve("qlogg");
+  }
 
+  @Test
+  void linuxBundleRunsWithoutASystemJava() throws Exception {
+    Path home = unpackLinuxBundle();
     // PATH holds only what bin/qlogg runs besides java.
     Path bin = Files.createDirectory(temp.resolve("path"));
     Files.createSymbolicLink(bin.resolve("uname"), Path.of("/usr/bin/uname"));
     Files.createSymbolicLink(bin.resolve("readlink"), Path.of("/usr/bin/readlink"));
-    Path home = unpacked.resolve("qlogg");
     List<String> command = new ArrayList<String>();
     command.add(home.resolve("bin").resolve("qlogg").toString());
     Path log = Files.writeString(temp.resolve("bundle.log"), "mock line\n");
@@ -205,6 +210,28 @@ class SmokeTest {
       assertNotNull(java, run.seen.toString());
       assertEquals(home.resolve("runtime").toRealPath().toString(), java.group(2));
       assertOpened(run);
+    }
+  }
+
+  @Test
+  void linuxBundleRuntimeSupportsTheEncodingMenu() throws Exception {
+    Path home = unpackLinuxBundle();
+    Field field =
+        Class.forName("io.github.ajdailey.qlogg.ui.swt.MainWindow")
+            .getDeclaredField("COMMON_ENCODINGS");
+    field.setAccessible(true);
+    String[] encodings = (String[]) field.get(null);
+    List<String> command = new ArrayList<String>();
+    command.add(home.resolve("runtime").resolve("bin").resolve("java").toString());
+    command.add("-cp");
+    command.add(
+        Path.of(CharsetProbe.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+            .toString());
+    command.add(CharsetProbe.class.getName());
+    command.addAll(List.of(encodings));
+    try (Run run = new Run(command, Map.of(), false)) {
+      assertNotNull(run.await(Pattern.compile("^done$")), run.seen.toString());
+      assertEquals(List.of("module jdk.charsets", "done"), run.seen);
     }
   }
 }

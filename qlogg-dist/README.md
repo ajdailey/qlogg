@@ -19,7 +19,8 @@ jars under `META-INF/qlogg/lib/`, the six SWT fragments unmodified under
 plugin cannot merge the fragments, which share class names.
 
 `qlogg-<version>.zip` holds `qlogg/lib/qlogg.jar`, `qlogg/bin/qlogg`,
-`qlogg/qlogg.exe`, `LICENSE`, `NOTICE` and `THIRD-PARTY.txt`.
+`qlogg/qlogg.exe`, `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` (every bundled
+third-party component and its license text).
 
 ## Bundles
 
@@ -42,11 +43,17 @@ are in `Resources/swt/`.
 
 The runtime is linked by the build JDK's `jlink` from the target JDK's jmods
 (Temurin 21.0.12+8, downloaded and verified by SHA-256) with
-`java.base,java.logging,java.naming,jdk.unsupported,jdk.zipfs`,
+`java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,
 `--strip-java-debug-attributes`, `--no-header-files` and `--no-man-pages`.
-`jdeps` reports `java.desktop` too, used only by `SWT_AWT`, so it is left out.
-`--strip-debug` is not used: it runs the host `objcopy` on target binaries and
-fails across targets.
+`jdk.charsets` carries the Encoding menu's CJK charsets, which `java.base`
+lacks on Windows and macOS. `jdeps` reports `java.desktop` too, used only by
+`SWT_AWT`, so it is left out. `--strip-debug` is not used: it runs the host
+`objcopy` on target binaries and fails across targets.
+
+jlink on Linux writes the `legal/<module>/` notices as symlinks into
+`legal/java.base/`. The build replaces them with copies before signing,
+because Ant's `tar` and `zip` store a link as a regular file and the macOS
+seal must match what unzips.
 
 ## Launchers
 
@@ -61,6 +68,7 @@ fails across targets.
 `allow-unsigned-executable-memory`, `disable-library-validation`), which the
 JVM needs under the hardened runtime. rcodesign cannot sign a shell script as
 the main executable, which is why the macOS launcher is the jpackage binary.
+CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
 The bundles are not notarized.
 
 ## Icons
@@ -76,4 +84,5 @@ The bundles are not notarized.
 prints the manifest version; `java -jar qlogg.jar` opens a 900 x 600 window at
 50,40; and on linux-x86_64 the extracted bundle runs with `PATH` holding only
 `uname` and `readlink`, reports its own `runtime/` as `java.home`, and opens
-the same window.
+the same window. That runtime must have `jdk.charsets` and support every
+charset the Encoding menu lists (`CharsetProbe`).

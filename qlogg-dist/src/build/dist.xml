@@ -32,8 +32,9 @@
       value="https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0"/>
   <!-- jdeps over the application jars reports java.desktop (SWT_AWT only,
        unused), java.logging and java.naming; jdk.zipfs serves the bootstrap's
-       nested-jar loader. -->
-  <property name="modules" value="java.base,java.logging,java.naming,jdk.unsupported,jdk.zipfs"/>
+       nested-jar loader; jdk.charsets holds the encodings java.base lacks on
+       Windows and macOS (Big5, EUC-JP, EUC-KR, Shift_JIS among them). -->
+  <property name="modules" value="java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs"/>
 
   <!-- Downloads a file into the cache once and verifies its SHA-256. -->
   <macrodef name="fetch">
@@ -206,6 +207,15 @@ natives.macos-aarch64=${natives.macos-aarch64}
         <arg value="--output"/>
         <arg file="@{output}"/>
       </exec>
+      <!-- jlink on a POSIX host makes legal/<module>/ notices links into
+           legal/java.base/, and Ant archives a link as a regular file.
+           Replacing the links with copies before rcodesign makes the macOS
+           seal match what unzips. -->
+      <copy todir="@{output}/legal.files">
+        <fileset dir="@{output}/legal"/>
+      </copy>
+      <delete dir="@{output}/legal"/>
+      <move file="@{output}/legal.files" tofile="@{output}/legal"/>
     </sequential>
   </macrodef>
 
