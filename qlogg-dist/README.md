@@ -69,7 +69,9 @@ seal must match what unzips.
 JVM needs under the hardened runtime. rcodesign cannot sign a shell script as
 the main executable, which is why the macOS launcher is the jpackage binary.
 CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
-The bundles are not notarized.
+The bundles are not notarized. On every target, the CI `bundle` job also runs
+the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` on Windows) with
+setup-java's JDK as `JAVA_HOME`.
 
 ## Icons
 

@@ -3,6 +3,8 @@
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
 # bundle and the image's PE machine is $env:EXPECTED_MACHINE. An ARM64 image
 # cannot run under x86 or x64 emulation, so ARM64 proves a native arm64 JVM.
+# Then starts the universal zip's qlogg.exe, which has no runtime, and passes
+# when its child runs javaw.exe from $env:JAVA_HOME.
 $ErrorActionPreference = 'Stop'
 
 function Get-PeMachine([string] $Path) {
@@ -24,13 +26,42 @@ function Get-PeMachine([string] $Path) {
   }
 }
 
+# Starts $Exe on the mock log and checks the javaw.exe child it starts: its
+# image must be $Javaw with PE machine $env:EXPECTED_MACHINE. $Name names the
+# run's settings directory.
+function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
+  $settings = Join-Path $work "settings-$Name"
+  Write-Output "$Name qlogg.exe image: $(Get-PeMachine $Exe)"
+  $launcher = Start-Process -FilePath $Exe -ArgumentList @('-m', '--settings', "`"$settings`"", "`"$log`"") -PassThru
+
+  $child = $null
+  $deadline = (Get-Date).AddSeconds(60)
+  while (-not $child -and (Get-Date) -lt $deadline) {
+    $child = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($launcher.Id) AND Name = 'javaw.exe'" |
+      Where-Object { $_.CommandLine -like '*qlogg.jar*' } |
+      Select-Object -First 1
+    if (-not $child) { Start-Sleep -Milliseconds 100 }
+  }
+  if (-not $child) { throw "$Name qlogg.exe (pid $($launcher.Id)) started no javaw.exe running qlogg.jar within 60 s" }
+
+  $path = $child.ExecutablePath
+  $machine = Get-PeMachine $path
+  Write-Output "$Name child pid $($child.ProcessId) of qlogg.exe pid $($launcher.Id)"
+  Write-Output "$Name child image: $path"
+  Write-Output "$Name child image machine: $machine, expected $env:EXPECTED_MACHINE"
+  Write-Output "$Name child command line: $($child.CommandLine)"
+  Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+
+  if ($path -ine $Javaw) { throw "$Name child image is $path, expected $Javaw" }
+  if ($machine -ne $env:EXPECTED_MACHINE) { throw "$Name child image machine is $machine" }
+  Write-Output "PASS: $Name qlogg.exe started the $machine runtime $path"
+}
+
 $work = Join-Path $PWD 'bundle-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 $archive = Get-Item "dist\qlogg-*-$env:TARGET.zip"
 Expand-Archive -Path $archive.FullName -DestinationPath $work
 $bundle = (Resolve-Path (Join-Path $work 'qlogg')).Path
-$exe = Join-Path $bundle 'qlogg.exe'
-$javaw = Join-Path $bundle 'runtime\bin\javaw.exe'
 
 $arch = & (Join-Path $bundle 'runtime\bin\java.exe') -XshowSettings:properties -version 2>&1 |
   ForEach-Object { "$_" } |
@@ -43,28 +74,13 @@ if (-not ($modules -match '^jdk\.charsets@')) { throw 'runtime lacks jdk.charset
 
 $log = Join-Path $work 'app.log'
 Set-Content -Path $log -Value 'mock line'
-$settings = Join-Path $work 'settings'
-Write-Output "qlogg.exe image: $(Get-PeMachine $exe)"
-$launcher = Start-Process -FilePath $exe -ArgumentList @('-m', '--settings', "`"$settings`"", "`"$log`"") -PassThru
+Test-Launcher (Join-Path $bundle 'qlogg.exe') (Join-Path $bundle 'runtime\bin\javaw.exe') 'bundle'
 
-$child = $null
-$deadline = (Get-Date).AddSeconds(60)
-while (-not $child -and (Get-Date) -lt $deadline) {
-  $child = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($launcher.Id) AND Name = 'javaw.exe'" |
-    Where-Object { $_.CommandLine -like '*qlogg.jar*' } |
-    Select-Object -First 1
-  if (-not $child) { Start-Sleep -Milliseconds 100 }
-}
-if (-not $child) { throw "qlogg.exe (pid $($launcher.Id)) started no javaw.exe running qlogg.jar within 60 s" }
-
-$path = $child.ExecutablePath
-$machine = Get-PeMachine $path
-Write-Output "child pid $($child.ProcessId) of qlogg.exe pid $($launcher.Id)"
-Write-Output "child image: $path"
-Write-Output "child image machine: $machine, expected $env:EXPECTED_MACHINE"
-Write-Output "child command line: $($child.CommandLine)"
-Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
-
-if ($path -ine $javaw) { throw "child image is $path, expected $javaw" }
-if ($machine -ne $env:EXPECTED_MACHINE) { throw "child image machine is $machine" }
-Write-Output "PASS: qlogg.exe started the bundled $machine runtime ($path)"
+$universal = Get-ChildItem dist -Filter 'qlogg-*.zip' |
+  Where-Object { $_.Name -notmatch '-(linux|macos|windows)-' } |
+  Select-Object -First 1
+if (-not $universal) { throw 'no universal zip in dist' }
+$universalDir = Join-Path $work 'universal'
+Expand-Archive -Path $universal.FullName -DestinationPath $universalDir
+$jdk = (Resolve-Path $env:JAVA_HOME).Path
+Test-Launcher (Join-Path $universalDir 'qlogg\qlogg.exe') (Join-Path $jdk 'bin\javaw.exe') 'universal'

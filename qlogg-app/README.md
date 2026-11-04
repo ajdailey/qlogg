@@ -732,6 +732,19 @@ file (a failed attach stays unchecked), the folder items creating and opening
 their folders, Report an Issue copying the details before it opens the issue
 page, and Documentation writing the guide's copy and then showing it, opening
 it, or naming it in a notice, and a guide window failing later doing the same.
+`CommandDispatchTest` runs every `CommandId` with no document, on a document
+and with its filtered view focused, and requires no exception on the UI thread
+or a worker and no activity left running. `HighlightCompositionTest` records
+the composed rules: sets last-first, then the match rule; whole word wrapping a
+quoted or regex pattern; the match color and variance; no match rule past
+`MAX_PATTERN_CHARS` (including a whole-word wrap that crosses it) or for an
+inverse or combined search; and an automatic set replacing the active sets
+while its id exists. `CopyReleaseTest` checks that a save over the `COPY`
+share, a save whose write fails, a copy whose tab closes and a selection read
+whose tab closes all return the `COPY` charge and the activity.
+`StoreFaultsTest` (config) loads a malformed, oversized and unknown-version
+session file as no windows and keeps each as `.invalid` on the next save; a
+remembered encoding the runtime lacks reads as detection.
 
 `HandoffTest` runs client and server in one JVM over loopback: files, lines
 and `-f` arrive; a launch without files still hands off; a wrong token, a

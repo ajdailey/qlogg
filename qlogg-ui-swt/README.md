@@ -401,6 +401,23 @@ on a worker (the tab read-only until the result) with the epoch value and
 `Ctrl+N`, the search across two files with its row selecting
 a tab, and the selectors editor row.
 
+`ResourceLeakTest` starts its Display with `DeviceData.tracking`, runs a
+warm-up round of tab open and close, light and dark theme, zoom in and out and
+a menu sync, then four more rounds, and requires each tracked type's count
+(`Font`, `Image`, `Cursor` and `TextLayout` on GTK 3) to return to the
+warm-up's; a failure lists each new object's allocation stack. SWT 3.135.0
+does not track `Color`.
+`CommandStatesTest` records every check item's checked and enabled state, and
+the file commands' enabled state, after `syncMenu` with no document, with a
+document and with its filtered view focused. `TextGridCasesTest` records
+`hit`, `wrappedRows`, `wrapFit` and `gutterWidth` in grid units: nearest
+column boundary, gutter and negative coordinates, clamping below the last line,
+a tab row, a scrolled view, line numbers on and off, and wrapped segments at
+two widths with the click past a segment's end clamped to it.
+`RowPixelsTest` compares painted extents with glyph ink: a span and the
+selection on a wrapped line's second row, and a span over CJK glyphs that
+start an unwrapped row.
+
 `HangWatchdog`, registered for every test in the module through
 `META-INF/services` and `junit-platform.properties`, prints every thread's
 stack to stderr when a test, its `@BeforeEach` and `@AfterEach` included, runs

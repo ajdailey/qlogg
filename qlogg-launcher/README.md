@@ -184,4 +184,7 @@ modification times, prune deletes only an old `qlogg-<pid>.log` and `.1` of an
 ended process and keeps a young one, a running process's, `qlogg.log`, a `.2`
 name, other names and a directory. `LauncherTest` checks the WebView2 data folder for
 per-user, portable and explicit settings on Windows, and that other systems
-leave the property unset.
+leave the property unset. `StoreFaultsTest` (tag `swt`) starts `Gui` over a
+malformed, an oversized and an unknown-version session file: each opens an
+empty window, exits 0 and logs a WARN. A remembered encoding the runtime does
+not support opens the file with detection.

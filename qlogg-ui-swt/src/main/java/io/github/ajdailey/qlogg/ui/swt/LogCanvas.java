@@ -1001,7 +1001,7 @@ public final class LogCanvas {
   }
 
   /** Rows a line takes when wrapped; a line not read yet takes one. */
-  private int wrappedRows(LineBlock block, long line) {
+  int wrappedRows(LineBlock block, long line) {
     if (!block.contains(line)) {
       return 1;
     }
