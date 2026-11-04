@@ -259,7 +259,7 @@ window; `new ApplicationController(set, view)` adds a window to a set.
   window activated last, the normal bounds, maximized state and split
   (`rememberWindow`) go into `UiState`.
 - Closing a tab detaches its controllers on the UI thread, which cancels the
-  search, quick find, mark toggle and overview, then `LogDocument.close` runs
+  search, quick find, mark toggle, overview, copy and save, then `LogDocument.close` runs
   on a `qlogg-lifecycle-` worker: it waits for every operation holding a
   document entry, reads included, before it closes the file.
 - New Window (`WindowSet.newWindow`) opens an empty window through the
@@ -321,13 +321,21 @@ share. Subclasses map rows to lines (`sourceLine`, `rowOf`, `rows()`).
   text, search, quick find, mark toggle, filtered-view snapshot, overview)
   runs inside `LogDocument.enter` and `exit`; after close begins, `enter`
   fails and the worker posts its empty result.
-- Copy builds its text on a worker from the rows' source lines, with the
-  platform line separator between them. An empty selection, and Copy This
-  Line, copy the caret's row. It reserves 4 bytes of the `COPY` share per
-  selected file byte (builder and string, up to 2 bytes per char each) and
-  releases them on the UI thread once the text is on the clipboard or
-  refused; a selection the share cannot hold is refused with a notice naming
-  both sizes. Copy holds the `ActivityIndicator` active until it ends.
+- Copy, save and `selectedText` run `TextExporter` on a worker. It is
+  stateless and builds the text from the rows' source lines, with the
+  platform line separator between them (LF for a block). An empty selection,
+  and Copy This Line, copy the caret's row. It reserves 4 bytes of the `COPY`
+  share per selected file byte (builder and string, up to 2 bytes per char
+  each), 7 for a save; the controller releases them on the UI thread once the
+  text is on the clipboard, written, refused or canceled. A selection the
+  share cannot hold is refused with a notice naming both sizes. Copy holds the
+  `ActivityIndicator` active until it ends.
+- One copy or save runs per view; another shows a notice. `TextExporter`
+  checks a `CancellationToken` before every row and before
+  `AtomicFiles.write`. `Esc` (`DocumentController.stop`) cancels the running
+  copies of both views, and `detachView` cancels them on tab close, so the
+  worker leaves its document entry within one row and `LogDocument.close`
+  releases the line index. A canceled save writes no file.
 - `M` toggles the marks of the selected rows' lines as one through
   `DocumentController.toggleMarks`, for any number of rows.
 - The read that decodes the rows also colors them with the view's

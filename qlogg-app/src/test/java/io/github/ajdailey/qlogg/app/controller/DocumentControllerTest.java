@@ -254,7 +254,7 @@ class DocumentControllerTest {
     ApplicationControllerTest.shutDown(application, ui, view, workers);
     MemoryBudget budget = MemoryBudget.of(1L << 20);
     create(budget);
-    long cap = DocumentController.maxCopyBytes(budget.limit(MemoryShare.COPY));
+    long cap = TextExporter.maxCopyBytes(budget.limit(MemoryShare.COPY));
     DocumentController document = open(lines("cap.log", (int) (cap / 8)), 0);
     document.selectAll();
     document.copySelection();
@@ -270,7 +270,7 @@ class DocumentControllerTest {
     assertTrue(view.clipboard.endsWith(NL + "lin"), view.clipboard);
     assertEquals(0, budget.reserved(MemoryShare.COPY));
     assertTrue(ui.runUntil(idle(), BOUND));
-    assertEquals(4L, DocumentController.copyCost(1));
+    assertEquals(4L, TextExporter.copyCost(1));
   }
 
   @Test

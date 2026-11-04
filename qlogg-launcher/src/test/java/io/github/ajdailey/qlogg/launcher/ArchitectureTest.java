@@ -457,6 +457,19 @@ class ArchitectureTest {
         .because("the platform is passed in, so tests can choose it");
   }
 
+  // Copy and save export.
+  @Test
+  void textExporterReachesNoView() {
+    noClasses()
+        .that()
+        .haveFullyQualifiedName(ROOT + ".app.controller.TextExporter")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage(ROOT + ".app.view..")
+        .because("the exporter runs on a worker; its caller posts the result to the UI thread")
+        .check(classes);
+  }
+
   @Test
   void rulesFailOnTheirFixtures() throws ClassNotFoundException {
     String views = ROOT + ".ui.swt.archfixture.ViewViolations$";

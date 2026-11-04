@@ -109,7 +109,7 @@ class CopyReleaseTest {
   @Test
   void aSaveOverTheShareIsRefusedAndReleased() throws Exception {
     create(MemoryBudget.of(1L << 20));
-    long cap = DocumentController.maxCopyBytes(budget.limit(MemoryShare.COPY));
+    long cap = TextExporter.maxCopyBytes(budget.limit(MemoryShare.COPY));
     DocumentController document = open((int) (cap / 8));
     document.saveAll(temp.resolve("all.log"));
     runUntilReleased();

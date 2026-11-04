@@ -170,7 +170,9 @@ between two chosen lines.
 
 `Ctrl+C` copies the selection, or the current line without one. Edit > Copy
 with Line Numbers puts each line's number in front. File > Save Selection and
-Save Filtered Results write the lines to a file in UTF-8.
+Save Filtered Results write the lines to a file in UTF-8. `Esc` stops a copy or
+save that is still running; a stopped save writes no file. One copy or save
+runs at a time.
 
 ## View options
 

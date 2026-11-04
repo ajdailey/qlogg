@@ -325,9 +325,15 @@ public final class DocumentController extends LineViewController {
     setLabels(kept);
   }
 
-  /** Cancels a mark toggle and stops loading; growth stays unindexed until a reload. */
+  /**
+   * Cancels a mark toggle, the copies and saves of both views, and stops loading; growth stays
+   * unindexed until a reload.
+   */
   public void stop() {
     cancelMarks();
+    // Copy and save cancel.
+    cancelExports();
+    filtered.cancelExports();
     if (document.stopIndexing()) {
       notifications()
           .showNotice(UiText.NOTICE_LOADING_STOPPED.format(document.index().lineCount()));

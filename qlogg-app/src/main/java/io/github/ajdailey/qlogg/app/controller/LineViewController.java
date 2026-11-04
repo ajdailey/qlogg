@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.app.controller.TextExporter.Output;
+import io.github.ajdailey.qlogg.app.controller.TextExporter.Request;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
 import io.github.ajdailey.qlogg.app.view.ClipboardService;
@@ -8,11 +10,11 @@ import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.NotificationService;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
-import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.LineReader;
@@ -25,7 +27,6 @@ import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,9 +42,10 @@ import org.slf4j.LoggerFactory;
  * <p>Visible rows are decoded on a {@code qlogg-read-} worker into an immutable block. At most one
  * read is in flight; a viewport change during a read starts one more when it returns. Reads, copies
  * and selected-text reads hold a {@link LogDocument#enter} entry, so closing the document waits for
- * them. Copy builds its text on a worker, charged to the {@link MemoryShare#COPY} share at {@link
- * #COPY_BYTES_PER_FILE_BYTE} per selected file byte until the text is on the clipboard; a selection
- * the share cannot hold is refused. Copy holds the {@link ActivityIndicator} active until it ends.
+ * them. Copy, save and selected-text reads run {@link TextExporter} on a worker, charged to the
+ * {@link MemoryShare#COPY} share until the text is on the clipboard. One copy or save runs at a
+ * time; another shows a notice. {@link #cancelExports} ({@code Esc}) and {@link #detachView} cancel
+ * the running ones. Copy holds the {@link ActivityIndicator} active until it ends.
  *
  * <p>The read that decodes the rows also colors them with the view's {@link Highlighter}, from each
  * row's whole decoded line, so highlighting runs off the UI thread and only for the visible rows.
@@ -56,30 +58,15 @@ import org.slf4j.LoggerFactory;
  * replaces a tab partly inside with spaces and joins the rows with LF. With text wrap on ({@link
  * #wrap}) the first column stays 0, a read takes up to {@link #MAX_WRAP_COLUMNS} columns per line,
  * the viewport's rows are the lines the view reports as fitting ({@link #wrapFitted}), and a block
- * selection is refused. Save ({@link #saveLines}) builds the text like copy, charged at {@link
- * #SAVE_BYTES_PER_FILE_BYTE}, and writes it as UTF-8 through {@link AtomicFiles} on the worker.
+ * selection is refused. Save ({@link #saveLines}) builds the text like copy and writes it as UTF-8
+ * through {@link io.github.ajdailey.qlogg.core.io.AtomicFiles} on the worker.
  */
 public abstract class LineViewController {
-  /**
-   * Heap charged per selected file byte while copying: the builder and the finished string, each at
-   * most two bytes per char, and a file byte decodes to at most one char.
-   */
-  public static final int COPY_BYTES_PER_FILE_BYTE = 4;
-
   /** Columns read past the right edge, so a small horizontal scroll repaints at once. */
   static final int COLUMN_MARGIN = 16;
 
-  /** Heap charged per file byte while saving: the text as for copy plus its UTF-8 bytes. */
-  public static final int SAVE_BYTES_PER_FILE_BYTE = COPY_BYTES_PER_FILE_BYTE + 3;
-
   /** Most columns of a line read with text wrap on. */
   public static final int MAX_WRAP_COLUMNS = 1 << 16;
-
-  /** Bytes counted per row for a line number and a tab: 19 digits, a sign and the tab. */
-  static final int NUMBER_BYTES = 21;
-
-  /** Most chars of selected text taken for a search or quick find. */
-  public static final int MAX_SELECTED_CHARS = 4096;
 
   private static final Logger LOG = LoggerFactory.getLogger(LineViewController.class);
 
@@ -102,6 +89,8 @@ public abstract class LineViewController {
   private boolean readWanted;
   private boolean copyInFlight;
   private boolean closed;
+  // Canceled by Esc and detach; replaced after Esc so later exports run.
+  private CancellationToken exports = new CancellationToken();
   private long rangeAnchor = -1;
   // Block selection, text wrap and whitespace markers.
   private boolean blockSelected;
@@ -109,22 +98,6 @@ public abstract class LineViewController {
   private boolean whitespace;
   private int screenRows = 1;
   private int wrapFit = 1;
-
-  /** What built text is for. */
-  enum Output {
-    /** The clipboard. */
-    CLIPBOARD,
-    /** The clipboard, each line after its number and a tab. */
-    NUMBERED,
-    /** A {@link TextListener}. */
-    LISTENER,
-    /** A file, written on the worker. */
-    FILE
-  }
-
-  /** One copy, save or text read: what to build and where it goes. */
-  private record Request(
-      Selection selection, boolean block, Output output, Path file, TextListener listener) {}
 
   /**
    * Creates the view controller.
@@ -746,7 +719,7 @@ public abstract class LineViewController {
    * share cannot hold is refused with a notice.
    */
   public void copySelection() {
-    copy(new Request(selection, blockSelected, Output.CLIPBOARD, null, null));
+    copy(new Request(selection, blockSelected, Output.CLIPBOARD, null), null);
   }
 
   /** Copies the caret's row. */
@@ -756,13 +729,13 @@ public abstract class LineViewController {
             Selection.caretAt(new TextPosition(selection.caret().line(), 0)),
             false,
             Output.CLIPBOARD,
-            null,
-            null));
+            null),
+        null);
   }
 
   /** Copies the selection, or the caret's row, each line after its source line number and a tab. */
   public void copyWithLineNumbers() {
-    copy(new Request(selection, blockSelected, Output.NUMBERED, null, null));
+    copy(new Request(selection, blockSelected, Output.NUMBERED, null), null);
   }
 
   /**
@@ -772,7 +745,7 @@ public abstract class LineViewController {
    * @param listener receives the text
    */
   public void selectionText(TextListener listener) {
-    copy(new Request(selection, blockSelected, Output.LISTENER, null, listener));
+    copy(new Request(selection, blockSelected, Output.LISTENER, null), listener);
   }
 
   /**
@@ -789,7 +762,7 @@ public abstract class LineViewController {
             : new Selection(
                 new TextPosition(selection.start().line(), 0),
                 new TextPosition(selection.end().line(), Long.MAX_VALUE));
-    copy(new Request(lines, blockSelected, Output.FILE, file, null));
+    copy(new Request(lines, blockSelected, Output.FILE, file), null);
   }
 
   /**
@@ -808,24 +781,29 @@ public abstract class LineViewController {
             new Selection(new TextPosition(0, 0), new TextPosition(count - 1, Long.MAX_VALUE)),
             false,
             Output.FILE,
-            file,
-            null));
+            file),
+        null);
   }
 
-  private void copy(final Request request) {
+  private void copy(final Request request, final TextListener listener) {
     final Selection copied = request.selection();
     final LineIndex index = document.index();
     final long count = viewport.lineCount();
-    if (copyInFlight || closed || count == 0 || index.lineCount() == 0) {
+    if (closed || count == 0 || index.lineCount() == 0) {
       return;
     }
-    final long firstRow = Math.min(copied.start().line(), count - 1);
-    final long lastRow = Math.min(copied.end().line(), count - 1);
-    final long firstLine = sourceLine(firstRow);
+    if (copyInFlight) {
+      notifications.showNotice(UiText.NOTICE_EXPORT_RUNNING.text());
+      return;
+    }
+    long firstRow = Math.min(copied.start().line(), count - 1);
+    long lastRow = Math.min(copied.end().line(), count - 1);
+    long firstLine = sourceLine(firstRow);
     if (firstLine < 0) {
       return;
     }
-    final RowCursor walk = rows();
+    final TextExporter.Rows taken = new TextExporter.Rows(rows(), firstRow, lastRow, firstLine);
+    final CancellationToken token = exports;
     copyInFlight = true;
     activity.setActive();
     boolean started =
@@ -834,7 +812,7 @@ public abstract class LineViewController {
             new Runnable() {
               @Override
               public void run() {
-                buildCopy(index, request, firstRow, lastRow, firstLine, walk);
+                buildCopy(index, taken, request, listener, token);
               }
             });
     if (!started) {
@@ -846,7 +824,7 @@ public abstract class LineViewController {
   /**
    * Reads the selected text of one row on a worker and passes it to the listener. Nothing is read,
    * and a notice shows, when the selection is empty or spans rows; the text is cut at {@link
-   * #MAX_SELECTED_CHARS}.
+   * TextExporter#MAX_SELECTED_CHARS}.
    *
    * @param listener receives the text on the UI thread
    */
@@ -863,13 +841,14 @@ public abstract class LineViewController {
     if (line < 0 || line >= index.lineCount() || closed) {
       return;
     }
+    final CancellationToken token = exports;
     boolean started =
         workers.tryStart(
             Workers.Kind.READ,
             new Runnable() {
               @Override
               public void run() {
-                readSelected(index, line, from, to, listener);
+                readSelected(index, line, from, to, token, listener);
               }
             });
     if (!started) {
@@ -879,28 +858,13 @@ public abstract class LineViewController {
 
   /** Runs on a worker. */
   private void readSelected(
-      LineIndex index, long line, long from, long to, final TextListener listener) {
-    String text = null;
-    if (document.enter()) {
-      try {
-        StringBuilder out = new StringBuilder();
-        document.newReader().appendText(index, line, from, to, out);
-        text =
-            out.length() > MAX_SELECTED_CHARS
-                ? out.substring(0, MAX_SELECTED_CHARS)
-                : out.toString();
-      } catch (ClosedChannelException e) {
-        text = null;
-      } catch (IOException | UncheckedIOException e) {
-        LOG.warn(
-            "Cannot read {}: {}",
-            LogText.oneLine(document.path()),
-            LogText.oneLine(e.getMessage()));
-      } finally {
-        document.exit();
-      }
-    }
-    final String result = text;
+      LineIndex index,
+      long line,
+      long from,
+      long to,
+      CancellationToken token,
+      final TextListener listener) {
+    final String result = TextExporter.selectedText(document, index, line, from, to, token);
     ui.asyncExec(
         new Runnable() {
           @Override
@@ -912,9 +876,19 @@ public abstract class LineViewController {
         });
   }
 
-  /** Stops applying reads and copies; listeners are dropped and the spans' charge returned. */
+  /** Cancels the running copies, saves and selected-text reads; later ones run. */
+  void cancelExports() {
+    exports.cancel();
+    exports = new CancellationToken();
+  }
+
+  /**
+   * Stops applying reads and copies and cancels the running copies; listeners are dropped and the
+   * spans' charge returned.
+   */
   void detachView() {
     closed = true;
+    exports.cancel();
     listeners.clear();
     budget.release(MemoryShare.HIGHLIGHT, spanCharge);
     spanCharge = 0;
@@ -1105,172 +1079,46 @@ public abstract class LineViewController {
    */
   private void buildCopy(
       LineIndex index,
-      Request request,
-      long firstRow,
-      long lastRow,
-      long firstLine,
-      RowCursor walk) {
-    String text = null;
-    String refusal = null;
-    long charged = 0;
-    long lines = 0;
-    Output output = request.output();
-    int perByte = output == Output.FILE ? SAVE_BYTES_PER_FILE_BYTE : COPY_BYTES_PER_FILE_BYTE;
-    boolean admitted = document.enter();
+      TextExporter.Rows taken,
+      final Request request,
+      final TextListener listener,
+      CancellationToken token) {
+    TextExporter.Result built = TextExporter.Result.NONE;
     try {
-      if (!admitted) {
-        return;
-      }
-      long last = index.lineCount() - 1;
-      long bytes = selectedBytes(index, firstRow, lastRow, Math.min(firstLine, last), walk);
-      if (output == Output.NUMBERED) {
-        bytes += (lastRow - firstRow + 1) * NUMBER_BYTES;
-      }
-      if (bytes > maxCopyBytes(Long.MAX_VALUE)
-          || !budget.reserve(MemoryShare.COPY, bytes * perByte)) {
-        UiText pattern = output == Output.FILE ? UiText.SAVE_TOO_LARGE : UiText.COPY_TOO_LARGE;
-        refusal =
-            pattern.format(
-                mebibytes(bytes), mebibytes(budget.available(MemoryShare.COPY) / perByte));
-      } else {
-        charged = bytes * perByte;
-        StringBuilder out = new StringBuilder();
-        lines = buildText(index, request, firstRow, lastRow, firstLine, walk, out);
-        text = out.toString();
-        if (output == Output.FILE) {
-          AtomicFiles.write(request.file(), text.getBytes(StandardCharsets.UTF_8));
-        }
-      }
-    } catch (ClosedChannelException e) {
-      // Closed while copying: the controller is detached and drops the result.
-      text = null;
-    } catch (IOException | UncheckedIOException e) {
-      text = null;
-      String reason = LogText.oneLine(e.getMessage());
-      refusal =
-          output == Output.FILE
-              ? UiText.SAVE_FAILED.format(reason)
-              : UiText.COPY_READ_FAILED.format(reason);
+      built = TextExporter.export(document, index, taken, request, budget, token);
     } finally {
-      if (admitted) {
-        document.exit();
-      }
-      final String copiedText = text;
-      final String message = refusal;
-      final long reserved = charged;
-      final long count = lines;
+      final TextExporter.Result result = built;
       ui.asyncExec(
           new Runnable() {
             @Override
             public void run() {
-              copied(request, copiedText, message, reserved, count);
+              copied(request, listener, result);
             }
           });
     }
   }
 
-  /** Appends the selected text of the rows; returns the rows taken. */
-  private long buildText(
-      LineIndex index,
-      Request request,
-      long firstRow,
-      long lastRow,
-      long firstLine,
-      RowCursor walk,
-      StringBuilder out)
-      throws IOException {
-    Selection copied = request.selection();
-    long last = index.lineCount() - 1;
-    long fromColumn = copied.isEmpty() ? 0 : copied.start().column();
-    long toColumn = copied.isEmpty() ? Long.MAX_VALUE : copied.end().column();
-    long left = Math.min(copied.anchor().column(), copied.caret().column());
-    long right = Math.max(copied.anchor().column(), copied.caret().column());
-    String separator = request.block() ? "\n" : System.lineSeparator();
-    LineReader copier = document.newReader();
-    long line = Math.min(firstLine, last);
-    long rows = 0;
-    for (long row = firstRow; row <= lastRow && line >= 0 && line <= last; row++) {
-      if (request.output() == Output.NUMBERED) {
-        out.append(line + 1).append('\t');
-      }
-      if (request.block()) {
-        copier.appendColumns(index, line, left, right, out);
-      } else {
-        long from = row == firstRow ? fromColumn : 0;
-        long to = row == lastRow ? toColumn : Long.MAX_VALUE;
-        copier.appendText(index, line, from, to, out);
-      }
-      if (row != lastRow) {
-        out.append(separator);
-      }
-      rows++;
-      line = walk.next(line);
-    }
-    return rows;
-  }
-
-  /** File bytes of the selected rows: one span in the main view, a sum over listed lines else. */
-  private static long selectedBytes(
-      LineIndex index, long firstRow, long lastRow, long firstLine, RowCursor walk) {
-    long last = index.lineCount() - 1;
-    if (walk.contiguous()) {
-      long lastLine = Math.min(lastRow, last);
-      return index.lineEnd(lastLine) - index.lineStart(firstLine);
-    }
-    long bytes = 0;
-    long line = firstLine;
-    for (long row = firstRow; row <= lastRow && line >= 0 && line <= last; row++) {
-      bytes += index.lineEnd(line) - index.lineStart(line) + 1;
-      line = walk.next(line);
-    }
-    return bytes;
-  }
-
-  /**
-   * Returns the heap charged to copy a selection.
-   *
-   * @param fileBytes the selection's size in the file
-   * @return bytes charged to {@link MemoryShare#COPY}
-   */
-  static long copyCost(long fileBytes) {
-    return fileBytes * COPY_BYTES_PER_FILE_BYTE;
-  }
-
-  /**
-   * Returns the largest selection a charge covers. A Java string holds at most {@code
-   * Integer.MAX_VALUE} chars, which caps it further.
-   *
-   * @param chargeBytes bytes the share can hold
-   * @return file bytes
-   */
-  static long maxCopyBytes(long chargeBytes) {
-    return Math.min(chargeBytes / COPY_BYTES_PER_FILE_BYTE, Integer.MAX_VALUE - 8);
-  }
-
-  private static double mebibytes(long bytes) {
-    return bytes / (double) (1L << 20);
-  }
-
-  private void copied(Request request, String text, String refusal, long reserved, long lines) {
+  private void copied(Request request, TextListener listener, TextExporter.Result result) {
     copyInFlight = false;
     try {
       if (closed) {
         return;
       }
+      String text = result.text();
       if (text != null) {
         switch (request.output()) {
           case CLIPBOARD, NUMBERED -> clipboard.setText(text);
-          case LISTENER -> request.listener().textRead(text);
+          case LISTENER -> listener.textRead(text);
           case FILE ->
               notifications.showNotice(
-                  UiText.NOTICE_SAVED.format(lines, request.file().getFileName()));
+                  UiText.NOTICE_SAVED.format(result.rows(), request.file().getFileName()));
         }
-      } else if (refusal != null) {
+      } else if (result.refusal() != null) {
         UiText title = request.output() == Output.FILE ? UiText.SAVE_TITLE : UiText.COPY_TITLE;
-        notifications.showError(title.text(), refusal);
+        notifications.showError(title.text(), result.refusal());
       }
     } finally {
-      budget.release(MemoryShare.COPY, reserved);
+      budget.release(MemoryShare.COPY, result.charged());
       activity.setIdle();
     }
   }

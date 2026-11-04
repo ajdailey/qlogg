@@ -105,6 +105,9 @@ public enum UiText {
   COPY_TOO_LARGE,
   /** Copy read error: the reason. */
   COPY_READ_FAILED,
+  // Copy and save cancel.
+  /** Notice: a copy or save starts while one runs. */
+  NOTICE_EXPORT_RUNNING,
   /** Indexing failure without a message. */
   INDEXING_FAILED,
   /** Status bar while indexing: percent. */

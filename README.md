@@ -57,7 +57,8 @@ plugins.
   `Alt+Shift` with the arrows, Edit > Block Selection) that copies the
   selected columns, go to line and `+line:N`.
 - Copy, capped by a share of the heap; copy with line numbers; save the
-  selection or the filtered view to a file.
+  selection or the filtered view to a file. `Esc` stops a running copy or
+  save.
 - Tabs expand to 8 columns and a CR before LF is hidden. Text wrap (`W`, View >
   Wrap New Files), whitespace and line-end markers, and hidden ANSI colors in
   display, copy and search.
