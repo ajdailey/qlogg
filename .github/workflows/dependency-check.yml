@@ -30,6 +30,7 @@ jobs:
           org.owasp:dependency-check-maven:13.0.0:aggregate
           -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
           -DfailBuildOnCVSS=7
+          -DsuppressionFile=config/dependency-check-suppressions.xml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

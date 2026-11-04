@@ -235,7 +235,8 @@ final class FakeView implements MainView {
     return launchResult;
   }
 
-  boolean byExtension;
+  // Matches the host, as MainWindow does: Files.isExecutable is true for a .log file on Windows.
+  boolean byExtension = System.getProperty("os.name", "").startsWith("Windows");
 
   @Override
   public boolean launchesByExtension() {

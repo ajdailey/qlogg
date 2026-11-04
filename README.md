@@ -209,7 +209,8 @@ running `qlogg.jar`, and passes only when the child's image is the bundle's
 and GTK 3 from the Ubuntu archive when the runner image lacks them.
 `.github/workflows/dependency-check.yml` scans the dependencies for known
 vulnerabilities weekly and on demand, failing on CVSS 7 or higher; it reads
-the NVD API key from the `NVD_API_KEY` repository secret. Dependabot proposes
+the NVD API key from the `NVD_API_KEY` repository secret and reviewed false
+positives from `config/dependency-check-suppressions.xml`. Dependabot proposes
 Maven and Actions updates.
 
 ## Targets

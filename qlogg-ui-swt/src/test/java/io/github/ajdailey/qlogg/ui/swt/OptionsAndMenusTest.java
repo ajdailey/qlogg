@@ -246,11 +246,12 @@ class OptionsAndMenusTest {
     MenuItem auto = encoding.getItem(0);
     assertTrue(auto.getSelection());
     assertTrue(texts(encoding).contains("UTF-8"));
-    assertTrue(texts(window.recentMenu()).contains(log.toRealPath().toString()));
+    assertTrue(texts(window.recentMenu()).contains(log.toAbsolutePath().normalize().toString()));
     controller.execute(CommandId.ADD_FAVORITE);
     window.syncMenu();
     List<String> favorites = texts(window.favoritesMenu());
-    assertTrue(favorites.contains(log.toRealPath().toString()), favorites.toString());
+    assertTrue(
+        favorites.contains(log.toAbsolutePath().normalize().toString()), favorites.toString());
     assertFalse(window.favoritesMenu().getItem(0).getEnabled());
     assertTrue(window.favoritesMenu().getItem(1).getEnabled());
   }
