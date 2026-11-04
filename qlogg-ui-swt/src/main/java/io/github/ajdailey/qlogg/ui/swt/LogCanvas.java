@@ -76,6 +76,12 @@ public final class LogCanvas {
   private static final int GUTTER_PAD = 6;
   private static final int MIN_DIGITS = 4;
 
+  /** Measured for the grid advance; over a long run a rounded extent errs little per column. */
+  private static final String ADVANCE_SAMPLE = "0".repeat(1000);
+
+  /** Bound on a column's pixel offset, so offsets and their differences stay in range. */
+  private static final int MAX_OFFSET = Integer.MAX_VALUE / 4;
+
   private final Canvas canvas;
 
   /** Commands of the right-click menu, in order; null is a separator. */
@@ -117,7 +123,7 @@ public final class LogCanvas {
   private final boolean antialias;
   private PaletteColors colors;
   private final int lineHeight;
-  private final int charWidth;
+  private final double advance;
   private boolean dragging;
   private boolean dragBlock;
   private final DocumentViewListener viewListener =
@@ -176,7 +182,7 @@ public final class LogCanvas {
     try {
       gc.setFont(font);
       lineHeight = Math.max(1, gc.getFontMetrics().getHeight());
-      charWidth = Math.max(1, gc.textExtent("0000000000").x / 10);
+      advance = Math.max(1.0, gc.textExtent(ADVANCE_SAMPLE).x / (double) ADVANCE_SAMPLE.length());
     } finally {
       gc.dispose();
     }
@@ -366,12 +372,34 @@ public final class LogCanvas {
   }
 
   /**
-   * Returns the grid's column width.
+   * Returns the grid's column advance, which can be fractional.
    *
    * @return pixels
    */
-  public int charWidth() {
-    return charWidth;
+  double advance() {
+    return advance;
+  }
+
+  /**
+   * Returns the pixel offset of a grid column from the text's left edge, {@code round(column *
+   * advance)}.
+   *
+   * @param column the column, counted from the text's first column; may be negative
+   * @return pixels
+   */
+  int columnOffset(long column) {
+    long x = Math.round(column * advance);
+    return (int) Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, x));
+  }
+
+  /** The grid boundary nearest a pixel offset from the text's left edge. */
+  private long columnAt(int textX) {
+    return textX <= 0 ? 0 : (long) Math.floor(textX / advance + 0.5);
+  }
+
+  /** One cell's width for markers drawn inside a cell. */
+  private int cellWidth() {
+    return Math.max(1, (int) Math.round(advance));
   }
 
   private void listen() {
@@ -687,7 +715,7 @@ public final class LogCanvas {
     long line = viewport.topLine() + Math.max(0, y) / lineHeight;
     line = Math.max(0, Math.min(line, count - 1));
     int textX = x - gutterWidth();
-    long column = textX <= 0 ? 0 : (textX + charWidth / 2) / charWidth;
+    long column = columnAt(textX);
     return new TextPosition(line, viewport.firstColumn() + column);
   }
 
@@ -703,7 +731,7 @@ public final class LogCanvas {
     }
     long lines = document.owner().viewport().lineCount();
     int digits = Math.max(MIN_DIGITS, Long.toString(lines).length());
-    return bulletWidth() + digits * charWidth + 2 * GUTTER_PAD;
+    return bulletWidth() + (int) Math.ceil(digits * advance) + 2 * GUTTER_PAD;
   }
 
   private void resized() {
@@ -712,7 +740,7 @@ public final class LogCanvas {
     }
     Rectangle area = canvas.getClientArea();
     int rows = Math.max(1, area.height / lineHeight);
-    int columns = Math.max(1, (area.width - gutterWidth()) / charWidth);
+    int columns = Math.max(1, (int) ((area.width - gutterWidth()) / advance));
     document.viewportResized(rows, columns);
     updateScrollBars();
   }
@@ -777,10 +805,8 @@ public final class LogCanvas {
         gc.setBackground(colors.cached(under));
         gc.fillRectangle(gutter, y, area.width - gutter, lineHeight);
       }
-      int textX = gutter;
-      if (text != null) {
-        textX += (int) ((block.firstColumn() - viewport.firstColumn()) * charWidth);
-      }
+      long shift = viewport.firstColumn() - block.firstColumn();
+      int textX = gutter + columnOffset(-shift);
       Rectangle[] spanRects = new Rectangle[spans.count()];
       for (int i = 0; i < spans.count(); i++) {
         spanRects[i] =
@@ -829,7 +855,7 @@ public final class LogCanvas {
         gc.setClipping((Rectangle) null);
       }
       if (text != null) {
-        paintMarkers(gc, block, line, text, textX, y, 0, Long.MAX_VALUE, true);
+        paintMarkers(gc, block, line, text, gutter, shift, y, 0, Long.MAX_VALUE, true);
       }
     }
     paintGutter(gc, viewport, block, rows, gutter, area.height);
@@ -841,14 +867,16 @@ public final class LogCanvas {
    * Draws a row's whitespace markers and line end on the grid, for the block columns {@code [from,
    * to)}; {@code last} allows the line end at {@code to}.
    *
-   * @param textX the x of the block's first column
+   * @param origin the x of block column {@code shift}
+   * @param shift the block column drawn at {@code origin}
    */
   private void paintMarkers(
       GC gc,
       LineBlock block,
       long line,
       String text,
-      int textX,
+      int origin,
+      long shift,
       int y,
       long from,
       long to,
@@ -864,14 +892,14 @@ public final class LogCanvas {
       if (Character.isLowSurrogate(text.charAt(i))) {
         continue;
       }
-      int x = textX + (int) (column * charWidth);
+      int x = origin + columnOffset(column - shift);
       if (column < from || column >= to) {
         column++;
         continue;
       }
       switch (marks.charAt(i)) {
         case LineBlock.TAB_MARK -> arrow(gc, x, middle, true);
-        case LineBlock.SPACE_MARK -> gc.drawPoint(x + charWidth / 2, middle);
+        case LineBlock.SPACE_MARK -> gc.drawPoint(x + cellWidth() / 2, middle);
         case LineBlock.CR_MARK -> arrow(gc, x, middle, false);
         default -> {
           // Not whitespace.
@@ -883,24 +911,25 @@ public final class LogCanvas {
     if (end < 0 || end > block.columns() || end < from || end > to || end == to && !last) {
       return;
     }
-    int x = textX + (int) (Math.max(0, end) * charWidth);
+    int x = origin + columnOffset(Math.max(0, end) - shift);
+    int cell = cellWidth();
     LineTerminator terminator = block.terminator(line);
     if (terminator == LineTerminator.CRLF) {
       arrow(gc, x, middle, false);
-      x += charWidth;
+      x += cell;
     }
     if (terminator != LineTerminator.NONE) {
       int bottom = y + lineHeight - lineHeight / 4;
-      gc.drawLine(x + charWidth - 2, y + lineHeight / 4, x + charWidth - 2, bottom);
-      gc.drawLine(x + 2, bottom, x + charWidth - 2, bottom);
+      gc.drawLine(x + cell - 2, y + lineHeight / 4, x + cell - 2, bottom);
+      gc.drawLine(x + 2, bottom, x + cell - 2, bottom);
     }
   }
 
   /** A small arrow inside one cell, right or left. */
   private void arrow(GC gc, int x, int middle, boolean right) {
     int left = x + 2;
-    int far = x + charWidth - 2;
-    int head = Math.max(2, charWidth / 3);
+    int far = x + cellWidth() - 2;
+    int head = Math.max(2, cellWidth() / 3);
     gc.drawLine(left, middle, far, middle);
     if (right) {
       gc.drawLine(far, middle, far - head, middle - head);
@@ -972,7 +1001,7 @@ public final class LogCanvas {
     line = Math.max(0, Math.min(line, count - 1));
     int segment = Math.max(0, Math.min(target - row, wrappedRows(block, line) - 1));
     int textX = x - gutterWidth();
-    long column = textX <= 0 ? 0 : (textX + charWidth / 2) / charWidth;
+    long column = columnAt(textX);
     return new TextPosition(line, (long) segment * wrapColumns() + Math.min(column, wrapColumns()));
   }
 
@@ -1057,8 +1086,7 @@ public final class LogCanvas {
           gc.setClipping((Rectangle) null);
         }
         if (text != null) {
-          int originX = gutter - (int) (from * charWidth);
-          paintMarkers(gc, block, line, text, originX, y, from, to, k == segments - 1);
+          paintMarkers(gc, block, line, text, gutter, from, y, from, to, k == segments - 1);
         }
         y += lineHeight;
       }
@@ -1075,9 +1103,8 @@ public final class LogCanvas {
     if (right <= left) {
       return null;
     }
-    int x = gutter + (int) ((left - from) * charWidth);
-    int w = (int) Math.min(Integer.MAX_VALUE / 2, (right - left) * charWidth);
-    return new Rectangle(x, y, w, lineHeight);
+    int x = gutter + columnOffset(left - from);
+    return new Rectangle(x, y, gutter + columnOffset(right - from) - x, lineHeight);
   }
 
   private void paintWrappedGutter(GC gc, LineBlock block, long line, int y, int gutter) {
@@ -1160,7 +1187,7 @@ public final class LogCanvas {
             ? width
             : gutter + columnX(gc, text, block, viewport, Math.max(to, first) - first);
     if (to == Long.MAX_VALUE || right <= left) {
-      right = Math.max(right, left + charWidth / 2);
+      right = Math.max(right, left + cellWidth() / 2);
     }
     if (right <= gutter || left >= width) {
       return null;
@@ -1174,12 +1201,11 @@ public final class LogCanvas {
    * grid applies.
    */
   private int columnX(GC gc, String text, LineBlock block, Viewport viewport, long column) {
-    long grid = Math.min(column, Integer.MAX_VALUE / Math.max(1, charWidth));
     if (text == null
         || printableAscii(text)
         || block.firstColumn() != viewport.firstColumn()
         || column > text.length()) {
-      return (int) (grid * charWidth);
+      return columnOffset(column);
     }
     return gc.textExtent(text.substring(0, charIndex(text, column)), SWT.DRAW_TRANSPARENT).x;
   }

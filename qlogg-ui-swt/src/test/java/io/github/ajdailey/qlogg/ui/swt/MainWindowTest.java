@@ -50,8 +50,9 @@ class MainWindowTest {
             },
             BOUND),
         "client area " + shell.getClientArea());
-    Point location = shell.getLocation();
-    assertEquals(new Point(50, 40), location);
+    if (!Gtk4.active()) {
+      assertEquals(new Point(50, 40), shell.getLocation(), Gtk4.NO_POSITION);
+    }
     assertTrue(shell.getImages().length > 0);
     window.dispose();
     assertTrue(shell.isDisposed());

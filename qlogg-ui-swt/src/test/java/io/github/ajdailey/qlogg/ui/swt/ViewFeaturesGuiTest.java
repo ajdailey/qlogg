@@ -184,7 +184,7 @@ class ViewFeaturesGuiTest {
     Image image = new Image(display, canvas().getSize().x, canvas().getSize().y);
     GC gc = new GC(image);
     try {
-      assertTrue(canvas().print(gc));
+      Gtk4.assertPrinted(canvas().print(gc));
     } finally {
       gc.dispose();
       image.dispose();
@@ -206,8 +206,8 @@ class ViewFeaturesGuiTest {
   @Test
   void anAltDragSelectsABlock() {
     LogCanvas view = window.canvas();
-    int x0 = view.gutterWidth() + 2 * view.charWidth();
-    int x1 = view.gutterWidth() + 6 * view.charWidth();
+    int x0 = view.gutterWidth() + view.columnOffset(2);
+    int x1 = view.gutterWidth() + view.columnOffset(6);
     mouse(SWT.MouseDown, x0, 1, SWT.ALT);
     mouse(SWT.MouseMove, x1, 3 * view.lineHeight() + 1, SWT.ALT);
     mouse(SWT.MouseUp, x1, 3 * view.lineHeight() + 1, SWT.ALT);
@@ -240,7 +240,7 @@ class ViewFeaturesGuiTest {
     assertEquals(screen - segments + 1, document().viewport().rows());
     LogCanvas view = window.canvas();
     TextPosition second =
-        view.hit(view.gutterWidth() + 2 * view.charWidth(), view.lineHeight() + 1);
+        view.hit(view.gutterWidth() + view.columnOffset(2), view.lineHeight() + 1);
     assertEquals(new TextPosition(0, columns + 2L), second);
     TextPosition next = view.hit(view.gutterWidth(), segments * view.lineHeight() + 1);
     assertEquals(1, next.line());

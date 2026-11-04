@@ -199,7 +199,11 @@ class TabsTest {
     menu.setVisible(false);
     items[3].notifyListeners(SWT.Selection, new Event());
     assertEquals(1, tabs.getItemCount());
-    menu.dispose();
+    Menu again = window.showTabMenu(first, 0, 0);
+    again.setVisible(false);
+    assertSame(menu, again);
+    assertEquals(12, again.getItemCount());
+    assertTrue(items[0].isDisposed(), "the previous items are disposed");
     controller.setTabName(first, "renamed");
     assertEquals("renamed", tabs.getItem(0).getText());
   }
@@ -319,6 +323,97 @@ class TabsTest {
                 return window.tabs().getItemCount() == 3;
               }
             }));
+  }
+
+  /** Pressing a tab selects it, so a dragged tab ends selected and its document shown. */
+  @Test
+  void aDraggedTabStaysSelectedAndShown() throws Exception {
+    Path third = Files.writeString(temp.resolve("third.log"), "z\n");
+    controller.open(List.of(new FileRequest(third, 0)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return window.tabs().getItemCount() == 3
+                    && shown != null
+                    && shown.state().title().equals("third.log")
+                    && window.canvas() != null;
+              }
+            }));
+    CTabFolder tabs = window.tabs();
+    DocumentController dragged = documentOf(tabs.getItem(2));
+    drag(tabs, 2, 0);
+    assertSame(dragged, documentOf(tabs.getItem(0)));
+    assertShown(dragged, 0);
+    DocumentController other = documentOf(tabs.getItem(1));
+    drag(tabs, 1, 2);
+    assertSame(other, documentOf(tabs.getItem(2)));
+    assertShown(other, 2);
+  }
+
+  private void assertShown(DocumentController document, int index) {
+    CTabFolder tabs = window.tabs();
+    assertSame(tabs.getItem(index), tabs.getSelection());
+    assertSame(document, controller.activeDocument());
+    assertSame(document, window.canvas().document());
+    assertEquals(document.state().path(), window.pathField().getText());
+  }
+
+  private static void drag(CTabFolder tabs, int from, int to) {
+    Rectangle source = tabs.getItem(from).getBounds();
+    Rectangle target = tabs.getItem(to).getBounds();
+    mouse(tabs, SWT.MouseDown, source.x + source.width / 2, source.y + source.height / 2);
+    mouse(tabs, SWT.MouseUp, target.x + target.width / 2, target.y + target.height / 2);
+  }
+
+  @Test
+  void documentItemsAreEnabledWithoutAMenuShow() throws Exception {
+    controller.execute(CommandId.CLOSE_ALL);
+    Menu view = topMenu(CommandId.RELOAD);
+    view.notifyListeners(SWT.Show, new Event());
+    view.notifyListeners(SWT.Hide, new Event());
+    MenuItem reload = item(view, CommandId.RELOAD);
+    MenuItem numbers = item(view, CommandId.TOGGLE_LINE_NUMBERS);
+    assertFalse(reload.getEnabled());
+    assertFalse(numbers.getEnabled());
+    controller.open(List.of(new FileRequest(temp.resolve("first.log"), 0)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return controller.activeDocument() != null;
+              }
+            }));
+    assertTrue(reload.getEnabled());
+    assertTrue(numbers.getEnabled());
+  }
+
+  /** The menu bar's menu that holds a command. */
+  private Menu topMenu(CommandId command) {
+    for (MenuItem header : window.shell().getMenuBar().getItems()) {
+      if (item(header.getMenu(), command) != null) {
+        return header.getMenu();
+      }
+    }
+    throw new AssertionError("no menu holds " + command);
+  }
+
+  private static MenuItem item(Menu menu, CommandId command) {
+    for (MenuItem item : menu.getItems()) {
+      if (item.getData() == command) {
+        return item;
+      }
+      if (item.getMenu() != null) {
+        MenuItem found = item(item.getMenu(), command);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 
   private static void mouse(CTabFolder tabs, int type, int x, int y) {

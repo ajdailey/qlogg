@@ -93,7 +93,12 @@ class GuiTest {
                 err,
                 observer)
             .run());
-    assertEquals(List.of("app.log - QLogg", "900x600", "Point {50, 40}"), observed);
+    assertEquals(3, observed.size(), observed.toString());
+    assertEquals(List.of("app.log - QLogg", "900x600"), observed.subList(0, 2));
+    // GTK 4 has no API to move a toplevel window; the shell reads 0,0 there.
+    if (!"1".equals(System.getenv("SWT_GTK4"))) {
+      assertEquals("Point {50, 40}", observed.get(2));
+    }
 
     assertTrue(
         Poll.until(

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
+import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
@@ -21,6 +22,7 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
@@ -238,7 +240,7 @@ class LogViewTest {
     Image image = new Image(display, canvas().getSize().x, canvas().getSize().y);
     GC gc = new GC(image);
     try {
-      assertTrue(canvas().print(gc));
+      Gtk4.assertPrinted(canvas().print(gc));
       ImageData data = image.getImageData();
       int gutter = window.canvas().gutterWidth();
       assertTrue(gutter > 0, "gutter width " + gutter);
@@ -675,5 +677,96 @@ class LogViewTest {
     assertEquals(new KeyStroke(0, KeyStroke.F1), SwtKeys.stroke(0, SWT.F1, '\0'));
     assertNull(SwtKeys.stroke(SWT.MOD1, SWT.CTRL, '\0'));
     assertEquals(SWT.MOD1 | SWT.HOME, SwtKeys.accelerator(new KeyStroke(1, KeyStroke.HOME)));
+  }
+
+  /**
+   * The grid places column 150 where the font draws it: with an advance rounded to whole pixels, a
+   * fractional font advance moves the selection off its glyphs by a pixel fraction per column.
+   */
+  @Test
+  void aSelectionAtColumn150SitsOnItsGlyphs() throws IOException {
+    final LogCanvas old = window.canvas();
+    controller.setOptions(
+        controller.preferences().options().withFont(new FontSettings("", 6, 0, false, false)));
+    window.shell().setSize(1000, 400);
+    Path grid = temp.resolve("grid.log");
+    Files.writeString(
+        grid, " ".repeat(150) + "M".repeat(10) + " ".repeat(40) + "\n", StandardCharsets.US_ASCII);
+    controller.openFile(grid, 0);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return window.canvas() != old
+                    && window.canvas().document().owner() == shown
+                    && shown.state().title().equals("grid.log")
+                    && !shown.state().indexing()
+                    && shown.lines().contains(0);
+              }
+            }));
+    LogCanvas view = window.canvas();
+    int gutter = view.gutterWidth();
+    int width = canvas().getClientArea().width;
+    assertTrue(
+        gutter + view.columnOffset(161) < width,
+        "column 160 at " + (gutter + view.columnOffset(160)) + " px of " + width);
+    int height = view.lineHeight();
+    ImageData plain = capture();
+    document().select(new Selection(new TextPosition(0, 150), new TextPosition(0, 160)));
+    ImageData selected = capture();
+    RGB background = rgbAt(plain, gutter + 2, height / 2);
+    int inkLeft = -1;
+    int inkRight = -1;
+    for (int x = gutter + view.columnOffset(140); x < gutter + view.columnOffset(170); x++) {
+      for (int y = 0; y < height; y++) {
+        if (!rgbAt(plain, x, y).equals(background)) {
+          inkLeft = inkLeft < 0 ? x : inkLeft;
+          inkRight = x;
+          break;
+        }
+      }
+    }
+    int band = height - 1;
+    int selectedLeft = -1;
+    int selectedRight = -1;
+    for (int x = gutter; x < width; x++) {
+      if (!rgbAt(selected, x, band).equals(rgbAt(plain, x, band))) {
+        selectedLeft = selectedLeft < 0 ? x : selectedLeft;
+        selectedRight = x + 1;
+      }
+    }
+    String found =
+        "advance "
+            + view.advance()
+            + ", ink "
+            + inkLeft
+            + "-"
+            + inkRight
+            + ", selection "
+            + selectedLeft
+            + "-"
+            + selectedRight;
+    int slack = (int) Math.ceil(view.advance() / 2);
+    assertTrue(inkLeft >= 0 && selectedLeft >= 0, found);
+    assertTrue(inkLeft >= selectedLeft - 1 && inkLeft - selectedLeft <= slack, found);
+    assertTrue(inkRight < selectedRight + 1 && selectedRight - 1 - inkRight <= slack, found);
+  }
+
+  private ImageData capture() {
+    Image image = new Image(display, canvas().getSize().x, canvas().getSize().y);
+    GC gc = new GC(image);
+    try {
+      Gtk4.assertPrinted(canvas().print(gc));
+      return image.getImageData();
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  private static RGB rgbAt(ImageData data, int x, int y) {
+    return data.palette.getRGB(data.getPixel(x, y));
   }
 }

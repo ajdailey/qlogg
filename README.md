@@ -199,7 +199,7 @@ arm64 host runs it under its engine's emulation.
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets`; uploads the seven archives as `qlogg-archives` |
 | `bundle` | the six `test` runners | Unpacks the target's bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens |
-| `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; allowed to fail (`continue-on-error`) |
+| `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 
 On Windows the `bundle` job starts `qlogg.exe`, finds the `javaw.exe` child
 running `qlogg.jar`, and passes only when the child's image is the bundle's

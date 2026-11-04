@@ -303,6 +303,7 @@ class HelpItemsTest {
 
   @Test
   void documentationShowsTheGuideInABrowserWindowOrNamesTheFile() throws Exception {
+    assumeFalse(Gtk4.active(), Gtk4.BROWSER_ABORTS);
     final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
     long start = System.nanoTime();
     controller.execute(CommandId.DOCUMENTATION);

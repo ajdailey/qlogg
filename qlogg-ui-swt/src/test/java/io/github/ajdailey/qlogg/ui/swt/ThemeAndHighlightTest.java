@@ -173,7 +173,7 @@ class ThemeAndHighlightTest {
     Image image = new Image(display, canvas.getSize().x, canvas.getSize().y);
     GC gc = new GC(image);
     try {
-      assertTrue(canvas.print(gc));
+      Gtk4.assertPrinted(canvas.print(gc));
       ImageData data = image.getImageData();
       return data.palette.getRGB(data.getPixel(x, y));
     } finally {
@@ -291,7 +291,7 @@ class ThemeAndHighlightTest {
             }));
     long row = 49 - document().viewport().topLine();
     int y = (int) (row + 1) * window.canvas().lineHeight() - 1;
-    int x = window.canvas().gutterWidth() + window.canvas().charWidth() * 4;
+    int x = window.canvas().gutterWidth() + window.canvas().columnOffset(4);
     assertEquals(rgb(MOCK_RED), pixel(window.canvas().control(), x, y));
     highlighters.notifyListeners(SWT.Show, new Event());
     for (MenuItem item : highlighters.getItems()) {

@@ -184,6 +184,9 @@ public final class MainWindow implements MainView, ApplicationListener {
   private ResultsPane results;
   private OverviewBar overviewBar;
   private CTabItem dragged;
+  // Tab drag and tab context menu.
+  private boolean movingTab;
+  private Menu tabMenu;
   private Menu highlightMenu;
   // Recent files, favorites and encoding menus.
   private Menu recentMenu;
@@ -621,7 +624,7 @@ public final class MainWindow implements MainView, ApplicationListener {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.item instanceof CTabItem item && !item.isDisposed()) {
+            if (!movingTab && event.item instanceof CTabItem item && !item.isDisposed()) {
               controller.activate((DocumentController) item.getData());
             }
           }
@@ -677,7 +680,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Opens a tab's context menu: the close variants, then the path commands, then the tab name.
+   * Opens a tab's context menu: the close variants, then the path commands, then the tab name. One
+   * menu serves every tab; each call replaces its items.
    *
    * @param document the tab's controller
    * @param x display x
@@ -685,7 +689,13 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @return the menu, already visible
    */
   Menu showTabMenu(final DocumentController document, int x, int y) {
-    Menu menu = new Menu(shell, SWT.POP_UP);
+    if (tabMenu == null || tabMenu.isDisposed()) {
+      tabMenu = new Menu(shell, SWT.POP_UP);
+    }
+    Menu menu = tabMenu;
+    for (MenuItem old : menu.getItems()) {
+      old.dispose();
+    }
     int index = controller.documents().indexOf(document);
     int count = controller.documents().size();
     boolean file = !document.document().inMemory();
@@ -810,14 +820,23 @@ public final class MainWindow implements MainView, ApplicationListener {
         });
   }
 
-  /** Recreates a tab at another position; a tab's control and order cannot be changed in place. */
+  /**
+   * Recreates a tab at another position; a tab's control and order cannot be changed in place.
+   * Disposing the selected item makes {@code CTabFolder} select a neighbor and send {@code
+   * SWT.Selection}; the tab listener ignores it, so the shown document stays the moved one.
+   */
   private void moveTab(CTabItem source, int index) {
     DocumentController document = (DocumentController) source.getData();
     boolean selected = tabs.getSelection() == source;
-    source.dispose();
-    CTabItem moved = newTab(document, index);
-    if (selected) {
-      tabs.setSelection(moved);
+    movingTab = true;
+    try {
+      source.dispose();
+      CTabItem moved = newTab(document, index);
+      if (selected) {
+        tabs.setSelection(moved);
+      }
+    } finally {
+      movingTab = false;
     }
     controller.moveDocument(document, index);
   }
@@ -1065,6 +1084,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (old != null) {
       old.dispose();
     }
+    syncEnablement();
   }
 
   /**
@@ -1076,12 +1096,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     syncHighlightMenu();
     syncOpenedFilesMenu();
     syncListedMenus(document);
-    boolean file = document != null && !document.document().inMemory();
-    for (MenuItem item : fileItems.values()) {
-      if (!item.isDisposed()) {
-        item.setEnabled(file);
-      }
-    }
+    syncEnablement();
     for (Map.Entry<CommandId, MenuItem> entry : checkItems.entrySet()) {
       MenuItem item = entry.getValue();
       if (item.isDisposed()) {
@@ -1092,10 +1107,29 @@ public final class MainWindow implements MainView, ApplicationListener {
         item.setSelection(controller != null && applicationChecked(command));
         continue;
       }
-      item.setEnabled(document != null);
       item.setSelection(document != null && checked(command, document));
     }
     syncEncodingMenu(document);
+  }
+
+  /**
+   * Enables the menu items that need a file or a document. Runs on every document change as well as
+   * on menu Show: a disabled item's accelerator does not fire.
+   */
+  void syncEnablement() {
+    DocumentController document = controller == null ? null : controller.activeDocument();
+    boolean file = document != null && !document.document().inMemory();
+    for (MenuItem item : fileItems.values()) {
+      if (!item.isDisposed()) {
+        item.setEnabled(file);
+      }
+    }
+    for (Map.Entry<CommandId, MenuItem> entry : checkItems.entrySet()) {
+      MenuItem item = entry.getValue();
+      if (!item.isDisposed() && !APPLICATION_CHECKS.contains(entry.getKey())) {
+        item.setEnabled(document != null);
+      }
+    }
   }
 
   /** The state of a check item in {@link #APPLICATION_CHECKS}. */
@@ -1390,11 +1424,13 @@ public final class MainWindow implements MainView, ApplicationListener {
     newTab(document, tabs.getItemCount());
     showTabs();
     syncToolBar();
+    syncEnablement();
   }
 
   @Override
   public void activeDocumentChanged(DocumentController document) {
     syncToolBar();
+    syncEnablement();
     if (document == null) {
       searchBar.unbind();
       removeViews();
@@ -1418,6 +1454,7 @@ public final class MainWindow implements MainView, ApplicationListener {
       showViews(replacement);
     }
     syncToolBar();
+    syncEnablement();
   }
 
   /** Disposes the views and creates them over a document's controllers. */
@@ -1452,6 +1489,7 @@ public final class MainWindow implements MainView, ApplicationListener {
       removeViews();
       clearStatus();
     }
+    syncEnablement();
   }
 
   private void removeViews() {

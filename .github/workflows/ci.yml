@@ -51,13 +51,12 @@ jobs:
         shell: cmd
         run: mvnw.cmd -B verify
 
-  # The SWT tests on the experimental GTK 4 backend. Not gating: it shows
-  # when the SWT GTK 4 defects that affect the log view are fixed.
+  # The SWT tests on the experimental GTK 4 backend. Tests that hit a known
+  # GTK 4 defect skip themselves under SWT_GTK4=1 (ui-swt test class Gtk4).
   test-gtk4:
     name: test linux-x86_64 GTK 4 (experimental)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    continue-on-error: true
     env:
       SWT_GTK4: "1"
     steps:

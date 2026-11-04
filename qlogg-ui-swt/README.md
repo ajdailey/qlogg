@@ -32,7 +32,9 @@ Compiled and tested against the build host's SWT fragment.
   keys; only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys
   such as `Ctrl+C` reach the log view and never a text field. A `check()`
   command is a check item, set from the controllers' state when its menu
-  shows. The Highlighters menu lists the sets after None as check items,
+  shows. Items that need a document or a file are enabled on every document
+  open, activation, replacement and close (`syncEnablement`), not only when a
+  menu shows: a disabled item's accelerator does not fire. The Highlighters menu lists the sets after None as check items,
   rebuilt when it shows. View > Opened Files lists the open files as radio
   items, rebuilt when the View menu shows; choosing one shows its tab. Reload
   and the Edit menu's path commands are disabled for text opened from the
@@ -81,10 +83,13 @@ Compiled and tested against the build host's SWT fragment.
   `activate`; its close button and a middle click call `closeDocument`.
   Dragging a tab onto
   another recreates it at that position, because a `CTabItem` cannot move,
-  and calls `moveDocument`. `documentReplaced` points the tab at the reopened
-  document's controller. The tab's context menu
-  (`showTabMenu`) holds Close This, Close Others, Close to the Left, Close to
-  the Right, Close All, then Copy Full Path, Copy File Name and Open
+  and calls `moveDocument`. Disposing the selected item makes `CTabFolder`
+  select a neighbor and send `SWT.Selection`; the tab listener ignores it
+  during the move, so the dragged document stays shown. Pressing a tab
+  selects it, so a dragged tab always ends selected. `documentReplaced`
+  points the tab at the reopened document's controller. The tab's context
+  menu (`showTabMenu`, one menu refilled on each call) holds Close This, Close
+  Others, Close to the Left, Close to the Right, Close All, then Copy Full Path, Copy File Name and Open
   Containing Folder, then
   Rename Tab and Reset Tab Name; the side items are disabled at the ends and
   the path and name items for clipboard text.
@@ -155,8 +160,9 @@ Compiled and tested against the build host's SWT fragment.
 - GTK3 is the Linux default. GTK4 is an experimental opt-in: set
   `SWT_GTK4=1` before starting QLogg (linux-x86_64 only; linux-aarch64 has no
   SWT GTK4 natives and stays on GTK3). Open SWT GTK4 defects affect the log
-  view (slow scrolling, custom painting, missing mouse events); a CI job allowed
-  to fail runs these tests with `SWT_GTK4=1`.
+  view (slow scrolling, custom painting, missing mouse events). The `test-gtk4`
+  CI job runs these tests with `SWT_GTK4=1`; a test that hits a known GTK 4
+  failure skips itself there through the test class `Gtk4`.
 
 Dialogs (`Dialogs`, `LineNumberDialog`, `ErrorDialog`, `AboutDialog`,
 `TextWindow`, `ShortcutsWindow`, `HistoryDialog`, `FiltersDialog`,
@@ -208,10 +214,14 @@ views.
   line. `Ctrl`+wheel (`Cmd` on macOS) calls `zoomFont`.
 
 - Text sits on a grid of the `FontSettings` font (empty family: Monospace,
-  Consolas or Menlo; bold when set; forced text anti-aliasing when set) whose
-  column width is the font's digit width. A row outside printable ASCII is drawn as
-  one string and its selection edges are measured with `GC.textExtent`; mouse
-  hit testing uses the grid.
+  Consolas or Menlo; bold when set; forced text anti-aliasing when set). The
+  column advance is the `GC.textExtent` width of 1000 digits divided by 1000,
+  kept fractional, and column `c` sits at `round(c * advance)` for spans, the
+  selection, whitespace markers and hit testing. Each row is drawn as one
+  string with the font's own advances, so an advance rounded to whole pixels
+  drifts off the glyphs by the fraction per column (macOS Menlo, GTK 4,
+  fractional Windows scaling). A row outside printable ASCII has its selection
+  edges measured with `GC.textExtent`; mouse hit testing uses the grid.
 - A row paints its background (base, current line, then the whole-line
   highlight), the span backgrounds, the selection, the text in the line's
   color, then the text again clipped to each span with a text color and to
@@ -327,8 +337,11 @@ two files: the top row holds toolbar, path field and its menu, Stop and file
 fields; the tab row shows with two files, hides when one is left and shows
 again for a second; the last one shows, selecting a tab shows its document
 and file fields,
-dragging a tab moves it, closing and Close All remove tabs, `F` follows, the
-tab menu's items and a middle click close tabs, File > Close empties and
+dragging a tab moves it, a dragged tab stays selected with its document
+shown in the views and the path field, closing and Close All remove tabs,
+`F` follows, the tab menu's items and a middle click close tabs, a second
+tab menu reuses the first with new items, Reload and the document check
+items are enabled after an open with no menu shown since, File > Close empties and
 disables the path field, a rename shows in the tab,
 the toolbar's Follow tracks the document, View > Opened Files and Switch to
 File list and show tabs, and dropped files open.
@@ -354,7 +367,8 @@ unclosed class and applying an entry start pattern; with
 `-Dqlogg.shots=<dir>` it writes `options.png` and `main.png`.
 `LogViewTest`
 composes the window over a real document and drives it with SWT events: painted text and line-number pixels (through
-`Control.print`), keys including `Ctrl+E Ctrl+T`, mouse selection and
+`Control.print`), a selection of columns 150-160 at 6 pt lying on its
+glyphs, keys including `Ctrl+E Ctrl+T`, mouse selection and
 `Ctrl+C` to the clipboard, scroll bar drag and wheel, the menu bar's menus,
 order, labels and accelerators, Go to Line, the Help windows and the About
 layout, the search bar with `N` and
