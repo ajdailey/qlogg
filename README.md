@@ -6,7 +6,9 @@
 # QLogg
 
 QLogg is a cross-platform viewer for large and growing log files, written in
-Java 21 with SWT. It makes no network connections.
+Java 21 with SWT. It makes no outbound network connections; its only socket is
+a loopback endpoint that passes files from a second launch to the running
+instance.
 
 QLogg is not an editor or a log collector, and it runs no macros, scripts or
 plugins.

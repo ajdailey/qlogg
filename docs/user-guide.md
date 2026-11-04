@@ -1,9 +1,10 @@
 # QLogg User Guide
 
 QLogg shows large and growing log files without loading them into memory. It
-never connects to a network. On macOS, `Ctrl` in this guide is `Cmd`; Help >
-Keyboard Shortcuts lists every key for your platform and Tools > Options,
-Shortcuts changes them.
+never connects to another computer; a second launch hands its files to the
+running QLogg over a local-only connection. On macOS, `Ctrl` in this guide is
+`Cmd`; Help > Keyboard Shortcuts lists every key for your platform and Tools >
+Options, Shortcuts changes them.
 
 - [Opening files](#opening-files)
 - [The main window](#the-main-window)
