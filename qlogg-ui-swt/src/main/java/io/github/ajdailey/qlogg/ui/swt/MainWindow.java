@@ -502,7 +502,7 @@ public final class MainWindow implements MainView, ApplicationListener {
       return;
     }
     DocumentController document = controller == null ? null : controller.activeDocument();
-    boolean file = document != null && !document.document().inMemory();
+    boolean file = document != null && document.state().hasFile();
     toolItems.get(CommandId.RELOAD).setEnabled(file);
     toolItems.get(CommandId.FOLLOW).setEnabled(file);
     toolItems.get(CommandId.STOP).setEnabled(document != null);
@@ -698,7 +698,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     int index = controller.documents().indexOf(document);
     int count = controller.documents().size();
-    boolean file = !document.document().inMemory();
+    boolean file = document.state().hasFile();
     tabMenuItem(
         menu,
         UiText.TAB_CLOSE,
@@ -896,7 +896,7 @@ public final class MainWindow implements MainView, ApplicationListener {
           @Override
           public void handleEvent(Event event) {
             DocumentController document = controller == null ? null : controller.activeDocument();
-            boolean file = document != null && !document.document().inMemory();
+            boolean file = document != null && document.state().hasFile();
             copyPath.setEnabled(file);
             copyName.setEnabled(file);
             folder.setEnabled(file);
@@ -1118,7 +1118,7 @@ public final class MainWindow implements MainView, ApplicationListener {
    */
   void syncEnablement() {
     DocumentController document = controller == null ? null : controller.activeDocument();
-    boolean file = document != null && !document.document().inMemory();
+    boolean file = document != null && document.state().hasFile();
     for (MenuItem item : fileItems.values()) {
       if (!item.isDisposed()) {
         item.setEnabled(file);
@@ -1686,6 +1686,11 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   @Override
+  public boolean launchesByExtension() {
+    return "win32".equals(SWT.getPlatform());
+  }
+
+  @Override
   public void resizeMainView(int deltaPercent) {
     setSplit(splitPercent() + deltaPercent);
   }
@@ -2161,7 +2166,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     if (favoritesMenu != null && !favoritesMenu.isDisposed()) {
       clearListed(favoritesMenu);
-      boolean file = document != null && !document.document().inMemory();
+      boolean file = document != null && document.state().hasFile();
       boolean favorite = controller.isFavorite(document);
       for (MenuItem item : favoritesMenu.getItems()) {
         if (item.getData() == CommandId.ADD_FAVORITE) {
@@ -2214,7 +2219,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (encodingMenu == null || encodingMenu.isDisposed() || controller == null) {
       return;
     }
-    boolean file = document != null && !document.document().inMemory();
+    boolean file = document != null && document.state().hasFile();
     String forced =
         file && document.state().encodingForced() ? document.state().encodingName() : "";
     MenuItem auto = checkItems.get(CommandId.ENCODING_AUTO);

@@ -105,6 +105,22 @@ class TabCommandsTest {
     assertFalse(ApplicationController.runsInsteadOfOpening(Path.of("app.log"), true));
   }
 
+  @Test
+  void theViewDecidesWhetherTheExtensionRefusesAFile() throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    fixture.open(fixture.lines("run.bat", 3));
+    fixture.view.byExtension = true;
+    fixture.application.execute(CommandId.OPEN_IN_EDITOR);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.view.notices.contains("run.bat is a program; it is not opened");
+          }
+        });
+    assertEquals(List.of(), fixture.view.launched);
+  }
+
   /** Windows reports every readable file as executable, so the POSIX check runs elsewhere. */
   @Test
   @DisabledOnOs(OS.WINDOWS)

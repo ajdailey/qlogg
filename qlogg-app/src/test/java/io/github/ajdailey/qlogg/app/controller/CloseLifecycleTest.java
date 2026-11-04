@@ -152,23 +152,25 @@ class CloseLifecycleTest {
       views.add(view);
       ApplicationController window = new ApplicationController(owner, view);
       window.addListener(
-          new ApplicationListener() {
-            @Override
-            public void documentOpened(DocumentController document) {
-              track(document);
-            }
+          ui.confined(
+              ApplicationListener.class,
+              new ApplicationListener() {
+                @Override
+                public void documentOpened(DocumentController document) {
+                  track(document);
+                }
 
-            @Override
-            public void documentClosed(DocumentController document) {
-              // Checked after quit.
-            }
+                @Override
+                public void documentClosed(DocumentController document) {
+                  // Checked after quit.
+                }
 
-            @Override
-            public void documentReplaced(
-                DocumentController closed, DocumentController replacement) {
-              track(replacement);
-            }
-          });
+                @Override
+                public void documentReplaced(
+                    DocumentController closed, DocumentController replacement) {
+                  track(replacement);
+                }
+              }));
       return window;
     }
 
@@ -224,6 +226,7 @@ class CloseLifecycleTest {
       assertEquals(0, budget.reserved(MemoryShare.PASTED), "PASTED");
       for (FakeView view : views) {
         assertEquals(0, view.active.get(), "activity counter");
+        view.assertConfined();
       }
     }
 

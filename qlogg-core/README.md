@@ -12,8 +12,9 @@ had open delete-pending for a moment.
 
 ## Threads (`core.concurrent`)
 
-`Workers` owns every thread QLogg starts, and nothing else creates a thread or
-an executor (enforced by `ArchitectureTest` in `qlogg-launcher`). The launcher
+`Workers` owns every thread QLogg starts, and nothing else creates a thread, an
+executor, a `ThreadFactory` or a `java.util.Timer` (enforced by
+`ArchitectureTest` in `qlogg-launcher`). The launcher
 creates one instance and closes it at shutdown.
 
 | Work | Runs on | Names |

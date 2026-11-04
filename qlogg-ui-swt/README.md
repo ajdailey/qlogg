@@ -299,8 +299,13 @@ nothing while the bar is hidden.
   which renders every SVG in both inks at 16 and 32 px into
   `target/generated-resources/icons`; the jar includes them.
 
-View classes never block the UI thread: no `Future.get`, `Thread.join` or
-`java.nio.channels` (`ArchitectureTest`).
+View classes never block the UI thread: no `Future.get`, `Thread.join`,
+`Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`,
+`Semaphore.acquire`, `BlockingQueue.put` or `take`, `CountDownLatch.await`,
+`OperationHandle.await` or `java.nio.channels` (`ArchitectureTest`). They do
+not use `LogDocument`, `MutableLineSet`, `LineReader` or `FoldMap`, do not
+call the `Viewport` mutators, and use only the enums of `core.search` and
+`core.watch`.
 
 `OptionsDialog` (Tools > Options) is modeless with General, View, File,
 Shortcuts, Advanced and Folding tabs; OK and Apply call `setOptions`,

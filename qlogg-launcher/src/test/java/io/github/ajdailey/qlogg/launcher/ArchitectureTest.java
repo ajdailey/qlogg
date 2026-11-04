@@ -1,8 +1,11 @@
 package io.github.ajdailey.qlogg.launcher;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
@@ -15,8 +18,16 @@ import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.core.importer.Location;
+import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.EvaluationResult;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.model.FoldMap;
+import io.github.ajdailey.qlogg.core.model.LineReader;
+import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.Viewport;
+import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.beans.XMLDecoder;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -27,12 +38,19 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Timer;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +64,6 @@ class ArchitectureTest {
   private static final String APP = ROOT + ".app..";
   private static final String UI = ROOT + ".ui..";
   private static final String LAUNCHER = ROOT + ".launcher..";
-  private static final String WORKERS = ROOT + ".core.concurrent.Workers";
   private static final String[] VIEWS = {ROOT + ".ui.swt..", ROOT + ".app.view.."};
 
   private static JavaClasses classes;
@@ -283,17 +300,35 @@ class ArchitectureTest {
 
   @Test
   void viewsNeverBlock() {
-    noClasses()
+    viewsNeverBlockRule().check(classes);
+  }
+
+  private static ArchRule viewsNeverBlockRule() {
+    return noClasses()
         .that()
         .resideInAnyPackage(VIEWS)
         .should()
         .callMethodWhere(call(Future.class, "get"))
         .orShould()
-        .callMethodWhere(call(Thread.class, "join"))
+        .callMethodWhere(call(Thread.class, "join|sleep"))
+        .orShould()
+        .callMethodWhere(call(Object.class, "wait"))
+        .orShould()
+        .callMethodWhere(call(Lock.class, "lock|lockInterruptibly"))
+        .orShould()
+        .callMethodWhere(call(Condition.class, "await.*"))
+        .orShould()
+        .callMethodWhere(call(Semaphore.class, "acquire.*"))
+        .orShould()
+        .callMethodWhere(call(BlockingQueue.class, "put|take"))
+        .orShould()
+        .callMethodWhere(call(CountDownLatch.class, "await"))
+        .orShould()
+        .callMethodWhere(call(OperationHandle.class, "await"))
         .orShould()
         .dependOnClassesThat()
         .resideInAPackage("java.nio.channels..")
-        .check(classes);
+        .because("the UI thread never waits");
   }
 
   @Test
@@ -314,9 +349,13 @@ class ArchitectureTest {
 
   @Test
   void onlyWorkersCreatesThreads() {
-    noClasses()
+    onlyWorkersCreatesThreadsRule().check(classes);
+  }
+
+  private static ArchRule onlyWorkersCreatesThreadsRule() {
+    return noClasses()
         .that()
-        .doNotHaveFullyQualifiedName(WORKERS)
+        .doNotBelongToAnyOf(Workers.class)
         .should()
         .callConstructorWhere(newInstanceOf(Thread.class))
         .orShould()
@@ -333,7 +372,153 @@ class ArchitectureTest {
         .orShould()
         .dependOnClassesThat()
         .areAssignableTo(ForkJoinPool.class)
-        .check(classes);
+        .orShould()
+        .dependOnClassesThat()
+        .areAssignableTo(Timer.class)
+        .orShould()
+        .beAssignableTo(ThreadFactory.class)
+        .orShould()
+        .beAssignableTo(AbstractExecutorService.class);
+  }
+
+  // Boundary rules for views and controllers; each is shown to fail on a fixture below.
+
+  @Test
+  void viewsUseSearchAndWatchEnumsOnly() {
+    viewsUseSearchAndWatchEnumsOnlyRule().check(classes);
+  }
+
+  private static ArchRule viewsUseSearchAndWatchEnumsOnlyRule() {
+    return noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".ui.swt..")
+        .should()
+        .dependOnClassesThat(
+            JavaClass.Predicates.resideInAnyPackage(ROOT + ".core.search..", ROOT + ".core.watch..")
+                .and(DescribedPredicate.not(enums())));
+  }
+
+  @Test
+  void viewsDoNotReachTheDocumentModel() {
+    viewsDoNotReachTheDocumentModelRule().check(classes);
+  }
+
+  private static ArchRule viewsDoNotReachTheDocumentModelRule() {
+    return noClasses()
+        .that()
+        .resideInAnyPackage(VIEWS)
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(LogDocument.class, MutableLineSet.class, LineReader.class, FoldMap.class);
+  }
+
+  @Test
+  void viewsDoNotMoveTheViewport() {
+    viewsDoNotMoveTheViewportRule().check(classes);
+  }
+
+  private static ArchRule viewsDoNotMoveTheViewportRule() {
+    return noClasses()
+        .that()
+        .resideInAnyPackage(VIEWS)
+        .should()
+        .callMethodWhere(
+            call(Viewport.class, "set.*|resize|scrollToLine|scrollBy|scrollColumnsBy|ensure.*"))
+        .because("the controller owns the viewport");
+  }
+
+  @Test
+  void controllersReturnNoMutableSets() {
+    controllersReturnNoMutableSetsRule().check(classes);
+  }
+
+  private static ArchRule controllersReturnNoMutableSetsRule() {
+    return noMethods()
+        .that()
+        .arePublic()
+        .and()
+        .areDeclaredInClassesThat()
+        .resideInAPackage(ROOT + ".app.controller..")
+        .should()
+        .haveRawReturnType(MutableLineSet.class);
+  }
+
+  @Test
+  void controllersReadNoSystemProperties() {
+    controllersReadNoSystemPropertiesRule().check(classes);
+  }
+
+  private static ArchRule controllersReadNoSystemPropertiesRule() {
+    return noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".app.controller..")
+        .should()
+        .callMethodWhere(call(System.class, "getProperty|getProperties|getenv"))
+        .because("the platform is passed in, so tests can choose it");
+  }
+
+  @Test
+  void rulesFailOnTheirFixtures() throws ClassNotFoundException {
+    String views = ROOT + ".ui.swt.archfixture.ViewViolations$";
+    String controllers = ROOT + ".app.controller.archfixture.ControllerViolations$";
+    assertViolations(
+        viewsUseSearchAndWatchEnumsOnlyRule(),
+        views + "UsesWatchRecord",
+        "MonitorSettings",
+        "!MatchMode");
+    assertViolations(
+        viewsDoNotReachTheDocumentModelRule(), views + "ReachesDocument", "LogDocument");
+    assertViolations(
+        viewsDoNotMoveTheViewportRule(), views + "MovesViewport", "scrollBy", "!topLine");
+    assertViolations(
+        viewsNeverBlockRule(),
+        views + "Blocks",
+        "Thread.sleep",
+        "Object.wait",
+        "Lock.lock()",
+        "lockInterruptibly",
+        "Condition.await",
+        "Semaphore.acquire",
+        "BlockingQueue.put",
+        "BlockingQueue.take",
+        "CountDownLatch.await",
+        "OperationHandle.await");
+    assertViolations(
+        controllersReturnNoMutableSetsRule(),
+        controllers + "ReturnsMutableSet",
+        "mutable()",
+        "!lines()");
+    assertViolations(
+        controllersReadNoSystemPropertiesRule(), controllers + "ReadsPlatform", "getProperty");
+    assertViolations(
+        onlyWorkersCreatesThreadsRule(), controllers + "StartsTimer", "java.util.Timer");
+    assertViolations(
+        onlyWorkersCreatesThreadsRule(),
+        controllers + "MakesThreads",
+        "java.util.concurrent.ThreadFactory");
+    assertViolations(
+        onlyWorkersCreatesThreadsRule(),
+        controllers + "RunsTasks",
+        "java.util.concurrent.AbstractExecutorService");
+  }
+
+  /**
+   * Checks a rule against one fixture class: every fragment appears in the failure report, and no
+   * fragment prefixed {@code !} does.
+   */
+  private static void assertViolations(ArchRule rule, String fixture, String... fragments)
+      throws ClassNotFoundException {
+    JavaClasses imported = new ClassFileImporter().importClasses(Class.forName(fixture));
+    EvaluationResult result = rule.evaluate(imported);
+    String report = String.join("\n", result.getFailureReport().getDetails());
+    assertTrue(result.hasViolation(), fixture);
+    for (String fragment : fragments) {
+      if (fragment.startsWith("!")) {
+        assertFalse(report.contains(fragment.substring(1)), fixture + ": " + report);
+      } else {
+        assertTrue(report.contains(fragment), fixture + " lacks " + fragment + ": " + report);
+      }
+    }
   }
 
   /** Matches {@code java.util.Random} and its subtypes except {@code SecureRandom}. */
@@ -342,6 +527,15 @@ class ArchitectureTest {
       @Override
       public boolean test(JavaClass type) {
         return type.isAssignableTo(Random.class) && !type.isAssignableTo(SecureRandom.class);
+      }
+    };
+  }
+
+  private static DescribedPredicate<JavaClass> enums() {
+    return new DescribedPredicate<JavaClass>("enums") {
+      @Override
+      public boolean test(JavaClass type) {
+        return type.isEnum();
       }
     };
   }

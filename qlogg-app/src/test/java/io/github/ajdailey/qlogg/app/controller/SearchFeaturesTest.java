@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.LineRange;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.nio.file.Files;
@@ -52,7 +53,7 @@ class SearchFeaturesTest {
   }
 
   private long retained(SearchController.KeptResults kept) {
-    return kept.lines().retainedBytes();
+    return kept.retainedBytes();
   }
 
   @Test
@@ -116,7 +117,7 @@ class SearchFeaturesTest {
     search.run("line 1", search.options());
     fixture.runUntilEnded(search);
     assertEquals(1, search.kept().size());
-    MutableLineSet kept = search.kept().get(0).lines();
+    LineSet kept = search.kept().get(0).lines();
     assertEquals("hit", search.kept().get(0).text());
     assertTrue(kept.size() >= 6, ControllerFixture.toList(kept).toString());
     assertEquals(
@@ -131,18 +132,20 @@ class SearchFeaturesTest {
   void optionKeysToggleAndTellTheViews() {
     final List<SearchOptions> seen = new ArrayList<SearchOptions>();
     search.addListener(
-        new SearchViewListener() {
-          @Override
-          public void stateChanged(SearchViewState state) {}
+        fixture.ui.confined(
+            SearchViewListener.class,
+            new SearchViewListener() {
+              @Override
+              public void stateChanged(SearchViewState state) {}
 
-          @Override
-          public void resultsChanged() {}
+              @Override
+              public void resultsChanged() {}
 
-          @Override
-          public void optionsChanged(String text, SearchOptions options) {
-            seen.add(options);
-          }
-        });
+              @Override
+              public void optionsChanged(String text, SearchOptions options) {
+                seen.add(options);
+              }
+            }));
     SearchOptions before = search.options();
     fixture.application.execute(CommandId.TOGGLE_CASE);
     fixture.application.execute(CommandId.TOGGLE_REGEX);

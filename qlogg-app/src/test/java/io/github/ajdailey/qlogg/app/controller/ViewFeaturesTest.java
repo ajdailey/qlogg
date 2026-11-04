@@ -82,7 +82,7 @@ class ViewFeaturesTest {
       assertEquals(6, document.sourceLine(document.selection().caret().line()));
 
       collapseAt(fixture, document, 4, 1);
-      document.marks().add(5);
+      document.document().marks().add(5);
       document.goToTop();
       document.nextMark();
       assertEquals(0, document.folds().size());

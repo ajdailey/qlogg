@@ -129,17 +129,19 @@ class SearchControllerTest {
     final List<SearchViewState> states = new ArrayList<SearchViewState>();
     final int[] resultEvents = new int[1];
     search.addListener(
-        new SearchViewListener() {
-          @Override
-          public void stateChanged(SearchViewState state) {
-            states.add(state);
-          }
+        ui.confined(
+            SearchViewListener.class,
+            new SearchViewListener() {
+              @Override
+              public void stateChanged(SearchViewState state) {
+                states.add(state);
+              }
 
-          @Override
-          public void resultsChanged() {
-            resultEvents[0]++;
-          }
-        });
+              @Override
+              public void resultsChanged() {
+                resultEvents[0]++;
+              }
+            }));
     int before = view.activations.get();
     search.run("hit", LITERAL);
     assertEquals(SearchViewState.Phase.RUNNING, search.state().phase());
@@ -208,17 +210,19 @@ class SearchControllerTest {
     final SearchController search = document.search();
     final List<SearchViewState> states = new ArrayList<SearchViewState>();
     search.addListener(
-        new SearchViewListener() {
-          @Override
-          public void stateChanged(SearchViewState state) {
-            states.add(state);
-          }
+        ui.confined(
+            SearchViewListener.class,
+            new SearchViewListener() {
+              @Override
+              public void stateChanged(SearchViewState state) {
+                states.add(state);
+              }
 
-          @Override
-          public void resultsChanged() {
-            // Counted through the state.
-          }
-        });
+              @Override
+              public void resultsChanged() {
+                // Counted through the state.
+              }
+            }));
     search.run("hit", LITERAL);
     long first = search.generation();
     assertTrue(

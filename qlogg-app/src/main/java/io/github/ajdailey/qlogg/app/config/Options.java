@@ -79,6 +79,60 @@ public record Options(
             favorites.size() > MAX_FAVORITES ? favorites.subList(0, MAX_FAVORITES) : favorites);
   }
 
+  // Monitor settings as plain values, for views that use core.watch only for its enums.
+
+  /**
+   * Creates the settings with the monitor settings as values.
+   *
+   * @param font the log views' font
+   * @param recentCount {@code recent.count}
+   * @param pollMillis {@code monitor.pollMillis}
+   * @param useWatchService {@code monitor.watchService}
+   * @param defaultEncoding {@code encoding.default}
+   * @param loadLastSession {@code session.loadLast}
+   * @param shortcuts {@code shortcut.*}
+   * @param favorites {@code favorite.N}
+   * @param debugLogFile {@code log.file}
+   */
+  public Options(
+      FontSettings font,
+      int recentCount,
+      int pollMillis,
+      boolean useWatchService,
+      String defaultEncoding,
+      boolean loadLastSession,
+      ShortcutOverrides shortcuts,
+      List<String> favorites,
+      boolean debugLogFile) {
+    this(
+        font,
+        recentCount,
+        new MonitorSettings(pollMillis, useWatchService),
+        defaultEncoding,
+        loadLastSession,
+        shortcuts,
+        favorites,
+        debugLogFile);
+  }
+
+  /**
+   * Returns {@code monitor.pollMillis}.
+   *
+   * @return the interval between checks of a watched file, in milliseconds
+   */
+  public int pollMillis() {
+    return monitor.pollMillis();
+  }
+
+  /**
+   * Returns {@code monitor.watchService}.
+   *
+   * @return true when directory events also trigger a check
+   */
+  public boolean useWatchService() {
+    return monitor.useWatchService();
+  }
+
   /**
    * Returns a supported charset.
    *

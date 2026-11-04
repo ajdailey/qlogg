@@ -89,22 +89,24 @@ class ApplicationControllerTest {
     final List<DocumentController> opened = new ArrayList<DocumentController>();
     final DocumentController[] shown = new DocumentController[1];
     controller.addListener(
-        new ApplicationListener() {
-          @Override
-          public void documentOpened(DocumentController document) {
-            opened.add(document);
-          }
+        ui.confined(
+            ApplicationListener.class,
+            new ApplicationListener() {
+              @Override
+              public void documentOpened(DocumentController document) {
+                opened.add(document);
+              }
 
-          @Override
-          public void documentClosed(DocumentController document) {
-            opened.remove(document);
-          }
+              @Override
+              public void documentClosed(DocumentController document) {
+                opened.remove(document);
+              }
 
-          @Override
-          public void activeDocumentChanged(DocumentController document) {
-            shown[0] = document;
-          }
-        });
+              @Override
+              public void activeDocumentChanged(DocumentController document) {
+                shown[0] = document;
+              }
+            }));
     controller.open(List.of(new FileRequest(file, 0), new FileRequest(other, 0)));
     assertEquals("QLogg", view.title);
     assertTrue(
@@ -283,5 +285,6 @@ class ApplicationControllerTest {
             },
             BOUND));
     ui.runPending();
+    view.assertConfined();
   }
 }

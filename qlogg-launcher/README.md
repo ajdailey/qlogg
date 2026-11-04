@@ -117,7 +117,10 @@ throwable with its stack trace.
 ## Architecture rules
 
 `ArchitectureTest` checks every class except the bootstrap; test classes and
-test jars are not imported:
+test jars are not imported. `rulesFailOnTheirFixtures` runs the boundary and
+thread rules against the violating classes in `ui.swt.archfixture` and
+`app.controller.archfixture` (test sources), so a rule that stops matching
+fails:
 
 | Rule | Why |
 |---|---|
@@ -127,6 +130,10 @@ test jars are not imported:
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |
 | `core.util` depends on no other QLogg package | Utilities stay leaf classes |
+| `ui.swt` uses `core.{search, watch}` only for their enums | Views read controller state, not the search and file-watch model |
+| Views do not depend on `LogDocument`, `MutableLineSet`, `LineReader` or `FoldMap`, and do not call `Viewport` mutators | The controller owns the document, the sets and the viewport |
+| Public `app.controller` methods do not return `MutableLineSet` | Views cannot change marks or results |
+| `app.controller` reads no system property or environment variable | Tests choose the platform through the view |
 | Every `UiText` constant is read outside `UiText` | No unused bundle entry |
 | logback only in `launcher` | Everything else logs through slf4j |
 | No `java.net.http`, `URLConnection`, `Socket` or `URL.openStream`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |

@@ -78,16 +78,75 @@ public final class SearchController {
     REPLACE
   }
 
-  /**
-   * A finished search kept as a pinned result set.
-   *
-   * @param text the search text
-   * @param options the toggles it ran with
-   * @param lines the matching lines, charged to {@code RESULTS}
-   * @param limit what stopped it early, or {@code NONE}
-   */
-  public record KeptResults(
-      String text, SearchOptions options, MutableLineSet lines, SearchLimit limit) {}
+  /** A finished search kept as a pinned result set. */
+  public static final class KeptResults {
+    private final String text;
+    private final SearchOptions options;
+    private final MutableLineSet lines;
+    private final SearchLimit limit;
+
+    KeptResults(String text, SearchOptions options, MutableLineSet lines, SearchLimit limit) {
+      this.text = text;
+      this.options = options;
+      this.lines = lines;
+      this.limit = limit;
+    }
+
+    /**
+     * Returns the search text.
+     *
+     * @return the text
+     */
+    public String text() {
+      return text;
+    }
+
+    /**
+     * Returns the toggles the search ran with.
+     *
+     * @return the toggles
+     */
+    public SearchOptions options() {
+      return options;
+    }
+
+    /**
+     * Returns the matching lines, charged to {@code RESULTS}.
+     *
+     * @return the set
+     */
+    public LineSet lines() {
+      return lines;
+    }
+
+    /**
+     * Returns the size of {@link #lines}.
+     *
+     * @return the number of matching lines
+     */
+    public long lineCount() {
+      return lines.size();
+    }
+
+    /**
+     * Returns what stopped the search early.
+     *
+     * @return the limit, or {@code NONE}
+     */
+    public SearchLimit limit() {
+      return limit;
+    }
+
+    /** Empties the set and returns its reservation. */
+    void clear() {
+      lines.clear();
+    }
+
+    /** Returns the heap the set retains, in bytes. */
+    long retainedBytes() {
+      return lines.retainedBytes();
+    }
+  }
 
   private final DocumentController document;
   private final SearchEngine engine;
@@ -194,6 +253,15 @@ public final class SearchController {
   }
 
   /**
+   * Returns the size of {@link #results}.
+   *
+   * @return the number of matching lines so far
+   */
+  public long resultCount() {
+    return results.size();
+  }
+
+  /**
    * Returns the result set the filtered view shows: the current search's, or a kept set.
    *
    * @return the set
@@ -242,7 +310,7 @@ public final class SearchController {
     if (index < 0 || index >= kept.size()) {
       return;
     }
-    kept.remove(index).lines().clear();
+    kept.remove(index).clear();
     if (shown == index) {
       shown = -1;
     } else if (shown > index) {
@@ -619,7 +687,7 @@ public final class SearchController {
     }
     results.clear();
     for (KeptResults set : kept) {
-      set.lines().clear();
+      set.clear();
     }
     kept.clear();
     listeners.clear();

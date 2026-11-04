@@ -49,7 +49,7 @@ class ReloadTest {
   @Test
   void reloadKeepsMarksAndLabelsAndDropsMarksPastTheEnd() throws Exception {
     DocumentController document = open(60);
-    MutableLineSet marks = document.marks();
+    MutableLineSet marks = document.document().marks();
     marks.add(5);
     marks.add(59);
     marks.add(100);
@@ -70,7 +70,7 @@ class ReloadTest {
   @Test
   void aChangeOnDiskClearsMarksAndLabels() throws Exception {
     DocumentController document = open(60);
-    document.marks().add(5);
+    document.document().marks().add(5);
     document.applyLabel(0, "hit");
     Files.writeString(temp.resolve("reload.log"), "short\n", StandardOpenOption.TRUNCATE_EXISTING);
     DocumentController reopened = replacement(document);

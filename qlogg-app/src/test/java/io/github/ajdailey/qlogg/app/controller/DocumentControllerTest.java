@@ -359,17 +359,19 @@ class DocumentControllerTest {
     final int[] calls = new int[2];
     DocumentController document = open(lines("f.log", 5), 0);
     document.addListener(
-        new DocumentViewListener() {
-          @Override
-          public void stateChanged(DocumentViewState state) {
-            calls[0]++;
-          }
+        ui.confined(
+            DocumentViewListener.class,
+            new DocumentViewListener() {
+              @Override
+              public void stateChanged(DocumentViewState state) {
+                calls[0]++;
+              }
 
-          @Override
-          public void contentChanged() {
-            calls[1]++;
-          }
-        });
+              @Override
+              public void contentChanged() {
+                calls[1]++;
+              }
+            }));
     document.viewportResized(10, 80);
     document.scrollLines(1);
     assertTrue(calls[1] > 0);

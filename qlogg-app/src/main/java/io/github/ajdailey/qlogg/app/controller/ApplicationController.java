@@ -1005,8 +1005,7 @@ public final class ApplicationController implements DocumentHost {
       view.showNotice(UiText.NOTICE_NO_FILE.text());
       return;
     }
-    final boolean windows =
-        System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+    final boolean windows = view.launchesByExtension();
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,

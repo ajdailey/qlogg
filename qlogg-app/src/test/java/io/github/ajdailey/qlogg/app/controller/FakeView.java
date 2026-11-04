@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.controller;
 import io.github.ajdailey.qlogg.app.about.AboutInfo;
 import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.view.MainView;
+import io.github.ajdailey.qlogg.app.view.UiThreadCheck;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,9 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Records what the controllers do to the window. Used on the test thread, the UI thread here,
- * except the activity count, which workers change.
+ * except the activity count, which workers change. A call from another thread is recorded and
+ * thrown by {@link #assertConfined}.
  */
 final class FakeView implements MainView {
+  private final UiThreadCheck ui = new UiThreadCheck();
   String title = "QLogg";
   boolean hidden;
   boolean disposed;
@@ -47,16 +50,19 @@ final class FakeView implements MainView {
 
   @Override
   public void setTitle(String title) {
+    ui.check("setTitle");
     this.title = title;
   }
 
   @Override
   public void hide() {
+    ui.check("hide");
     hidden = true;
   }
 
   @Override
   public void dispose() {
+    ui.check("dispose");
     disposed = true;
   }
 
@@ -73,43 +79,56 @@ final class FakeView implements MainView {
 
   @Override
   public void askLineNumber(long lineCount, LineNumberListener listener) {
+    ui.check("askLineNumber");
     askedLineCount = lineCount;
     lineListener = listener;
   }
 
   @Override
   public void focusSearch() {
+    ui.check("focusSearch");
     searchFocused++;
   }
 
   @Override
   public void focusQuickFind() {
+    ui.check("focusQuickFind");
     quickFindFocused++;
   }
 
   @Override
   public void resizeMainView(int deltaPercent) {
+    ui.check("resizeMainView");
     split += deltaPercent;
   }
 
   @Override
   public int splitPercent() {
+    ui.check("splitPercent");
     return split;
   }
 
   @Override
   public void showHistoryDialog() {
+    ui.check("showHistoryDialog");
     historyDialogs++;
   }
 
   @Override
   public void showFiltersDialog() {
+    ui.check("showFiltersDialog");
     filterDialogs++;
   }
 
   @Override
   public void showNotice(String message) {
+    ui.check("showNotice");
     notices.add(message);
+  }
+
+  /** Throws the first {@code MainView} call made off the UI thread. */
+  void assertConfined() {
+    ui.assertConfined();
   }
 
   /** Returns the last notice, or null. */
@@ -119,85 +138,109 @@ final class FakeView implements MainView {
 
   @Override
   public void focusView(boolean filtered) {
+    ui.check("focusView");
     focusedView = filtered ? "filtered" : "main";
   }
 
   @Override
   public void showOverview(boolean shown) {
+    ui.check("showOverview");
     overview = shown;
   }
 
   @Override
   public void showHighlightersDialog() {
+    ui.check("showHighlightersDialog");
     highlighterDialogs++;
   }
 
   @Override
   public void askFilterName(String suggested, NameListener listener) {
+    ui.check("askFilterName");
     suggestedName = suggested;
     nameListener = listener;
   }
 
   @Override
   public void showKeyboardShortcuts() {
+    ui.check("showKeyboardShortcuts");
     shortcuts = true;
   }
 
   @Override
   public void showText(String title, String text) {
+    ui.check("showText");
     texts.add(title + ": " + text);
   }
 
   @Override
   public void showAbout(AboutInfo info) {
+    ui.check("showAbout");
     about = info;
   }
 
   @Override
   public String toolkitDescription() {
+    ui.check("toolkitDescription");
     return "Fake toolkit";
   }
 
   @Override
   public List<Path> chooseFilesToOpen(Path initialDirectory) {
+    ui.check("chooseFilesToOpen");
     return chosen;
   }
 
   @Override
   public void setText(String text) {
+    ui.check("setText");
     clipboard = text;
   }
 
   @Override
   public String clipboardText() {
+    ui.check("clipboardText");
     return clipboard;
   }
 
   @Override
   public void showError(String title, String message) {
+    ui.check("showError");
     errors.add(title + ": " + message);
   }
 
   @Override
   public void showInfo(String title, String message) {
+    ui.check("showInfo");
     infos.add(title + ": " + message);
   }
 
   @Override
   public void showOpenedFiles() {
+    ui.check("showOpenedFiles");
     openedFilesShown++;
   }
 
   @Override
   public void askTabName(String current, NameListener listener) {
+    ui.check("askTabName");
     suggestedName = current;
     nameListener = listener;
   }
 
   @Override
   public boolean launch(Path target) {
+    ui.check("launch");
     launched.add(target);
     return launchResult;
+  }
+
+  boolean byExtension;
+
+  @Override
+  public boolean launchesByExtension() {
+    ui.check("launchesByExtension");
+    return byExtension;
   }
 
   // Save, scratchpad, search across open files and automatic highlighter sets.
@@ -207,11 +250,13 @@ final class FakeView implements MainView {
 
   @Override
   public Path chooseSaveFile(String suggestedName) {
+    ui.check("chooseSaveFile");
     return saveTarget;
   }
 
   @Override
   public void showScratchpad(String text, boolean replace) {
+    ui.check("showScratchpad");
     if (text != null) {
       if (replace) {
         scratchpad.clear();
@@ -222,29 +267,36 @@ final class FakeView implements MainView {
 
   @Override
   public void showMultiSearch() {
+    ui.check("showMultiSearch");
     multiSearchShown++;
   }
 
   @Override
-  public void showSelectorsDialog() {}
+  public void showSelectorsDialog() {
+    ui.check("showSelectorsDialog");
+  }
 
   @Override
   public void showOptions() {
+    ui.check("showOptions");
     optionsShown++;
   }
 
   @Override
   public int platformFontSize() {
+    ui.check("platformFontSize");
     return 10;
   }
 
   @Override
   public WindowGeometry.Request windowBounds() {
+    ui.check("windowBounds");
     return new WindowGeometry.Request(window.x(), window.y(), window.width(), window.height());
   }
 
   @Override
   public boolean windowMaximized() {
+    ui.check("windowMaximized");
     return window.maximized();
   }
 
@@ -256,21 +308,25 @@ final class FakeView implements MainView {
 
   @Override
   public void toFront() {
+    ui.check("toFront");
     raised++;
   }
 
   @Override
   public void showWarningMarker(boolean shown) {
+    ui.check("showWarningMarker");
     warningMarker = shown;
   }
 
   @Override
   public void showLog(String text) {
+    ui.check("showLog");
     logs.add(text);
   }
 
   @Override
   public boolean launchUrl(String url) {
+    ui.check("launchUrl");
     urls.add(url);
     return launchResult;
   }
@@ -281,6 +337,7 @@ final class FakeView implements MainView {
 
   @Override
   public boolean showGuide(Path file) {
+    ui.check("showGuide");
     guides.add(file);
     return browser;
   }

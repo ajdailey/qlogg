@@ -144,12 +144,14 @@ class HighlightControllerTest {
     final OverviewController overview = document.overview();
     final AtomicInteger changes = new AtomicInteger();
     overview.addListener(
-        new OverviewListener() {
-          @Override
-          public void binsChanged() {
-            changes.incrementAndGet();
-          }
-        });
+        fixture.ui.confined(
+            OverviewListener.class,
+            new OverviewListener() {
+              @Override
+              public void binsChanged() {
+                changes.incrementAndGet();
+              }
+            }));
     overview.setGeometry(40, true);
     fixture.runUntil(
         new BooleanSupplier() {

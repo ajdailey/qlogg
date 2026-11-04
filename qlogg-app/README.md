@@ -50,7 +50,8 @@ which Maven writes from the project version; outside a jar it returns
   path, encoding and whether it was forced, line count, index percent, sparse
   index, following, file size and modification time, missing file, stopped
   loading, error) and `contentChanged()` (repaint from the controller's
-  snapshot). `StatusText` formats the top row's size, modification time and
+  snapshot). `hasFile()` is false for pasted text, which has no path.
+  `StatusText` formats the top row's size, modification time and
   encoding and the status bar's notes.
 - `SearchViewListener` receives `stateChanged(SearchViewState)` (text,
   `SearchOptions`, phase `IDLE` `RUNNING` `DONE` `CANCELED` `FAILED`,
@@ -79,6 +80,9 @@ which Maven writes from the project version; outside a jar it returns
 `ManualUiDispatcher` (test sources, published in the test jar) queues
 submissions until a test runs them on its own thread. `runUntil` drives the
 queue to a condition with a bound, so controller tests need no sleeps.
+Draining from another thread throws. `confined(type, listener)` wraps a
+listener so a call off the UI thread is recorded, and the next drain throws
+it.
 
 ## Key bindings (`app.command`)
 
@@ -126,7 +130,10 @@ back.
 
 Every controller is confined to the UI thread and never blocks it
 (`ArchitectureTest` rejects `Future.get`, `Thread.join`, `Thread.sleep`,
-`OperationHandle.await` and `CountDownLatch.await` here).
+`OperationHandle.await` and `CountDownLatch.await` here). Controllers read no
+system property or environment variable; the platform comes from the view.
+Public controller methods return `LineSet`, never `MutableLineSet`
+(`marks()`, `KeptResults.lines()`).
 
 `ApplicationController` is one main window: it runs window commands and owns
 the tabs, one `DocumentController` per open file in tab order
@@ -171,8 +178,8 @@ window; `new ApplicationController(set, view)` adds a window to a set.
   (Edit menu and tab menu) act on the file's path. The folder and the file open through
   `MainView.launch`, which runs no shell. `openInEditor` first checks on a
   `qlogg-lifecycle-` worker whether the system would run the file instead
-  of opening it (an executable file, or on Windows an extension in
-  `WINDOWS_EXECUTABLE`), and refuses it with a notice.
+  of opening it (an executable file, or an extension in `WINDOWS_EXECUTABLE`
+  where `MainView.launchesByExtension()`), and refuses it with a notice.
 - `reload` (`F5`) and a `TRUNCATED`, `REPLACED` or `MODIFIED` file
   (`reopenChanged`) reopen the path on a `qlogg-index-` worker. The new
   controller takes the tab, the follow state and the search text, and results
@@ -666,7 +673,10 @@ DEBUG (`-d 2` and above).
 ## Tests
 
 Controller tests run over `FakeView` and `ManualUiDispatcher`, with real
-workers, files and file monitor. `FollowControllerTest` covers follow and its
+workers, files and file monitor. `FakeView` records any `MainView` call
+other than `setActive` and `setIdle` made off the test thread, and the
+teardown throws it, so a worker path that touches the view fails the test.
+`FollowControllerTest` covers follow and its
 release, overscroll, follow on load and `-f`, auto-refresh over a grown last
 line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
 delete-then-recreate reopening the tab,

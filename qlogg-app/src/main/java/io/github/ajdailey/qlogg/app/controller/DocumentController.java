@@ -34,6 +34,7 @@ import io.github.ajdailey.qlogg.core.model.MarkToggle;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
@@ -700,7 +701,7 @@ public final class DocumentController extends LineViewController {
    *
    * @return the document's marks
    */
-  public MutableLineSet marks() {
+  public LineSet marks() {
     return document.marks();
   }
 

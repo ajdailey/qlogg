@@ -140,6 +140,14 @@ public interface MainView
   boolean launch(Path target);
 
   /**
+   * Reports whether {@link #launch} picks the handler by file extension, as on Windows, where a
+   * file with an executable extension runs instead of opening.
+   *
+   * @return true when the extension decides
+   */
+  boolean launchesByExtension();
+
+  /**
    * Describes the UI toolkit for About.
    *
    * @return version and platform, for example {@code SWT 4971 gtk}

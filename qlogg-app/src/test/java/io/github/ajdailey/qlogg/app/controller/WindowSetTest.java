@@ -161,6 +161,9 @@ class WindowSetTest {
               }
             },
             BOUND));
+    for (FakeView view : views) {
+      view.assertConfined();
+    }
   }
 
   private void runUntil(BooleanSupplier condition) throws InterruptedException {

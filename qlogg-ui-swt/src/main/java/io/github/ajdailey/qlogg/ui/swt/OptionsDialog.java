@@ -16,7 +16,6 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
-import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -222,14 +221,14 @@ final class OptionsDialog {
       encoding.add(name);
     }
     encoding.setText(options.defaultEncoding());
-    watch = check(page, UiText.OPTIONS_WATCH, options.monitor().useWatchService());
+    watch = check(page, UiText.OPTIONS_WATCH, options.useWatchService());
     poll =
         spinner(
             page,
             UiText.OPTIONS_POLL,
             Options.MIN_POLL_MILLIS,
             Options.MAX_POLL_MILLIS,
-            options.monitor().pollMillis());
+            options.pollMillis());
   }
 
   private void advanced(Composite page, Preferences preferences) {
@@ -576,7 +575,8 @@ final class OptionsDialog {
         new Options(
             font,
             recentCount.getSelection(),
-            new MonitorSettings(poll.getSelection(), watch.getSelection()),
+            poll.getSelection(),
+            watch.getSelection(),
             chosenEncoding,
             loadSession.getSelection(),
             overrides,

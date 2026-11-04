@@ -132,12 +132,12 @@ final class ResultsPane {
     String current =
         state.text().isEmpty()
             ? UiText.RESULTS_CURRENT_EMPTY.text()
-            : UiText.RESULTS_TAB.format(shorten(state.text()), search.results().size());
+            : UiText.RESULTS_TAB.format(shorten(state.text()), search.resultCount());
     sets.getItem(0).setText(current);
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);
-      item.setText(UiText.RESULTS_TAB.format(shorten(set.text()), set.lines().size()));
+      item.setText(UiText.RESULTS_TAB.format(shorten(set.text()), set.lineCount()));
       item.setToolTipText(set.text());
     }
     sets.getItem(0).setToolTipText(state.text());
