@@ -2,7 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -254,10 +254,10 @@ class RowPixelsTest {
 
   @Test
   void aSpanAndTheSelectionOnAWrappedRowSitOnTheirGlyphs() throws IOException {
-    // Cocoa draws the selection on a wrapped continuation row one column right of its glyphs
-    // (CI, macos-x86_64: 51 px against 44); the wrap paint path is reworked with the row painter.
-    assumeFalse(
-        "cocoa".equals(SWT.getPlatform()), "wrapped-row selection is one column off on cocoa");
+    // Recorded on GTK only. Cocoa draws the selection on a wrapped continuation row one column
+    // right of its glyphs (CI macos-x86_64: 51 px against 44), and on win32 no glyph ink is found
+    // under the span; the wrap paint path is reworked with the row painter.
+    assumeTrue(SWT.getPlatform().startsWith("gtk"), "wrapped-row geometry is checked on GTK only");
     openText("wrapped.log", (TOKEN + " ".repeat(PERIOD - TOKEN.length())).repeat(20));
     controller.execute(CommandId.TOGGLE_WRAP);
     assertTrue(

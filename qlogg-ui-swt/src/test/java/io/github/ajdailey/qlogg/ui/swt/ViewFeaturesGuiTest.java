@@ -296,7 +296,7 @@ class ViewFeaturesGuiTest {
                 return text.getEditable();
               }
             }));
-    assertTrue(text.getText().startsWith("<a/>\n<a/>\n"));
+    assertTrue(text.getText().startsWith("<a/>" + Text.DELIMITER + "<a/>" + Text.DELIMITER));
     assertEquals("", pad.values().getText());
     pad.add("1700000000", true);
     text.selectAll();
