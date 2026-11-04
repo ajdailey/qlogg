@@ -1,10 +1,13 @@
 package io.github.ajdailey.qlogg.app.controller.archfixture;
 
+import io.github.ajdailey.qlogg.app.controller.WorkerThread;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Timer;
@@ -87,6 +90,69 @@ final class ControllerViolations {
 
     LogDocument text(DocumentServices services) throws IOException {
       return LogDocument.ofText("mock", "text", 16, services);
+    }
+  }
+
+  // Blocking calls in controllers.
+
+  /**
+   * Blocks on the UI thread and calls a worker method from it; {@code size}, {@code
+   * workerCallsWorker} and the task in {@code submit} are allowed.
+   */
+  static final class BlocksOnUiThread {
+    private Workers workers;
+
+    boolean exists(Path path) {
+      return Files.exists(path);
+    }
+
+    void close(LogDocument document) {
+      document.close();
+    }
+
+    long uiCallsWorker(Path path) throws IOException {
+      return size(path);
+    }
+
+    @WorkerThread
+    long size(Path path) throws IOException {
+      return Files.size(path);
+    }
+
+    @WorkerThread
+    long workerCallsWorker(Path path) throws IOException {
+      return size(path);
+    }
+
+    void submit(final Path path) {
+      workers.tryStart(
+          Workers.Kind.INDEX,
+          new Runnable() {
+            @Override
+            public void run() {
+              Files.isDirectory(path);
+            }
+          });
+    }
+
+    /** Creates two tasks, so neither counts as the submitted one. */
+    void submitOneOfTwo(final Path path) {
+      Runnable later =
+          new Runnable() {
+            @Override
+            public void run() {
+              Files.isSymbolicLink(path);
+            }
+          };
+      workers.tryStart(
+          Workers.Kind.INDEX,
+          new Runnable() {
+            @Override
+            public void run() {
+              Files.isReadable(path);
+            }
+          });
+      later.run();
     }
   }
 }

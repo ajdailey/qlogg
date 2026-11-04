@@ -531,7 +531,8 @@ public final class WindowSet {
     return new SaveSnapshot(sequence, saved, drafts);
   }
 
-  /** Writes a snapshot; runs on a worker. */
+  /** Writes a snapshot. */
+  @WorkerThread
   private void save(SaveSnapshot snapshot) {
     saveLock.lock();
     try {
@@ -542,6 +543,7 @@ public final class WindowSet {
   }
 
   /** Writes the parts of a snapshot no later capture has written; holds {@link #saveLock}. */
+  @WorkerThread
   private void write(SaveSnapshot snapshot) {
     if (snapshot.preferences() != null && snapshot.sequence() > preferencesWritten) {
       preferencesWritten = snapshot.sequence();

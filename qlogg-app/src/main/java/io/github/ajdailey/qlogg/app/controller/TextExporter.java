@@ -109,6 +109,7 @@ final class TextExporter {
    * @param token checked before each row and before the write
    * @return the result; its charge is the caller's to release
    */
+  @WorkerThread
   static Result export(
       LogDocument document,
       LineIndex index,
@@ -176,6 +177,7 @@ final class TextExporter {
    * @param token checked before the read
    * @return the text, or null when canceled, closed or unreadable
    */
+  @WorkerThread
   static String selectedText(
       LogDocument document,
       LineIndex index,
@@ -225,6 +227,7 @@ final class TextExporter {
   }
 
   /** Appends the selected text of the rows; returns the rows taken. */
+  @WorkerThread
   private static long appendText(
       LineReader copier,
       LineIndex index,

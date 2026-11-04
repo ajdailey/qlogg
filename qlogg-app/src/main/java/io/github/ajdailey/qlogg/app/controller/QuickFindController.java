@@ -317,7 +317,8 @@ public final class QuickFindController {
     }
   }
 
-  /** Runs on a worker; posts back on every outcome so the activity always ends. */
+  /** Posts back on every outcome so the activity always ends. */
+  @WorkerThread
   private void scan(
       final long started,
       final LineViewController target,

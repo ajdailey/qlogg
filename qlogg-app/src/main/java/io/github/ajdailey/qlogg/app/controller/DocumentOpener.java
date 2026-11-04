@@ -304,6 +304,7 @@ final class DocumentOpener {
    * Closes documents a worker opened but the listener never received; runs on a worker after {@link
    * #close}.
    */
+  @WorkerThread
   void closeUnclaimed() {
     for (LogDocument document : new ArrayList<LogDocument>(unclaimed)) {
       if (unclaimed.remove(document)) {
@@ -323,6 +324,7 @@ final class DocumentOpener {
    * @param marks session mark ranges, or null
    * @return the document, or null when it did not open or the window closed
    */
+  @WorkerThread
   private LogDocument load(
       Path path,
       long line,
@@ -360,7 +362,7 @@ final class DocumentOpener {
     }
   }
 
-  /** Runs on a worker. */
+  @WorkerThread
   private void pasted(String name, String text, long limit, DocumentServices services) {
     try {
       final LogDocument document = LogDocument.ofText(name, text, limit, services);
@@ -399,6 +401,7 @@ final class DocumentOpener {
    *
    * @return false when the caller drops the document
    */
+  @WorkerThread
   private boolean register(LogDocument document) {
     unclaimed.add(document);
     if (!closed) {
@@ -436,7 +439,8 @@ final class DocumentOpener {
         });
   }
 
-  /** Returns a file's remembered encoding override; runs on a worker. */
+  /** Returns a file's remembered encoding override. */
+  @WorkerThread
   private Charset forcedEncoding(Path path) {
     try {
       return config.positions().get(SafePaths.logPath(path).given()).charset();

@@ -209,7 +209,7 @@ final class ViewFeatures {
     }
   }
 
-  /** Runs on a worker. */
+  @WorkerThread
   private void validate(Path given, final LineViewController target, final boolean filtered) {
     Path checked = null;
     String error = null;
@@ -281,7 +281,8 @@ final class ViewFeatures {
     }
   }
 
-  /** Runs on a worker: the remaining selectors against the file name and first line. */
+  /** Matches the remaining selectors against the file name and first line. */
+  @WorkerThread
   private void matchFirstLine(
       final DocumentController document, List<HighlightSelector> selectors, int from) {
     LogDocument log = document.document();
@@ -328,6 +329,7 @@ final class ViewFeatures {
   }
 
   /** The first line of the file, from at most {@link #FIRST_LINE_BYTES}, decoded, BOM dropped. */
+  @WorkerThread
   static String firstLine(LogDocument log) throws IOException {
     ByteBuffer bytes = ByteBuffer.allocate(FIRST_LINE_BYTES);
     int read = log.bytes().read(0, bytes);

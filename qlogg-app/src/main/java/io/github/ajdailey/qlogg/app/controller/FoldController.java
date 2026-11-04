@@ -193,7 +193,8 @@ final class FoldController {
     }
   }
 
-  /** Runs on a worker; posts back on every outcome, so {@code running} always clears. */
+  /** Posts back on every outcome, so {@code running} always clears. */
+  @WorkerThread
   private void work(
       LogDocument document,
       LineIndex index,

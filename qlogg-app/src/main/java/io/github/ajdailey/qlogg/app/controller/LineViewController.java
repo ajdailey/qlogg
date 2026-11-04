@@ -910,7 +910,7 @@ public abstract class LineViewController {
     }
   }
 
-  /** Runs on a worker. */
+  @WorkerThread
   private void readSelected(
       LineIndex index,
       long line,
@@ -1053,9 +1053,10 @@ public abstract class LineViewController {
   }
 
   /**
-   * Runs on a worker. Posts back on every outcome, so {@code readInFlight} always clears; an
-   * unexpected exception still reaches the worker's uncaught-exception handler.
+   * Posts back on every outcome, so {@code readInFlight} always clears; an unexpected exception
+   * still reaches the worker's uncaught-exception handler.
    */
+  @WorkerThread
   private void read(
       LineIndex index,
       long top,
@@ -1128,9 +1129,10 @@ public abstract class LineViewController {
   }
 
   /**
-   * Runs on a worker. Posts back on every outcome, so {@code copyInFlight} always clears and the
-   * reservation and the activity are always released.
+   * Posts back on every outcome, so {@code copyInFlight} always clears and the reservation and the
+   * activity are always released.
    */
+  @WorkerThread
   private void buildCopy(
       LineIndex index,
       TextExporter.Rows taken,

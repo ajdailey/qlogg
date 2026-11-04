@@ -62,6 +62,7 @@ public record EncodingChoices(List<Charset> common, List<Charset> other) {
    *
    * @return the choices
    */
+  @WorkerThread
   public static EncodingChoices available() {
     EncodingChoices choices = loaded;
     if (choices == null) {

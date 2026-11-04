@@ -135,6 +135,17 @@ system property or environment variable; the platform comes from the view.
 Public controller methods return `LineSet`, never `MutableLineSet`
 (`marks()`, `KeptResults.lines()`).
 
+A blocking call in `app.controller` (file I/O, `LogDocument` open and close,
+settings load and save, line reads; the list is `BLOCKING` in
+`ArchitectureTest`) is made only from a method annotated `@WorkerThread` or
+from `run` of an anonymous `Runnable` that its creating method passes to
+`Workers`, directly or through a helper of the same class that takes a
+`Runnable`. A creating method that also creates another anonymous `Runnable`
+or takes a method reference does not qualify, because the bytecode does not
+show which task it submits; annotate that `run`. A `@WorkerThread` method is
+called only from such code, so annotating a UI-thread method fails at its
+caller. Method references to blocking methods are not checked.
+
 `ApplicationController` is one main window: it runs window commands and owns
 the tabs, one `DocumentController` per open file in tab order
 (`documents()`), and the shown one (`activeDocument()`). `WindowSet` holds

@@ -967,6 +967,7 @@ public final class ApplicationController implements DocumentHost {
    * @param windows true on Windows, which decides by extension
    * @return true for an executable file or extension
    */
+  @WorkerThread
   static boolean runsInsteadOfOpening(Path path, boolean windows) {
     if (windows) {
       Path name = path.getFileName();
@@ -1725,6 +1726,7 @@ public final class ApplicationController implements DocumentHost {
    * Closes documents an open finished but this window never claimed; runs on a worker after {@link
    * #detachAll}.
    */
+  @WorkerThread
   void closeUnclaimed() {
     opener.closeUnclaimed();
   }
