@@ -263,7 +263,11 @@ views.
   (`getLocation`) places the spans, the selection and the markers on its
   glyphs. A prefix measured alone has the wrong width: GTK draws spaces that
   lead CJK text in the CJK font of the run they join. Line and paragraph
-  separators are laid out as spaces so the row stays one line. `GC.setTextAntialias` does not reach
+  separators are laid out as spaces so the row stays one line. The layout
+  takes its line ascent and leading from the tallest font in the line, so
+  the painter draws it shifted to put its baseline on the GC font's
+  (ascent plus leading); drawn at the row's top, a CJK row sits 1-3 px low.
+  `GC.setTextAntialias` does not reach
   a `TextLayout` on GTK, so forced anti-aliasing applies to printable-ASCII
   rows only.
 - The vertical scroll bar takes `Viewport`'s maximum, thumb and selection.
@@ -472,10 +476,11 @@ runs the same cases against `TextGrid` with no display, at a fractional and
 an integer advance, plus `wrappedWordHit`. `RowPixelsTest` compares painted extents with glyph ink:
 a span and the selection on the second row of a wrapped ASCII line and of a
 wrapped CJK line, and a span over CJK glyphs at the start of an unwrapped row
-and after leading spaces. A wrapped case waits for the wrapped read, because
-the block read before it holds one screen width of each line. The wrapped
-cases and the CJK case after leading spaces skip on cocoa, where the span
-extents do not match the glyph ink and the cause is not yet found. With
+and after leading spaces, and ASCII glyphs at the same height on a laid-out
+row and an ASCII row. A wrapped case waits for the wrapped read, because the
+block read before it holds one screen width of each line. Extents are read on
+a row's bottom pixel line, which glyph ink reaches when a laid-out row sits
+below the grid baseline. With
 `-Dqlogg.shots=<dir>` it writes `rows-plain.png`, `rows-cjk.png`,
 `rows-wrapped.png` and `rows-wrapped-selection.png` at 1100x700.
 

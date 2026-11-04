@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.core.model.LineTerminator;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Device;
 import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.FontMetrics;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.graphics.TextLayout;
@@ -21,9 +22,11 @@ import org.eclipse.swt.graphics.TextLayout;
  * with {@code GC.drawString}. Any other row is laid out once in a {@link TextLayout}, which also
  * draws it; a column table taken from that layout places the spans, the selection and the markers
  * on its glyphs. A prefix measured alone has the wrong width: GTK draws spaces that lead CJK text
- * in the CJK font of the run they join, narrower than the same spaces alone. {@code
- * GC.setTextAntialias} does not reach a {@code TextLayout} on GTK, so forced anti-aliasing applies
- * to printable-ASCII rows only.
+ * in the CJK font of the run they join, narrower than the same spaces alone. The layout is drawn
+ * with its baseline on the GC font's: its line ascent and leading come from the tallest font in the
+ * line, and {@code TextLayout.setAscent} does not lower them on GTK 3. {@code GC.setTextAntialias}
+ * does not reach a {@code TextLayout} on GTK, so forced anti-aliasing applies to printable-ASCII
+ * rows only.
  *
  * <p>Owns one {@code TextLayout}, disposed by {@link #dispose}; a paint allocates no SWT resource.
  * UI thread only.
@@ -73,6 +76,7 @@ final class RowPainter {
   private String part;
   private long start;
   private int partX;
+  private int partY;
   private boolean laidOut;
   private int partColumns;
 
@@ -196,6 +200,10 @@ final class RowPainter {
     }
     laidOut = true;
     layout.setText(singleLine(part));
+    FontMetrics metrics = gc.getFontMetrics();
+    FontMetrics line = layout.getLineMetrics(0);
+    partY =
+        row.y() + metrics.getAscent() + metrics.getLeading() - line.getAscent() - line.getLeading();
     int columns = 0;
     for (int i = 0; i < part.length(); i++) {
       if (!Character.isLowSurrogate(part.charAt(i))) {
@@ -230,7 +238,7 @@ final class RowPainter {
 
   private void drawPart() {
     if (laidOut) {
-      layout.draw(gc, partX, row.y());
+      layout.draw(gc, partX, partY);
     } else {
       gc.drawString(part, partX, row.y(), true);
     }

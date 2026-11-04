@@ -2,7 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -56,7 +55,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Span and selection pixels on the second row of a wrapped ASCII line and of a wrapped CJK line,
  * and a span over CJK glyphs on an unwrapped row, at the row start and after leading spaces. Each
- * compares the colored extent with the glyph ink of an uncolored capture.
+ * compares the colored extent with the glyph ink of an uncolored capture. A laid-out row's glyphs
+ * sit at the height of the same glyphs on an ASCII row.
  */
 @Tag("swt")
 class RowPixelsTest {
@@ -250,14 +250,6 @@ class RowPixelsTest {
   }
 
   /** Asserts that {@code cover} spans {@code ink} and overhangs it by at most {@code slack}. */
-  /**
-   * Skips on cocoa: CI measures a CJK span ending about 7 px short of its glyphs and a wrapped
-   * ASCII span far wider than its glyphs; cause not yet found.
-   */
-  private static void assumeNotCocoa() {
-    assumeFalse("cocoa".equals(SWT.getPlatform()), "row geometry on cocoa is unresolved");
-  }
-
   private static void assertCovers(int[] cover, int[] ink, int slack, String what) {
     String found = what + ": cover " + cover[0] + "-" + cover[1] + ", ink " + ink[0] + "-" + ink[1];
     assertTrue(ink[0] >= 0 && cover[0] >= 0, found);
@@ -301,7 +293,6 @@ class RowPixelsTest {
 
   @Test
   void aSpanAndTheSelectionOnAWrappedRowSitOnTheirGlyphs() throws IOException {
-    assumeNotCocoa();
     openText("wrapped.log", (TOKEN + " ".repeat(PERIOD - TOKEN.length())).repeat(20));
     wrapOn();
     LogCanvas view = window.canvas();
@@ -333,7 +324,6 @@ class RowPixelsTest {
    */
   @Test
   void aSpanAndTheSelectionOnAWrappedCjkRowCoverTheirGlyphs() throws IOException {
-    assumeNotCocoa();
     openText("measure.log", "x");
     wrapOn();
     int token = document().viewport().columns() + 4;
@@ -358,7 +348,10 @@ class RowPixelsTest {
     assertEquals(-1, changed(plain, selected, 0)[0], "selection on the first row");
   }
 
-  /** The span extent on a row, limited to the period around {@code x}. */
+  /**
+   * The span extent on a row within half a period of {@code x}, which excludes the neighboring
+   * occurrences.
+   */
   private int[] extentNear(ImageData data, int row, int x) {
     int[] all = extent(data, row, SPAN_RGB);
     int period = window.canvas().columnOffset(PERIOD);
@@ -366,13 +359,55 @@ class RowPixelsTest {
     int right = -1;
     int height = window.canvas().lineHeight();
     int y = row * height + height - 1;
-    for (int i = Math.max(all[0], x - period / 2); i >= 0 && i <= all[1] && i < x + period; i++) {
+    for (int i = Math.max(all[0], x - period / 2);
+        i >= 0 && i <= all[1] && i < x + period / 2;
+        i++) {
       if (rgbAt(data, i, y).equals(SPAN_RGB)) {
         left = left < 0 ? i : left;
         right = i;
       }
     }
     return new int[] {left, right};
+  }
+
+  /** The top and bottom y, from the row's top, of the ink in {@code [from, to)} of a row. */
+  private int[] inkRows(ImageData data, int row, int from, int to) {
+    int height = window.canvas().lineHeight();
+    RGB background = rgbAt(data, to, row * height + height - 1);
+    int top = -1;
+    int bottom = -1;
+    for (int y = 0; y < height; y++) {
+      for (int x = from; x < to; x++) {
+        if (!rgbAt(data, x, row * height + y).equals(background)) {
+          top = top < 0 ? y : top;
+          bottom = y;
+          break;
+        }
+      }
+    }
+    return new int[] {top, bottom};
+  }
+
+  /**
+   * ASCII glyphs laid out with a CJK glyph after them sit at the height of the same glyphs drawn
+   * alone on the row above. The layout's line ascent and leading come from the CJK fallback font,
+   * so a layout drawn at the row's top puts its glyphs 1-3 px low and the CJK glyphs in the row's
+   * bottom pixels.
+   */
+  @Test
+  void aLaidOutRowSharesTheBaselineOfAnAsciiRow() throws IOException {
+    openText("baseline.log", TOKEN + "\n" + TOKEN + WIDE);
+    LogCanvas view = window.canvas();
+    int from = view.gutterWidth();
+    int to = from + view.columnOffset(TOKEN.length());
+    ImageData data = capture();
+    int[] ascii = inkRows(data, 0, from, to);
+    int[] laidOut = inkRows(data, 1, from, to);
+    String found =
+        "ascii " + ascii[0] + "-" + ascii[1] + ", laid out " + laidOut[0] + "-" + laidOut[1];
+    assertTrue(ascii[0] >= 0, found);
+    assertEquals(ascii[0], laidOut[0], found);
+    assertEquals(ascii[1], laidOut[1], found);
   }
 
   /** CJK glyphs start the row; the grid advance would end the span short of their right edge. */
@@ -395,7 +430,6 @@ class RowPixelsTest {
    */
   @Test
   void aSpanOnCjkTextAfterLeadingSpacesCoversItsGlyphs() throws IOException {
-    assumeNotCocoa();
     openText("indented-wide.log", "    " + WIDE);
     LogCanvas view = window.canvas();
     int[] glyphs = ink(capture(), 0, view.gutterWidth(), canvas().getClientArea().width - 2);
