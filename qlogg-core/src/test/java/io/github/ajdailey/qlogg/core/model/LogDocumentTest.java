@@ -246,6 +246,17 @@ class LogDocumentTest {
     Files.delete(file);
   }
 
+  /** Regression: a closed document's blocks stayed in the shared cache until LRU eviction. */
+  @Test
+  void closeDropsTheDocumentsCachedBlocks() throws Exception {
+    Path file = write("cached.log", "one\ntwo\nthree\n".getBytes(StandardCharsets.US_ASCII));
+    LogDocument document = indexed(file, new Events());
+    document.newReader().read(document.index(), 0, 3, 0, 80);
+    assertTrue(services.cache().size() > 0);
+    assertTrue(document.close(LogDocument.CLOSE_BOUND));
+    assertEquals(0, services.cache().size());
+  }
+
   @Test
   void closeDuringIndexingCancelsIt() throws Exception {
     Path file = dir.resolve("big.log");

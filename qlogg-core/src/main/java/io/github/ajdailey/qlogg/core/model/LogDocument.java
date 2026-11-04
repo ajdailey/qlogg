@@ -11,6 +11,7 @@ import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
+import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
@@ -97,6 +98,7 @@ public final class LogDocument implements LineSource, Closeable {
   private volatile boolean stale;
   private volatile boolean missing;
   private volatile Tail tail = Tail.NONE;
+  private volatile Head head;
   private volatile long fileBytes;
   private volatile long modifiedMillis;
 
@@ -116,6 +118,9 @@ public final class LogDocument implements LineSource, Closeable {
     this.marks = new MutableLineSet(services.budget());
     this.fileBytes = source.identity().size();
     this.modifiedMillis = source.identity().modifiedMillis();
+    FileIdentity identity = source.identity();
+    this.head =
+        new Head((int) Math.min(identity.size(), FileIdentity.HEAD_BYTES), identity.headDigest());
   }
 
   /**
@@ -545,7 +550,18 @@ public final class LogDocument implements LineSource, Closeable {
     static final Tail NONE = new Tail(-1, -1, 0);
   }
 
-  /** Takes the modification time, then the digest of the indexed tail, for {@code MODIFIED}. */
+  /**
+   * The head a check compares against.
+   *
+   * @param bytes the bytes from offset 0 the digest covers
+   * @param digest CRC32C of those bytes
+   */
+  private record Head(int bytes, long digest) {}
+
+  /**
+   * Takes the modification time, then the digest of the indexed tail, and extends the head digest
+   * over the indexed bytes until it covers {@link FileIdentity#HEAD_BYTES}.
+   */
   private void recordTail() {
     if (inMemory()) {
       return;
@@ -553,6 +569,11 @@ public final class LogDocument implements LineSource, Closeable {
     try {
       long modified = Files.getLastModifiedTime(source.path()).toMillis();
       long end = index.snapshot().indexedBytes();
+      Head recorded = head;
+      if (recorded.bytes() < FileIdentity.HEAD_BYTES && end > recorded.bytes()) {
+        int bytes = (int) Math.min(end, FileIdentity.HEAD_BYTES);
+        head = new Head(bytes, ChangeDetector.headDigest(source, bytes));
+      }
       tail = new Tail(end, modified, ChangeDetector.tailDigest(source, end));
     } catch (IOException e) {
       tail = Tail.NONE;
@@ -589,7 +610,14 @@ public final class LogDocument implements LineSource, Closeable {
     if (recorded.end() != covered) {
       recorded = Tail.NONE;
     }
-    return new Baseline(source.identity(), covered, recorded.modified(), recorded.digest());
+    Head start = head;
+    return new Baseline(
+        source.identity(),
+        covered,
+        start.bytes(),
+        start.digest(),
+        recorded.modified(),
+        recorded.digest());
   }
 
   private void changed(ChangeDetector.Observation seen) {
@@ -639,9 +667,9 @@ public final class LogDocument implements LineSource, Closeable {
 
   /**
    * Refuses new operations, cancels indexing and the watch, waits up to the bound for every
-   * operation holding an entry to exit, then releases the index and closes the file; listeners then
-   * receive {@code closed()}. Blocking; never call it on the UI thread. A second call does nothing
-   * and returns true.
+   * operation holding an entry to exit, then releases the index, closes the file and drops its
+   * blocks from the shared {@code BlockCache}; listeners then receive {@code closed()}. Blocking;
+   * never call it on the UI thread. A second call does nothing and returns true.
    *
    * @param bound the longest wait for the operations
    * @return false when an operation outlived the bound, which leaves the index reservation held, or
@@ -662,6 +690,7 @@ public final class LogDocument implements LineSource, Closeable {
     } catch (IOException e) {
       clean = false;
     }
+    services.cache().invalidate(source);
     services.budget().release(MemoryShare.PASTED, pastedBytes);
     for (DocumentListener listener : listeners) {
       listener.closed();

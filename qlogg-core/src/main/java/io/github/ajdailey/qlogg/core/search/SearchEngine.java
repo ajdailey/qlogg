@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.search;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
@@ -34,9 +35,13 @@ import java.util.regex.PatternSyntaxException;
  * <p>Memory: a chunk reads into a pooled direct buffer of {@code chunkBytes} reserved from {@link
  * MemoryShare#IO_BUFFERS}, or, for a longer line, a heap buffer for which {@link
  * #LONG_LINE_BYTES_PER_BYTE} bytes per line byte are reserved there until it is matched. Results
- * reserve from {@link MemoryShare#RESULTS}. When either share refuses with nothing in flight, the
- * search keeps its results and ends {@code COMPLETED} with {@link SearchLimit#MEMORY}; reaching
- * {@code maxResults} ends it with {@link SearchLimit#MAX_RESULTS}.
+ * reserve from {@link MemoryShare#RESULTS}. The pool is trimmed when a search ends and before a
+ * long line's reservation is refused. When either share refuses with nothing in flight, the search
+ * keeps its results and ends {@code COMPLETED} with {@link SearchLimit#MEMORY}; reaching {@code
+ * maxResults} ends it with {@link SearchLimit#MAX_RESULTS}.
+ *
+ * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
+ * {@link PatternTooComplexException} naming that line; the pool thread survives.
  *
  * <p>Cancellation is checked before each chunk, every {@link #CHECK_LINES} lines in a worker and
  * every {@link LineText#CHECK_INTERVAL} chars a regex reads. A read on a closed source also ends a
@@ -239,7 +244,10 @@ public final class SearchEngine {
         } else {
           failure = e.getCause();
         }
-      } catch (IOException | PatternSyntaxException | WorkerFailure e) {
+      } catch (IOException
+          | PatternSyntaxException
+          | PatternTooComplexException
+          | WorkerFailure e) {
         failure = e;
       } finally {
         drain();
@@ -320,7 +328,7 @@ public final class SearchEngine {
         return new Chunk(line, lines, buffer, true, 0);
       }
       long cost = span * LONG_LINE_BYTES_PER_BYTE;
-      if (span > MAX_LINE_BYTES || !settings.budget().reserve(MemoryShare.IO_BUFFERS, cost)) {
+      if (span > MAX_LINE_BYTES || !reserveLong(cost)) {
         return null;
       }
       boolean filled = false;
@@ -334,6 +342,15 @@ public final class SearchEngine {
           settings.budget().release(MemoryShare.IO_BUFFERS, cost);
         }
       }
+    }
+
+    /** Reserves a long line's buffer, trimming the pool once before refusing. */
+    private boolean reserveLong(long cost) {
+      MemoryBudget budget = settings.budget();
+      if (budget.reserve(MemoryShare.IO_BUFFERS, cost)) {
+        return true;
+      }
+      return buffers.trim() > 0 && budget.reserve(MemoryShare.IO_BUFFERS, cost);
     }
 
     private void fill(ByteBuffer buffer, long position, int length) throws IOException {
@@ -387,7 +404,7 @@ public final class SearchEngine {
           worker = newWorker();
         }
         chunk.matched = scan(chunk, worker);
-      } catch (CancellationException | UncheckedIOException e) {
+      } catch (CancellationException | UncheckedIOException | PatternTooComplexException e) {
         chunk.matched = new Matched(null, 0, e);
       } finally {
         recycle(chunk);
@@ -434,7 +451,13 @@ public final class SearchEngine {
           textEnd = lineEnd - unit;
         }
         text.set(bytes, position, textEnd);
-        if (matcher.matches(text)) {
+        boolean hit;
+        try {
+          hit = matcher.matches(text);
+        } catch (StackOverflowError e) {
+          throw new PatternTooComplexException(chunk.firstLine + i);
+        }
+        if (hit) {
           if (count == hits.length) {
             hits = Arrays.copyOf(hits, count * 2);
           }
@@ -465,6 +488,9 @@ public final class SearchEngine {
       }
       if (result.failure() instanceof UncheckedIOException failed) {
         throw failed;
+      }
+      if (result.failure() instanceof PatternTooComplexException complex) {
+        throw complex;
       }
       int take = result.count();
       long max = settings.maxResults();
@@ -503,6 +529,7 @@ public final class SearchEngine {
         }
       }
       inFlight.clear();
+      buffers.trim();
       if (interrupted) {
         Thread.currentThread().interrupt();
       }

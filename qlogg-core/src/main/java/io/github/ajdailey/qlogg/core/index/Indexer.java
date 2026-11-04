@@ -14,6 +14,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Builds line indexes in the background. Each operation runs a coordinator on a {@code
@@ -22,6 +23,9 @@ import java.util.concurrent.TimeUnit;
  * the results in file order and publishes a snapshot at most every {@link #PUBLISH_INTERVAL_MILLIS}
  * ms and once at the end. At most {@code maxBlocksInFlight} blocks are read but not yet appended,
  * fewer when the {@code IO_BUFFERS} share is short.
+ *
+ * <p>An operation trims the buffer pool when it ends. When a scan outlives the operation's bounded
+ * wait at its end, the scan returns its buffer to the pool when it finishes.
  *
  * <p>Cancellation is checked before each block is read and while waiting for a scan, so an
  * operation stops within one block. A read on a closed source also ends it as {@code CANCELED}. The
@@ -87,6 +91,10 @@ public final class Indexer {
     final long start;
     final int length;
     final CountDownLatch done = new CountDownLatch(1);
+
+    /** Set by whichever of the scan's end and the coordinator's abandonment comes first. */
+    final AtomicBoolean handedOff = new AtomicBoolean();
+
     volatile boolean scanned;
 
     Slot(ByteBuffer buffer, long[] bits, long start, int length) {
@@ -227,6 +235,10 @@ public final class Indexer {
                   slot.scanned = true;
                 } finally {
                   slot.done.countDown();
+                  if (!slot.handedOff.compareAndSet(false, true)) {
+                    // The coordinator abandoned this slot, so the buffer is returned here.
+                    buffers.release(slot.buffer);
+                  }
                 }
               }
             });
@@ -272,21 +284,27 @@ public final class Indexer {
       freeBits.push(slot.bits);
     }
 
-    /** Waits for scans still running, bounded, and returns their buffers. */
+    /**
+     * Waits for scans still running, bounded, and returns their buffers. A slot still scanning at
+     * the bound is abandoned: its scan returns the buffer when it ends. Then trims the pool.
+     */
     private void drain() {
       long deadline = System.nanoTime() + DRAIN_BOUND_MILLIS * 1_000_000L;
       boolean interrupted = false;
       while (!inFlight.isEmpty()) {
         Slot slot = inFlight.poll();
+        boolean ended = false;
         try {
           long left = Math.max(0, deadline - System.nanoTime());
-          if (slot.done.await(left, TimeUnit.NANOSECONDS)) {
-            recycle(slot);
-          }
+          ended = slot.done.await(left, TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
           interrupted = true;
         }
+        if (ended || !slot.handedOff.compareAndSet(false, true)) {
+          recycle(slot);
+        }
       }
+      buffers.trim();
       if (interrupted) {
         Thread.currentThread().interrupt();
       }

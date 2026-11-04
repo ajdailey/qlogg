@@ -926,7 +926,11 @@ public enum UiText {
   /** Title of the notice that native controls change at the next start. */
   THEME_RESTART_TITLE,
   /** The notice that native controls change at the next start. */
-  THEME_RESTART_MESSAGE;
+  THEME_RESTART_MESSAGE,
+
+  // Regex stack overflow in search and quick find.
+  /** A regex overflowed the stack: the 1-based line. */
+  SEARCH_PATTERN_TOO_COMPLEX;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

@@ -52,6 +52,25 @@ class ReadBuffersTest {
   }
 
   @Test
+  void trimDropsFreeBuffersPastTheMinimum() {
+    MemoryBudget budget = MemoryBudget.of(100 * 1024);
+    ReadBuffers buffers = new ReadBuffers(1024, 6, budget);
+    ByteBuffer[] taken = new ByteBuffer[5];
+    for (int i = 0; i < taken.length; i++) {
+      taken[i] = buffers.tryAcquire();
+    }
+    for (int i = 0; i < 4; i++) {
+      buffers.release(taken[i]);
+    }
+    assertEquals(3, buffers.trim());
+    assertEquals(2, buffers.allocated());
+    assertEquals(2048, budget.reserved(MemoryShare.IO_BUFFERS));
+    buffers.release(taken[4]);
+    assertEquals(0, buffers.trim());
+    assertEquals(2048, budget.reserved(MemoryShare.IO_BUFFERS));
+  }
+
+  @Test
   void waitingAcquireEndsOnCancel() {
     final ReadBuffers buffers = new ReadBuffers(64, 2, MemoryBudget.of(0));
     buffers.tryAcquire();

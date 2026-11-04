@@ -14,7 +14,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * lines, and at most {@link SparseStarts#CHECKPOINT_BYTES} bytes before the target line starts.
  * {@link #startOf} starts instead from the last line start it found when that lies between the
  * checkpoint and the target, so consecutive lookups (a screen of lines, a search chunk's bounds)
- * read each line once rather than from the checkpoint again.
+ * read each line once rather than from the checkpoint again. {@link #lineContaining} reads no
+ * further than the unit at the target offset, so an offset inside a long line costs its distance
+ * from the checkpoint, not the rest of the line.
  */
 final class SparseSnapshot extends IndexSnapshot {
   private static final int SCAN_BYTES = 8192;
@@ -86,9 +88,15 @@ final class SparseSnapshot extends IndexSnapshot {
     long position = start;
     long current = line;
     long currentStart = start;
+    // An LF unit starting past the target offset ends a line that contains it, so the scan stops
+    // after the unit that starts at or before the target.
+    long end = lastStart;
+    if (targetOffset < lastStart) {
+      end = Math.min(lastStart, start + ((targetOffset - start) / unit + 1) * unit);
+    }
     try {
-      while (current < targetLine && position < lastStart) {
-        int want = (int) Math.min(buffer.capacity(), lastStart - position);
+      while (current < targetLine && position < end) {
+        int want = (int) Math.min(buffer.capacity(), end - position);
         buffer.clear();
         int got = cache.read(source, position, want, buffer);
         if (got < want) {

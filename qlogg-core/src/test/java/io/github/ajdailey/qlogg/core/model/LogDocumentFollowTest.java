@@ -21,6 +21,8 @@ import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -261,6 +263,33 @@ class LogDocumentFollowTest {
       Files.writeString(file, "y\n", StandardOpenOption.APPEND);
       assertTrue(document.close(LogDocument.CLOSE_BOUND));
       assertEquals(List.of(FileChange.TRUNCATED), events.changes);
+    }
+  }
+
+  /**
+   * Regression: a copy-truncate rotation regrown past the indexed bytes before the next check was
+   * reported APPENDED and indexed the new bytes after the old ones. A check that lands between the
+   * truncation and the write reports TRUNCATED, which reopens the same way.
+   */
+  @Test
+  void truncateAndRegrowBetweenChecksIsReplaced() throws Exception {
+    Path file = Files.writeString(dir.resolve("copytruncate.log"), "");
+    Events events = new Events();
+    try (LogDocument document = watched(file, events)) {
+      Files.writeString(file, "old one\nold two\n", StandardOpenOption.APPEND);
+      assertTrue(Poll.until(lines(document, 2), BOUND));
+      assertTrue(Poll.until(reported(events, FileChange.APPENDED), BOUND));
+      int before = events.changes.size();
+      try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+        channel.truncate(0);
+        channel.write(
+            ByteBuffer.wrap(
+                "new content after rotation\n".repeat(4).getBytes(StandardCharsets.US_ASCII)),
+            0);
+      }
+      assertTrue(Poll.until(reopens(events, true), BOUND), events.changes.toString());
+      List<FileChange> after = events.changes.subList(before, events.changes.size());
+      assertFalse(after.contains(FileChange.APPENDED), events.changes.toString());
     }
   }
 

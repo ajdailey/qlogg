@@ -21,6 +21,7 @@ import io.github.ajdailey.qlogg.core.search.LineRange;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchExpression;
 import io.github.ajdailey.qlogg.core.search.SearchLimit;
@@ -821,6 +822,9 @@ public final class SearchController {
     if (failure instanceof PatternSyntaxException syntax) {
       return UiText.SEARCH_REGEX_ERROR.format(
           Math.max(0, syntax.getIndex()) + 1, LogText.oneLine(syntax.getDescription()));
+    }
+    if (failure instanceof PatternTooComplexException complex) {
+      return UiText.SEARCH_PATTERN_TOO_COMPLEX.format(complex.line() + 1);
     }
     String message = failure == null ? null : LogText.oneLine(failure.getMessage());
     LOG.warn("Search in {} failed: {}", LogText.oneLine(document.document().path()), message);

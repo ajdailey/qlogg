@@ -46,6 +46,30 @@ class EncodingDetectorTest {
     assertEquals(ByteOrder.BIG_ENDIAN, be.encoding().order());
   }
 
+  /** Regression: the UTF-32LE BOM matched the UTF-16LE rule and the UTF-32BE BOM matched none. */
+  @Test
+  void utf32ByteOrderMarksComeBeforeUtf16() {
+    Charset le32 = Charset.forName("UTF-32LE");
+    Charset be32 = Charset.forName("UTF-32BE");
+    EncodingDetection le = detect(withBom(new int[] {0xff, 0xfe, 0, 0}, "x\n".getBytes(le32)));
+    assertEquals(DetectionReason.BOM, le.reason());
+    assertEquals(le32, le.encoding().charset());
+    assertEquals(4, le.encoding().unitWidth());
+    assertEquals(ByteOrder.LITTLE_ENDIAN, le.encoding().order());
+    assertEquals(4, le.encoding().bomLength());
+    EncodingDetection be = detect(withBom(new int[] {0, 0, 0xfe, 0xff}, "x\n".getBytes(be32)));
+    assertEquals(DetectionReason.BOM, be.reason());
+    assertEquals(be32, be.encoding().charset());
+    assertEquals(4, be.encoding().bomLength());
+    ByteBuffer leBom = ByteBuffer.wrap(withBom(new int[] {0xff, 0xfe, 0, 0}, "x\n".getBytes(le32)));
+    EncodingDetection sensing = EncodingDetector.forced(Charset.forName("UTF-32"), leBom);
+    assertEquals(le32, sensing.encoding().charset());
+    assertEquals(4, sensing.encoding().bomLength());
+    EncodingDetection utf16 = EncodingDetector.forced(StandardCharsets.UTF_16LE, leBom);
+    assertEquals(StandardCharsets.UTF_16LE, utf16.encoding().charset());
+    assertEquals(2, utf16.encoding().bomLength());
+  }
+
   @Test
   void utf16PatternWithoutBom() {
     String text = "2026-11-01 mock event\nsecond line\n";

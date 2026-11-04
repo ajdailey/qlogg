@@ -22,7 +22,8 @@ public interface SearchListener {
    * @param outcome how the search ended; {@code COMPLETED} also when a limit stopped it
    * @param limit the limit that stopped a completed search, else {@code NONE}
    * @param failure the cause when {@code FAILED}, otherwise null; a {@link
-   *     java.util.regex.PatternSyntaxException} for a regex that does not compile
+   *     java.util.regex.PatternSyntaxException} for a regex that does not compile, a {@link
+   *     PatternTooComplexException} for one that overflows the stack on a line
    */
   void finished(OperationOutcome outcome, SearchLimit limit, Exception failure);
 }

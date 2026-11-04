@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.core.model.LineFinder;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
+import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -346,6 +347,8 @@ public final class QuickFindController {
       error =
           UiText.SEARCH_REGEX_ERROR.format(
               Math.max(0, e.getIndex()) + 1, LogText.oneLine(e.getDescription()));
+    } catch (PatternTooComplexException e) {
+      error = UiText.SEARCH_PATTERN_TOO_COMPLEX.format(e.line() + 1);
     } catch (CancellationException | ClosedChannelException e) {
       canceled = true;
     } catch (IOException | UncheckedIOException e) {

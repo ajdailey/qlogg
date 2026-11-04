@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
+import io.github.ajdailey.qlogg.core.io.ReadBuffers;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.testkit.SyntheticLog;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
@@ -354,6 +355,33 @@ class SearchEngineTest {
     }
   }
 
+  /**
+   * Regression: the buffer pool kept the IO_BUFFERS reservation of its peak size, so after a
+   * parallel search a long line that searched before stopped the search with MEMORY.
+   */
+  @Test
+  void aLongLineStillSearchesAfterThePoolGrew() throws Exception {
+    StringBuilder many = new StringBuilder();
+    for (int i = 0; i < 400_000; i++) {
+      many.append("line ").append(i).append(" needle\n");
+    }
+    String longLine = "needle 0\n" + "z".repeat(100_000) + "\nneedle 2\n";
+    try (LogDocument big = fixture.open(write("big.log", bytes(many.toString())), null);
+        LogDocument wide = fixture.open(write("wide.log", bytes(longLine)), null)) {
+      MemoryBudget small = MemoryBudget.of(6_000_000);
+      SearchEngine engine = fixture.engine(new SearchSettings(1_000, 65_536, 8, 0, small));
+      SearchQuery needle = SearchQuery.of("needle", MatchMode.LITERAL);
+      assertEquals(SearchLimit.NONE, fixture.search(engine, wide, needle).limit);
+      for (int i = 0; i < 5; i++) {
+        fixture.search(engine, big, needle);
+        assertEquals(ReadBuffers.MIN_BUFFERS * 65_536L, small.reserved(MemoryShare.IO_BUFFERS));
+      }
+      SearchFixture.Recording later = fixture.search(engine, wide, needle);
+      assertEquals(SearchLimit.NONE, later.limit);
+      assertEquals(2, later.matches);
+    }
+  }
+
   @Test
   void invalidRegexFails() throws Exception {
     try (LogDocument document = fixture.open(write("a.log", bytes("a\nb\n")), null)) {
@@ -363,6 +391,27 @@ class SearchEngineTest {
       assertEquals(OperationOutcome.FAILED, recording.outcome);
       assertInstanceOf(PatternSyntaxException.class, recording.failure);
       assertEquals(SearchLimit.NONE, recording.limit);
+    }
+  }
+
+  /**
+   * Regression: a regex stack overflow on a long line reached the workers' failure handler, killed
+   * the pool thread and failed the search with a generic worker failure.
+   */
+  @Test
+  void aRegexStackOverflowFailsNamingTheLine() throws Exception {
+    byte[] content = bytes("x\n" + "ab".repeat(200_000) + "\nend\n");
+    try (LogDocument document = fixture.open(write("deep.log", content), null)) {
+      SearchFixture.Recording recording =
+          fixture.search(
+              fixture.services.search(), document, SearchQuery.of("(a|b)*c", MatchMode.REGEX));
+      assertEquals(OperationOutcome.FAILED, recording.outcome);
+      PatternTooComplexException failure =
+          assertInstanceOf(PatternTooComplexException.class, recording.failure);
+      assertEquals(1, failure.line());
+      assertEquals(
+          List.of(0L),
+          run(fixture.services.search(), document, SearchQuery.of("x", MatchMode.LITERAL)));
     }
   }
 

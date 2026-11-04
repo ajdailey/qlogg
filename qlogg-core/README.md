@@ -92,8 +92,8 @@ canonicalized and type-checked, not contained.
 |---|---|
 | `FileByteSource` | `open` validates through `SafePaths.logFile`, then opens a `FileChannel` for reading. Positional reads only, thread-safe. A read after `close` throws `ClosedChannelException`. `identity()` holds the file key (null on Windows), creation and modified times, size and the CRC32C of the first 4 KiB. On Windows the JDK opens the file with delete sharing, so a writer can rename, truncate or delete it while it is open |
 | `MemoryByteSource` | A `ByteSource` over a byte array in the heap, for pasted text. `path()` is null; the size never changes. A read after `close` throws `ClosedChannelException` |
-| `BlockCache` | LRU of fixed-size blocks for random reads, keyed by source and block number; the lock is never held during I/O. A block read short at end of file is read again when a request reaches past it. `invalidateFrom` drops a block and everything after it |
-| `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, kept for reuse. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits |
+| `BlockCache` | LRU of fixed-size blocks for random reads, keyed by source and block number; the lock is never held during I/O. A block read short at end of file is read again when a request reaches past it. `invalidateFrom` drops a block and everything after it; `invalidate(source)` drops a source's blocks, which `LogDocument.close` calls |
+| `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, reused while operations run. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits. `trim` drops free buffers past the first two and releases their reservation; the indexer and the search engine call it when an operation ends |
 | `AtomicFiles` | `write` puts the content in a temporary file in the target's directory (POSIX `rw-------`), then moves it over the target with `ATOMIC_MOVE`; on failure the target is unchanged and the temporary file deleted. Nothing goes to `java.io.tmpdir`. `write(Path, InputStream)` streams the content through a 64 KiB buffer. `writeOwnerOnly`, for a secret, also replaces the temporary file's ACL with one entry for its owner where there are ACLs but no POSIX permissions (Windows) |
 
 Nothing is memory mapped: Java 21 releases a mapping only through garbage
@@ -106,13 +106,14 @@ that matches:
 
 | Rule | Result |
 |---|---|
-| BOM `EF BB BF`, `FF FE`, `FE FF` | UTF-8, UTF-16LE, UTF-16BE; the first line starts after the BOM |
+| BOM `EF BB BF`, `FF FE 00 00`, `00 00 FE FF`, `FF FE`, `FE FF`, checked in that order | UTF-8, UTF-32LE, UTF-32BE, UTF-16LE, UTF-16BE; the first line starts after the BOM. A UTF-16LE file whose first char is U+0000 reads as UTF-32LE |
 | At least 30% zero bytes at odd offsets and under 5% at even ones (or the reverse) | UTF-16LE (or UTF-16BE) |
 | Valid UTF-8; a sequence cut off by the end of the sample counts as valid | UTF-8 |
 | None | The fallback charset; ISO-8859-1 maps every byte to a char |
 
 `EncodingDetector.forced` applies a charset the user chose and skips that
-charset's own BOM; a BOM-sensing `UTF-16` follows the BOM's byte order.
+charset's own BOM; a BOM-sensing `UTF-16` or `UTF-32` follows the BOM's byte
+order. For a forced UTF-16 charset only the 2-byte BOMs count.
 `TextEncoding` derives the LF unit width (1, 2 for UTF-16, 4 for UTF-32) from
 the charset and takes `UTF-16` and `UTF-32` as big-endian.
 
@@ -132,7 +133,7 @@ so a later operation rescans a partial line as the file grows.
 | Mode | Storage | Cost | Lookup |
 |---|---|---|---|
 | Full | Blocks of 128 lines: base offset, bit width, word index (13 B), then the 127 line lengths packed at the block's width into 64 KiB `long[]` pages | (13 + 8 x ceil(127 x w / 64)) / 128 B per line: 0.60 at w = 4, 0.98 at w = 7, 1.10 at w = 8, 2.10 at w = 16 | In memory: binary search over block bases, then at most 127 lengths summed |
-| Sparse | A checkpoint (line, offset) at the first line 1,024 lines or 1 MiB past the previous one | 16 B per checkpoint, about 0.016 B per line for short lines | Reads forward from the nearest checkpoint through the `BlockCache`, or from the snapshot's last found line start when that lies between the checkpoint and the target, so consecutive lookups read each line once; at most 1 MiB before the target line starts. A failed read throws `UncheckedIOException` |
+| Sparse | A checkpoint (line, offset) at the first line 1,024 lines or 1 MiB past the previous one | 16 B per checkpoint, about 0.016 B per line for short lines | Reads forward from the nearest checkpoint through the `BlockCache`, or from the snapshot's last found line start when that lies between the checkpoint and the target, so consecutive lookups read each line once; at most 1 MiB before the target line starts. `lineAt` stops at the target offset, so an offset inside a long line reads only its distance from the checkpoint. A failed read throws `UncheckedIOException` |
 
 Every allocation (metadata chunks of 1,024 blocks, pages, checkpoint chunks of
 1,024, doubling directories) is reserved from `LINE_INDEX` first, and
@@ -154,6 +155,9 @@ publishes a snapshot at most every 100 ms and once at the end.
 
 - At most `maxBlocksInFlight` blocks (default two per CPU thread) are read but
   not appended; fewer when `IO_BUFFERS` is short.
+- At its end an operation waits up to 5 s for scans still running. A scan that
+  outlives the wait returns its buffer to the pool when it finishes; an atomic
+  hand-off decides whether the coordinator or the scan returns it.
 - Cancellation is checked before each read and while waiting for a scan, so an
   operation stops within one block. A read on a closed source also ends it as
   `CANCELED`; an I/O error or a refused index ends it as `FAILED`.
@@ -181,12 +185,19 @@ however chunks finish, and no match spans two chunks.
 | `maxResults` reached (0 is no limit) | `COMPLETED` | `MAX_RESULTS`; the results stop at the limit |
 | `RESULTS` refuses the next chunk's matches, or `IO_BUFFERS` refuses a long line's buffer with nothing in flight | `COMPLETED` | `MEMORY`; the results up to the last whole chunk stay |
 | `cancel()`, a read on a closed source, or closed workers | `CANCELED` | `NONE` |
-| A regex that does not compile (`PatternSyntaxException`), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
+| A regex that does not compile (`PatternSyntaxException`), a regex that overflows the stack on a line (`PatternTooComplexException` with the line), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
 
 - A chunk reads into a pooled direct buffer of `chunkBytes` (`ReadBuffers`,
   from `IO_BUFFERS`). A line longer than `chunkBytes` reads into a heap
   buffer, and 3 bytes per line byte (the bytes and their decoded chars) are
-  reserved from `IO_BUFFERS` until it is matched.
+  reserved from `IO_BUFFERS` until it is matched. A refused reservation trims
+  the pool and retries once, and every search trims the pool when it ends, so
+  a pool grown by an earlier parallel search does not hold the share.
+- A worker catches a `StackOverflowError` from a regex, as `(a|b)*c` raises
+  on a 400,000-char line, and the search ends with
+  `PatternTooComplexException`; the pool thread survives and nothing reaches
+  the workers' failure handler. `LineFinder` (quick find) throws the same
+  exception.
 - Cancellation is checked before each chunk, every 1,024 lines in a worker,
   and every 4,096 `charAt` calls a regex makes on `LineText.chars()`, so a
   regex that backtracks without end stops on cancel.
@@ -273,20 +284,22 @@ interval applies from each watch's next wait, directory events to watches
 started afterwards.
 
 `ChangeDetector.classify(baseline, path)` compares the file at the path with
-what was indexed (`Baseline`: identity at open, covered bytes, tail digest and
-its modification time), in this order. While indexing runs, the covered bytes
-are at least the size at open and the size indexing reads to, so a check
-before the first progress event does not report the indexed file as appended.
+what was indexed (`Baseline`: identity at open, covered bytes, head digest,
+tail digest and its modification time), in this order. While indexing runs,
+the covered bytes are at least the size at open and the size indexing reads
+to, so a check before the first progress event does not report the indexed
+file as appended.
 `LogDocument` passes the tail digest only when it ends at the covered bytes;
-otherwise the `MODIFIED` row is skipped for that check, because an indexing
-pass publishes its last snapshot before it records the new tail.
+otherwise both tail rows are skipped for that check, because an indexing pass
+publishes its last snapshot before it records the new tail.
 
 | Observation | Result |
 |---|---|
 | No regular file | `MISSING` |
 | Another file key; where there is none (Windows), another creation time | `REPLACED` |
 | Size below the covered bytes | `TRUNCATED` |
-| CRC32C of the first min(4 KiB, size at open) bytes differs | `REPLACED` |
+| CRC32C of the head bytes differs: min(4 KiB, size at open), extended over indexed bytes up to 4 KiB | `REPLACED` |
+| Size above the covered bytes, CRC32C of the last 4 KiB before the covered end differs | `REPLACED` |
 | Size above the covered bytes | `APPENDED` |
 | Same size, newer modification time, CRC32C of the last 4 KiB differs | `MODIFIED` |
 | Otherwise | `UNCHANGED` |
@@ -297,6 +310,10 @@ same name within 15 s can inherit the old creation time (NTFS tunneling,
 assumed from the Windows documentation), so the head digest decides there. A
 check that sees the new file before its first write lands reports `TRUNCATED`
 there, which reopens the path as `REPLACED` does.
+The growth row with the tail digest catches a copy-truncate rotation that
+regrows past the covered bytes between two checks: the file key stays the same,
+and the head digest of a file opened short covers only the bytes recorded so
+far. It costs one 4 KiB read per growth check.
 The detector opens the file only to read a digest and closes it at once.
 
 ## Documents (`core.model`)
@@ -321,8 +338,9 @@ indexing, each watch check, and every read, search and scan a controller
 starts (`enter()`, `exit()`). `close(bound)` closes the gate, so `enter`
 fails, cancels indexing and the watch, waits up to the bound for every entry
 to exit and for the watch to end, then releases the index reservation, closes
-the file and calls `DocumentListener.closed()`. Callers cancel their own
-operations before closing. `close` returns false when an operation outlived
+the file, drops its blocks from the `BlockCache` and calls
+`DocumentListener.closed()`. Callers cancel their own operations before
+closing. `close` returns false when an operation outlived
 the bound, which leaves the reservation held; that operation then reads a
 closed file and ends on `ClosedChannelException`. `closeAll(documents, workers,
 bound)` closes documents at the same time, each on its own
@@ -344,7 +362,8 @@ close cleanly.
   the file fields. `status()` carries the file size, modification time and the
   missing flag.
 - After each completed indexing operation the document records the
-  modification time, then the CRC32C of the indexed tail, for `MODIFIED`.
+  modification time, then the CRC32C of the indexed tail, and extends the
+  head digest over the indexed bytes until it covers 4 KiB.
 
 `stopIndexing()` cancels indexing and leaves later growth unindexed while the
 document is open.

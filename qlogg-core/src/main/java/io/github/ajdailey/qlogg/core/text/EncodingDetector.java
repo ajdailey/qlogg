@@ -10,7 +10,9 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Chooses a file's encoding from its first bytes. Order: a forced charset, then a BOM (UTF-8,
- * UTF-16 LE/BE), then the UTF-16 pattern, then valid UTF-8, then the fallback.
+ * UTF-32 LE/BE, UTF-16 LE/BE), then the UTF-16 pattern, then valid UTF-8, then the fallback. The
+ * UTF-32LE BOM {@code FF FE 00 00} is checked before the UTF-16LE BOM it starts with, so a UTF-16LE
+ * file whose first char is U+0000 is detected as UTF-32LE.
  *
  * <p>UTF-16 pattern: at least {@link #UTF16_ZERO_PERCENT}% of the bytes at one parity are zero and
  * under {@link #UTF16_OTHER_PERCENT}% at the other; zeros at odd offsets mean little-endian. Valid
@@ -57,7 +59,8 @@ public final class EncodingDetector {
 
   /**
    * Applies a charset the user chose. A BOM for that charset is skipped; a BOM-sensing {@code
-   * UTF-16} follows the BOM's byte order.
+   * UTF-16} or {@code UTF-32} follows the BOM's byte order. For a UTF-16 charset only the 2-byte
+   * BOMs count, so {@code FF FE 00 00} is a UTF-16LE BOM and a U+0000.
    *
    * @param charset the chosen charset
    * @param head as for {@link #detect}
@@ -65,10 +68,12 @@ public final class EncodingDetector {
    */
   public static EncodingDetection forced(Charset charset, ByteBuffer head) {
     TextEncoding chosen = TextEncoding.of(charset, 0);
-    TextEncoding bom = bom(head.duplicate());
+    ByteBuffer sample = head.duplicate();
+    TextEncoding bom = chosen.unitWidth() == 2 ? utf16Bom(sample) : bom(sample);
     if (bom != null) {
       boolean sensing =
-          charset.equals(StandardCharsets.UTF_16) && !bom.charset().equals(StandardCharsets.UTF_8);
+          (charset.equals(StandardCharsets.UTF_16) || charset.name().equals("UTF-32"))
+              && bom.unitWidth() == chosen.unitWidth();
       if (sensing || bom.charset().equals(chosen.charset())) {
         chosen = bom;
       }
@@ -85,6 +90,24 @@ public final class EncodingDetector {
         && (sample.get(at + 2) & 0xff) == 0xbf) {
       return TextEncoding.of(StandardCharsets.UTF_8, 3);
     }
+    if (length >= 4) {
+      int first = sample.get(at) & 0xff;
+      int second = sample.get(at + 1) & 0xff;
+      int third = sample.get(at + 2) & 0xff;
+      int fourth = sample.get(at + 3) & 0xff;
+      if (first == 0xff && second == 0xfe && third == 0 && fourth == 0) {
+        return TextEncoding.of(Charset.forName("UTF-32LE"), 4);
+      }
+      if (first == 0 && second == 0 && third == 0xfe && fourth == 0xff) {
+        return TextEncoding.of(Charset.forName("UTF-32BE"), 4);
+      }
+    }
+    return utf16Bom(sample);
+  }
+
+  private static TextEncoding utf16Bom(ByteBuffer sample) {
+    int at = sample.position();
+    int length = sample.remaining();
     if (length >= 2) {
       int first = sample.get(at) & 0xff;
       int second = sample.get(at + 1) & 0xff;

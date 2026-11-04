@@ -20,6 +20,13 @@
 - `GrowableLineIndexTest` checks `retainedBytes()` against the allocation
   formula for full mode at widths 4-16 and for sparse mode, and that it equals
   the `LINE_INDEX` reservation.
+- A sparse `lineAt` 2 MiB into a 16 MiB line reads, through a counting
+  `ByteSource`, at most that distance plus two cache blocks; it read to the
+  end of the line. A UTF-16 sparse index checks that the stop falls on a unit.
+- `aScanOutlivingTheDrainBoundReturnsItsBuffer` holds every CPU thread past
+  the 5 s end-of-operation wait, so both scans of a two-buffer indexer start
+  after their operation ended. The next operation must complete: a lost
+  buffer left it waiting.
 - `LargeFileTest` writes a 2.2 GB sparse file (holes read as zeros, so little
   disk is used) and checks offsets past 2^31. It runs in the default build.
 
@@ -47,6 +54,14 @@
 - Budgets built with `MemoryBudget.of` force both `MEMORY` stops: 100,000
   bytes holds two dense result buckets, and 1,000,000 bytes refuses a
   200,000-byte line's buffer.
+- `aLongLineStillSearchesAfterThePoolGrew` searches a 100,000-byte line, then
+  a 400,000-line file five times, then the line again, with a 600,000-byte
+  `IO_BUFFERS` share. Each search must end with two buffers reserved; a pool
+  that kept its peak reservation stopped the last search with `MEMORY`.
+- `(a|b)*c` on a 400,000-char line overflows the regex stack. The search must
+  end `FAILED` with `PatternTooComplexException` naming the line and an empty
+  failure handler, and the next search on the engine must run;
+  `LineFinderTest` checks quick find the same way.
 - `MutableLineSetTest` compares random adds, toggles, batches and `removeFrom`
   with a `TreeSet`: `select` and `rank` at every member, `ceiling`, `floor`,
   `contains` and `rank` around every member and bucket edge, over 4 buckets
@@ -66,7 +81,8 @@
 - `LogDocumentTest` opens real files: tab expansion, CR handling, column
   windows, UTF-16 by BOM, the 1 MiB line cap, a line read past 2^31 bytes in
   a sparse file, close releasing the `LINE_INDEX` reservation, close during
-  indexing, and a read after close throwing `ClosedChannelException`.
+  indexing, close dropping the document's `BlockCache` blocks, and a read
+  after close throwing `ClosedChannelException`.
 - `LogDocumentFollowTest` watches real files with a 20 ms poll: appended lines
   indexed, including a last line that grew; truncation reported once;
   rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) while
@@ -81,6 +97,10 @@
   pass compared the file's end with the previous pass's tail digest and
   reported `MODIFIED`, which stopped following. It is a stress test: it failed
   in 2 of 10 runs without the fix and in 0 of 10 with it.
+  `truncateAndRegrowBetweenChecksIsReplaced` opens an empty file, appends,
+  then truncates and writes longer content through one channel. It must report
+  `REPLACED` (or `TRUNCATED` when a check lands between the two calls) and no
+  `APPENDED`: the new bytes were indexed after the old ones.
   The writer renames and deletes an open file, which Windows allows only
   because the file is opened with delete sharing and nothing is mapped.
 - `FilteredViewTest` maps rows in each `Visibility` over sets past one bucket
@@ -130,7 +150,10 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 - `OperationGateTest` covers admission, refusal after close and the idle wait.
 - `ChangeDetectorTest` classifies growth, truncation, a renamed file replaced
   under the name, a rewritten head, a same-size edit past the head digest, a
-  touch with the same bytes, and a missing path or a directory.
+  touch with the same bytes, and a missing path or a directory. Two growth
+  cases must be `REPLACED`, not `APPENDED`: a file opened empty, then written,
+  truncated and regrown longer, and a longer rewrite past an unchanged 4 KiB
+  head.
 - `FileMonitorTest` checks the poll and the cancel, and that a directory event
   wakes a watch long before its poll interval; that case skips on macOS,
   whose `WatchService` polls.

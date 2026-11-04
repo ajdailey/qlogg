@@ -13,10 +13,11 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Pool of direct read buffers for sequential scans, shared by every operation. Buffers are
- * allocated on demand and kept: a direct buffer is freed only by garbage collection, so reuse
- * avoids native memory churn. Each buffer is reserved from {@link MemoryShare#IO_BUFFERS}; the
- * first {@link #MIN_BUFFERS} are charged without the limit check so a scan can always run, and past
- * the share callers wait for a buffer instead. Buffers are little-endian. Thread-safe.
+ * allocated on demand and reused while operations run. Each buffer is reserved from {@link
+ * MemoryShare#IO_BUFFERS}; the first {@link #MIN_BUFFERS} are charged without the limit check so a
+ * scan can always run, and past the share callers wait for a buffer instead. {@link #trim} drops
+ * free buffers past the minimum and returns their reservation, so a grown pool does not hold the
+ * share another reservation needs. Buffers are little-endian. Thread-safe.
  */
 public final class ReadBuffers {
   /** Buffers allocated regardless of the share. */
@@ -111,7 +112,32 @@ public final class ReadBuffers {
   }
 
   /**
-   * Counts buffers allocated so far.
+   * Drops free buffers until {@link #MIN_BUFFERS} remain allocated, releasing each one's {@code
+   * IO_BUFFERS} reservation. Buffers in use stay allocated. The dropped buffers' native memory is
+   * freed by garbage collection.
+   *
+   * @return the buffers dropped
+   */
+  public int trim() {
+    lock.lock();
+    try {
+      int dropped = 0;
+      while (allocated > MIN_BUFFERS && free.poll() != null) {
+        allocated--;
+        dropped++;
+        budget.release(MemoryShare.IO_BUFFERS, bufferBytes);
+      }
+      if (dropped > 0) {
+        returned.signalAll();
+      }
+      return dropped;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Counts buffers allocated and not dropped.
    *
    * @return buffers
    */

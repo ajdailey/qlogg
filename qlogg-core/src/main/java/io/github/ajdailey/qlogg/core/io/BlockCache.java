@@ -112,6 +112,25 @@ public final class BlockCache {
   }
 
   /**
+   * Drops every cached block of a source, as when the source closes.
+   *
+   * @param source the file
+   */
+  public void invalidate(ByteSource source) {
+    lock.lock();
+    try {
+      Iterator<Key> keys = blocks.keySet().iterator();
+      while (keys.hasNext()) {
+        if (keys.next().source() == source) {
+          keys.remove();
+        }
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
    * Counts cached blocks.
    *
    * @return blocks held

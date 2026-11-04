@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -41,6 +42,7 @@ class LineFinderTest {
 
   private final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
   private Workers workers;
+  private DocumentServices services;
   private LogDocument document;
   private LineReader reader;
   private LineIndex index;
@@ -57,7 +59,7 @@ class LineFinderTest {
               }
             });
     MemoryBudget budget = MemoryBudget.of(1L << 28);
-    DocumentServices services =
+    services =
         new DocumentServices(
             workers,
             new Indexer(workers, IndexSettings.defaults(2, budget)),
@@ -69,9 +71,15 @@ class LineFinderTest {
     Path file = dir.resolve("find.log");
     Files.writeString(
         file, "alpha beta\n\tbeta x beta\r\nnone\ngamma\nbeta", StandardCharsets.UTF_8);
-    document = LogDocument.open(file, null, services);
+    document = indexed(file);
+    reader = document.newReader();
+    index = document.index();
+  }
+
+  private LogDocument indexed(Path file) throws IOException, InterruptedException {
+    LogDocument opened = LogDocument.open(file, null, services);
     final CountDownLatch done = new CountDownLatch(1);
-    document.addListener(
+    opened.addListener(
         new DocumentListener() {
           @Override
           public void indexProgressed(IndexProgress progress) {}
@@ -87,10 +95,9 @@ class LineFinderTest {
           @Override
           public void closed() {}
         });
-    document.startIndexing();
+    opened.startIndexing();
     assertTrue(done.await(30, TimeUnit.SECONDS));
-    reader = document.newReader();
-    index = document.index();
+    return opened;
   }
 
   @AfterEach
@@ -152,6 +159,35 @@ class LineFinderTest {
     assertEquals("    be", block.text(7));
     assertEquals(19, block.width(7));
     assertEquals("", block.text(8));
+  }
+
+  /** Regression: a regex stack overflow escaped quick find as an error. */
+  @Test
+  void aRegexStackOverflowNamesTheLine() throws Exception {
+    Path file = dir.resolve("deep.log");
+    Files.writeString(file, "x\n" + "ab".repeat(400_000) + "\n", StandardCharsets.US_ASCII);
+    try (LogDocument deep = indexed(file)) {
+      final LineReader deepReader = deep.newReader();
+      final LineIndex deepIndex = deep.index();
+      PatternTooComplexException failure =
+          assertThrows(
+              PatternTooComplexException.class,
+              new Executable() {
+                @Override
+                public void execute() throws Throwable {
+                  LineFinder.find(
+                      deepReader,
+                      deepIndex,
+                      RowCursor.all(deepIndex.lineCount()),
+                      Pattern.compile("(a|b)*c"),
+                      -1,
+                      0,
+                      true,
+                      new CancellationToken());
+                }
+              });
+      assertEquals(1, failure.line());
+    }
   }
 
   @Test

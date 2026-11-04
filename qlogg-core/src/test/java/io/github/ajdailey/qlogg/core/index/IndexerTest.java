@@ -16,6 +16,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
+import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.testkit.SyntheticLog;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
@@ -33,6 +34,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -193,6 +196,47 @@ class IndexerTest {
     check(ascii(text.toString()), 4096, MemoryBudget.of(150_000), true);
   }
 
+  /**
+   * Regression: a sparse lookup of an offset inside a long line read to the end of that line. The
+   * bytes read are bounded by the distance from the line's start plus two cache blocks.
+   */
+  @Test
+  void sparseLineAtInsideALongLineReadsOnlyUpToTheOffset() throws Exception {
+    StringBuilder text = new StringBuilder();
+    for (int i = 0; i < 5000; i++) {
+      text.append("short line ").append(i).append('\n');
+    }
+    byte[] head = ascii(text.toString());
+    int longBytes = 16 << 20;
+    byte[] content = new byte[head.length + longBytes + 6];
+    System.arraycopy(head, 0, content, 0, head.length);
+    Arrays.fill(content, head.length, head.length + longBytes, (byte) 'z');
+    System.arraycopy(ascii("\ntail\n"), 0, content, head.length + longBytes, 6);
+    Path file = write(content);
+    try (FileByteSource file0 = FileByteSource.open(file)) {
+      CountingSource source = new CountingSource(file0);
+      TextEncoding encoding = TextEncoding.of(StandardCharsets.US_ASCII, 0);
+      try (GrowableLineIndex index =
+          index(source, encoding, 65536, MemoryBudget.of(150_000), OperationOutcome.COMPLETED)) {
+        LineIndex snapshot = index.snapshot();
+        assertTrue(snapshot.sparse());
+        long start = snapshot.lineStart(5000);
+        long distance = 2L << 20;
+        source.bytes.set(0);
+        assertEquals(5000, snapshot.lineAt(start + distance));
+        assertTrue(source.bytes.get() <= distance + 2 * 4096, "read " + source.bytes.get());
+        assertEquals(5001, snapshot.lineAt(start + longBytes + 1));
+        assertEquals(5000, snapshot.lineAt(start + longBytes));
+      }
+    }
+  }
+
+  @Test
+  void sparseUtf16LineAtStopsOnAUnitBoundary() throws Exception {
+    byte[] text = SyntheticLog.text(1300, 6, "\r\n").getBytes(StandardCharsets.UTF_16LE);
+    check(concat(UTF16LE_BOM, text), 64, MemoryBudget.of(150_000), true);
+  }
+
   @Test
   void indexThatFitsNoModeFails() throws Exception {
     MemoryBudget budget = MemoryBudget.of(3000);
@@ -286,6 +330,63 @@ class IndexerTest {
         LineIndex snapshot = index.snapshot();
         assertTrue(snapshot.indexedBytes() <= 64L * readsAtCancel);
         assertTrue(snapshot.indexedBytes() < Files.size(file));
+      }
+    }
+  }
+
+  /**
+   * Regression: a scan still running when the end-of-operation wait gave up kept its buffer, so an
+   * indexer with two buffers waited forever on its next operation. Every CPU thread is held past
+   * the 5 s bound, so both scans start only after the operation ends.
+   */
+  @Test
+  void aScanOutlivingTheDrainBoundReturnsItsBuffer() throws Exception {
+    Path file = write(ascii(SyntheticLog.text(500, 12, "\n")));
+    final CountDownLatch release = new CountDownLatch(1);
+    Runnable blocker =
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              release.await(WAIT_MILLIS, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            }
+          }
+        };
+    try (FileByteSource file0 = FileByteSource.open(file)) {
+      final GatedSource source = new GatedSource(file0, Integer.MAX_VALUE);
+      TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
+      Indexer indexer = new Indexer(workers, new IndexSettings(64, 2, LARGE));
+      try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
+        for (int i = 0; i < workers.cpuThreads(); i++) {
+          workers.executeCpu(blocker);
+        }
+        RecordingListener first = new RecordingListener();
+        OperationHandle handle = indexer.index(source, index, index.resumeOffset(), first);
+        // Both buffers are read and their slots submitted before the coordinator checks again.
+        assertTrue(
+            Poll.until(
+                new BooleanSupplier() {
+                  @Override
+                  public boolean getAsBoolean() {
+                    return source.reads.get() >= 2;
+                  }
+                },
+                Duration.ofMillis(WAIT_MILLIS)));
+        handle.cancel();
+        try {
+          assertTrue(handle.await(WAIT_MILLIS));
+        } finally {
+          release.countDown();
+        }
+        assertEquals(OperationOutcome.CANCELED, first.outcome);
+      }
+      try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
+        RecordingListener second = new RecordingListener();
+        assertTrue(indexer.index(file0, index, 0, second).await(WAIT_MILLIS));
+        assertEquals(OperationOutcome.COMPLETED, second.outcome);
+        assertEquals(500, index.snapshot().lineCount());
       }
     }
   }
@@ -396,6 +497,45 @@ class IndexerTest {
     byte[] both = Arrays.copyOf(first, first.length + second.length);
     System.arraycopy(second, 0, both, first.length, second.length);
     return both;
+  }
+
+  /** Delegates reads and counts the bytes read. */
+  private static final class CountingSource implements ByteSource {
+    final AtomicLong bytes = new AtomicLong();
+    private final ByteSource delegate;
+
+    CountingSource(ByteSource delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public Path path() {
+      return delegate.path();
+    }
+
+    @Override
+    public long size() throws IOException {
+      return delegate.size();
+    }
+
+    @Override
+    public int read(long position, ByteBuffer dst) throws IOException {
+      int read = delegate.read(position, dst);
+      if (read > 0) {
+        bytes.addAndGet(read);
+      }
+      return read;
+    }
+
+    @Override
+    public FileIdentity identity() {
+      return delegate.identity();
+    }
+
+    @Override
+    public void close() throws IOException {
+      delegate.close();
+    }
   }
 
   /** Delegates reads, blocking the read numbered {@code gateAt} until {@link #open} counts down. */

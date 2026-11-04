@@ -16,8 +16,12 @@ import java.util.zip.CRC32C;
  * Classifies the file at a path against a document's {@link Baseline}, in this order: no regular
  * file is {@code MISSING}; another file key, or another creation time where the platform has no
  * file key, is {@code REPLACED}; fewer bytes than covered is {@code TRUNCATED}; another head digest
- * is {@code REPLACED}; more bytes is {@code APPENDED}; the same size with a newer modification time
- * and another tail digest is {@code MODIFIED}; anything else is {@code UNCHANGED}.
+ * is {@code REPLACED}; more bytes with another tail digest at the covered end is {@code REPLACED},
+ * otherwise {@code APPENDED}; the same size with a newer modification time and another tail digest
+ * is {@code MODIFIED}; anything else is {@code UNCHANGED}. Both tail comparisons need a recorded
+ * tail digest. The growth comparison catches a copy-truncate rotation that regrew past the covered
+ * bytes between two checks: the file key stays the same, and the head digest covers only the bytes
+ * recorded so far.
  *
  * <p>Creation time decides only where {@code fileKey} is null (Windows): JDK 21 on Linux reports
  * the modification time as the creation time, which changes on every append. The file is opened
@@ -76,20 +80,38 @@ public final class ChangeDetector {
     if (size < baseline.coveredBytes()) {
       return FileChange.TRUNCATED;
     }
-    long head = Math.min(identity.size(), FileIdentity.HEAD_BYTES);
-    if (digest(path, 0, (int) head) != identity.headDigest()) {
+    if (digest(path, 0, baseline.headBytes()) != baseline.headDigest()) {
       return FileChange.REPLACED;
     }
+    boolean tailRecorded = baseline.tailModifiedMillis() >= 0;
     if (size > baseline.coveredBytes()) {
+      if (tailRecorded && tailDiffers(baseline, path)) {
+        return FileChange.REPLACED;
+      }
       return FileChange.APPENDED;
     }
-    if (baseline.tailModifiedMillis() >= 0 && modified != baseline.tailModifiedMillis()) {
-      long start = Math.max(0, size - TAIL_BYTES);
-      if (digest(path, start, (int) (size - start)) != baseline.tailDigest()) {
-        return FileChange.MODIFIED;
-      }
+    if (tailRecorded && modified != baseline.tailModifiedMillis() && tailDiffers(baseline, path)) {
+      return FileChange.MODIFIED;
     }
     return FileChange.UNCHANGED;
+  }
+
+  private static boolean tailDiffers(Baseline baseline, Path path) throws IOException {
+    long end = baseline.coveredBytes();
+    long start = Math.max(0, end - TAIL_BYTES);
+    return digest(path, start, (int) (end - start)) != baseline.tailDigest();
+  }
+
+  /**
+   * Digests the first {@code length} bytes of an open file.
+   *
+   * @param source the file
+   * @param length the bytes to digest, at most {@link FileIdentity#HEAD_BYTES}
+   * @return CRC32C of the bytes read
+   * @throws IOException on a read error
+   */
+  public static long headDigest(ByteSource source, int length) throws IOException {
+    return digest(source, 0, length);
   }
 
   /**
@@ -102,7 +124,11 @@ public final class ChangeDetector {
    */
   public static long tailDigest(ByteSource source, long end) throws IOException {
     long start = Math.max(0, end - TAIL_BYTES);
-    ByteBuffer buffer = ByteBuffer.allocate((int) (end - start));
+    return digest(source, start, (int) (end - start));
+  }
+
+  private static long digest(ByteSource source, long start, int length) throws IOException {
+    ByteBuffer buffer = ByteBuffer.allocate(length);
     while (buffer.hasRemaining()) {
       if (source.read(start + buffer.position(), buffer) < 0) {
         break;

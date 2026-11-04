@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,6 +53,7 @@ public final class LineFinder {
    * @return the match, or null when none is left in that direction
    * @throws IOException on a read error
    * @throws java.util.concurrent.CancellationException once the token is canceled
+   * @throws PatternTooComplexException when the pattern overflows the stack on a line
    */
   public static Match find(
       LineReader reader,
@@ -80,7 +82,12 @@ public final class LineFinder {
       chars.set(text);
       matcher.reset(chars);
       int limit = first ? charIndex(text, column) : (forward ? 0 : text.length() + 1);
-      int[] found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+      int[] found;
+      try {
+        found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+      } catch (StackOverflowError e) {
+        throw new PatternTooComplexException(current);
+      }
       if (found.length == 2) {
         return new Match(current, columnOf(text, found[0]), columnOf(text, found[1]));
       }

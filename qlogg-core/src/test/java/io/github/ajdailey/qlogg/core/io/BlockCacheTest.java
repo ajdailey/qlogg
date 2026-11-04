@@ -110,4 +110,21 @@ class BlockCacheTest {
     cache.invalidateFrom(64 * 3 + 5);
     assertEquals(1, cache.size());
   }
+
+  @Test
+  void invalidateDropsOnlyThatSourcesBlocks() throws IOException {
+    MemorySource closing = new MemorySource(bytes(200));
+    MemorySource open = new MemorySource(bytes(200));
+    BlockCache cache = new BlockCache(64, 64 * 8);
+    for (int block = 0; block < 3; block++) {
+      cache.read(closing, block * 64L, 1, ByteBuffer.allocate(1));
+      cache.read(open, block * 64L, 1, ByteBuffer.allocate(1));
+    }
+    assertEquals(6, cache.size());
+    cache.invalidate(closing);
+    assertEquals(3, cache.size());
+    int reads = open.reads.get();
+    cache.read(open, 0, 1, ByteBuffer.allocate(1));
+    assertEquals(reads, open.reads.get());
+  }
 }

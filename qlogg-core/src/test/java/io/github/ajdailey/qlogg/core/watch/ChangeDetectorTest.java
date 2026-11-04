@@ -20,9 +20,12 @@ class ChangeDetectorTest {
   private static Baseline baseline(Path file) throws IOException {
     try (FileByteSource source = FileByteSource.open(file)) {
       long size = source.size();
+      int head = (int) Math.min(size, FileIdentity.HEAD_BYTES);
       return new Baseline(
           source.identity(),
           size,
+          head,
+          ChangeDetector.headDigest(source, head),
           Files.getLastModifiedTime(file).toMillis(),
           ChangeDetector.tailDigest(source, size));
     }
@@ -69,6 +72,45 @@ class ChangeDetectorTest {
     Path file = write("rewrite.log", "aaaa\n");
     Baseline baseline = baseline(file);
     Files.writeString(file, "bbbb\nmore\n", StandardOpenOption.TRUNCATE_EXISTING);
+    assertEquals(FileChange.REPLACED, classify(baseline, file));
+  }
+
+  /**
+   * Regression: a file opened empty, then written, truncated and regrown longer between two checks
+   * kept its file key and had no head bytes recorded at open, and was reported APPENDED.
+   */
+  @Test
+  void truncateThenRegrowOfAFileOpenedEmptyIsReplaced() throws Exception {
+    Path file = write("regrow.log", "");
+    FileIdentity opened;
+    try (FileByteSource source = FileByteSource.open(file)) {
+      opened = source.identity();
+    }
+    Files.writeString(file, "old line one\nold line two\n".repeat(4), StandardCharsets.US_ASCII);
+    Baseline indexed = baseline(file);
+    Baseline baseline =
+        new Baseline(
+            opened,
+            indexed.coveredBytes(),
+            0,
+            opened.headDigest(),
+            indexed.tailModifiedMillis(),
+            indexed.tailDigest());
+    Files.writeString(file, "", StandardOpenOption.TRUNCATE_EXISTING);
+    Files.writeString(file, "NEW CONTENT AFTER ROTATION\n".repeat(8), StandardOpenOption.APPEND);
+    assertEquals(FileChange.REPLACED, classify(baseline, file));
+  }
+
+  /** Regression: a rewrite past an unchanged 4 KiB head that left the file longer was APPENDED. */
+  @Test
+  void aLongerRewriteKeepingTheHeadIsReplaced() throws Exception {
+    String header = "H".repeat(5000) + "\n";
+    Path file = write("body.log", header + "first body line\n");
+    Baseline baseline = baseline(file);
+    Files.writeString(
+        file,
+        header + "REWRITTEN BODY LINE, longer than before\n",
+        StandardOpenOption.TRUNCATE_EXISTING);
     assertEquals(FileChange.REPLACED, classify(baseline, file));
   }
 
