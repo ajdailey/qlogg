@@ -44,8 +44,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
   the path or opens the containing folder), Stop, and the file's size,
   modification time, encoding and position.
 - A tab row appears while two or more files are open. A tab's menu closes tabs,
-  copies the path, opens the folder or renames the tab; a middle click closes
-  it. View > Opened Files and Switch to File (`Ctrl+Shift+O`) list the tabs.
+  copies the path, opens the folder, renames the tab or moves it to a new
+  window; a middle click closes it. View > Opened Files and Switch to File
+  (`Ctrl+Shift+O`) list the tabs.
 - The overview bar beside the main view marks matches and marks across the
   whole file; a click goes there.
 - Below the splitter: the search row, the result tabs and the filtered view.
@@ -201,7 +202,22 @@ Favorites menu adds, removes and opens favorite files.
 
 ## Windows and the running instance
 
-File > New Window opens another main window. A launch without `-m` hands its
+File > New Window opens another main window. A tab moves between windows
+with everything it shows: its position, selection, marks, search results,
+filtered view, folds, follow state and name stay, and the file is not read
+again.
+
+- Drag a tab onto another QLogg window: over its tab row, the tab lands where
+  it is dropped; anywhere else in that window, after the last tab.
+- Drag a tab outside every QLogg window: a new window opens at the drop point,
+  where the window system allows placing it.
+- The tab menu and View > Move to New Window move a tab to a new window. A
+  window left without tabs stays open.
+
+A tab does not move into a window that already shows the same file, or while
+its file is reloading.
+
+A launch without `-m` hands its
 files to the QLogg already running for the same settings directory and exits:
 the files open in the window used last, which comes to the front. A file a
 window shows already is shown in that tab instead of a second one, with

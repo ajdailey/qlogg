@@ -86,13 +86,14 @@ import org.eclipse.swt.widgets.ToolItem;
  * {@link QuickFindBar} and a status bar with the document notes, notices and the key-prefix field.
  * The views show the active tab: switching tabs disposes them and creates them over the other
  * document's controllers, which hold the viewport, selection and rows. Tabs show file names and
- * move by dragging; a tab's close button or a middle click closes its file, and its context menu
- * holds the close variants, the path commands and Rename Tab. The path field's context menu holds
- * the path commands, Copy and Select All. Files dropped on the window open a tab each. A palette
- * change from the theme recolors both log views and the overview bar at once; native widgets follow
- * the system. Created, placed and opened on the UI thread; a close request from the window system
- * is vetoed and forwarded to the close handler, which ends with {@link #dispose}. Every dialog it
- * opens returns at once; none runs a nested event loop except the platform file chooser.
+ * move by dragging, within the strip or to another window ({@link #dropTab}); a tab's close button
+ * or a middle click closes its file, and its context menu holds the close variants, the path
+ * commands, Rename Tab and Move to New Window. The path field's context menu holds the path
+ * commands, Copy and Select All. Files dropped on the window open a tab each. A palette change from
+ * the theme recolors both log views and the overview bar at once; native widgets follow the system.
+ * Created, placed and opened on the UI thread; a close request from the window system is vetoed and
+ * forwarded to the close handler, which ends with {@link #dispose}. Every dialog it opens returns
+ * at once; none runs a nested event loop except the platform file chooser.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
@@ -110,6 +111,10 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   /** Widget data key marking a sash that draws its grip. */
   private static final String GRIP = "qlogg.grip";
+
+  // Tab move between windows.
+  /** Shell data key holding the shell's {@code MainWindow}. */
+  private static final String WINDOW = "qlogg.mainWindow";
 
   /** Check items whose state does not depend on a document. */
   private static final Set<CommandId> APPLICATION_CHECKS =
@@ -188,6 +193,15 @@ public final class MainWindow implements MainView, ApplicationListener {
   // Tab drag and tab context menu.
   private boolean movingTab;
   private Menu tabMenu;
+  // Tab move between windows.
+  private MenuItem moveItem;
+  private PointerProbe pointer =
+      new PointerProbe() {
+        @Override
+        public Control controlAt(Point point) {
+          return shell.getDisplay().getCursorControl();
+        }
+      };
   private Menu highlightMenu;
   // Recent files, favorites and encoding menus.
   private Menu recentMenu;
@@ -260,6 +274,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
+    shell.setData(WINDOW, this);
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
     shell.setImages(icons.toArray(new Image[0]));
@@ -672,9 +687,15 @@ public final class MainWindow implements MainView, ApplicationListener {
             }
             CTabItem source = dragged;
             dragged = null;
+            if (source == null || source.isDisposed()) {
+              return;
+            }
             CTabItem target = tabs.getItem(new Point(event.x, event.y));
-            if (source != null && target != null && source != target && !source.isDisposed()) {
+            if (target != null && source != target) {
               moveTab(source, tabs.indexOf(target));
+            } else if (target == null) {
+              Point point = tabs.toDisplay(event.x, event.y);
+              dropTab((DocumentController) source.getData(), point, pointer.controlAt(point));
             }
           }
         });
@@ -802,6 +823,18 @@ public final class MainWindow implements MainView, ApplicationListener {
             controller.resetTabName(document);
           }
         });
+    // Tab move between windows.
+    new MenuItem(menu, SWT.SEPARATOR);
+    tabMenuItem(
+        menu,
+        UiText.TAB_MOVE_TO_NEW_WINDOW,
+        true,
+        new Runnable() {
+          @Override
+          public void run() {
+            controller.moveToNewWindow(document, null, null);
+          }
+        });
     menu.setLocation(x, y);
     menu.setVisible(true);
     return menu;
@@ -840,6 +873,74 @@ public final class MainWindow implements MainView, ApplicationListener {
       movingTab = false;
     }
     controller.moveDocument(document, index);
+  }
+
+  // Tab move between windows.
+
+  /** Finds the control under a display point; the default reads the pointer's from the Display. */
+  interface PointerProbe {
+    /**
+     * Returns the control under a point.
+     *
+     * @param point display coordinates
+     * @return a control of this application, or null outside every shell of it
+     */
+    Control controlAt(Point point);
+  }
+
+  /**
+   * Sets how a tab drag finds the control it was released over.
+   *
+   * @param probe the probe
+   */
+  void setPointerProbe(PointerProbe probe) {
+    pointer = probe;
+  }
+
+  /**
+   * Ends a tab drag released off this window's tabs. Over another main window the tab moves there:
+   * before the tab under the point, else after the last tab. Outside every QLogg shell and outside
+   * this window's bounds it moves to a new window with its top-left corner at the point. A release
+   * anywhere else does nothing.
+   *
+   * @param document the dragged tab's controller
+   * @param point the release point in display coordinates
+   * @param under the control under the point, or null outside every QLogg shell
+   */
+  void dropTab(DocumentController document, Point point, Control under) {
+    if (under == null) {
+      if (!shell.getBounds().contains(point)) {
+        controller.moveToNewWindow(document, point.x, point.y);
+      }
+      return;
+    }
+    Shell other = under.getShell();
+    if (other == shell
+        || !(other.getData(WINDOW) instanceof MainWindow target)
+        || target.controller == null) {
+      return;
+    }
+    int index = target.controller.documents().size();
+    if (target.tabs.isVisible()) {
+      CTabItem item = target.tabs.getItem(target.tabs.toControl(point));
+      if (item != null) {
+        index = target.tabs.indexOf(item);
+      }
+    }
+    controller.moveToWindow(document, target.controller, index);
+  }
+
+  @Override
+  public void documentMovedOut(DocumentController document) {
+    removeTab(document);
+  }
+
+  @Override
+  public void documentMovedIn(DocumentController document, int index) {
+    newTab(document, index);
+    showTabs();
+    syncToolBar();
+    syncEnablement();
   }
 
   private CTabItem newTab(DocumentController document, int index) {
@@ -1062,6 +1163,9 @@ public final class MainWindow implements MainView, ApplicationListener {
         if (FILE_COMMANDS.contains(command)) {
           fileItems.put(command, item);
         }
+        if (command == CommandId.MOVE_TO_NEW_WINDOW) {
+          moveItem = item;
+        }
       }
       if (group == CommandGroup.HIGHLIGHT) {
         highlightMenu = menu;
@@ -1124,6 +1228,9 @@ public final class MainWindow implements MainView, ApplicationListener {
       if (!item.isDisposed()) {
         item.setEnabled(file);
       }
+    }
+    if (moveItem != null && !moveItem.isDisposed()) {
+      moveItem.setEnabled(document != null);
     }
     for (Map.Entry<CommandId, MenuItem> entry : checkItems.entrySet()) {
       MenuItem item = entry.getValue();
@@ -1480,6 +1587,11 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void documentClosed(DocumentController document) {
+    removeTab(document);
+  }
+
+  /** Removes a tab, and the views when they show its document. */
+  private void removeTab(DocumentController document) {
     CTabItem item = tabOf(document);
     if (item != null) {
       item.dispose();

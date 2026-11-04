@@ -1077,17 +1077,18 @@ public final class ApplicationController implements DocumentHost {
   }
 
   private DocumentController create(LogDocument document) {
+    TabHost host = new TabHost(this, view);
     DocumentController created =
         new DocumentController(
             document,
             workers,
             ui,
-            view,
-            view,
-            view,
+            host,
+            host,
+            host,
             set.services().budget(),
             set.services().search(),
-            this);
+            host);
     features.configure(created);
     UiState state = preferences.get().state();
     created.setLineNumbers(state.lineNumbers());
@@ -1139,6 +1140,88 @@ public final class ApplicationController implements DocumentHost {
     }
   }
 
+  // Tab move between windows.
+
+  /**
+   * Moves a tab to a new window; see {@link WindowSet#moveDocument}.
+   *
+   * @param document an open document's controller
+   * @param x the new window's left edge in display coordinates, or null
+   * @param y the new window's top edge in display coordinates, or null
+   */
+  public void moveToNewWindow(DocumentController document, Integer x, Integer y) {
+    set.moveDocument(this, document, null, new WindowSet.Placement(0, x, y));
+  }
+
+  /**
+   * Moves a tab to another window at a tab position; see {@link WindowSet#moveDocument}.
+   *
+   * @param document an open document's controller
+   * @param target the other window's controller
+   * @param index the tab position there, 0 first; clamped to its tabs
+   */
+  public void moveToWindow(DocumentController document, ApplicationController target, int index) {
+    set.moveDocument(this, document, target, new WindowSet.Placement(index, null, null));
+  }
+
+  /** Reports whether a tab's reload or reopen is running, which a move waits out. */
+  boolean isReopening(DocumentController document) {
+    return reopening.contains(document);
+  }
+
+  /**
+   * Removes a tab whose document moves to another window, without detaching or closing it, and
+   * shows a neighbor as a close does.
+   *
+   * @return the tab's Rename Tab name, or null
+   */
+  String detachMoved(DocumentController document) {
+    int index = documents.indexOf(document);
+    documents.remove(index);
+    quickFind.cancelRunning(document);
+    features.documentClosed(document);
+    if (focused == document || focused == document.filtered()) {
+      focused = null;
+    }
+    Path path = document.document().path();
+    String name = path == null ? null : tabNames.remove(path);
+    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+      listener.documentMovedOut(document);
+    }
+    showAfterRemoval(document, index);
+    return name;
+  }
+
+  /**
+   * Adds a tab moved from another window and shows it; its controllers report to this window from
+   * now on.
+   *
+   * @param name its Rename Tab name, or null
+   * @param index its tab position, clamped to the tabs
+   * @param open the open windows
+   */
+  void attachMoved(
+      DocumentController document, String name, int index, List<ApplicationController> open) {
+    if (document.host() instanceof TabHost host) {
+      host.moveTo(this, view, open);
+    }
+    int at = Math.max(0, Math.min(index, documents.size()));
+    documents.add(at, document);
+    Path path = document.document().path();
+    if (name != null && path != null) {
+      tabNames.put(path, name);
+    }
+    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+      listener.documentMovedIn(document, at);
+    }
+    activate(document);
+  }
+
+  /** Shows a notice in this window's status bar. */
+  void showNotice(String message) {
+    view.showNotice(message);
+  }
+
   private void showNeighbor(int step) {
     int index = documents.indexOf(active);
     if (index < 0 || documents.size() < 2) {
@@ -1175,6 +1258,11 @@ public final class ApplicationController implements DocumentHost {
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.documentClosed(document);
     }
+    showAfterRemoval(document, index);
+  }
+
+  /** Shows the tab after a removed one, else the one before, when the removed one was shown. */
+  private void showAfterRemoval(DocumentController document, int index) {
     if (active != document) {
       return;
     }
@@ -1435,6 +1523,12 @@ public final class ApplicationController implements DocumentHost {
       case ZOOM_RESET -> setFont(preferences.get().options().font().withoutZoom());
       // Multiple windows, logging and support items.
       case NEW_WINDOW -> set.newWindow();
+      // Tab move between windows.
+      case MOVE_TO_NEW_WINDOW -> {
+        if (active != null) {
+          moveToNewWindow(active, null, null);
+        }
+      }
       case SHOW_LOG -> showLog();
       case DEBUG_LOG_FILE -> setDebugLogFile(!set.logFiles().attached());
       case OPEN_LOG_FOLDER -> openFolder(set.logFiles().directory());

@@ -172,13 +172,13 @@ final class Gui {
       set.setFactory(
           new WindowSet.Factory() {
             @Override
-            public ApplicationController create(WindowSet owner) {
+            public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
               WindowState remembered = owner.settings().state().window();
               return openWindow(
                   display,
                   owner,
                   palette,
-                  new WindowGeometry.Request(null, null, null, null),
+                  at,
                   new WindowGeometry.Request(null, null, remembered.width(), remembered.height()));
             }
           });

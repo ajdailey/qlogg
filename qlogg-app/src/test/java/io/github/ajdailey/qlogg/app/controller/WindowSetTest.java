@@ -18,6 +18,7 @@ import io.github.ajdailey.qlogg.app.log.RecentLog;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
+import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -126,7 +127,7 @@ class WindowSetTest {
     set.setFactory(
         new WindowSet.Factory() {
           @Override
-          public ApplicationController create(WindowSet owner) {
+          public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
             FakeView view = new FakeView();
             views.add(view);
             return new ApplicationController(owner, view);

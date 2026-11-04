@@ -50,4 +50,22 @@ public interface ApplicationListener {
    * An option other than the key bindings and the font changed in Options. Does nothing by default.
    */
   default void optionsChanged() {}
+
+  // Tab move between windows.
+
+  /**
+   * A tab moved to another window; its tab is removed and its controllers stay attached. Does
+   * nothing by default.
+   *
+   * @param document the tab's controller
+   */
+  default void documentMovedOut(DocumentController document) {}
+
+  /**
+   * A tab moved here from another window. Does nothing by default.
+   *
+   * @param document the tab's controller
+   * @param index its tab position, 0 first
+   */
+  default void documentMovedIn(DocumentController document, int index) {}
 }

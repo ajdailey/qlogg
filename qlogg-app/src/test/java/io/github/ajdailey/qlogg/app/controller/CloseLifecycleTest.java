@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -34,12 +35,12 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Interleaves open, paste, reload, search, copy, mark toggle, quick find, tab close and window
- * close across several windows at random, draining the UI queue at random points, then quits.
- * Afterwards every file a tab showed is closed, no thread survives, and the {@code RESULTS}, {@code
- * LINE_INDEX}, {@code HIGHLIGHT}, {@code COPY} and {@code PASTED} reservations and the activity
- * counters are 0. A document an open finished but no window claimed never reaches a tab; its {@code
- * LINE_INDEX} reservation exposes it.
+ * Interleaves open, paste, reload, search, copy, mark toggle, quick find, tab close, tab move and
+ * window close across several windows at random, draining the UI queue at random points, then
+ * quits. Afterwards every file a tab showed is closed, no thread survives, and the {@code RESULTS},
+ * {@code LINE_INDEX}, {@code HIGHLIGHT}, {@code COPY} and {@code PASTED} reservations and the
+ * activity counters are 0. A document an open finished but no window claimed never reaches a tab;
+ * its {@code LINE_INDEX} reservation exposes it.
  *
  * <p>The seed is random per run and is in every failure message; {@code
  * -Dqlogg.closeLifecycle.seed=N} replays one.
@@ -140,7 +141,7 @@ class CloseLifecycleTest {
       set.setFactory(
           new WindowSet.Factory() {
             @Override
-            public ApplicationController create(WindowSet owner) {
+            public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
               return window(owner);
             }
           });
@@ -235,11 +236,11 @@ class CloseLifecycleTest {
       ApplicationController window = windows.get(random.nextInt(windows.size()));
       List<DocumentController> tabs = window.documents();
       DocumentController tab = tabs.isEmpty() ? null : tabs.get(random.nextInt(tabs.size()));
-      int action = random.nextInt(10);
-      if (tab == null && action >= 3 && action <= 8) {
+      int action = random.nextInt(11);
+      if (tab == null && action >= 3 && action <= 9) {
         action = 0;
       }
-      if (action == 9 && windows.size() == 1) {
+      if (action == 10 && windows.size() == 1) {
         action = 2;
       }
       switch (action) {
@@ -263,7 +264,19 @@ class CloseLifecycleTest {
           window.quickFind().setText("line 59999");
         }
         case 8 -> window.closeDocument(tab);
+        case 9 -> move(window, tab, windows);
         default -> window.closeWindow();
+      }
+    }
+
+    /** Moves a tab to a new window or to another window at a random position. */
+    private void move(
+        ApplicationController window, DocumentController tab, List<ApplicationController> windows) {
+      ApplicationController target = windows.get(random.nextInt(windows.size()));
+      if (target == window) {
+        window.moveToNewWindow(tab, null, null);
+      } else {
+        window.moveToWindow(tab, target, random.nextInt(target.documents().size() + 1));
       }
     }
 

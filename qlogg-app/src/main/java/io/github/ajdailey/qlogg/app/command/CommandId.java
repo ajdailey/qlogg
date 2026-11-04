@@ -111,6 +111,9 @@ public enum CommandId {
   NEXT_TAB(CommandGroup.VIEW, UiText.COMMAND_NEXT_TAB, false, false),
   /** Show the tab to the left. */
   PREVIOUS_TAB(CommandGroup.VIEW, UiText.COMMAND_PREVIOUS_TAB, false, false),
+  // Tab move between windows.
+  /** Move the active tab to a new window. */
+  MOVE_TO_NEW_WINDOW(CommandGroup.VIEW, UiText.COMMAND_MOVE_TO_NEW_WINDOW, false, false),
   /** Follow the end of the active file. */
   FOLLOW(CommandGroup.VIEW, UiText.COMMAND_FOLLOW, true, true),
   /** Set {@code follow.onLoad}. */

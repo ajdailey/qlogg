@@ -270,6 +270,19 @@ window; `new ApplicationController(set, view)` adds a window to a set.
   shown instead, at its `+line:N` and following with `-f`; its window is
   raised (`WindowSet.holderOf`). File > Open and the command line keep their
   own window's check only.
+- `WindowSet.moveDocument` moves a tab to another window at a tab position,
+  or to a new window through the `Factory` at a display point (View > Move to
+  New Window, the tab menu, a tab drag). The `DocumentController` and its
+  `LogDocument` move as they are; nothing is reopened. Each controller reports
+  to its window through a `TabHost` (`DocumentHost`, clipboard, notices,
+  activity) that the move points at the target. An activity reported before
+  the move ends in the window it started in. The source detaches the tab
+  without closing it (`ApplicationListener.documentMovedOut`), cancels its
+  quick find and drops it from the search across files; the target inserts it
+  (`documentMovedIn`) with its Rename Tab name and shows it. A window left
+  with no tab stays open. The settings and session save once, without the
+  debounce. Nothing moves while quitting, during the tab's reload or reopen, or into a window
+  that shows the same file (a notice says so).
 - `closeWindow()` (the window's close button) closes this window: it
   remembers its placement, detaches its tabs, hides it, saves the session
   without it, closes its documents on a `qlogg-lifecycle-` worker and posts
@@ -714,7 +727,7 @@ instead of draining the UI queue for it, because threads end without posting
 a UI task.
 `CloseLifecycleTest` drives several windows through 40 rounds of random
 open, paste, reload, search, copy, mark toggle, quick find, new window, tab
-close and window close, draining the UI queue at random points, then quits.
+close, tab move (to a new window or another window) and window close, draining the UI queue at random points, then quits.
 Every file a tab showed is closed, no thread survives, and the `RESULTS`,
 `LINE_INDEX`, `HIGHLIGHT`, `COPY` and `PASTED` reservations and the activity
 counters are 0. The seed is random per run and named in the failure;
@@ -732,6 +745,16 @@ file (a failed attach stays unchecked), the folder items creating and opening
 their folders, Report an Issue copying the details before it opens the issue
 page, and Documentation writing the guide's copy and then showing it, opening
 it, or naming it in a notice, and a guide window failing later doing the same.
+`TabMoveTest` moves a tab and checks the same `LogDocument` and open file,
+the line count, forced encoding, tab name, marks, follow, a collapsed fold,
+selection, top line, results, a kept set and the filtered view's visibility
+in the new window; copy reaching the new window's clipboard; the session
+written with both windows before any UI task runs; insertion at the drop
+index with the source showing its next tab; refusal into a window showing the
+file and during a reload; the last tab moving with the new window requested
+at the drop point; and a moved document surviving its source window's close,
+then closing once at quit. `TabHostTest` checks that an activity reported
+before a move ends in its first window.
 `CommandDispatchTest` runs every `CommandId` with no document, on a document
 and with its filtered view focused, and requires no exception on the UI thread
 or a worker and no activity left running. `HighlightCompositionTest` records

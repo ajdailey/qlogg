@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.log.RecentLog;
 import io.github.ajdailey.qlogg.app.theme.Palette;
@@ -13,6 +14,7 @@ import io.github.ajdailey.qlogg.app.theme.PaletteListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeController;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
+import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
@@ -36,11 +38,12 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Files handed to the instance ({@link #openHandoff}) go to the window activated last, except a
  * file a window shows already, which activates that tab. New Window opens an empty window through
- * the {@link Factory}. Closing a window that is not the last closes its documents and drops its
- * tabs from the session; closing the last one, or Quit from any window, runs {@link #quit}: stop
- * accepting operations and detach every window's tabs on the UI thread, hide the windows, then on a
- * {@code qlogg-lifecycle-} worker run the quit listeners, save, close every document at once
- * ({@link LogDocument#closeAll}, 5 s overall), close {@link Workers} (5 s) and any document an open
+ * the {@link Factory}. {@link #moveDocument} moves a tab with its live document to another window
+ * or a new one. Closing a window that is not the last closes its documents and drops its tabs from
+ * the session; closing the last one, or Quit from any window, runs {@link #quit}: stop accepting
+ * operations and detach every window's tabs on the UI thread, hide the windows, then on a {@code
+ * qlogg-lifecycle-} worker run the quit listeners, save, close every document at once ({@link
+ * LogDocument#closeAll}, 5 s overall), close {@link Workers} (5 s) and any document an open
  * finished but no window claimed, run the finish listeners, and dispose the windows on the UI
  * thread, which ends the event loop. The UI thread never waits.
  *
@@ -56,10 +59,21 @@ public final class WindowSet {
      * Creates a window over the set, places and opens it; called on the UI thread.
      *
      * @param set the set it joins
+     * @param at the requested top-left corner in display coordinates; a null value leaves the
+     *     position to the window system, and the size is the remembered one
      * @return the window's controller, or null when it could not be created
      */
-    ApplicationController create(WindowSet set);
+    ApplicationController create(WindowSet set, WindowGeometry.Request at);
   }
+
+  /**
+   * Where a moved tab goes.
+   *
+   * @param index its tab position in an existing window, 0 first; clamped to the tabs
+   * @param x a new window's left edge in display coordinates, or null for the window system
+   * @param y a new window's top edge in display coordinates, or null for the window system
+   */
+  public record Placement(int index, Integer x, Integer y) {}
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowSet.class);
 
@@ -257,16 +271,76 @@ public final class WindowSet {
    * @return its controller, or null while quitting, without a factory, or when it failed
    */
   public ApplicationController openWindow() {
+    return openWindow(new WindowGeometry.Request(null, null, null, null));
+  }
+
+  private ApplicationController openWindow(WindowGeometry.Request at) {
     if (quitting || factory == null) {
       return null;
     }
-    ApplicationController window = factory.create(this);
+    ApplicationController window = factory.create(this, at);
     if (window == null) {
       LOG.warn("New window not created");
     } else {
       activated(window);
     }
     return window;
+  }
+
+  // Tab move between windows.
+
+  /**
+   * Moves a tab to another window, or to a new one, with its live document: the index, marks,
+   * follow state, position, selection, search results, kept sets, filter, folds, tab name and
+   * encoding override go with it, and nothing is read again. The source window shows its next tab,
+   * or stays open and empty. The target window shows the tab. The settings and session save once,
+   * without the debounce. Call on the UI thread.
+   *
+   * <p>Nothing moves while quitting, while the tab's reload or reopen runs, when the target window
+   * shows the same file (a notice says so), or when no new window could be created.
+   *
+   * @param source the window the tab is in
+   * @param document the tab's controller
+   * @param target the window it goes to, or null for a new window
+   * @param placement the tab position in {@code target}, or the new window's corner
+   * @return the window it moved to, or null when it did not move
+   */
+  public ApplicationController moveDocument(
+      ApplicationController source,
+      DocumentController document,
+      ApplicationController target,
+      Placement placement) {
+    if (quitting
+        || target == source
+        || !windows.contains(source)
+        || !source.documents().contains(document)
+        || (target != null && !windows.contains(target))
+        || source.isReopening(document)) {
+      return null;
+    }
+    LogDocument log = document.document();
+    if (target != null && !log.inMemory() && target.shows(log.path())) {
+      source.showNotice(UiText.NOTICE_MOVE_SHOWN.format(document.state().title()));
+      return null;
+    }
+    ApplicationController destination = target;
+    if (destination == null) {
+      destination =
+          openWindow(new WindowGeometry.Request(placement.x(), placement.y(), null, null));
+      if (destination == null) {
+        return null;
+      }
+    }
+    String name = source.detachMoved(document);
+    destination.attachMoved(document, name, placement.index(), windows);
+    if (target != null) {
+      activated(target);
+      target.toFront();
+    }
+    // Drops the debounced save the activation scheduled; this save covers it.
+    saveGeneration++;
+    flushSettings();
+    return destination;
   }
 
   // Shared state.

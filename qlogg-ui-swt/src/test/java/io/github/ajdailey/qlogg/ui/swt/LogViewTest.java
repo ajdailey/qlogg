@@ -472,6 +472,7 @@ class LogViewTest {
             "Switch to File",
             "Next Tab",
             "Previous Tab",
+            "Move to New Window",
             "-",
             "Follow File",
             "Follow New Files",
@@ -514,10 +515,10 @@ class LogViewTest {
             "-",
             "Next Filtered View Mode",
             "Previous Filtered View Mode"),
-        labels(bar.getItem(2).getMenu().getItem(26).getMenu()));
+        labels(bar.getItem(2).getMenu().getItem(27).getMenu()));
     assertEquals(
         List.of("Light Theme", "Dark Theme", "System Theme"),
-        labels(bar.getItem(2).getMenu().getItem(36).getMenu()));
+        labels(bar.getItem(2).getMenu().getItem(37).getMenu()));
     assertEquals(
         onThisPlatform(
             List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Options")),

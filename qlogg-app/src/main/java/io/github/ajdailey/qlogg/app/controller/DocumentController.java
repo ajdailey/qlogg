@@ -551,6 +551,11 @@ public final class DocumentController extends LineViewController {
     return overview;
   }
 
+  /** Returns the host given at construction; a tab move changes the window behind it. */
+  DocumentHost host() {
+    return host;
+  }
+
   /**
    * Returns the filtered view of this document's results and marks.
    *

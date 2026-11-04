@@ -96,8 +96,20 @@ Compiled and tested against the build host's SWT fragment.
   menu (`showTabMenu`, one menu refilled on each call) holds Close This, Close
   Others, Close to the Left, Close to the Right, Close All, then Copy Full Path, Copy File Name and Open
   Containing Folder, then
-  Rename Tab and Reset Tab Name; the side items are disabled at the ends and
-  the path and name items for clipboard text.
+  Rename Tab and Reset Tab Name, then Move to New Window; the side items are
+  disabled at the ends and the path and name items for clipboard text.
+- A tab drag released off the tab under the press goes to `dropTab` with the
+  display point and the control under the pointer
+  (`Display.getCursorControl`, through a replaceable `PointerProbe`). The
+  press grabs the pointer, so the folder also gets a release outside the
+  window. Over another main window (found through its
+  shell's data) the tab moves there through `moveToWindow`: before the tab
+  under the point, else last. With no QLogg control under the pointer and the
+  point outside this shell's bounds, `moveToNewWindow` opens a window with its
+  corner at the point; GTK 4 and Wayland ignore the position. Any other
+  release does nothing, and a release on another tab of the same strip still
+  reorders. `documentMovedOut` removes the tab and views as a close does;
+  `documentMovedIn` inserts the tab at its index. No `DragSource` is used.
 - The window body is a vertical `SashForm`: the main log view with the
   `OverviewBar` at its right over the bottom pane, split by
   `view.splitPercent`. The sash is 7 px and paints a dotted grip. View >
@@ -361,6 +373,17 @@ items are enabled after an open with no menu shown since, File > Close empties a
 disables the path field, a rename shows in the tab,
 the toolbar's Follow tracks the document, View > Opened Files and Switch to
 File list and show tabs, and dropped files open.
+`TabMoveGuiTest` opens two windows over one `WindowSet`: View > Move to New
+Window and the tab menu item each move the shown tab to a new window, the
+emptied window stays open without views and its menu item is disabled; a
+release inside the window's own bounds does nothing and one outside opens a
+new window with the tab; a drag released over another window off its tab
+strip appends the tab there and shows it, and `dropTab` over that strip
+inserts it at the tab under the point; a drag inside the strip still reorders
+without looking for a window. The strip drop calls `dropTab` directly because
+GTK 4 opens every window at 0,0 under Xvfb, where the release point would also
+hit the source strip. With
+`-Dqlogg.shots=<dir>` it writes `tabmove-source.png` and `tabmove-target.png`.
 `HelpItemsTest` checks that Debug Log File is checked only while the log
 file is attached, and that a WARN line shows the status-bar marker, Show Log
 clears it and lists the lines, a later ERROR shows it again, and a second Show

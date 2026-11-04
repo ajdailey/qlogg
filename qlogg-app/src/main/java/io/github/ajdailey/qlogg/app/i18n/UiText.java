@@ -938,7 +938,15 @@ public enum UiText {
 
   // Scratchpad transform on a worker.
   /** Scratchpad status while a transform runs on a worker. */
-  SCRATCHPAD_RUNNING;
+  SCRATCHPAD_RUNNING,
+
+  // Tab move between windows.
+  /** Command label. */
+  COMMAND_MOVE_TO_NEW_WINDOW,
+  /** Tab context menu item. */
+  TAB_MOVE_TO_NEW_WINDOW,
+  /** Notice: the target window shows the moved tab's file already; the tab title. */
+  NOTICE_MOVE_SHOWN;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

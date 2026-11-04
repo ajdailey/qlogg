@@ -50,7 +50,9 @@ plugins.
   `Ctrl+PageUp`, and close by middle click or from the tab menu (this,
   others, left, right, all) or File > Close All. View > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the open files.
-- Several main windows (File > New Window).
+- Several main windows (File > New Window). A tab moves to another window
+  with its document as it is (drag it onto that window, or out of every
+  window for a new one, or View > Move to New Window).
 - Line numbers, selection with mouse and keys, block selection (`Alt`-drag,
   `Alt+Shift` with the arrows, Edit > Block Selection) that copies the
   selected columns, go to line and `+line:N`.
