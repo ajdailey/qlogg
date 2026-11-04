@@ -28,7 +28,10 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,6 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("swt")
 class WindowsGuiTest {
   private static final long BOUND_NANOS = TimeUnit.SECONDS.toNanos(20);
+  private static final long QUIET_NANOS = TimeUnit.MILLISECONDS.toNanos(500);
 
   @TempDir Path temp;
 
@@ -72,16 +76,35 @@ class WindowsGuiTest {
             final WindowSet set = controller.windowSet();
             final Display display = window.shell().getDisplay();
             final long deadline = System.nanoTime() + BOUND_NANOS;
+            // Activation events from opening the windows arrive late under load and would move
+            // the handoff target; the user's activation waits until none arrives for QUIET_NANOS.
+            final long[] lastActivation = {System.nanoTime()};
+            display.addFilter(
+                SWT.Activate,
+                new Listener() {
+                  @Override
+                  public void handleEvent(Event event) {
+                    lastActivation[0] = System.nanoTime();
+                  }
+                });
             controller.execute(CommandId.NEW_WINDOW);
             observed.add("windows " + set.windows().size());
-            // Activation events from opening the windows arrive first; then the user activates
-            // the second window, as a window manager reports a click on it.
             display.timerExec(
-                250,
+                20,
                 new Runnable() {
                   @Override
                   public void run() {
-                    set.windows().get(1).windowActivated();
+                    long now = System.nanoTime();
+                    if (now - lastActivation[0] < QUIET_NANOS && now < deadline) {
+                      display.timerExec(20, this);
+                      return;
+                    }
+                    // The user activates the second window, as a window manager reports a click.
+                    ApplicationController second = set.windows().get(1);
+                    second.windowActivated();
+                    if (set.target() != second) {
+                      observed.add("target is not the second window");
+                    }
                     workers.start(
                         Workers.Kind.IPC,
                         new Runnable() {
