@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.core.search.SearchLimit;
  * @param progressPercent lines searched, as a percentage of the range
  * @param matchCount matching lines so far
  * @param limit what stopped a {@code DONE} search early, else {@code NONE}
+ * @param skippedLines lines the search left unsearched because they were too long to budget
  * @param error the message for {@code FAILED}, otherwise null
  */
 public record SearchViewState(
@@ -21,6 +22,7 @@ public record SearchViewState(
     int progressPercent,
     long matchCount,
     SearchLimit limit,
+    long skippedLines,
     String error) {
   /** Where a search is. */
   public enum Phase {
@@ -38,7 +40,7 @@ public record SearchViewState(
 
   /** No search. */
   public static final SearchViewState IDLE =
-      new SearchViewState("", SearchOptions.DEFAULTS, Phase.IDLE, 0, 0, SearchLimit.NONE, null);
+      new SearchViewState("", SearchOptions.DEFAULTS, Phase.IDLE, 0, 0, SearchLimit.NONE, 0, null);
 
   /**
    * Returns the status line for the search bar.
@@ -51,12 +53,19 @@ public record SearchViewState(
       case RUNNING -> UiText.SEARCH_PROGRESS.format(progressPercent, matchCount);
       case CANCELED -> UiText.SEARCH_CANCELED.format(matchCount);
       case FAILED -> error;
-      case DONE ->
-          switch (limit) {
-            case NONE -> UiText.SEARCH_DONE.format(matchCount);
-            case MAX_RESULTS -> UiText.SEARCH_LIMIT_RESULTS.format(matchCount);
-            case MEMORY -> UiText.SEARCH_LIMIT_MEMORY.format(matchCount);
-          };
+      case DONE -> withSkipped(doneText());
     };
+  }
+
+  private String doneText() {
+    return switch (limit) {
+      case NONE -> UiText.SEARCH_DONE.format(matchCount);
+      case MAX_RESULTS -> UiText.SEARCH_LIMIT_RESULTS.format(matchCount);
+      case MEMORY -> UiText.SEARCH_LIMIT_MEMORY.format(matchCount);
+    };
+  }
+
+  private String withSkipped(String status) {
+    return skippedLines == 0 ? status : UiText.SEARCH_SKIPPED_LINES.format(status, skippedLines);
   }
 }

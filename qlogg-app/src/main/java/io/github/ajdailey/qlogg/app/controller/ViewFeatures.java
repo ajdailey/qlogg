@@ -30,8 +30,9 @@ import org.slf4j.LoggerFactory;
  * view.hideAnsi} and the fold rules. The {@link HighlightSelector}s are tried in order: a file-name
  * glob on the UI thread, a first-line pattern on a {@code qlogg-read-} worker over at most {@link
  * #FIRST_LINE_BYTES} decoded bytes; the first match picks the document's set. A save target is
- * validated by {@link SafePaths#logFile} on a {@code qlogg-lifecycle-} worker; a target that is an
- * open file is refused, so QLogg never writes a file it shows.
+ * validated by {@link SafePaths#logFile} on a {@code qlogg-lifecycle-} worker; a target whose real
+ * path is an open document's {@link LogDocument#realPath} is refused, so QLogg never writes a file
+ * it shows.
  */
 final class ViewFeatures {
   /** Bytes read for a first-line selector. */
@@ -237,7 +238,7 @@ final class ViewFeatures {
       return;
     }
     for (DocumentController open : application.documents()) {
-      if (!open.document().inMemory() && open.document().path().equals(file)) {
+      if (!open.document().inMemory() && open.document().realPath().equals(file)) {
         view.showError(UiText.SAVE_TITLE.text(), UiText.SAVE_OPEN_FILE.text());
         return;
       }

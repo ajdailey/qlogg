@@ -18,12 +18,14 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -294,6 +296,29 @@ class ViewFeaturesTest {
           });
       assertTrue(fixture.view.errors.get(0).contains(UiText.SAVE_OPEN_FILE.text()));
       assertEquals(20, Files.readAllLines(source).size());
+    }
+  }
+
+  @Test
+  void refusesToSaveOverTheTargetOfAnOpenSymbolicLink() throws Exception {
+    Assumptions.assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Path source = fixture.lines("target.log", 5);
+      Path link = Files.createSymbolicLink(fixture.temp.resolve("link.log"), source);
+      DocumentController document = fixture.open(link);
+      assertEquals(link.toAbsolutePath().normalize(), document.document().path());
+      document.select(new Selection(new TextPosition(0, 0), new TextPosition(1, 0)));
+      fixture.view.saveTarget = source;
+      fixture.application.execute(CommandId.SAVE_SELECTION);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return !fixture.view.errors.isEmpty();
+            }
+          });
+      assertTrue(fixture.view.errors.get(0).contains(UiText.SAVE_OPEN_FILE.text()));
+      assertEquals(5, Files.readAllLines(source).size());
     }
   }
 

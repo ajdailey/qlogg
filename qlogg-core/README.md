@@ -79,12 +79,14 @@ Every path from outside the process goes through `SafePaths`.
 
 | Method | Rule |
 |---|---|
-| `logFile` | Rejects empty, NUL and, on Windows, device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. A missing path needs an existing parent directory, so a log that appears later can be opened |
+| `logPath`, `logFile` | Rejects empty, NUL and, on Windows, device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
 | `settingsDirectory` | Absolute, normalized, created with POSIX `rwx------` where supported, resolved to its real path, must be a directory |
 | `child` | A fixed name matching `[A-Za-z0-9._-]+`, resolved inside the directory |
 
 A log viewer opens whatever readable file its user names, so a log path is
-canonicalized and type-checked, not contained.
+canonicalized and type-checked, not contained. `FileByteSource.open` validates
+on every open and opens the real path; `path()` is the path as given and
+`realPath()` the file opened.
 
 ## File access (`core.io`)
 
@@ -183,7 +185,7 @@ however chunks finish, and no match spans two chunks.
 |---|---|---|
 | Range searched | `COMPLETED` | `NONE` |
 | `maxResults` reached (0 is no limit) | `COMPLETED` | `MAX_RESULTS`; the results stop at the limit |
-| `RESULTS` refuses the next chunk's matches, or `IO_BUFFERS` refuses a long line's buffer with nothing in flight | `COMPLETED` | `MEMORY`; the results up to the last whole chunk stay |
+| `RESULTS` refuses the next chunk's matches | `COMPLETED` | `MEMORY`; the results up to the last whole chunk stay |
 | `cancel()`, a read on a closed source, or closed workers | `CANCELED` | `NONE` |
 | A regex that does not compile (`PatternSyntaxException`), a regex that overflows the stack on a line (`PatternTooComplexException` with the line), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
 
@@ -193,6 +195,11 @@ however chunks finish, and no match spans two chunks.
   reserved from `IO_BUFFERS` until it is matched. A refused reservation trims
   the pool and retries once, and every search trims the pool when it ends, so
   a pool grown by an earlier parallel search does not hold the share.
+- A long line that `IO_BUFFERS` refuses with nothing in flight, or that is
+  longer than `SearchEngine.MAX_LINE_BYTES` (`Integer.MAX_VALUE - 8`), is
+  skipped: it is not matched, not reported as a match under inverse, and the
+  search continues after it. `SearchListener.finished` reports the count of
+  skipped lines; `progressed` counts them as searched.
 - A worker catches a `StackOverflowError` from a regex, as `(a|b)*c` raises
   on a 400,000-char line, and the search ends with
   `PatternTooComplexException`; the pool thread survives and nothing reaches
@@ -283,7 +290,8 @@ ends the watch within one check. `setSettings` replaces the settings: the
 interval applies from each watch's next wait, directory events to watches
 started afterwards.
 
-`ChangeDetector.classify(baseline, path)` compares the file at the path with
+`ChangeDetector.classify(baseline, path)` compares the file at the path,
+following a symbolic link, with
 what was indexed (`Baseline`: identity at open, covered bytes, head digest,
 tail digest and its modification time), in this order. While indexing runs,
 the covered bytes are at least the size at open and the size indexing reads
@@ -325,7 +333,10 @@ and creates the line index; it blocks, so it runs on a worker.
 read published state without I/O. `DocumentServices` carries the shared
 `Workers`, `Indexer`, `SearchEngine`, `BlockCache`, `MemoryBudget` and
 fallback charset. `marks()` is the document's `MutableLineSet` of marked
-lines, charged to `RESULTS`; `close` empties it. `name()` is the file name.
+lines, charged to `RESULTS`; `close` empties it. `path()` is the path as
+given, absolute and normalized; `realPath()` is the file opened; `name()` is
+the file name of `path()`. A symbolic link stays a link: the watch follows it,
+a retarget reads as `REPLACED`, and the owner's reopen opens the new target.
 
 `ofText(name, text, maxBytes, services)` creates a document over pasted text:
 the UTF-8 bytes are held in a `MemoryByteSource` and charged to `PASTED` until

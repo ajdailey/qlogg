@@ -1992,7 +1992,7 @@ public final class ApplicationController implements DocumentHost {
   /** Returns a file's remembered encoding override; runs on a worker. */
   private Charset forcedEncoding(Path path) {
     try {
-      return config.positions().get(SafePaths.logFile(path)).charset();
+      return config.positions().get(SafePaths.logPath(path).given()).charset();
     } catch (IOException e) {
       return null;
     }

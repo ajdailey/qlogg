@@ -30,7 +30,8 @@ class FileByteSourceTest {
     Path file = dir.resolve("a.log");
     Files.write(file, content);
     try (FileByteSource source = FileByteSource.open(file)) {
-      assertEquals(file.toRealPath(), source.path());
+      assertEquals(file.toAbsolutePath().normalize(), source.path());
+      assertEquals(file.toRealPath(), source.realPath());
       assertEquals(10_000, source.size());
       ByteBuffer middle = ByteBuffer.allocate(5);
       assertEquals(5, source.read(7000, middle));

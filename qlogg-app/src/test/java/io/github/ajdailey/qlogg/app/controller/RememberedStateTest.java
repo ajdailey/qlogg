@@ -154,7 +154,8 @@ class RememberedStateTest {
       assertEquals(11, loaded.options().font().zoom());
       assertEquals(new WindowState(30, 40, 700, 500, true), loaded.state().window());
       assertFalse(loaded.state().lineNumbers());
-      assertEquals(List.of(alpha.toRealPath().toString()), loaded.options().favorites());
+      assertEquals(
+          List.of(alpha.toAbsolutePath().normalize().toString()), loaded.options().favorites());
       assertEquals(2, loaded.state().recentFiles().size());
       Session session = run.config.sessions().load();
       assertEquals(2, session.tabs().size());
@@ -303,7 +304,7 @@ class RememberedStateTest {
             }
           });
       assertEquals(
-          List.of(kept.toRealPath().toString()),
+          List.of(kept.toAbsolutePath().normalize().toString()),
           run.application.preferences().state().recentFiles());
     }
   }

@@ -257,7 +257,10 @@ public final class Harness {
 
                   @Override
                   public void finished(
-                      OperationOutcome result, SearchLimit reached, Exception failure) {
+                      OperationOutcome result,
+                      SearchLimit reached,
+                      long skipped,
+                      Exception failure) {
                     outcome.set(result);
                     limit.set(reached);
                     done.countDown();

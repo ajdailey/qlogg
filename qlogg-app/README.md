@@ -54,7 +54,8 @@ which Maven writes from the project version; outside a jar it returns
   encoding and the status bar's notes.
 - `SearchViewListener` receives `stateChanged(SearchViewState)` (text,
   `SearchOptions`, phase `IDLE` `RUNNING` `DONE` `CANCELED` `FAILED`,
-  percent, match count, limit, error; `statusText()` is the bar's line),
+  percent, match count, limit, skipped lines, error; `statusText()` is the
+  bar's line and names the lines too long to search),
   `resultsChanged()`, and `optionsChanged(text, options)` when a key or an
   edit with selection changes the toggles or the field (no-op by default).
   `SearchOptions` adds `autoRefresh` and `keepResults` to the matching
@@ -138,8 +139,11 @@ window; `new ApplicationController(set, view)` adds a window to a set.
 - `open(files, follow)` runs `LogDocument.open` for each file on one
   `qlogg-index-` worker, in the order given; each opens a tab after the
   others and is shown, so the last one ends shown, at its `+line:N`. A file
-  already open shows its tab. Indexing and the `FileMonitor` watch start with
-  the tab. `follow` (`-f`) or `follow.onLoad` start it following; otherwise,
+  already open shows its tab. `LogDocument.path()`, the path as given with
+  symbolic links kept, keys the tab title, the open-file check, the handoff,
+  the recent list, favorites, the session and the `PositionStore`, so a
+  retargeted link reopens under its own name. Indexing and the `FileMonitor`
+  watch start with the tab. `follow` (`-f`) or `follow.onLoad` start it following; otherwise,
   without `+line:N`, the `PositionStore` entry restores the caret and the top
   line once indexing reaches them. The worker opens the file with the
   entry's forced charset, if any. Each file goes first in the recent list. A failure is
@@ -462,8 +466,8 @@ Save Selection writes the selected lines, or the block's columns, and Save
 Filtered Results every filtered row, as UTF-8 through `AtomicFiles` on the
 copy worker, charged to `COPY` at 7 bytes per file byte (the text plus its
 UTF-8 bytes). The chosen path passes `SafePaths.logFile` on a
-`qlogg-lifecycle-` worker; a path that is an open file is refused, so QLogg
-never writes a file it shows.
+`qlogg-lifecycle-` worker; a path whose real path is an open document's
+`realPath()` is refused, so QLogg never writes a file it shows.
 
 ### Search across open files and automatic highlighter sets
 
@@ -664,7 +668,8 @@ DEBUG (`-d 2` and above).
 Controller tests run over `FakeView` and `ManualUiDispatcher`, with real
 workers, files and file monitor. `FollowControllerTest` covers follow and its
 release, overscroll, follow on load and `-f`, auto-refresh over a grown last
-line, truncation, rename-rotation and delete-then-recreate reopening the tab,
+line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
+delete-then-recreate reopening the tab,
 reload and stop loading. `RememberedStateTest` runs the application twice over
 one settings directory: tabs, names, follow, marks, the active tab, the
 caret, the zoom, favorites, recent files, line numbers and the window state
@@ -680,7 +685,8 @@ jumps, find next and `showLine`, collapse all and expand all with the `FOLDS`
 charge returned, copy skipping hidden lines, block copy and block extension,
 copy with line numbers, wrap with its fit and the block refusal, folds under
 wrap, save of a selection and of the filtered view with the refusal of an
-open file, grouped search across files and a closed tab's group, selectors by
+open file and of an open link's target, grouped search across files and a
+closed tab's group, selectors by
 name and first line, a catastrophic first-line regex giving up within its
 bound, hidden ANSI colors in search, and sending text to the scratchpad.
 `TransformsTest` covers each transform and the derived values.

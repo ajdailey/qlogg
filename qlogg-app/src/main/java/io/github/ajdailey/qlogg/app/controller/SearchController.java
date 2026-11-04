@@ -125,6 +125,7 @@ public final class SearchController {
       boolean finished,
       OperationOutcome outcome,
       SearchLimit limit,
+      long skipped,
       Exception failure,
       long end,
       long bytes,
@@ -359,7 +360,7 @@ public final class SearchController {
     if (text.isEmpty()) {
       publish(
           new SearchViewState(
-              text, toggles, SearchViewState.Phase.IDLE, 0, 0, SearchLimit.NONE, null));
+              text, toggles, SearchViewState.Phase.IDLE, 0, 0, SearchLimit.NONE, 0, null));
       return;
     }
     host.searchRan(text, toggles);
@@ -391,7 +392,7 @@ public final class SearchController {
     }
     publish(
         new SearchViewState(
-            text, toggles, SearchViewState.Phase.RUNNING, 0, 0, SearchLimit.NONE, null));
+            text, toggles, SearchViewState.Phase.RUNNING, 0, 0, SearchLimit.NONE, 0, null));
   }
 
   /**
@@ -415,6 +416,7 @@ public final class SearchController {
             first,
             index.indexedBytes(),
             refresh ? results.size() : 0,
+            refresh ? state.skippedLines() : 0,
             refresh);
     try {
       OperationHandle handle = engine.search(document.document(), index, query, results, events);
@@ -692,10 +694,12 @@ public final class SearchController {
     private final long bytes;
     private final long started = System.nanoTime();
     private final long baseMatches;
+    private final long baseSkipped;
     private final boolean refresh;
     private volatile long searched;
     private volatile long total;
     private volatile long matches;
+    private volatile long skipped;
 
     Events(
         long searchGeneration,
@@ -705,6 +709,7 @@ public final class SearchController {
         long first,
         long bytes,
         long baseMatches,
+        long baseSkipped,
         boolean refresh) {
       this.searchGeneration = searchGeneration;
       this.set = set;
@@ -713,6 +718,8 @@ public final class SearchController {
       this.first = first;
       this.bytes = bytes;
       this.baseMatches = baseMatches;
+      this.baseSkipped = baseSkipped;
+      this.skipped = baseSkipped;
       this.refresh = refresh;
     }
 
@@ -725,18 +732,21 @@ public final class SearchController {
     }
 
     @Override
-    public void finished(OperationOutcome outcome, SearchLimit limit, Exception failure) {
+    public void finished(
+        OperationOutcome outcome, SearchLimit limit, long skippedLines, Exception failure) {
+      skipped = baseSkipped + skippedLines;
       try {
         if (discarded.get()) {
           set.clear();
         }
         if (LOG.isInfoEnabled()) {
           LOG.info(
-              "Search of {} {}: {} matches over {} lines in {} ms",
+              "Search of {} {}: {} matches over {} lines, {} skipped, in {} ms",
               LogText.oneLine(document.document().name()),
               LogText.oneLine(outcome),
               set.size(),
               total,
+              skippedLines,
               (System.nanoTime() - started) / 1_000_000);
         }
         report(build(true, outcome, limit, failure));
@@ -756,6 +766,7 @@ public final class SearchController {
           finished,
           outcome,
           limit,
+          skipped,
           failure,
           first + total,
           bytes,
@@ -781,6 +792,7 @@ public final class SearchController {
               100,
               report.matches(),
               SearchLimit.NONE,
+              report.skipped(),
               null);
     } else if (!report.finished()) {
       next =
@@ -791,6 +803,7 @@ public final class SearchController {
               percent,
               report.matches(),
               SearchLimit.NONE,
+              report.skipped(),
               null);
     } else {
       running = null;
@@ -818,6 +831,7 @@ public final class SearchController {
               percent,
               report.matches(),
               report.limit(),
+              report.skipped(),
               null);
       case CANCELED ->
           new SearchViewState(
@@ -827,6 +841,7 @@ public final class SearchController {
               percent,
               report.matches(),
               SearchLimit.NONE,
+              report.skipped(),
               null);
       case FAILED -> failed(text, toggles, report.matches(), failureText(report.failure()));
     };
@@ -849,7 +864,7 @@ public final class SearchController {
   private static SearchViewState failed(
       String text, SearchOptions toggles, long matches, String message) {
     return new SearchViewState(
-        text, toggles, SearchViewState.Phase.FAILED, 0, matches, SearchLimit.NONE, message);
+        text, toggles, SearchViewState.Phase.FAILED, 0, matches, SearchLimit.NONE, 0, message);
   }
 
   private static String reason(ExpressionException e) {

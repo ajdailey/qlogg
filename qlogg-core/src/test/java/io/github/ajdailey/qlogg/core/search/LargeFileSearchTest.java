@@ -18,9 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Searches a file past 2^31 bytes. The file is sparse: 2,100 lines of 1 MiB (holes read as zero
- * bytes) ended by LF, with text at the start of line 0, inside line 2,048 just past 2^31, and in
- * the partial last line.
+ * Searches sparse files past 2^31 bytes; holes read as zero bytes. The first file has 2,100 lines
+ * of 1 MiB ended by LF, with text at the start of line 0, inside line 2,048 just past 2^31, and in
+ * the partial last line. The second has one line longer than {@link SearchEngine#MAX_LINE_BYTES}
+ * between short lines.
  */
 class LargeFileSearchTest {
   private static final long MIB = 1L << 20;
@@ -44,6 +45,45 @@ class LargeFileSearchTest {
     Files.delete(file);
   }
 
+  @Test
+  void skipsALineLongerThanTheLargestBufferAndSearchesOn() throws Exception {
+    Path file = dir.resolve("wide.log");
+    long longEnd = 16 + TWO_GIB;
+    try (FileChannel channel =
+        FileChannel.open(
+            file,
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.SPARSE)) {
+      write(channel, 0, "alpha flagword\n");
+      write(channel, longEnd, "\nbeta flagword\ngamma flagword\n");
+    }
+    try (SearchFixture fixture = new SearchFixture()) {
+      try (LogDocument document = fixture.open(file, null)) {
+        assertEquals(4, document.index().lineCount());
+        assertTrue(
+            document.index().lineEnd(1) - document.index().lineStart(1)
+                > SearchEngine.MAX_LINE_BYTES);
+        MutableLineSet set = new MutableLineSet();
+        SearchFixture.Recording recording =
+            fixture.search(
+                fixture.services.search(),
+                document,
+                SearchQuery.of("flagword", MatchMode.LITERAL),
+                set);
+        assertEquals(OperationOutcome.COMPLETED, recording.outcome);
+        assertEquals(SearchLimit.NONE, recording.limit);
+        assertEquals(1, recording.skipped);
+        assertEquals(4, recording.searched);
+        assertEquals(3, set.size());
+        assertEquals(0, set.select(0));
+        assertEquals(2, set.select(1));
+        assertEquals(3, set.select(2));
+      }
+    }
+    Files.delete(file);
+  }
+
   private static List<Long> run(
       SearchFixture fixture,
       SearchEngine engine,
@@ -62,6 +102,7 @@ class LargeFileSearchTest {
     SearchFixture.Recording recording = fixture.search(engine, document, query, set);
     assertEquals(OperationOutcome.COMPLETED, recording.outcome);
     assertEquals(LINES + 1, recording.searched);
+    assertEquals(0, recording.skipped);
     List<Long> lines = new ArrayList<Long>();
     for (long i = 0; i < set.size(); i++) {
       lines.add(set.select(i));

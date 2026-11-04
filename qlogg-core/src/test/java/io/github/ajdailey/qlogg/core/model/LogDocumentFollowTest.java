@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.core.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
@@ -20,12 +21,14 @@ import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -305,6 +308,33 @@ class LogDocumentFollowTest {
       boolean keyless = document.bytes().identity().fileKey() == null;
       assertTrue(Poll.until(reopens(events, keyless), BOUND), events.changes.toString());
       assertEquals("first", document.newReader().read(document.index(), 0, 1, 0, 80).text(0));
+    }
+  }
+
+  /** A rotation that retargets a symbolic link reads as REPLACED; a reopen reads the new target. */
+  @Test
+  void retargetedSymbolicLinkIsReplacedAndReopensTheNewTarget() throws Exception {
+    assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
+    Path first = Files.writeString(dir.resolve("app-1.log"), "first target\n");
+    Path second = Files.writeString(dir.resolve("app-2.log"), "second target\n");
+    Path link = Files.createSymbolicLink(dir.resolve("app.log"), first);
+    Events events = new Events();
+    try (LogDocument document = watched(link, events)) {
+      assertEquals(link.toAbsolutePath().normalize(), document.path());
+      assertEquals(first.toRealPath(), document.realPath());
+      assertEquals("app.log", document.name());
+      Path next = Files.createSymbolicLink(dir.resolve("app.log.next"), second);
+      Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+      assertTrue(
+          Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
+      assertEquals(
+          "first target", document.newReader().read(document.index(), 0, 1, 0, 80).text(0));
+      Events reopenedEvents = new Events();
+      try (LogDocument reopened = watched(document.path(), reopenedEvents)) {
+        assertEquals(second.toRealPath(), reopened.realPath());
+        assertEquals(
+            "second target", reopened.newReader().read(reopened.index(), 0, 1, 0, 80).text(0));
+      }
     }
   }
 

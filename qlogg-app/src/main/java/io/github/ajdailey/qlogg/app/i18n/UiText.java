@@ -928,6 +928,10 @@ public enum UiText {
   /** The notice that native controls change at the next start. */
   THEME_RESTART_MESSAGE,
 
+  // Lines a search skips.
+  /** A finished search's status and the count of lines too long to search. */
+  SEARCH_SKIPPED_LINES,
+
   // Regex stack overflow in search and quick find.
   /** A regex overflowed the stack: the 1-based line. */
   SEARCH_PATTERN_TOO_COMPLEX;

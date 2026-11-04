@@ -126,6 +126,7 @@ final class SearchFixture implements AutoCloseable {
     volatile long searched;
     volatile long total;
     volatile long matches;
+    volatile long skipped;
     volatile int progressCalls;
 
     @Override
@@ -137,8 +138,10 @@ final class SearchFixture implements AutoCloseable {
     }
 
     @Override
-    public void finished(OperationOutcome result, SearchLimit stop, Exception cause) {
+    public void finished(
+        OperationOutcome result, SearchLimit stop, long skippedLines, Exception cause) {
       outcome = result;
+      skipped = skippedLines;
       limit = stop;
       failure = cause;
       finished.countDown();

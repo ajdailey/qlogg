@@ -36,9 +36,11 @@ import java.util.regex.PatternSyntaxException;
  * MemoryShare#IO_BUFFERS}, or, for a longer line, a heap buffer for which {@link
  * #LONG_LINE_BYTES_PER_BYTE} bytes per line byte are reserved there until it is matched. Results
  * reserve from {@link MemoryShare#RESULTS}. The pool is trimmed when a search ends and before a
- * long line's reservation is refused. When either share refuses with nothing in flight, the search
- * keeps its results and ends {@code COMPLETED} with {@link SearchLimit#MEMORY}; reaching {@code
- * maxResults} ends it with {@link SearchLimit#MAX_RESULTS}.
+ * long line's reservation is refused. A long line that {@code IO_BUFFERS} refuses with nothing in
+ * flight, or that is longer than {@link #MAX_LINE_BYTES}, is skipped: it is not matched, the search
+ * continues after it, and {@code finished} reports the count of skipped lines. When {@code RESULTS}
+ * refuses a chunk's matches, the search keeps its results and ends {@code COMPLETED} with {@link
+ * SearchLimit#MEMORY}; reaching {@code maxResults} ends it with {@link SearchLimit#MAX_RESULTS}.
  *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
  * {@link PatternTooComplexException} naming that line; the pool thread survives.
@@ -58,9 +60,11 @@ public final class SearchEngine {
   /** {@code IO_BUFFERS} bytes reserved per byte of a line longer than {@code chunkBytes}. */
   public static final int LONG_LINE_BYTES_PER_BYTE = 3;
 
+  /** Bytes of the longest line a search can hold in one heap buffer; a longer line is skipped. */
+  public static final long MAX_LINE_BYTES = Integer.MAX_VALUE - 8L;
+
   private static final long WAIT_SLICE_MILLIS = 50;
   private static final long DRAIN_BOUND_MILLIS = 5000;
-  private static final long MAX_LINE_BYTES = Integer.MAX_VALUE - 8L;
 
   private final Workers workers;
   private final MatcherFactory matchers;
@@ -188,6 +192,7 @@ public final class SearchEngine {
     private final byte[] carriageReturn;
     private long searched;
     private long matched;
+    private long skipped;
     private SearchLimit limit = SearchLimit.NONE;
 
     Operation(
@@ -254,7 +259,10 @@ public final class SearchEngine {
         try {
           listener.progressed(searched, end - first, matched);
           listener.finished(
-              outcome, outcome == OperationOutcome.COMPLETED ? limit : SearchLimit.NONE, failure);
+              outcome,
+              outcome == OperationOutcome.COMPLETED ? limit : SearchLimit.NONE,
+              skipped,
+              failure);
         } finally {
           done.countDown();
         }
@@ -279,8 +287,10 @@ public final class SearchEngine {
             continue;
           }
           if (inFlight.isEmpty()) {
-            limit = SearchLimit.MEMORY;
-            return;
+            skipped++;
+            next++;
+            searched = next - first;
+            continue;
           }
         }
         Chunk head = inFlight.peek();
@@ -298,7 +308,9 @@ public final class SearchEngine {
 
     /**
      * Reads the chunk starting at a line. Returns null when no pooled buffer is free while chunks
-     * are in flight, or when {@code IO_BUFFERS} refuses a long line's buffer.
+     * are in flight, when {@code IO_BUFFERS} refuses a long line's buffer, or when the line is
+     * longer than {@link #MAX_LINE_BYTES}. With nothing in flight, null means the line cannot be
+     * budgeted.
      */
     private Chunk read(long line) throws IOException, InterruptedException {
       int chunkBytes = settings.chunkBytes();

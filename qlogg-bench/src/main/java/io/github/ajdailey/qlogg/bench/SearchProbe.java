@@ -190,7 +190,8 @@ public class SearchProbe {
               }
 
               @Override
-              public void finished(OperationOutcome result, SearchLimit limit, Exception failure) {
+              public void finished(
+                  OperationOutcome result, SearchLimit limit, long skipped, Exception failure) {
                 outcome[0] = result;
                 done.countDown();
               }

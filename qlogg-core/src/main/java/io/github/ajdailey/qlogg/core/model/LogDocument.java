@@ -55,12 +55,13 @@ import java.util.function.BooleanSupplier;
  * closes the file. Callers cancel their own operations first. An operation still running at the
  * bound reads a closed file and ends on {@link java.nio.channels.ClosedChannelException}.
  *
- * <p>Growth: the watch classifies the file at the path ({@link ChangeDetector}). {@code APPENDED}
- * indexes the new bytes from {@link GrowableLineIndex#resumeOffset}, one operation at a time;
- * growth seen while one runs starts another when it ends. {@code TRUNCATED}, {@code REPLACED} and
- * {@code MODIFIED} are reported once and end the reports, because the owner reopens the path.
- * {@code MISSING} is reported once; a file that reappears is reported as {@code REPLACED}. {@link
- * #stopIndexing} cancels indexing and leaves later growth unindexed.
+ * <p>Growth: the watch classifies the file at the path as given ({@link ChangeDetector}), following
+ * a symbolic link, so a retargeted link reads as {@code REPLACED}. {@code APPENDED} indexes the new
+ * bytes from {@link GrowableLineIndex#resumeOffset}, one operation at a time; growth seen while one
+ * runs starts another when it ends. {@code TRUNCATED}, {@code REPLACED} and {@code MODIFIED} are
+ * reported once and end the reports, because the owner reopens the path. {@code MISSING} is
+ * reported once; a file that reappears is reported as {@code REPLACED}. {@link #stopIndexing}
+ * cancels indexing and leaves later growth unindexed.
  *
  * <p>In memory: {@link #ofText} holds pasted text as UTF-8 in the heap, charged to {@link
  * MemoryShare#PASTED} until {@link #close}. Such a document has no path, is never watched and never
@@ -124,8 +125,9 @@ public final class LogDocument implements LineSource, Closeable {
   }
 
   /**
-   * Validates and opens a file and detects its encoding from the first 64 KiB. Indexing starts with
-   * {@link #startIndexing}. Blocking; never call it on the UI thread.
+   * Validates and opens a file and detects its encoding from the first 64 KiB. The document keeps
+   * the path as given for its name, its watch and the owner's reopen. Indexing starts with {@link
+   * #startIndexing}. Blocking; never call it on the UI thread.
    *
    * @param path the path as given
    * @param forcedEncoding the charset to use, or null to detect it
@@ -255,12 +257,22 @@ public final class LogDocument implements LineSource, Closeable {
   }
 
   /**
-   * Returns the validated path.
+   * Returns the path as given, absolute and normalized. A symbolic link stays a link: the watch
+   * follows it, and a reopen after a retarget opens the new target.
    *
-   * @return the real path of the file, or null for a document {@link #inMemory}
+   * @return the path, or null for a document {@link #inMemory}
    */
   public Path path() {
     return source.path();
+  }
+
+  /**
+   * Returns the real path of the file this document opened.
+   *
+   * @return the real path at open, or null for a document {@link #inMemory}
+   */
+  public Path realPath() {
+    return source instanceof FileByteSource file ? file.realPath() : null;
   }
 
   /**

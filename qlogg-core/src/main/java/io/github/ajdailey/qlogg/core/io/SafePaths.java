@@ -28,17 +28,25 @@ public final class SafePaths {
   private SafePaths() {}
 
   /**
+   * A validated log path.
+   *
+   * @param given the path as given, absolute and normalized; symbolic links are kept
+   * @param real the real path of an existing file, or the missing file under its parent's real path
+   */
+  public record LogPath(Path given, Path real) {}
+
+  /**
    * Validates a log file path from the command line, a handoff, the recent list or a session. The
    * path is made absolute and normalized; an existing path resolves to its real path and must be a
    * regular file (a FIFO blocks the reader and a device never ends); a missing path needs an
-   * existing parent directory, so a log that appears later can be watched.
+   * existing parent directory, so a log that appears later can be watched. Validate again on every
+   * open: a symbolic link can be retargeted between two opens.
    *
    * @param path the path as given; a relative path resolves against the working directory
-   * @return the real path of an existing file, or the absolute path of a missing one under its
-   *     parent's real path
+   * @return the absolute path as given and the real path
    * @throws IOException naming the reason when the path is rejected
    */
-  public static Path logFile(Path path) throws IOException {
+  public static LogPath logPath(Path path) throws IOException {
     checkForm(path.toString());
     Path absolute = path.toAbsolutePath().normalize();
     if (Files.exists(absolute)) {
@@ -46,14 +54,26 @@ public final class SafePaths {
       if (!Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) {
         throw new IOException(real + " is not a regular file");
       }
-      return real;
+      return new LogPath(absolute, real);
     }
     Path parent = absolute.getParent();
     Path name = absolute.getFileName();
     if (parent == null || name == null || !Files.isDirectory(parent)) {
       throw new IOException(absolute + " does not exist and has no parent directory");
     }
-    return parent.toRealPath().resolve(name);
+    return new LogPath(absolute, parent.toRealPath().resolve(name));
+  }
+
+  /**
+   * Validates a log file path as {@link #logPath(Path)} does.
+   *
+   * @param path the path as given; a relative path resolves against the working directory
+   * @return the real path of an existing file, or the absolute path of a missing one under its
+   *     parent's real path
+   * @throws IOException naming the reason when the path is rejected
+   */
+  public static Path logFile(Path path) throws IOException {
+    return logPath(path).real();
   }
 
   /**

@@ -33,8 +33,9 @@ plugins.
 - Follows the end of a file (`F`, `F10`, `-f`, or every file through View >
   Follow New Files). Scrolling up releases follow and scrolling down past the
   last line engages it. Growth is indexed as it arrives. A truncated, replaced
-  or rotated file reopens by name with its results cleared; a deleted file
-  keeps its content until it reappears.
+  or rotated file, or a symbolic link retargeted to another file, reopens by
+  name with its results cleared; a deleted file keeps its content until it
+  reappears.
 - Detects the encoding (BOM, UTF-16, UTF-8, ISO-8859-1 fallback); the Encoding
   menu forces a charset and indexes the file again.
 

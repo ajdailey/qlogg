@@ -98,6 +98,7 @@ class SearchEngineTest {
     assertEquals(SearchLimit.NONE, recording.limit);
     assertEquals(set.size(), recording.matches);
     assertEquals(recording.total, recording.searched);
+    assertEquals(0, recording.skipped);
     return toList(set);
   }
 
@@ -336,8 +337,8 @@ class SearchEngineTest {
   }
 
   @Test
-  void longLineTheBufferShareRefusesStopsTheSearch() throws Exception {
-    String text = "hit 0\nhit 1\n" + "x".repeat(200_000) + " hit\nhit 3\n";
+  void aLongLineTheBufferShareRefusesIsSkipped() throws Exception {
+    String text = "hit 0\n" + "x".repeat(200_000) + " hit\nhit 2\nhit 3\n";
     try (LogDocument document = fixture.open(write("long.log", bytes(text)), null)) {
       MemoryBudget small = MemoryBudget.of(1_000_000);
       SearchEngine engine = fixture.engine(new SearchSettings(10_000, 4096, 2, 0, small));
@@ -345,9 +346,10 @@ class SearchEngineTest {
       SearchFixture.Recording recording =
           fixture.search(engine, document, SearchQuery.of("hit", MatchMode.LITERAL), set);
       assertEquals(OperationOutcome.COMPLETED, recording.outcome);
-      assertEquals(SearchLimit.MEMORY, recording.limit);
-      assertEquals(List.of(0L, 1L), toList(set));
-      assertEquals(2, recording.searched);
+      assertEquals(SearchLimit.NONE, recording.limit);
+      assertEquals(List.of(0L, 2L, 3L), toList(set));
+      assertEquals(1, recording.skipped);
+      assertEquals(4, recording.searched);
       SearchEngine roomy = fixture.engine(new SearchSettings(10_000, 4096, 2, 0, fixture.budget));
       assertEquals(
           List.of(0L, 1L, 2L, 3L), run(roomy, document, SearchQuery.of("hit", MatchMode.LITERAL)));

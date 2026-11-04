@@ -11,7 +11,7 @@ import java.nio.file.Path;
  */
 public interface ByteSource extends Closeable {
   /**
-   * Returns the validated path the source was opened from.
+   * Returns the validated path the source was opened from, absolute and normalized, as given.
    *
    * @return the path, or null for a source with no file
    */

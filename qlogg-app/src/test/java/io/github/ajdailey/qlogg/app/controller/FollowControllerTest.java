@@ -12,14 +12,17 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -190,6 +193,25 @@ class FollowControllerTest {
     Files.writeString(temp.resolve("follow.log"), lines(0, 3));
     DocumentController reopened = replacement(document);
     fixture.runUntil(lineCount(reopened, 3));
+    assertTrue(reopened.following());
+  }
+
+  @Test
+  void aRetargetedSymbolicLinkReopensTheNewTargetUnderTheLinkName() throws Exception {
+    Assumptions.assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    Path first = fixture.lines("app-1.log", 40);
+    Path second = Files.writeString(temp.resolve("app-2.log"), lines(0, 3));
+    Path link = Files.createSymbolicLink(temp.resolve("app.log"), first);
+    DocumentController document = fixture.open(link);
+    document.setFollowing(true);
+    Path next = Files.createSymbolicLink(temp.resolve("app.log.next"), second);
+    Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    DocumentController reopened = replacement(document);
+    fixture.runUntil(lineCount(reopened, 3));
+    assertEquals("app.log", reopened.state().title());
+    assertEquals(link.toAbsolutePath().normalize(), reopened.document().path());
+    assertEquals(second.toRealPath(), reopened.document().realPath());
     assertTrue(reopened.following());
   }
 

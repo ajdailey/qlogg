@@ -6,6 +6,6 @@ public enum SearchLimit {
   NONE,
   /** The result count reached {@link SearchSettings#maxResults}. */
   MAX_RESULTS,
-  /** The {@code RESULTS} or {@code IO_BUFFERS} share could not hold the next chunk. */
+  /** The {@code RESULTS} share could not hold the next chunk's matches. */
   MEMORY
 }

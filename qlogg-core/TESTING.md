@@ -51,9 +51,10 @@
   memoizes simpler forms such as `(a|aa)+b`, which then return at once and
   test nothing. A gated `MatcherFactory` signals once matching has started,
   so the cancel lands inside the regex; the search must end within 5 s.
-- Budgets built with `MemoryBudget.of` force both `MEMORY` stops: 100,000
-  bytes holds two dense result buckets, and 1,000,000 bytes refuses a
-  200,000-byte line's buffer.
+- Budgets built with `MemoryBudget.of` force the `MEMORY` stop and a skipped
+  line: 100,000 bytes holds two dense result buckets, and 1,000,000 bytes
+  refuses a 200,000-byte line's buffer. The search must match the lines on
+  both sides of the refused line and report 1 skipped.
 - `aLongLineStillSearchesAfterThePoolGrew` searches a 100,000-byte line, then
   a 400,000-line file five times, then the line again, with a 600,000-byte
   `IO_BUFFERS` share. Each search must end with two buffers reserved; a pool
@@ -70,7 +71,9 @@
   equals the `RESULTS` reservation.
 - `LargeFileSearchTest` searches a 2.2 GB sparse file of 1 MiB lines, with
   matches at the first line, just past 2^31 bytes and in the partial last
-  line. It runs in the default build.
+  line, and a sparse file whose second line is longer than `MAX_LINE_BYTES`:
+  the search skips that line and matches the lines after it. It runs in the
+  default build.
 - `SearchLifecycleTest` opens, indexes, searches and closes a document 25
   times, canceling searches and closing documents at random points, then
   checks that no thread survives `Workers.close()`, every file is closed, and
@@ -88,6 +91,8 @@
   rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) while
   the document holds the file open, with the old content still readable; stop
   loading; and close keeping the file open until an admitted operation exits.
+  A symbolic link retargeted by an atomic rename must read as `REPLACED`, and
+  a reopen of `path()` must read the new target (POSIX only).
   A check during the first indexing, held before its first progress event by
   CPU workers blocked on a latch, must classify the file as `UNCHANGED`: it
   reported `APPENDED`, which started a second indexing pass at once and left a
@@ -162,6 +167,8 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 
 `SafePathsTest` creates a FIFO with `mkfifo` and skips that case without POSIX
 attributes or `mkfifo`; the `/dev/null` case skips where the device is absent.
+The symbolic link cases in `SafePathsTest` and `LogDocumentFollowTest` skip on
+Windows, where creating a link needs a privilege.
 `TestkitTest` makes a directory read-only to check that `TempTrees.delete`
 rethrows after its bound, and skips without POSIX attributes or when the user
 can write to it anyway (root).

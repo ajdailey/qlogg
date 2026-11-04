@@ -16,27 +16,31 @@ import java.util.zip.CRC32C;
  */
 public final class FileByteSource implements ByteSource {
   private final Path path;
+  private final Path realPath;
   private final FileChannel channel;
   private final FileIdentity identity;
 
-  private FileByteSource(Path path, FileChannel channel, FileIdentity identity) {
+  private FileByteSource(Path path, Path realPath, FileChannel channel, FileIdentity identity) {
     this.path = path;
+    this.realPath = realPath;
     this.channel = channel;
     this.identity = identity;
   }
 
   /**
-   * Validates the path through {@link SafePaths#logFile(Path)} and opens it for reading.
+   * Validates the path through {@link SafePaths#logPath(Path)} and opens its real path for reading.
+   * {@link #path} is the path as given, so a symbolic link stays a link.
    *
    * @param path the file
    * @return the open source; the caller closes it
    * @throws IOException when the path is rejected, missing or unreadable
    */
   public static FileByteSource open(Path path) throws IOException {
-    Path real = SafePaths.logFile(path);
+    SafePaths.LogPath checked = SafePaths.logPath(path);
+    Path real = checked.real();
     FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
     try {
-      return new FileByteSource(real, channel, identify(real, channel));
+      return new FileByteSource(checked.given(), real, channel, identify(real, channel));
     } catch (IOException e) {
       channel.close();
       throw e;
@@ -66,6 +70,15 @@ public final class FileByteSource implements ByteSource {
   @Override
   public Path path() {
     return path;
+  }
+
+  /**
+   * Returns the real path validated and opened.
+   *
+   * @return the real path at open
+   */
+  public Path realPath() {
+    return realPath;
   }
 
   @Override

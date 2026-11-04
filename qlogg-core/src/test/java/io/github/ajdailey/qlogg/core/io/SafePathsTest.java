@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +36,20 @@ class SafePathsTest {
     Path file = Files.createFile(temp.resolve("app.log"));
     Path dotted = temp.resolve("sub").resolve("..").resolve("app.log");
     assertEquals(file.toRealPath(), SafePaths.logFile(dotted.toString()));
+  }
+
+  @Test
+  void aSymbolicLinkIsKeptAsGivenAndResolvedForTheRealPath() throws Exception {
+    assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
+    Path target = Files.createFile(temp.resolve("app-1.log"));
+    Path link = Files.createSymbolicLink(temp.resolve("app.log"), target);
+    SafePaths.LogPath checked = SafePaths.logPath(link);
+    assertEquals(link.toAbsolutePath().normalize(), checked.given());
+    assertEquals(target.toRealPath(), checked.real());
+    Path dir = Files.createDirectory(temp.resolve("dir"));
+    Files.delete(link);
+    Files.createSymbolicLink(link, dir);
+    rejects(link.toString());
   }
 
   @Test
