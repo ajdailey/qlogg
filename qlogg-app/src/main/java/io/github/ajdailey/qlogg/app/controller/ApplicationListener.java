@@ -40,6 +40,14 @@ public interface ApplicationListener {
 
   // Options dialog and zoom.
 
-  /** The font or the key bindings changed; the views and menus rebuild. Does nothing by default. */
+  /** The key bindings changed; the menus and views take the new keymap. Does nothing by default. */
+  default void keymapChanged() {}
+
+  /** The log font changed, from Options or a zoom. Does nothing by default. */
+  default void fontChanged() {}
+
+  /**
+   * An option other than the key bindings and the font changed in Options. Does nothing by default.
+   */
   default void optionsChanged() {}
 }

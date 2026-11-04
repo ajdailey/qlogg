@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,6 +13,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -279,8 +281,23 @@ class ViewFeaturesGuiTest {
     assertNotNull(pad);
     pad.add("hello", false);
     pad.apply(Transforms.Kind.BASE64_ENCODE);
-    Text text = pad.current();
+    final Text text = pad.current();
     assertEquals("aGVsbG8=", text.getText());
+    // An input over the inline limit transforms on a worker; the tab is read-only until then.
+    pad.add("<a/>".repeat(ApplicationController.INLINE_TRANSFORM_CHARS / 4 + 1), true);
+    pad.apply(Transforms.Kind.XML_FORMAT);
+    assertFalse(text.getEditable());
+    assertEquals(UiText.SCRATCHPAD_RUNNING.text(), pad.values().getText());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return text.getEditable();
+              }
+            }));
+    assertTrue(text.getText().startsWith("<a/>\n<a/>\n"));
+    assertEquals("", pad.values().getText());
     pad.add("1700000000", true);
     text.selectAll();
     text.notifyListeners(SWT.MouseUp, new Event());

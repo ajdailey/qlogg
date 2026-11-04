@@ -16,14 +16,6 @@ final class Gtk4 {
   /** GTK 4 has no API to move a toplevel window, so {@code Shell.getLocation} reads 0,0. */
   static final String NO_POSITION = "GTK 4: a shell cannot be positioned; getLocation reads 0,0";
 
-  /**
-   * WebKitGTK 6.0 (2.52.6, Ubuntu 24.04) aborts the JVM with SIGTRAP when the guide's Browser
-   * starts: "Failed to fully launch dbus-proxy" (measured under Xvfb and on the GNOME desktop).
-   * WebKitGTK 4.1 under GTK 3 loads the guide.
-   */
-  static final String BROWSER_ABORTS =
-      "WebKitGTK 6.0 aborts the JVM: Failed to fully launch dbus-proxy";
-
   private Gtk4() {}
 
   /**

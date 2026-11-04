@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
@@ -40,6 +41,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
@@ -195,25 +197,45 @@ class OptionsAndMenusTest {
   }
 
   @Test
-  void ctrlWheelZoomsTheFontAndRebuildsTheViews() {
-    final LogCanvas before = window.canvas();
-    int height = before.lineHeight();
+  void ctrlWheelZoomsTheFontInPlace() {
+    final LogCanvas main = window.canvas();
+    final LogCanvas filtered = window.results().canvas();
+    Menu bar = window.shell().getMenuBar();
+    filtered.control().setFocus();
+    // Xvfb without a window manager may not deliver FocusIn; the view tracks focus from it.
+    filtered.control().notifyListeners(SWT.FocusIn, new Event());
+    assertSame(filtered.document(), controller.focusedView());
+    Control focus = display.getFocusControl();
+    int height = filtered.lineHeight();
+    int rows = main.document().viewport().rows();
     Event event = new Event();
     event.stateMask = SWT.MOD1;
     event.count = 3;
-    before.control().notifyListeners(SWT.MouseVerticalWheel, event);
-    assertTrue(
-        runUntil(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return window.canvas() != null && window.canvas() != before;
-              }
-            }));
-    assertEquals(Dialogs.monospaceSize() + 1, controller.preferences().options().font().zoom());
-    assertTrue(window.canvas().lineHeight() >= height);
+    for (int i = 0; i < 3; i++) {
+      filtered.control().notifyListeners(SWT.MouseVerticalWheel, event);
+    }
+    assertEquals(Dialogs.monospaceSize() + 3, controller.preferences().options().font().zoom());
+    assertTrue(filtered.lineHeight() > height);
+    assertTrue(main.document().viewport().rows() < rows);
+    // Let a queued rebuild run before checking that none happened.
+    EventLoop.runUntil(
+        display,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return false;
+          }
+        },
+        Duration.ofMillis(200));
+    assertSame(main, window.canvas());
+    assertSame(filtered, window.results().canvas());
+    assertSame(bar, window.shell().getMenuBar());
+    assertSame(filtered.document(), controller.focusedView());
+    assertSame(focus, display.getFocusControl());
+    shoot(window.shell(), "zoom-in-place.png");
     controller.execute(CommandId.ZOOM_RESET);
     assertEquals(0, controller.preferences().options().font().zoom());
+    assertEquals(height, filtered.lineHeight());
   }
 
   @Test

@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
+import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.UiState;
@@ -1725,7 +1726,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   @Override
   public void showScratchpad(String text, boolean replace) {
     if (scratchpad == null || scratchpad.isDisposed()) {
-      scratchpad = new ScratchpadWindow(shell);
+      scratchpad = new ScratchpadWindow(shell, controller);
     }
     if (text != null) {
       scratchpad.add(text, replace);
@@ -2075,11 +2076,11 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Rebuilds the menu bar and the views after the event that changed the options, which may come
-   * from a menu item or a view about to be replaced.
+   * Rebuilds the menu bar and the views after the event that changed the key bindings, which may
+   * come from a menu item or a view about to be replaced. The focused view keeps the focus.
    */
   @Override
-  public void optionsChanged() {
+  public void keymapChanged() {
     dispatcher.asyncExec(
         new Runnable() {
           @Override
@@ -2104,7 +2105,23 @@ public final class MainWindow implements MainView, ApplicationListener {
       shortcuts.shell().dispose();
     }
     if (canvas != null) {
+      boolean filtered = results != null && controller.focusedView() == results.canvas().document();
       showViews((DocumentController) canvas.document());
+      if (filtered) {
+        results.canvas().control().setFocus();
+      }
+    }
+  }
+
+  /** Applies the font to both log views in place; the menu bar and the focus stay. */
+  @Override
+  public void fontChanged() {
+    FontSettings font = controller.preferences().options().font();
+    if (canvas != null) {
+      canvas.setFont(font);
+    }
+    if (results != null) {
+      results.canvas().setFont(font);
     }
   }
 
@@ -2302,8 +2319,17 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   // User guide.
 
+  /**
+   * Shows the user guide in a {@link GuideWindow}. Under GTK 4 ({@code SWT_GTK4=1}) it shows a
+   * notice naming the file instead and never creates a {@code Browser}: WebKitGTK 6.0 aborts the
+   * JVM when the browser starts ("Failed to fully launch dbus-proxy").
+   */
   @Override
   public boolean showGuide(Path file) {
+    if (gtk4()) {
+      showNotice(UiText.NOTICE_GUIDE_AT.format(file));
+      return true;
+    }
     if (guide != null && !guide.shell().isDisposed()) {
       guide.show(file);
       return true;
@@ -2318,6 +2344,10 @@ public final class MainWindow implements MainView, ApplicationListener {
       remember(created.shell(), "guide");
     }
     return true;
+  }
+
+  private static boolean gtk4() {
+    return "gtk".equals(SWT.getPlatform()) && "1".equals(System.getenv("SWT_GTK4"));
   }
 
   private void guideFailed(Path file) {

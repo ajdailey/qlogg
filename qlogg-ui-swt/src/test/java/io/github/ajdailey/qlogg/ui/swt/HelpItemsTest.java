@@ -303,7 +303,6 @@ class HelpItemsTest {
 
   @Test
   void documentationShowsTheGuideInABrowserWindowOrNamesTheFile() throws Exception {
-    assumeFalse(Gtk4.active(), Gtk4.BROWSER_ABORTS);
     final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
     long start = System.nanoTime();
     controller.execute(CommandId.DOCUMENTATION);
@@ -318,6 +317,12 @@ class HelpItemsTest {
             }));
     assertTrue(Files.isRegularFile(copy));
     final GuideWindow guide = window.guideWindow();
+    if (Gtk4.active()) {
+      // WebKitGTK 6.0 aborts the JVM, so GTK 4 names the file and creates no browser.
+      assertNull(guide);
+      assertTrue(window.noticeText().contains(copy.toString()), window.noticeText());
+      return;
+    }
     if (guide == null) {
       return;
     }

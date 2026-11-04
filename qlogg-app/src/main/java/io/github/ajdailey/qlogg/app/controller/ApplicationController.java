@@ -24,6 +24,8 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.highlight.LabelState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
+import io.github.ajdailey.qlogg.app.scratch.TransformListener;
+import io.github.ajdailey.qlogg.app.scratch.Transforms;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
@@ -60,6 +62,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2237,7 +2240,7 @@ public final class ApplicationController implements DocumentHost {
     }
     setPreferences(preferences.get().withOptions(options.withFont(font)));
     view.showNotice(UiText.NOTICE_FONT_SIZE.format(font.effectiveSize(view.platformFontSize())));
-    set.fireOptionsChanged();
+    set.fireOptionsChanged(false, true, false);
   }
 
   /**
@@ -2271,15 +2274,30 @@ public final class ApplicationController implements DocumentHost {
               services.budget(),
               next.defaultCharset()));
     }
-    if (!next.shortcuts().equals(old.shortcuts()) || !next.font().equals(old.font())) {
-      set.fireOptionsChanged();
-    }
+    boolean keymap = !next.shortcuts().equals(old.shortcuts());
+    boolean font = !next.font().equals(old.font());
+    boolean other = !next.withShortcuts(old.shortcuts()).withFont(old.font()).equals(old);
+    set.fireOptionsChanged(keymap, font, other);
   }
 
-  /** Tells this window's listeners the font or the key bindings changed. */
-  void fireOptionsChanged() {
+  /**
+   * Tells this window's listeners which options changed.
+   *
+   * @param keymap the key bindings changed
+   * @param font the font changed
+   * @param other another option changed
+   */
+  void fireOptionsChanged(boolean keymap, boolean font, boolean other) {
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
-      listener.optionsChanged();
+      if (keymap) {
+        listener.keymapChanged();
+      }
+      if (font) {
+        listener.fontChanged();
+      }
+      if (other) {
+        listener.optionsChanged();
+      }
     }
   }
 
@@ -2583,5 +2601,64 @@ public final class ApplicationController implements DocumentHost {
     }
     present(shown, line, follow);
     view.toFront();
+  }
+
+  // Scratchpad transforms.
+
+  /** Inputs longer than this many chars transform on a CPU worker. */
+  public static final int INLINE_TRANSFORM_CHARS = 1 << 16;
+
+  /**
+   * Applies a scratchpad transform and reports the outcome on the UI thread: at once for an input
+   * of at most {@link #INLINE_TRANSFORM_CHARS} chars, else from a CPU worker through the
+   * dispatcher. Every call reports exactly once.
+   *
+   * @param kind the transform
+   * @param input the input
+   * @param listener receives the output or the notice naming the failure
+   */
+  public void transform(
+      final Transforms.Kind kind, final String input, final TransformListener listener) {
+    if (input.length() <= INLINE_TRANSFORM_CHARS) {
+      transformed(transformNow(kind, input), listener);
+      return;
+    }
+    try {
+      workers.executeCpu(
+          new Runnable() {
+            @Override
+            public void run() {
+              final String[] outcome = transformNow(kind, input);
+              ui.asyncExec(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      transformed(outcome, listener);
+                    }
+                  });
+            }
+          });
+    } catch (RejectedExecutionException e) {
+      listener.failed(UiText.SCRATCHPAD_FAILED.format(String.valueOf(e.getMessage())));
+    }
+  }
+
+  /** Returns the output and a null notice, or a null output and the notice. */
+  private static String[] transformNow(Transforms.Kind kind, String input) {
+    try {
+      return new String[] {Transforms.apply(kind, input), null};
+    } catch (Transforms.TooLongException e) {
+      return new String[] {null, e.getMessage()};
+    } catch (IllegalArgumentException e) {
+      return new String[] {null, UiText.SCRATCHPAD_FAILED.format(String.valueOf(e.getMessage()))};
+    }
+  }
+
+  private static void transformed(String[] outcome, TransformListener listener) {
+    if (outcome[0] != null) {
+      listener.transformed(outcome[0]);
+    } else {
+      listener.failed(outcome[1]);
+    }
   }
 }

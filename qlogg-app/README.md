@@ -239,13 +239,15 @@ window; `new ApplicationController(set, view)` adds a window to a set.
   reload adds them), then shows its active tab, and makes this instance the
   session's owner. Only the owner writes the tab list; the launcher makes an
   instance the owner when it restored the session and has no `-m`.
-- `setOptions` (Tools > Options) applies the font and the key bindings
-  (listeners get `optionsChanged`), the monitor settings
+- `setOptions` (Tools > Options) applies the key bindings (listeners get
+  `keymapChanged`), the font (`fontChanged`), the monitor settings
   (`FileMonitor.setSettings`), the default encoding for files opened
-  afterwards and the recent-files count. `keymap()` is the defaults with the
+  afterwards and the recent-files count (`optionsChanged` for any option but
+  the key bindings and the font). `keymap()` is the defaults with the
   overrides. `zoomFont` and View > Zoom In, Zoom Out (`Ctrl`+wheel in a view)
   step the drawn size by one point within 4 to 72 and save it as
-  `font.zoom`; Reset Zoom clears it, back to the Options size.
+  `font.zoom`, then fire `fontChanged`; Reset Zoom clears it, back to the
+  Options size.
 - The Encoding menu calls `setEncoding(document, charset)`: the choice goes
   into the file's `PositionStore` entry (null for Auto) and the tab reopens
   as a reload does, so it is indexed again with the forced charset.
@@ -572,7 +574,10 @@ Pure functions, tested without a document.
 and from UTF-8, URL decode, JSON and XML indentation. JSON and XML are
 reformatted by a scan of quotes, brackets and tags, not parsed, so no entity,
 DTD or external reference is read. Input that does not fit throws
-`IllegalArgumentException` with the reason. `values(text, zone)` lists the
+`IllegalArgumentException` with the reason; an input or output over
+`MAX_CHARS` (1 Mi) throws its subclass `TooLongException`. JSON and XML
+indent at most `MAX_DEPTH` (32) levels, so the work is linear in `MAX_CHARS`
+whatever the nesting. `values(text, zone)` lists the
 selection's CRC32, its value in the other number base and, for 10 or 13
 digits, the epoch time in UTC and in the zone. Nothing runs code from the
 text.

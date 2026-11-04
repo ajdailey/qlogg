@@ -47,7 +47,9 @@ import org.eclipse.swt.widgets.ScrollBar;
  * printable ASCII is drawn as one string, and its selection edges are measured with {@code
  * GC.textExtent}, so wide glyphs keep the highlight aligned. Painting allocates no SWT resource
  * except a highlight color seen for the first time, which {@link PaletteColors} keeps; the font and
- * colors are disposed with the canvas, and the colors also when the palette changes.
+ * colors are disposed with the canvas, the colors also when the palette changes, and the font when
+ * {@link #setFont} replaces it. A font change or {@code SWT.ZoomChanged} remeasures the line height
+ * and advance and refits the viewport in place.
  *
  * <p>A row paints its background (base, current line, then the whole-line highlight), the span
  * backgrounds and the selection, the text in the line's color, then each span with a text color and
@@ -119,11 +121,11 @@ public final class LogCanvas {
   private final KeySequencer keys;
   private final Keymap keymapRef;
   private final PrefixListener prefix;
-  private final Font font;
-  private final boolean antialias;
+  private Font font;
+  private boolean antialias;
   private PaletteColors colors;
-  private final int lineHeight;
-  private final double advance;
+  private int lineHeight;
+  private double advance;
   private boolean dragging;
   private boolean dragBlock;
   private final DocumentViewListener viewListener =
@@ -170,14 +172,24 @@ public final class LogCanvas {
     canvas =
         new Canvas(parent, SWT.V_SCROLL | SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
     FontSettings settings = application.preferences().options().font();
-    font =
-        new Font(
-            canvas.getDisplay(),
-            settings.family().isEmpty() ? Dialogs.monospaceName() : settings.family(),
-            settings.effectiveSize(Dialogs.monospaceSize()),
-            settings.bold() ? SWT.BOLD : SWT.NORMAL);
+    font = createFont(settings);
     antialias = settings.antialias();
     colors = new PaletteColors(canvas.getDisplay(), palette);
+    measure();
+    canvas.setBackground(colors.background);
+    listen();
+    document.addListener(viewListener);
+  }
+
+  private Font createFont(FontSettings settings) {
+    return new Font(
+        canvas.getDisplay(),
+        settings.family().isEmpty() ? Dialogs.monospaceName() : settings.family(),
+        settings.effectiveSize(Dialogs.monospaceSize()),
+        settings.bold() ? SWT.BOLD : SWT.NORMAL);
+  }
+
+  private void measure() {
     GC gc = new GC(canvas);
     try {
       gc.setFont(font);
@@ -186,9 +198,31 @@ public final class LogCanvas {
     } finally {
       gc.dispose();
     }
-    canvas.setBackground(colors.background);
-    listen();
-    document.addListener(viewListener);
+  }
+
+  /**
+   * Replaces the font, remeasures the line height and advance, refits the viewport and repaints.
+   *
+   * @param settings the font settings
+   */
+  public void setFont(FontSettings settings) {
+    if (canvas.isDisposed()) {
+      return;
+    }
+    Font old = font;
+    font = createFont(settings);
+    antialias = settings.antialias();
+    old.dispose();
+    remeasure();
+  }
+
+  private void remeasure() {
+    measure();
+    resized();
+    if (document.wrap()) {
+      document.wrapFitted(wrapFit());
+    }
+    canvas.redraw();
   }
 
   private Menu contextMenu(Keymap keymap) {
@@ -417,6 +451,16 @@ public final class LogCanvas {
           @Override
           public void handleEvent(Event event) {
             resized();
+          }
+        });
+    canvas.addListener(
+        SWT.ZoomChanged,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (!canvas.isDisposed()) {
+              remeasure();
+            }
           }
         });
     canvas.addListener(

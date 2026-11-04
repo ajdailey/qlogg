@@ -45,11 +45,16 @@ Compiled and tested against the build host's SWT fragment.
   Encoding menu lists, after Auto, the common charsets as radio items and
   every other charset the runtime supports in Other; the shown file's forced
   charset is checked, else Auto. A `&` in a path is doubled so it shows.
-- `optionsChanged` rebuilds the menu bar, the tool tips and the shown views
-  from a later UI task, because the event that changed the options may come
-  from a menu item or a view the rebuild disposes; an open Keyboard Shortcuts
-  window closes. The search row's tool tips name the controller's keymap from
-  `attach` on and change with it (`SearchBar.setKeymap`).
+- `keymapChanged` rebuilds the menu bar, the tool tips and the shown views
+  from a later UI task, because the event that changed the key bindings may
+  come from a menu item or a view the rebuild disposes; the focused log view
+  keeps the focus and an open Keyboard Shortcuts window closes.
+  `fontChanged` calls `LogCanvas.setFont` on both views: the font is
+  replaced, the line height and advance remeasured and the viewport refitted
+  in place, so a zoom keeps the menu bar, the views and the focus.
+  `SWT.ZoomChanged` (a DPI change) remeasures through the same path. The
+  search row's tool tips name the controller's keymap from `attach` on and
+  change with it (`SearchBar.setKeymap`).
 - A Display key filter runs a window binding that is not a menu accelerator
   (`Keymap.windowCommand`), such as `Ctrl`+keypad `+`, while the event is for
   this window.
@@ -160,7 +165,10 @@ Compiled and tested against the build host's SWT fragment.
 - GTK3 is the Linux default. GTK4 is an experimental opt-in: set
   `SWT_GTK4=1` before starting QLogg (linux-x86_64 only; linux-aarch64 has no
   SWT GTK4 natives and stays on GTK3). Open SWT GTK4 defects affect the log
-  view (slow scrolling, custom painting, missing mouse events). The `test-gtk4`
+  view (slow scrolling, custom painting, missing mouse events). Under GTK4,
+  Help > Documentation shows a notice naming the guide's copy and creates no
+  `Browser`: WebKitGTK 6.0 aborts the JVM when the browser starts (measured,
+  Ubuntu 24.04, WebKitGTK 2.52.6). The `test-gtk4`
   CI job runs these tests with `SWT_GTK4=1`; a test that hits a known GTK 4
   failure skips itself there through the test class `Gtk4`.
 
@@ -266,8 +274,11 @@ nothing while the bar is hidden.
   kind to the selection, or to the whole tab without one; a failure shows its
   reason in the line under the tabs, which otherwise lists the selection's
   derived values. Text sent from a log view appends to or replaces the shown
-  tab. Transforms, values and sent text take at most 1 Mi chars, so each runs
-  in milliseconds on the UI thread (assumed from linear scans; not measured).
+  tab. Transforms, values and sent text take at most 1 Mi chars.
+  `ApplicationController.transform` runs an input over 64 Ki chars on a CPU
+  worker; the tab is read-only and the line shows Transforming until the
+  result arrives, text sent meanwhile goes to a new tab, and a result for a
+  closed tab is dropped.
 - `MultiSearchWindow` (Edit > Search All Open Files, modeless) lists one row
   per file group with its match count and state under a summary line;
   choosing a row shows that tab with its search's results. Stop cancels every
@@ -355,18 +366,19 @@ file is attached, and that a WARN line shows the status-bar marker, Show Log
 clears it and lists the lines, a later ERROR shows it again, and a second Show
 Log refreshes the same window. It opens Help > Documentation and waits for the
 guide window to load the copy or to close and take the fallback (or, without a
-browser widget, for the notice naming it); it reads the location from the
-`changed` event, never `Browser.getUrl`, which blocks on a WebView2 still
-starting. Without WebView2 it checks that a factory throwing Edge's timeout
+browser widget or under GTK4, for the notice naming it); it reads the
+location from the `changed` event, never `Browser.getUrl`, which blocks on a
+WebView2 still starting. Without WebView2 it checks that a factory throwing Edge's timeout
 `SWTException` leaves no window and that the load bound expires once unless
 met. It also checks the locations `GuideWindow` allows, and that without the
 application menu the menu bar keeps About and Options.
 `GuideScreenshotsTest` runs only with `-Dqlogg.guide.shots=<dir>`
 (`tools/screenshots.sh`) and writes the user guide's images.
 `OptionsAndMenusTest` checks a bullet-column click marking and unmarking,
-`Ctrl`+wheel zoom rebuilding the view, the Encoding, Favorites and Open
-Recent menus, and the shortcut editor refusing `Ctrl+O` for Reload, adding
-`Ctrl+Alt+R` and the File menu showing it after Apply, a new key for Match
+`Ctrl`+wheel zoom over the focused filtered view applying in place (same
+views, menu bar and focus, fewer rows, the height restored by Reset Zoom),
+the Encoding, Favorites and Open Recent menus, and the shortcut editor
+refusing `Ctrl+O` for Reload, adding `Ctrl+Alt+R` and the File menu showing it after Apply, a new key for Match
 Case reaching the search row's tool tip, and the Folding tab refusing an
 unclosed class and applying an entry start pattern; with
 `-Dqlogg.shots=<dir>` it writes `options.png` and `main.png`.
@@ -384,8 +396,9 @@ Highlighters menu and reads the span's painted color. `EventLoop.runUntil`
 dispatches events until a condition holds, with a bound and no fixed sleep.
 `ViewFeaturesGuiTest` drives `Alt` and `Shift` with the wheel, an `Alt`-drag
 block selection, a click on the second wrapped row of a long line and the
-reported fit, whitespace and fold painting, a scratchpad transform with the
-epoch value and `Ctrl+N`, the search across two files with its row selecting
+reported fit, whitespace and fold painting, scratchpad transforms inline and
+on a worker (the tab read-only until the result) with the epoch value and
+`Ctrl+N`, the search across two files with its row selecting
 a tab, and the selectors editor row.
 
 `HangWatchdog`, registered for every test in the module through

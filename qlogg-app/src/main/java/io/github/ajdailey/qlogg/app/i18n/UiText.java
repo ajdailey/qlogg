@@ -934,7 +934,11 @@ public enum UiText {
 
   // Regex stack overflow in search and quick find.
   /** A regex overflowed the stack: the 1-based line. */
-  SEARCH_PATTERN_TOO_COMPLEX;
+  SEARCH_PATTERN_TOO_COMPLEX,
+
+  // Scratchpad transform on a worker.
+  /** Scratchpad status while a transform runs on a worker. */
+  SCRATCHPAD_RUNNING;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

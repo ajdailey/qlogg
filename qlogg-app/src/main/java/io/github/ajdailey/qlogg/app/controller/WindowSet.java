@@ -365,9 +365,12 @@ public final class WindowSet {
     }
   }
 
-  void fireOptionsChanged() {
+  void fireOptionsChanged(boolean keymap, boolean font, boolean other) {
+    if (!keymap && !font && !other) {
+      return;
+    }
     for (ApplicationController window : new ArrayList<ApplicationController>(windows)) {
-      window.fireOptionsChanged();
+      window.fireOptionsChanged(keymap, font, other);
     }
   }
 

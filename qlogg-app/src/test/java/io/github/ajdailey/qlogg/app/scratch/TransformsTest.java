@@ -68,6 +68,35 @@ class TransformsTest {
             "<?xml version=\"1.0\"?><a><b x=\"1\"/><c>text</c><!-- n --></a>"));
   }
 
+  // Regression: 330 000 nested XML tags asked for about 1e11 chars of indentation.
+  @Test
+  void deepNestingIndentsAtMostMaxDepthAndOutputIsBounded() {
+    int depth = Transforms.MAX_DEPTH + 10;
+    String deepest = Transforms.INDENT.repeat(Transforms.MAX_DEPTH);
+    String xml = Transforms.apply(Transforms.Kind.XML_FORMAT, "<a>".repeat(depth) + "x");
+    assertTrue(xml.endsWith("\n" + deepest + "<a>\n" + deepest + "x"), xml);
+    String json =
+        Transforms.apply(Transforms.Kind.JSON_FORMAT, "[".repeat(depth) + "]".repeat(depth));
+    assertTrue(json.contains("\n" + deepest + "[]"), json);
+    tooLong(Transforms.Kind.XML_FORMAT, "<a>".repeat(330_000));
+    final String brackets = "[".repeat(Transforms.MAX_CHARS);
+    tooLong(Transforms.Kind.JSON_FORMAT, brackets);
+    tooLong(Transforms.Kind.BASE64_ENCODE, brackets);
+    tooLong(Transforms.Kind.HEX_ENCODE, brackets);
+    tooLong(Transforms.Kind.URL_DECODE, brackets + "[");
+  }
+
+  private static void tooLong(final Transforms.Kind kind, final String input) {
+    assertThrows(
+        Transforms.TooLongException.class,
+        new Executable() {
+          @Override
+          public void execute() {
+            Transforms.apply(kind, input);
+          }
+        });
+  }
+
   @Test
   void valuesIncludeTheChecksumNumberBaseAndEpochTime() {
     List<String> values = Transforms.values("1700000000", ZoneOffset.ofHours(1));

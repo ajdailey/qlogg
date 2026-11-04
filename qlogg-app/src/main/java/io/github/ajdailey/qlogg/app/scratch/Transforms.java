@@ -18,10 +18,29 @@ import java.util.zip.CRC32;
  * decoded bytes back to text as UTF-8 with malformed input replaced. JSON and XML are reformatted
  * by a scan of brackets, quotes and tags, not parsed, so no entity, DTD or external reference is
  * read. Each transform takes and returns a string; nothing runs code from the text. Stateless.
+ *
+ * <p>Input and output are at most {@link #MAX_CHARS} chars, and JSON and XML indent at most {@link
+ * #MAX_DEPTH} levels, so a transform's time and memory are linear in {@code MAX_CHARS} whatever the
+ * nesting.
  */
 public final class Transforms {
+  /** Most chars a transform takes or returns. */
+  public static final int MAX_CHARS = 1 << 20;
+
+  /** Deepest indentation level; deeper JSON and XML levels indent as this one. */
+  static final int MAX_DEPTH = 32;
+
   /** Indent per nesting level. */
   static final String INDENT = "  ";
+
+  /** The input or the output would exceed {@link #MAX_CHARS}. */
+  public static final class TooLongException extends IllegalArgumentException {
+    private static final long serialVersionUID = 1L;
+
+    TooLongException() {
+      super(UiText.SCRATCHPAD_TOO_LONG.format(MAX_CHARS));
+    }
+  }
 
   /** One scratchpad transform. */
   public enum Kind {
@@ -64,21 +83,36 @@ public final class Transforms {
    * @param kind the transform
    * @param text the input
    * @return the output
+   * @throws TooLongException when the input or the output exceeds {@link #MAX_CHARS}
    * @throws IllegalArgumentException naming the reason when the input does not fit the transform
    */
   public static String apply(Kind kind, String text) {
-    return switch (kind) {
-      case BASE64_ENCODE ->
-          Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
-      case BASE64_DECODE ->
-          new String(
-              Base64.getDecoder().decode(text.replaceAll("\\s", "")), StandardCharsets.UTF_8);
-      case HEX_ENCODE -> hex(text.getBytes(StandardCharsets.UTF_8));
-      case HEX_DECODE -> new String(unhex(text), StandardCharsets.UTF_8);
-      case URL_DECODE -> URLDecoder.decode(text, StandardCharsets.UTF_8);
-      case JSON_FORMAT -> formatJson(text);
-      case XML_FORMAT -> formatXml(text);
-    };
+    check(text.length());
+    String output =
+        switch (kind) {
+          case BASE64_ENCODE -> base64(text.getBytes(StandardCharsets.UTF_8));
+          case BASE64_DECODE ->
+              new String(
+                  Base64.getDecoder().decode(text.replaceAll("\\s", "")), StandardCharsets.UTF_8);
+          case HEX_ENCODE -> hex(text.getBytes(StandardCharsets.UTF_8));
+          case HEX_DECODE -> new String(unhex(text), StandardCharsets.UTF_8);
+          case URL_DECODE -> URLDecoder.decode(text, StandardCharsets.UTF_8);
+          case JSON_FORMAT -> formatJson(text);
+          case XML_FORMAT -> formatXml(text);
+        };
+    check(output.length());
+    return output;
+  }
+
+  private static void check(long chars) {
+    if (chars > MAX_CHARS) {
+      throw new TooLongException();
+    }
+  }
+
+  private static String base64(byte[] bytes) {
+    check((bytes.length + 2L) / 3 * 4);
+    return Base64.getEncoder().encodeToString(bytes);
   }
 
   /**
@@ -118,6 +152,7 @@ public final class Transforms {
   }
 
   static String hex(byte[] bytes) {
+    check(bytes.length * 2L);
     StringBuilder out = new StringBuilder(bytes.length * 2);
     for (byte b : bytes) {
       out.append(Character.forDigit((b >> 4) & 0xf, 16)).append(Character.forDigit(b & 0xf, 16));
@@ -252,15 +287,20 @@ public final class Transforms {
   }
 
   private static void line(StringBuilder out, int depth, String text) {
-    for (int i = 0; i < depth; i++) {
-      out.append(INDENT);
-    }
+    indent(out, depth);
     out.append(text).append('\n');
+    check(out.length());
   }
 
   private static void newline(StringBuilder out, int depth) {
     out.append('\n');
-    for (int i = 0; i < depth; i++) {
+    indent(out, depth);
+    check(out.length());
+  }
+
+  private static void indent(StringBuilder out, int depth) {
+    int levels = Math.min(depth, MAX_DEPTH);
+    for (int i = 0; i < levels; i++) {
       out.append(INDENT);
     }
   }

@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.scratch.TransformListener;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
 import java.time.ZoneId;
 import org.eclipse.swt.SWT;
@@ -25,21 +27,24 @@ import org.eclipse.swt.widgets.Text;
  * Tools > Scratchpad: a modeless window of editable text tabs ({@code Ctrl+N} or New Tab adds one)
  * with the built-in {@link Transforms}, which replace the selection, or the whole tab when nothing
  * is selected, and a line of values derived from the selection. Text sent from a log view appends
- * to, or replaces, the current tab. Transforms and values take at most {@link #MAX_CHARS} chars, so
- * one runs in milliseconds on the UI thread; a longer input shows a notice. Nothing in it runs code
- * from the text.
+ * to, or replaces, the current tab. Transforms and values take at most {@link #MAX_CHARS} chars; a
+ * longer input or output shows a notice. A transform runs through {@link
+ * ApplicationController#transform}, on a worker for a long input; the tab is read-only until the
+ * result arrives, and a result for a closed tab is dropped. Nothing in it runs code from the text.
  */
 final class ScratchpadWindow {
   /** Most chars a transform or the derived values take, and most chars sent to a tab at once. */
-  static final int MAX_CHARS = 1 << 20;
+  static final int MAX_CHARS = Transforms.MAX_CHARS;
 
+  private final ApplicationController controller;
   private final Shell shell;
   private final CTabFolder tabs;
   private final Label values;
   private final Font font;
   private int created;
 
-  ScratchpadWindow(Shell parent) {
+  ScratchpadWindow(Shell parent, ApplicationController controller) {
+    this.controller = controller;
     shell = Dialogs.shell(parent, UiText.SCRATCHPAD_TITLE.text(), false);
     font =
         new Font(shell.getDisplay(), Dialogs.monospaceName(), Dialogs.monospaceSize(), SWT.NORMAL);
@@ -129,13 +134,17 @@ final class ScratchpadWindow {
   }
 
   /**
-   * Appends text to the current tab on a new line, or replaces the tab's text.
+   * Appends text to the current tab on a new line, or replaces the tab's text; a tab with a
+   * transform running gets a new tab instead.
    *
    * @param added the text, cut at {@link #MAX_CHARS}
    * @param replace true to replace
    */
   void add(String added, boolean replace) {
     Text text = current();
+    if (!text.getEditable()) {
+      text = newTab();
+    }
     String cut = added.length() > MAX_CHARS ? added.substring(0, MAX_CHARS) : added;
     if (replace || text.getCharCount() == 0) {
       text.setText(cut);
@@ -144,28 +153,52 @@ final class ScratchpadWindow {
     }
   }
 
-  /** Applies a transform to the selection, or to the whole tab without one. */
+  /**
+   * Applies a transform to the selection, or to the whole tab without one. Does nothing while a
+   * transform of the tab runs.
+   */
   void apply(Transforms.Kind kind) {
-    Text text = current();
-    Point range = text.getSelection();
-    boolean whole = range.x == range.y;
+    final Text text = current();
+    if (!text.getEditable()) {
+      return;
+    }
+    final Point range = text.getSelection();
+    final boolean whole = range.x == range.y;
     String input = whole ? text.getText() : text.getSelectionText();
     if (input.length() > MAX_CHARS) {
       values.setText(UiText.SCRATCHPAD_TOO_LONG.format(MAX_CHARS));
       return;
     }
-    try {
-      String output = Transforms.apply(kind, input);
-      if (whole) {
-        text.setText(output);
-      } else {
-        text.insert(output);
-        text.setSelection(range.x, range.x + output.length());
-      }
-      values.setText("");
-    } catch (IllegalArgumentException e) {
-      values.setText(UiText.SCRATCHPAD_FAILED.format(String.valueOf(e.getMessage())));
-    }
+    text.setEditable(false);
+    values.setText(UiText.SCRATCHPAD_RUNNING.text());
+    controller.transform(
+        kind,
+        input,
+        new TransformListener() {
+          @Override
+          public void transformed(String output) {
+            if (text.isDisposed()) {
+              return;
+            }
+            text.setEditable(true);
+            if (whole) {
+              text.setText(output);
+            } else {
+              text.setSelection(range.x, range.y);
+              text.insert(output);
+              text.setSelection(range.x, range.x + output.length());
+            }
+            values.setText("");
+          }
+
+          @Override
+          public void failed(String message) {
+            if (!text.isDisposed()) {
+              text.setEditable(true);
+              values.setText(message);
+            }
+          }
+        });
   }
 
   private void showValues(Text text) {
