@@ -207,6 +207,10 @@ running `qlogg.jar`, and passes only when the child's image is the bundle's
 `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on
 `windows-11-arm`). Actions are pinned by commit SHA. Linux jobs install Xvfb
 and GTK 3 from the Ubuntu archive when the runner image lacks them.
+`.github/workflows/dependency-check.yml` scans the dependencies for known
+vulnerabilities weekly and on demand, failing on CVSS 7 or higher; it reads
+the NVD API key from the `NVD_API_KEY` repository secret. Dependabot proposes
+Maven and Actions updates.
 
 ## Targets
 
