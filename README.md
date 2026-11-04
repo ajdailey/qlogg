@@ -201,14 +201,35 @@ arm64 host runs it under its engine's emulation.
 
 ### Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+`.github/workflows/ci.yml` runs on every push to `main`, every pull request
+and every pushed `v*` tag:
 
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets`; uploads the seven archives as `qlogg-archives` |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
 | `bundle` | the six `test` runners | Unpacks the target's bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
+| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
+
+The draft Release carries the seven archives the `bundle` jobs ran,
+`SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
+release notes. To release:
+
+1. Push the tag: `git tag v<version> && git push origin v<version>`.
+2. Review the draft on the repository's Releases page.
+3. Publish it there, or with `gh release edit v<version> --draft=false`.
+
+A bad draft is fixed by deleting the draft and the tag
+(`gh release delete v<version> --cleanup-tag`) and tagging again. Only the
+`release` job has `contents: write`.
+
+`-Psbom` writes the CycloneDX SBOM to `dist/`: every compile and runtime
+dependency of the shipped modules, plus the six SWT fragments `qlogg.jar`
+carries. It leaves out build-only tools, `qlogg-bench`, the Temurin runtimes
+and launch4j's header. CI keeps the JDK archives and `rcodesign` in
+`~/.cache/qlogg`, cached by the `package` and `release` jobs and keyed on
+`qlogg-dist/src/build/dist.xml`; the Maven cache holds no JDK.
 
 On Windows the `bundle` job starts `qlogg.exe`, finds the `javaw.exe` child
 running `qlogg.jar`, and passes only when the child's image is the bundle's
