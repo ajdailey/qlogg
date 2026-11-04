@@ -65,7 +65,7 @@
         <!-- ===== Libraries (alphabetical) ===== -->
         <archunit.version>1.5.1</archunit.version>
         <!-- Build only: converts docs/user-guide.md to the in-jar guide; not shipped. -->
-        <commonmark.version>0.28.0</commonmark.version>
+        <commonmark.version>0.32.0</commonmark.version>
         <!-- Benchmarks only (qlogg-bench); not shipped. -->
         <jmh.version>1.37</jmh.version>
         <!-- Build only: renders the qlogg-ui-swt SVG icons to PNG; not shipped. -->
