@@ -131,10 +131,12 @@ public final class SearchController {
       boolean refresh) {}
 
   /**
-   * The search in progress: its activity, which ends once, and the flag that makes its own {@code
-   * finished} call empty its result set once a newer generation replaced it.
+   * The search in progress: its activity, which ends once, the flag that makes its own {@code
+   * finished} call empty its result set once a newer generation replaced it, and whether it
+   * searches appended lines into a finished set.
    */
-  private record Running(OperationHandle handle, AtomicBoolean active, AtomicBoolean discarded) {}
+  private record Running(
+      OperationHandle handle, AtomicBoolean active, AtomicBoolean discarded, boolean refresh) {}
 
   /**
    * Creates the controller.
@@ -416,7 +418,7 @@ public final class SearchController {
             refresh);
     try {
       OperationHandle handle = engine.search(document.document(), index, query, results, events);
-      running = new Running(handle, active, discarded);
+      running = new Running(handle, active, discarded, refresh);
       return true;
     } catch (RejectedExecutionException e) {
       document.document().exit();
@@ -543,6 +545,15 @@ public final class SearchController {
     return new LineRange(first, Math.max(first, end));
   }
 
+  /**
+   * Reports whether a refresh searches appended lines into the finished set.
+   *
+   * @return true from {@link #appended} until its end is applied
+   */
+  boolean refreshing() {
+    return running != null && running.refresh();
+  }
+
   /** Cancels the running search; its results so far stay. */
   public void cancel() {
     if (running != null) {
@@ -614,13 +625,16 @@ public final class SearchController {
 
   /**
    * Starts a new generation with an empty result set. The finished current set is kept when asked
-   * and it has a search behind it; otherwise any running search is canceled and its set emptied.
+   * and it has a search behind it; a refresh running into it is canceled and the set keeps the
+   * lines it reached. Otherwise any running search is canceled and its set emptied.
    */
   private void replaceResults(boolean keep) {
     boolean finished =
         state.phase() == SearchViewState.Phase.DONE
             || state.phase() == SearchViewState.Phase.CANCELED;
-    if (keep && finished && running == null && !state.text().isEmpty()) {
+    boolean idle = running == null || running.refresh();
+    if (keep && finished && idle && !state.text().isEmpty()) {
+      cancel();
       kept.add(new KeptResults(state.text(), state.options(), results, state.limit()));
     } else {
       discard();

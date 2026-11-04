@@ -145,6 +145,8 @@ public final class ApplicationController implements DocumentHost {
   private SearchOptions searchOptions = SearchOptions.DEFAULTS;
   private int pastes;
   private boolean shuttingDown;
+  // Window close: set before the close sweep; a worker that finishes an open later closes it.
+  private volatile boolean closed;
   // Wrap, folding, block selection, save, scratchpad, search across files, selectors.
   private final ViewFeatures features;
 
@@ -639,6 +641,9 @@ public final class ApplicationController implements DocumentHost {
               @Override
               public void run() {
                 for (FileRequest request : requests) {
+                  if (closed) {
+                    break;
+                  }
                   load(request.path(), request.line(), follow, null, opening, handed);
                 }
               }
@@ -674,6 +679,9 @@ public final class ApplicationController implements DocumentHost {
     try {
       final LogDocument document = LogDocument.open(path, forcedEncoding(path), opening);
       unclaimed.add(document);
+      if (closeIfWindowClosed(document)) {
+        return null;
+      }
       final boolean marksComplete =
           marks == null || SessionStore.addRanges(marks, document.marks());
       ui.asyncExec(
@@ -794,6 +802,9 @@ public final class ApplicationController implements DocumentHost {
     try {
       final LogDocument document = LogDocument.ofText(name, text, MAX_PASTED_BYTES, set.services());
       unclaimed.add(document);
+      if (closeIfWindowClosed(document)) {
+        return;
+      }
       ui.asyncExec(
           new Runnable() {
             @Override
@@ -1220,6 +1231,9 @@ public final class ApplicationController implements DocumentHost {
                   final LogDocument document =
                       LogDocument.open(path, forcedEncoding(path), opening);
                   unclaimed.add(document);
+                  if (closeIfWindowClosed(document)) {
+                    return;
+                  }
                   final boolean marksComplete =
                       change != null || copyMarks(old.document().marks(), document.marks());
                   ui.asyncExec(
@@ -1783,6 +1797,7 @@ public final class ApplicationController implements DocumentHost {
    */
   List<LogDocument> detachAll() {
     shuttingDown = true;
+    closed = true;
     quickFind.cancelRunning();
     for (DocumentController document : documents) {
       rememberPosition(document);
@@ -1803,7 +1818,27 @@ public final class ApplicationController implements DocumentHost {
     return files;
   }
 
-  /** Closes documents an open finished but this window never claimed; runs on a worker. */
+  /**
+   * Closes a document a worker opened once this window is closing; runs on that worker after adding
+   * it to {@code unclaimed}. Either this call or {@link #closeUnclaimed} closes it, whichever
+   * removes it first.
+   *
+   * @return true when the window is closing and the caller drops the document
+   */
+  private boolean closeIfWindowClosed(LogDocument document) {
+    if (!closed) {
+      return false;
+    }
+    if (unclaimed.remove(document)) {
+      document.close(LogDocument.CLOSE_BOUND);
+    }
+    return true;
+  }
+
+  /**
+   * Closes documents an open finished but this window never claimed; runs on a worker after {@link
+   * #detachAll}.
+   */
   void closeUnclaimed() {
     for (LogDocument document : new ArrayList<LogDocument>(unclaimed)) {
       if (unclaimed.remove(document)) {
@@ -1853,7 +1888,7 @@ public final class ApplicationController implements DocumentHost {
               @Override
               public void run() {
                 LogDocument activeDocument = null;
-                for (int i = 0; i < tabs.size(); i++) {
+                for (int i = 0; i < tabs.size() && !closed; i++) {
                   Session.Tab tab = tabs.get(i);
                   long[] marks = tab.marks().length > 0 ? tab.marks() : null;
                   LogDocument document = load(paths.get(i), 0, tab.follow(), marks, opening, false);

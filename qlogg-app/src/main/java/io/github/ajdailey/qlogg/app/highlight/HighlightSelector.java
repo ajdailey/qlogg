@@ -20,6 +20,8 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
   /** Most selectors kept. */
   public static final int MAX_SELECTORS = 256;
 
+  private static final int BASE_READS = 1 << 16;
+
   /** Checks the components: exactly one pattern, each within {@link #MAX_PATTERN_CHARS}. */
   public HighlightSelector {
     if (fileNameGlob == null || firstLinePattern == null || setId == null || setId.isEmpty()) {
@@ -62,6 +64,26 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
   }
 
   /**
+   * Runs the first-line pattern with {@code find} on a worker, reading at most {@code 8 *
+   * line.length() + 65,536} chars of the line, the bound the highlighter puts on a rule.
+   *
+   * @param line the first line
+   * @return false for a glob selector, a pattern that does not compile, no match, or a match that
+   *     spent the bound or overflowed the regex engine's stack
+   */
+  public boolean matchesFirstLine(CharSequence line) {
+    Pattern pattern = firstLine();
+    if (pattern == null) {
+      return false;
+    }
+    try {
+      return pattern.matcher(new BoundedChars(line, 8L * line.length() + BASE_READS)).find();
+    } catch (ReadLimit | StackOverflowError e) {
+      return false;
+    }
+  }
+
+  /**
    * Compiles the first-line pattern; run the match off the UI thread.
    *
    * @return the pattern, or null for a glob selector or a pattern that does not compile
@@ -74,6 +96,49 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
       return Pattern.compile(firstLinePattern);
     } catch (IllegalArgumentException e) {
       return null;
+    }
+  }
+
+  /** Thrown when a match reads more chars than its bound. */
+  private static final class ReadLimit extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    ReadLimit() {
+      super(null, null, false, false);
+    }
+  }
+
+  /** A line's chars, counting reads against a bound. */
+  private static final class BoundedChars implements CharSequence {
+    private final CharSequence text;
+    private long remaining;
+
+    BoundedChars(CharSequence text, long limit) {
+      this.text = text;
+      this.remaining = limit;
+    }
+
+    @Override
+    public int length() {
+      return text.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      if (--remaining < 0) {
+        throw new ReadLimit();
+      }
+      return text.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int from, int to) {
+      return text.subSequence(from, to).toString();
+    }
+
+    @Override
+    public String toString() {
+      return text.toString();
     }
   }
 }

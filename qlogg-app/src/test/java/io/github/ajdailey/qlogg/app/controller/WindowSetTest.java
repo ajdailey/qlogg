@@ -19,6 +19,7 @@ import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.io.IOException;
@@ -43,6 +44,8 @@ class WindowSetTest {
   private final List<FakeView> views = new ArrayList<FakeView>();
   private final FakeLogFiles logFiles = new FakeLogFiles();
   private final RecentLog recent = new RecentLog(10, 200);
+  private final MemoryBudget budget = MemoryBudget.of(1L << 28);
+  private final GatedCharset gate = new GatedCharset();
   private Workers workers;
   private ConfigStore config;
   private WindowSet set;
@@ -95,7 +98,7 @@ class WindowSetTest {
         new WindowSet(
             workers,
             ui,
-            ApplicationControllerTest.services(workers, MemoryBudget.of(1L << 28)),
+            ApplicationControllerTest.services(workers, budget, gate),
             config,
             Preferences.DEFAULTS,
             new ThemeService() {
@@ -256,6 +259,78 @@ class WindowSetTest {
     assertEquals(2, saved.size());
     assertTrue(saved.get(0).tabs().get(0).path().endsWith("a.log"));
     assertTrue(saved.get(1).tabs().get(0).path().endsWith("b.log"));
+  }
+
+  /** A log that is not valid UTF-8, so its open falls back to the gated charset. */
+  private Path latin1(String name) throws IOException {
+    return Files.write(temp.resolve(name), new byte[] {'o', 'n', 'e', (byte) 0xE9, '\n'});
+  }
+
+  private static FileRequest request(Path file) {
+    return new FileRequest(file, 0);
+  }
+
+  /**
+   * Closes the second window while the gate holds an open, lets the open finish, and checks that no
+   * index reservation survives the open worker.
+   */
+  private void closeWhileHeld(ApplicationController window) throws InterruptedException {
+    assertTrue(gate.awaitHeld());
+    window.closeWindow();
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return views.get(1).disposed;
+          }
+        });
+    gate.release();
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return !workers.liveThreadNames().contains(Workers.Kind.INDEX.prefix());
+              }
+            },
+            BOUND));
+    assertEquals(0, budget.reserved(MemoryShare.LINE_INDEX));
+  }
+
+  @Test
+  void closingAWindowDuringAnOpenClosesTheFileAndSkipsTheRest() throws Exception {
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    gate.arm();
+    second.open(
+        List.of(request(latin1("a.log")), request(latin1("b.log")), request(latin1("c.log"))),
+        false);
+    closeWhileHeld(second);
+    assertEquals(1, gate.opens());
+  }
+
+  @Test
+  void closingAWindowDuringAReloadClosesTheReloadedFile() throws Exception {
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    openIn(second, latin1("a.log"));
+    gate.arm();
+    second.reload(second.documents().get(0));
+    closeWhileHeld(second);
+  }
+
+  @Test
+  void closingAWindowDuringASessionRestoreClosesTheFileAndSkipsTheRest() throws Exception {
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    List<Session.Tab> tabs = new ArrayList<Session.Tab>();
+    for (String name : List.of("a.log", "b.log", "c.log")) {
+      tabs.add(new Session.Tab(latin1(name).toString(), "", false, new long[0]));
+    }
+    gate.arm();
+    second.restoreSession(new Session(tabs, 0));
+    closeWhileHeld(second);
+    assertEquals(1, gate.opens());
   }
 
   @Test

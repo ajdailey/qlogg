@@ -18,7 +18,6 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -292,10 +291,9 @@ final class ViewFeatures {
         String name = fileName(log);
         for (int i = from; i < selectors.size() && chosen == null; i++) {
           HighlightSelector selector = selectors.get(i);
-          Pattern pattern = selector.firstLine();
           if (selector.byFileName()
               ? selector.matchesName(name)
-              : pattern != null && pattern.matcher(first).find()) {
+              : selector.matchesFirstLine(first)) {
             chosen = selector.setId();
           }
         }

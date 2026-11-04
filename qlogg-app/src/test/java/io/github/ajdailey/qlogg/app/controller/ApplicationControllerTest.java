@@ -24,6 +24,7 @@ import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +49,11 @@ class ApplicationControllerTest {
       };
 
   static DocumentServices services(Workers workers, MemoryBudget budget) {
+    return services(workers, budget, StandardCharsets.ISO_8859_1);
+  }
+
+  /** Services whose encoding detection falls back to {@code fallback}. */
+  static DocumentServices services(Workers workers, MemoryBudget budget, Charset fallback) {
     return new DocumentServices(
         workers,
         new Indexer(workers, IndexSettings.defaults(workers.cpuThreads(), budget)),
@@ -57,7 +63,7 @@ class ApplicationControllerTest {
             SearchSettings.defaults(workers.cpuThreads(), budget)),
         new BlockCache(65536, 1 << 20),
         budget,
-        StandardCharsets.ISO_8859_1);
+        fallback);
   }
 
   /** A store over an explicit settings directory. */

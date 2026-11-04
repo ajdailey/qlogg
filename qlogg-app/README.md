@@ -260,7 +260,9 @@ window; `new ApplicationController(set, view)` adds a window to a set.
 - `closeWindow()` (the window's close button) closes this window: it
   remembers its placement, detaches its tabs, hides it, saves the session
   without it, closes its documents on a `qlogg-lifecycle-` worker and posts
-  its disposal. The last open window quits instead.
+  its disposal. The last open window quits instead. An open, paste, reload or
+  session restore still running for the window stops before its next file;
+  the worker closes a document it opened after the close began.
 - `shutdown()` (File > Exit) runs `WindowSet.quit`: it records the placement
   of the window activated last, captures a save, detaches every window's tabs
   and hides the windows, then on a `qlogg-lifecycle-` worker runs the quit
@@ -385,7 +387,8 @@ search and holds its field text, toggles and result sets.
   instead of emptying it. A kept set stays charged to `RESULTS` until
   `removeKept` or `detach`; `show(index)` picks the set the filtered view
   shows. A search still running is replaced as usual, because its set is
-  still growing.
+  still growing. An auto-refresh running into a finished set is canceled and
+  the set is kept with the appended lines the refresh reached.
 - The search thread keeps the newest report in an `AtomicReference`, never
   replacing a newer generation's, and posts through a `UiUpdateQueue`; a flush
   drops a report from an older generation. A replaced search's own `finished`
@@ -473,8 +476,9 @@ group. A group is a snapshot of its file at run time.
 
 `ViewFeatures` applies the view settings to each new document and tries the
 `HighlightSelector`s in order: a file-name glob on the UI thread, a first-line
-regex on a `qlogg-read-` worker over the first 4 KiB, decoded. The first match
-colors that document with the chosen set instead of the active sets
+regex on a `qlogg-read-` worker over the first 4 KiB, decoded. A first-line
+regex reads at most `8 * length + 65,536` chars, the highlighter's bound, and
+counts as no match past it. The first match colors that document with the chosen set instead of the active sets
 (`DocumentController.setAutoHighlightSet`). Choosing sets in the Highlighters
 menu while that document shows drops its automatic set.
 
@@ -677,8 +681,9 @@ charge returned, copy skipping hidden lines, block copy and block extension,
 copy with line numbers, wrap with its fit and the block refusal, folds under
 wrap, save of a selection and of the filtered view with the refusal of an
 open file, grouped search across files and a closed tab's group, selectors by
-name and first line, hidden ANSI colors in search, and sending text to the
-scratchpad. `TransformsTest` covers each transform and the derived values.
+name and first line, a catastrophic first-line regex giving up within its
+bound, hidden ANSI colors in search, and sending text to the scratchpad.
+`TransformsTest` covers each transform and the derived values.
 `ShutdownLifecycleTest` shuts down 12 times at random
 points during a search, a quick find, indexing and the watches, and checks
 that no thread survives `Workers.close()`, every file is closed, every
@@ -686,11 +691,21 @@ reservation and activity is returned, and each shutdown ends within the
 document close bound. The shutdown helper polls `Workers.liveThreads()`
 instead of draining the UI queue for it, because threads end without posting
 a UI task.
+`CloseLifecycleTest` drives several windows through 40 rounds of random
+open, paste, reload, search, copy, mark toggle, quick find, new window, tab
+close and window close, draining the UI queue at random points, then quits.
+Every file a tab showed is closed, no thread survives, and the `RESULTS`,
+`LINE_INDEX`, `HIGHLIGHT`, `COPY` and `PASTED` reservations and the activity
+counters are 0. The seed is random per run and named in the failure;
+`-Dqlogg.closeLifecycle.seed=N` replays one.
 `WindowSetTest` runs two windows over one set: handed files open in the
 window activated last, which is raised; a handed file another window shows
 activates that tab at its line and then follows it, with no second tab; quit runs the quit listeners before
 the finish listeners and saves each window's tabs as its own `window.N`;
-closing one window keeps the other and drops its tabs from the session; and
+closing one window keeps the other and drops its tabs from the session;
+closing a window while it opens files, reloads or restores a session closes
+the document whose open finishes afterwards and skips the rest, with
+`GatedCharset` holding the open inside `LogDocument.open`; and
 the Help items: Show Log and the warning marker, Debug Log File following the
 file (a failed attach stays unchecked), the folder items creating and opening
 their folders, Report an Issue copying the details before it opens the issue

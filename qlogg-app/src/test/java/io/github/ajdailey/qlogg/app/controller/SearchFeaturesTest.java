@@ -19,6 +19,7 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -90,6 +91,40 @@ class SearchFeaturesTest {
             return fixture.budget.reserved(MemoryShare.RESULTS) == 0;
           }
         });
+  }
+
+  @Test
+  void keepResultsKeepsAFinishedSetWhileARefreshRuns() throws Exception {
+    fixture.application.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    fixture.application.execute(CommandId.TOGGLE_AUTO_REFRESH);
+    search.run("hit", search.options());
+    fixture.runUntilEnded(search);
+    StringBuilder more = new StringBuilder();
+    for (int i = 40; i < 50; i++) {
+      more.append(i % 7 == 3 ? "hit " : "line ").append(i).append('\n');
+    }
+    Files.writeString(temp.resolve("s.log"), more, StandardOpenOption.APPEND);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return document.document().index().lineCount() == 50;
+          }
+        });
+    search.appended();
+    assertTrue(search.refreshing());
+    search.run("line 1", search.options());
+    fixture.runUntilEnded(search);
+    assertEquals(1, search.kept().size());
+    MutableLineSet kept = search.kept().get(0).lines();
+    assertEquals("hit", search.kept().get(0).text());
+    assertTrue(kept.size() >= 6, ControllerFixture.toList(kept).toString());
+    assertEquals(
+        List.of(3L, 10L, 17L, 24L, 31L, 38L), ControllerFixture.toList(kept).subList(0, 6));
+    search.removeKept(0);
+    assertEquals(
+        ((MutableLineSet) search.results()).retainedBytes(),
+        fixture.budget.reserved(MemoryShare.RESULTS));
   }
 
   @Test

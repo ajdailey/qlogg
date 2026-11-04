@@ -11,9 +11,13 @@ import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -362,6 +366,46 @@ class ViewFeaturesTest {
       fixture.application.activate(byLine);
       fixture.application.toggleHighlightSet("errors");
       assertNull(byLine.autoHighlightSet());
+    }
+  }
+
+  @Test
+  void aCatastrophicFirstLineSelectorGivesUpAndTheNextOnePicks() throws Exception {
+    HighlightSet slow = new HighlightSet("slow", "Slow", List.of());
+    HighlightSet web = new HighlightSet("web", "Web", List.of());
+    Preferences preferences =
+        Preferences.DEFAULTS
+            .withHighlights(Preferences.DEFAULTS.highlights().withSets(List.of(slow, web)))
+            .withView(
+                ViewOptions.DEFAULTS.withSelectors(
+                    List.of(
+                        new HighlightSelector("", "(.*a){12}$", "slow"),
+                        new HighlightSelector("", "^a", "web"))));
+    try (final ControllerFixture fixture = new ControllerFixture(temp, preferences)) {
+      Path file = fixture.temp.resolve("nested.log");
+      Files.writeString(file, "a".repeat(4000) + "!\nnext\n", StandardCharsets.US_ASCII);
+      final DocumentController document = fixture.open(file);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return "web".equals(document.autoHighlightSet());
+            }
+          });
+      long started = System.nanoTime();
+      fixture.application.closeDocument(document);
+      assertTrue(
+          Poll.until(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return fixture.budget.reserved(MemoryShare.LINE_INDEX) == 0
+                      && !fixture.workers.liveThreadNames().contains(Workers.Kind.READ.prefix());
+                }
+              },
+              ControllerFixture.BOUND));
+      long millis = (System.nanoTime() - started) / 1_000_000L;
+      assertTrue(millis < LogDocument.CLOSE_BOUND.toMillis(), millis + " ms");
     }
   }
 
