@@ -328,7 +328,7 @@ class FilteredPaneTest {
                 return document.lines().contains(9);
               }
             }));
-    window.canvas().selectWord(new TextPosition(9, 8));
+    window.canvas().document().selectWordAt(new TextPosition(9, 8));
     assertEquals(
         new Selection(new TextPosition(9, 6), new TextPosition(9, 11)), document.selection());
     assertTrue(window.positionText().endsWith("Sel 5 chars"), window.positionText());

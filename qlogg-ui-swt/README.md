@@ -237,25 +237,35 @@ views.
   not with the canvas: it costs 35-60 ms per view under GTK 4, which every
   file open would otherwise pay twice on the UI thread.
 - A double click selects the word (letters, digits, `_`) under the pointer
-  within the decoded column window of a printable-ASCII row.
+  within the decoded column window of a printable-ASCII row
+  (`LineViewController.selectWordAt`).
 - A left click in the bullet column toggles the mark of the clicked row's
   line. `Ctrl`+wheel (`Cmd` on macOS) calls `zoomFont`.
 
 - Text sits on a grid of the `FontSettings` font (empty family: Monospace,
-  Consolas or Menlo; bold when set; forced text anti-aliasing when set). The
-  column advance is the `GC.textExtent` width of 1000 digits divided by 1000,
-  kept fractional, and column `c` sits at `round(c * advance)` for spans, the
-  selection, whitespace markers and hit testing. Each row is drawn as one
-  string with the font's own advances, so an advance rounded to whole pixels
-  drifts off the glyphs by the fraction per column (macOS Menlo, GTK 4,
-  fractional Windows scaling). A row outside printable ASCII has its selection
-  edges measured with `GC.textExtent`; mouse hit testing uses the grid.
-- A row paints its background (base, current line, then the whole-line
+  Consolas or Menlo; bold when set; forced text anti-aliasing when set).
+  `TextGrid` holds the geometry, with no SWT types: the column advance is the
+  `GC.textExtent` width of 1000 digits divided by 1000, kept fractional, and
+  column `c` sits at `round(c * advance)`. It also sizes the gutter and maps
+  points to columns (`hit`, `wrappedHit`, `wrapFit`); hit testing always uses
+  the grid. A printable-ASCII row is drawn as one string with the font's own
+  advances, so an advance rounded to whole pixels drifts off the glyphs by
+  the fraction per column (macOS Menlo, GTK 4, fractional Windows scaling).
+- `RowPainter` paints each screen row, in the plain and the wrapped paint
+  alike: the background (base, current line, then the whole-line
   highlight), the span backgrounds, the selection, the text in the line's
-  color, then the text again clipped to each span with a text color and to
-  the selection. A translucent color is blended over the color under it.
-  Measured on Xvfb at 900x600: a full repaint of 22 rows with 10 spans each
-  takes about 2 ms.
+  color, the text again clipped to each span with a text color and to the
+  selection, then the whitespace markers. A translucent color is blended
+  over the color under it. Measured on Xvfb at 900x600: a full repaint of 22
+  rows with 10 spans each takes about 2 ms.
+- A row outside printable ASCII is laid out once per paint in the painter's
+  one `TextLayout`, which draws it; a column table read from the layout
+  (`getLocation`) places the spans, the selection and the markers on its
+  glyphs. A prefix measured alone has the wrong width: GTK draws spaces that
+  lead CJK text in the CJK font of the run they join. Line and paragraph
+  separators are laid out as spaces so the row stays one line. `GC.setTextAntialias` does not reach
+  a `TextLayout` on GTK, so forced anti-aliasing applies to printable-ASCII
+  rows only.
 - The vertical scroll bar takes `Viewport`'s maximum, thumb and selection.
   Arrow and page clicks scroll by lines; a drag goes through
   `setScrollbarSelection`, which maps past `int` range. The wheel scrolls by
@@ -269,15 +279,19 @@ views.
   space a dot and a lone CR a left arrow, each inside its cell; after the
   line's last column an LF shows as a corner and a CRLF as a left arrow and a
   corner. Only lines whose end lies in the read window get the end marker.
-- With text wrap on, each line paints as rows of the view's width on the
-  column grid, the number and bullet on its first row; hit testing walks the
-  wrapped rows. After each new snapshot the canvas counts the lines from the
+- With text wrap on, each line paints as rows of the view's width in
+  columns, the number and bullet on its first row; hit testing walks the
+  wrapped rows. A click at or past a row's right edge maps to the boundary
+  that row shares with the next; a double click there maps to the row's last
+  column instead (`TextGrid.wrappedWordHit`), so it selects the word at the
+  row's end. A segment's glyphs wider than the grid run past the right
+  edge, clipped. After each new snapshot the canvas counts the lines from the
   top that fit whole, a line not read yet counting one row, and reports it
   (`wrapFitted`); the horizontal scroll bar has nothing to scroll.
 - Keys pass through `SwtKeys` to `KeySequencer`; arrow, page, Escape and
   Return traversal is turned off so those keys reach it.
-- The font and `PaletteColors` are disposed with the canvas, the colors also
-  on a palette change. Painting allocates only a highlight color seen for the
+- The font, `PaletteColors` and the painter's `TextLayout` are disposed with
+  the canvas, the colors also on a palette change. Painting allocates only a highlight color seen for the
   first time; `PaletteColors` keeps at most 512 and empties the cache before a
   paint past that.
 
@@ -429,7 +443,8 @@ Highlighters menu and reads the span's painted color; it also drives
 dispatches events until a condition holds, with a bound and no fixed sleep.
 `ViewFeaturesGuiTest` drives `Alt` and `Shift` with the wheel, an `Alt`-drag
 block selection, a click on the second wrapped row of a long line and the
-reported fit, whitespace and fold painting, scratchpad transforms inline and
+reported fit, a double click past a wrapped row's end selecting the word
+there, whitespace and fold painting, scratchpad transforms inline and
 on a worker (the tab read-only until the result) with the epoch value and
 `Ctrl+N`, the search across two files with its row selecting
 a tab, and the selectors editor row.
@@ -452,10 +467,15 @@ document and with its filtered view focused. `TextGridCasesTest` records
 `hit`, `wrappedRows`, `wrapFit` and `gutterWidth` in grid units: nearest
 column boundary, gutter and negative coordinates, clamping below the last line,
 a tab row, a scrolled view, line numbers on and off, and wrapped segments at
-two widths with the click past a segment's end clamped to it.
-`RowPixelsTest` compares painted extents with glyph ink: a span and the
-selection on a wrapped line's second row, and a span over CJK glyphs that
-start an unwrapped row.
+two widths with the click past a segment's end clamped to it. `TextGridTest`
+runs the same cases against `TextGrid` with no display, at a fractional and
+an integer advance, plus `wrappedWordHit`. `RowPixelsTest` compares painted extents with glyph ink:
+a span and the selection on the second row of a wrapped ASCII line and of a
+wrapped CJK line, and a span over CJK glyphs at the start of an unwrapped row
+and after leading spaces. A wrapped case waits for the wrapped read, because
+the block read before it holds one screen width of each line. With
+`-Dqlogg.shots=<dir>` it writes `rows-plain.png`, `rows-cjk.png`,
+`rows-wrapped.png` and `rows-wrapped-selection.png` at 1100x700.
 
 `HangWatchdog`, registered for every test in the module through
 `META-INF/services` and `junit-platform.properties`, prints every thread's

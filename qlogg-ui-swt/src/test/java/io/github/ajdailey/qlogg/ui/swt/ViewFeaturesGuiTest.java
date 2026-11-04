@@ -24,6 +24,7 @@ import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
@@ -221,6 +222,47 @@ class ViewFeaturesGuiTest {
     mouse(SWT.MouseMove, x1, 1, 0);
     mouse(SWT.MouseUp, x1, 1, 0);
     assertTrue(!document().blockSelection());
+  }
+
+  /** Turns text wrap on for the shown document and waits for the wrapped read. */
+  private void wrapOn() {
+    controller.execute(CommandId.TOGGLE_WRAP);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                int columns = document().viewport().columns();
+                return document().wrap()
+                    && document().lines().contains(0)
+                    && document().lines().columns() >= 2 * columns;
+              }
+            }));
+  }
+
+  /**
+   * The first row ends with {@code " alpha."} and the second starts with {@code omega}: a double
+   * click past the first row's right edge selects {@code alpha}, the word at that row's end.
+   */
+  @Test
+  void aDoubleClickPastAWrappedRowsEndSelectsTheWordAtItsEnd() throws IOException {
+    wrapOn();
+    int columns = document().viewport().columns();
+    Path file = temp.resolve("words.log");
+    Files.writeString(
+        file,
+        "y".repeat(columns - 7) + " alpha.omega tail " + "z".repeat(columns) + "\nnext\n",
+        StandardCharsets.US_ASCII);
+    controller.openFile(file, 0);
+    waitForDocument("words.log");
+    wrapOn();
+    assertEquals(columns, document().viewport().columns(), "wrap width");
+    LogCanvas view = window.canvas();
+    int past = view.gutterWidth() + view.columnOffset(columns + 2L);
+    mouse(SWT.MouseDoubleClick, past, 1, 0);
+    assertEquals(
+        new Selection(new TextPosition(0, columns - 6L), new TextPosition(0, columns - 1L)),
+        document().selection());
   }
 
   @Test

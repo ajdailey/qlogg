@@ -2,7 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -40,18 +39,23 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Span and selection pixels: on the second row of a wrapped line, and a span over CJK glyphs on an
- * unwrapped row. Each compares the colored extent with the glyph ink of an uncolored capture.
+ * Span and selection pixels on the second row of a wrapped ASCII line and of a wrapped CJK line,
+ * and a span over CJK glyphs on an unwrapped row, at the row start and after leading spaces. Each
+ * compares the colored extent with the glyph ink of an uncolored capture.
  */
 @Tag("swt")
 class RowPixelsTest {
@@ -252,26 +256,47 @@ class RowPixelsTest {
     assertTrue(ink[0] - cover[0] <= slack && cover[1] - ink[1] <= slack, found);
   }
 
-  @Test
-  void aSpanAndTheSelectionOnAWrappedRowSitOnTheirGlyphs() throws IOException {
-    // Recorded on GTK only. Cocoa draws the selection on a wrapped continuation row one column
-    // right of its glyphs (CI macos-x86_64: 51 px against 44), and on win32 no glyph ink is found
-    // under the span; the wrap paint path is reworked with the row painter.
-    assumeTrue(SWT.getPlatform().startsWith("gtk"), "wrapped-row geometry is checked on GTK only");
-    openText("wrapped.log", (TOKEN + " ".repeat(PERIOD - TOKEN.length())).repeat(20));
+  /**
+   * Turns text wrap on and waits until the viewport's columns follow the canvas width and the
+   * wrapped read has arrived; the block read before it holds one screen width of each line.
+   */
+  private void wrapOn() {
     controller.execute(CommandId.TOGGLE_WRAP);
     assertTrue(
         runUntil(
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return document().wrap() && document().viewport().rows() > 1;
+                LogCanvas view = window.canvas();
+                int width = canvas().getClientArea().width - view.gutterWidth();
+                int columns = document().viewport().columns();
+                return document().wrap()
+                    && document().viewport().rows() > 1
+                    && columns == Math.max(1, (int) (width / view.advance()))
+                    && document().lines().contains(0)
+                    && document().lines().columns() >= 2 * columns;
               }
             }));
+  }
+
+  /**
+   * The first multiple of {@code period} at least two columns into the second row whose {@code
+   * length} columns and two more fit that row, so a selection from two columns before it stays on
+   * the row.
+   */
+  private static int secondRowStart(int columns, int period, int length) {
+    int token = (columns + 2 + period - 1) / period * period;
+    assertTrue(token + length + 2 <= 2 * columns, "token at " + token + " of " + columns);
+    return token;
+  }
+
+  @Test
+  void aSpanAndTheSelectionOnAWrappedRowSitOnTheirGlyphs() throws IOException {
+    openText("wrapped.log", (TOKEN + " ".repeat(PERIOD - TOKEN.length())).repeat(20));
+    wrapOn();
     LogCanvas view = window.canvas();
     int columns = document().viewport().columns();
-    int token = (columns + PERIOD - 1) / PERIOD * PERIOD;
-    assertTrue(token + TOKEN.length() <= 2 * columns, "token at " + token + " of " + columns);
+    int token = secondRowStart(columns, PERIOD, TOKEN.length());
     int at = token - columns;
     int gutter = view.gutterWidth();
     int slack = (int) Math.ceil(view.advance() / 2);
@@ -285,9 +310,40 @@ class RowPixelsTest {
     document()
         .select(new Selection(new TextPosition(0, token - 2), new TextPosition(0, token + 6)));
     ImageData selected = capture();
+    assertEquals(columns, document().viewport().columns(), "columns changed during the test");
     int[] band = changed(plain, selected, 1);
     assertEquals(gutter + view.columnOffset(at - 2), band[0], "selection left");
     assertEquals(gutter + view.columnOffset(at + 6) - 1, band[1], "selection right");
+    assertEquals(-1, changed(plain, selected, 0)[0], "selection on the first row");
+  }
+
+  /**
+   * CJK glyphs, wider than the grid, after spaces on a wrapped line's second row. The line is
+   * written for the measured width, so the row holds the only glyphs.
+   */
+  @Test
+  void aSpanAndTheSelectionOnAWrappedCjkRowCoverTheirGlyphs() throws IOException {
+    openText("measure.log", "x");
+    wrapOn();
+    int token = document().viewport().columns() + 4;
+    openText("wrapped-wide.log", " ".repeat(token) + WIDE + " ".repeat(token));
+    wrapOn();
+    LogCanvas view = window.canvas();
+    int columns = document().viewport().columns();
+    int at = token - columns;
+    assertTrue(at >= 2 && at + WIDE.length() + 2 <= columns, "CJK at " + at + " of " + columns);
+    int slack = (int) Math.ceil(view.advance());
+    int[] glyphs = ink(capture(), 1, view.gutterWidth(), canvas().getClientArea().width - 2);
+    highlight(WIDE);
+    assertCovers(extent(capture(), 1, SPAN_RGB), glyphs, slack, "wrapped CJK span");
+    highlight(null);
+    ImageData plain = capture();
+    document()
+        .select(
+            new Selection(new TextPosition(0, token), new TextPosition(0, token + WIDE.length())));
+    ImageData selected = capture();
+    assertEquals(columns, document().viewport().columns(), "columns changed during the test");
+    assertCovers(changed(plain, selected, 1), glyphs, slack, "wrapped CJK selection");
     assertEquals(-1, changed(plain, selected, 0)[0], "selection on the first row");
   }
 
@@ -319,5 +375,103 @@ class RowPixelsTest {
     highlight(WIDE);
     int[] span = extent(capture(), 0, SPAN_RGB);
     assertCovers(span, glyphs, (int) Math.ceil(view.advance()), "CJK span");
+  }
+
+  /**
+   * Spaces lead the CJK glyphs. GTK draws them in the CJK font of the run they join, narrower than
+   * the same spaces measured alone, so a span placed by measuring the prefix alone starts right of
+   * its glyphs.
+   */
+  @Test
+  void aSpanOnCjkTextAfterLeadingSpacesCoversItsGlyphs() throws IOException {
+    openText("indented-wide.log", "    " + WIDE);
+    LogCanvas view = window.canvas();
+    int[] glyphs = ink(capture(), 0, view.gutterWidth(), canvas().getClientArea().width - 2);
+    highlight(WIDE);
+    int[] span = extent(capture(), 0, SPAN_RGB);
+    assertCovers(span, glyphs, (int) Math.ceil(view.advance()), "CJK span after spaces");
+  }
+
+  /**
+   * With {@code -Dqlogg.shots=<dir>}, writes the window at 1100 x 700: {@code rows-plain.png},
+   * {@code rows-cjk.png} (a selection on the CJK row), {@code rows-wrapped.png} and {@code
+   * rows-wrapped-selection.png} (a selection on a continuation row).
+   */
+  @Test
+  void screenshots() throws IOException {
+    final String dir = System.getProperty("qlogg.shots");
+    Assumptions.assumeTrue(dir != null, "qlogg.shots not set");
+    window.shell().setSize(1100, 700);
+    StringBuilder filler = new StringBuilder();
+    for (int i = 0; i < 12; i++) {
+      filler.append(" mock-step-").append(i).append(" ok");
+    }
+    openText(
+        "rows.log",
+        "2026-11-04 10:00:00 ERROR mock-service failed: FLAGWORD id=ID-123-45-6789\n"
+            + "2026-11-04 10:00:01 INFO  mock-service started on port 8080\n"
+            + "    "
+            + WIDE
+            + " ERROR "
+            + WIDE
+            + " mock\n"
+            + "2026-11-04 10:00:02 WARN  long line:"
+            + filler
+            + " ERROR"
+            + filler
+            + " end");
+    highlight("ERROR");
+    shoot(dir, "rows-plain.png");
+    document().select(new Selection(new TextPosition(2, 4), new TextPosition(2, 13)));
+    shoot(dir, "rows-cjk.png");
+    document().select(Selection.caretAt(new TextPosition(1, 0)));
+    wrapOn();
+    shoot(dir, "rows-wrapped.png");
+    long columns = document().viewport().columns();
+    document()
+        .select(new Selection(new TextPosition(3, columns + 3), new TextPosition(3, columns + 30)));
+    shoot(dir, "rows-wrapped-selection.png");
+  }
+
+  private void shoot(String dir, String name) {
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().lines().contains(3) && !document().lines().spans(0).isEmpty();
+              }
+            }));
+    // The shell's print shows the canvas as last painted, so wait for a paint of this state.
+    final boolean[] painted = new boolean[1];
+    Listener paint =
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            painted[0] = true;
+          }
+        };
+    canvas().addListener(SWT.Paint, paint);
+    canvas().redraw();
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return painted[0];
+              }
+            }));
+    canvas().removeListener(SWT.Paint, paint);
+    Image image = new Image(display, window.shell().getSize().x, window.shell().getSize().y);
+    GC gc = new GC(image);
+    try {
+      Gtk4.assertPrinted(window.shell().print(gc));
+      ImageLoader loader = new ImageLoader();
+      loader.data = new ImageData[] {image.getImageData()};
+      loader.save(Path.of(dir, name).toString(), SWT.IMAGE_PNG);
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
   }
 }

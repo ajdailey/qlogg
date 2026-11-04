@@ -556,6 +556,60 @@ public abstract class LineViewController {
     changed();
   }
 
+  // Word selection.
+
+  /**
+   * Selects the word at a position, as a double click does: the letters, digits and underscores
+   * around the char at the column, or around the char before it, within the decoded column window.
+   * A row not read yet, a column outside the window, a position between non-word chars and a row
+   * with a char outside printable ASCII select nothing: the view's hit columns follow the grid,
+   * which matches the glyphs of printable-ASCII rows only.
+   *
+   * @param position the row and column
+   */
+  public void selectWordAt(TextPosition position) {
+    long row = position.line();
+    if (!lines.contains(row)) {
+      return;
+    }
+    String text = lines.text(row);
+    long column = position.column() - lines.firstColumn();
+    if (column < 0 || column >= text.length() || !printableAscii(text)) {
+      return;
+    }
+    int at = (int) column;
+    if (!wordChar(text.charAt(at)) && at > 0 && wordChar(text.charAt(at - 1))) {
+      at--;
+    }
+    if (!wordChar(text.charAt(at))) {
+      return;
+    }
+    int start = at;
+    while (start > 0 && wordChar(text.charAt(start - 1))) {
+      start--;
+    }
+    int end = at;
+    while (end < text.length() && wordChar(text.charAt(end))) {
+      end++;
+    }
+    long first = lines.firstColumn();
+    select(new Selection(new TextPosition(row, first + start), new TextPosition(row, first + end)));
+  }
+
+  private static boolean wordChar(char c) {
+    return Character.isLetterOrDigit(c) || c == '_';
+  }
+
+  private static boolean printableAscii(String text) {
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c < 0x20 || c > 0x7e) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** Shows or hides line numbers. */
   public void toggleLineNumbers() {
     lineNumbers = !lineNumbers;

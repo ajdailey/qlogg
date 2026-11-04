@@ -108,6 +108,22 @@ class ArchitectureTest {
         .check(classes);
   }
 
+  // Log view geometry.
+
+  /** The log view's column geometry and hit testing stay testable with no display. */
+  @Test
+  void textGridUsesNoSwt() {
+    noClasses()
+        .that()
+        .haveFullyQualifiedName(ROOT + ".ui.swt.TextGrid")
+        .or()
+        .haveNameMatching(ROOT.replace(".", "\\.") + "\\.ui\\.swt\\.TextGrid\\$.*")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.eclipse.swt..")
+        .check(classes);
+  }
+
   @Test
   void layering() {
     noClasses()

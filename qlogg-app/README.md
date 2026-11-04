@@ -497,6 +497,11 @@ as fitting whole (`wrapFitted`), so the last lines can scroll into view; a
 block selection is refused with a notice. Folding is unchanged by wrap: a
 collapsed entry is still one line, wrapped.
 
+`selectWordAt`, the double click, selects the letters, digits and underscores
+around a position, or around the char before it, within the decoded column
+window. A row with a char outside printable ASCII selects nothing, because
+the view's hit testing follows the grid.
+
 Copy with line numbers puts each source line's number and a tab before it.
 Save Selection writes the selected lines, or the block's columns, and Save
 Filtered Results every filtered row, as UTF-8 through `AtomicFiles` on the
