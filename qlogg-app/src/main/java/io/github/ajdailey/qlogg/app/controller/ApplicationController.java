@@ -2294,4 +2294,42 @@ public final class ApplicationController implements DocumentHost {
       listener.failed(outcome[1]);
     }
   }
+
+  // Encoding menu lists.
+
+  /**
+   * Gives the Encoding menu's lists to a listener on the UI thread: at once when computed, else
+   * from a {@code qlogg-lifecycle-} worker that computes them. Nothing arrives after shutdown
+   * starts.
+   *
+   * @param listener receives the choices
+   */
+  public void loadEncodingChoices(final EncodingChoices.Listener listener) {
+    EncodingChoices done = EncodingChoices.loaded();
+    if (done != null) {
+      listener.loaded(done);
+      return;
+    }
+    boolean started =
+        workers.tryStart(
+            Workers.Kind.LIFECYCLE,
+            new Runnable() {
+              @Override
+              public void run() {
+                final EncodingChoices choices = EncodingChoices.available();
+                ui.asyncExec(
+                    new Runnable() {
+                      @Override
+                      public void run() {
+                        if (!shuttingDown) {
+                          listener.loaded(choices);
+                        }
+                      }
+                    });
+              }
+            });
+    if (!started) {
+      LOG.debug("Encoding list not loaded: workers are closed");
+    }
+  }
 }

@@ -497,6 +497,38 @@ class ArchitectureTest {
         "Highlighter.of");
   }
 
+  // Menu command state.
+
+  @Test
+  void viewsTakeCheckStateFromCommandStates() {
+    viewsTakeCheckStateFromCommandStatesRule().check(classes);
+  }
+
+  @Test
+  void checkStateRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        viewsTakeCheckStateFromCommandStatesRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$ReadsCheckState",
+        "ThemeController.mode",
+        "isFavorite",
+        "!palette");
+  }
+
+  /** The getters only a check item's state reads; {@code CommandStates} maps them. */
+  private static ArchRule viewsTakeCheckStateFromCommandStatesRule() {
+    return noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".ui.swt..")
+        .should()
+        .callMethodWhere(
+            call(
+                io.github.ajdailey.qlogg.app.controller.ApplicationController.class,
+                "isFavorite|debugLogFile|runSearchOnAdd"))
+        .orShould()
+        .callMethodWhere(call(io.github.ajdailey.qlogg.app.theme.ThemeController.class, "mode"))
+        .because("CommandStates computes menu state");
+  }
+
   @Test
   void rulesFailOnTheirFixtures() throws ClassNotFoundException {
     String views = ROOT + ".ui.swt.archfixture.ViewViolations$";

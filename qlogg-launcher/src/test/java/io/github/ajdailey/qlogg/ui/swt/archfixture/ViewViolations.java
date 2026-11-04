@@ -76,4 +76,17 @@ final class ViewViolations {
       return Highlighter.of(List.of(rule)) != null && Highlighter.compile(rule) != null;
     }
   }
+
+  // Menu command state.
+
+  /** Reads the palette, which is allowed, and check state that {@code CommandStates} maps. */
+  static final class ReadsCheckState {
+    boolean dark(
+        io.github.ajdailey.qlogg.app.controller.ApplicationController controller,
+        io.github.ajdailey.qlogg.app.controller.DocumentController document) {
+      return controller.theme().palette() != null
+          && controller.theme().mode() == io.github.ajdailey.qlogg.app.theme.ThemeMode.DARK
+          && controller.isFavorite(document);
+    }
+  }
 }

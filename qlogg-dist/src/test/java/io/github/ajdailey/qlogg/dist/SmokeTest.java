@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.core.testkit.TempTrees;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -216,11 +216,6 @@ class SmokeTest {
   @Test
   void linuxBundleRuntimeSupportsTheEncodingMenu() throws Exception {
     Path home = unpackLinuxBundle();
-    Field field =
-        Class.forName("io.github.ajdailey.qlogg.ui.swt.MainWindow")
-            .getDeclaredField("COMMON_ENCODINGS");
-    field.setAccessible(true);
-    String[] encodings = (String[]) field.get(null);
     List<String> command = new ArrayList<String>();
     command.add(home.resolve("runtime").resolve("bin").resolve("java").toString());
     command.add("-cp");
@@ -228,7 +223,7 @@ class SmokeTest {
         Path.of(CharsetProbe.class.getProtectionDomain().getCodeSource().getLocation().toURI())
             .toString());
     command.add(CharsetProbe.class.getName());
-    command.addAll(List.of(encodings));
+    command.addAll(EncodingChoices.COMMON_NAMES);
     try (Run run = new Run(command, Map.of(), false)) {
       assertNotNull(run.await(Pattern.compile("^done$")), run.seen.toString());
       assertEquals(List.of("module jdk.charsets", "done"), run.seen);

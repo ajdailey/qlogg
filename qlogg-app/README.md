@@ -522,6 +522,29 @@ counts as no match past it. The first match colors that document with the chosen
 (`DocumentController.setAutoHighlightSet`). Choosing sets in the Highlighters
 menu while that document shows drops its automatic set.
 
+### Menu state
+
+`CommandStates` maps each `CommandId` to its menu item's checked and enabled
+state, read from an `ApplicationController` on every call, on the UI thread.
+A check command in `APPLICATION_CHECKS` reads the settings, theme, block mode
+or debug log file and is always enabled; any other check command reads the
+shown document and is enabled while one shows. `FILE_COMMANDS` (Reload, the
+path commands, Open in Editor, Encoding > Auto) need a file, so clipboard text
+disables them. Move to New Window needs a document; Add to Favorites needs a
+file that is not a favorite, Remove from Favorites a favorite. It also lists
+the highlighter sets (`highlightSets`), the open files (`openedFiles`) and a
+tab menu's enabled items (`tabItems`). An ArchUnit rule keeps the views from
+reading the getters only this mapping needs.
+
+`EncodingChoices.available()` is the Encoding menu's lists, computed once:
+the supported entries of `COMMON_NAMES` in order, then every other charset of
+`Charset.availableCharsets()`, which takes 130 to 230 ms cold (measured), so
+it runs on a worker. `ApplicationController.loadEncodingChoices` delivers
+the lists on the UI thread, at once when computed, else from a
+`qlogg-lifecycle-` worker. `commonCharsets()` looks up the common names only.
+`forced(document)` is the charset the menu checks: the forced one of a
+document with a file, else empty for Auto.
+
 ## Settings (`app.config`)
 
 `SettingsLocation.resolve` picks the settings directory: `--settings`
@@ -795,6 +818,15 @@ whose tab closes all return the `COPY` charge and the activity.
 `StoreFaultsTest` (config) loads a malformed, oversized and unknown-version
 session file as no windows and keeps each as `.invalid` on the next save; a
 remembered encoding the runtime lacks reads as detection.
+
+`CommandStatesTest` records every check command, file command, Move to New
+Window and favorite command's checked and enabled state with no document, with
+a document and with its filtered view focused, the same table as the menu
+bar's GUI test; then each toggle flipping its check, the favorites swapping,
+clipboard text, a forced encoding, and the set, open file and tab item lists.
+`EncodingChoicesTest` covers the common-first split and the runtime's lists;
+`CommandStatesTest` also receives them through `loadEncodingChoices` on the
+UI thread.
 
 `HandoffTest` runs client and server in one JVM over loopback: files, lines
 and `-f` arrive; a launch without files still hands off; a wrong token, a

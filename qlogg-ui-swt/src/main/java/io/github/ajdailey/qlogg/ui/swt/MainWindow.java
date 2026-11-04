@@ -1,44 +1,34 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.about.AboutInfo;
-import io.github.ajdailey.qlogg.app.command.CommandGroup;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
-import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
-import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.ApplicationListener;
+import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
-import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.PaletteListener;
-import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.BusyCounter;
 import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.PositionText;
-import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
-import io.github.ajdailey.qlogg.core.model.HighlightSet;
-import io.github.ajdailey.qlogg.core.model.Visibility;
-import io.github.ajdailey.qlogg.core.search.MatchMode;
-import java.nio.charset.Charset;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabFolder2Adapter;
@@ -116,35 +106,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   /** Shell data key holding the shell's {@code MainWindow}. */
   private static final String WINDOW = "qlogg.mainWindow";
 
-  /** Check items whose state does not depend on a document. */
-  private static final Set<CommandId> APPLICATION_CHECKS =
-      EnumSet.of(
-          CommandId.RUN_SEARCH_ON_ADD,
-          CommandId.FOLLOW_ON_LOAD,
-          CommandId.FOLLOW_ON_OVERSCROLL,
-          CommandId.TOGGLE_OVERVIEW,
-          CommandId.TOGGLE_MATCH_HIGHLIGHT,
-          CommandId.THEME_LIGHT,
-          CommandId.THEME_DARK,
-          CommandId.THEME_SYSTEM,
-          CommandId.NO_HIGHLIGHTERS,
-          // Wrap on open, whitespace markers, hidden ANSI colors and block selection.
-          CommandId.WRAP_ON_OPEN,
-          CommandId.TOGGLE_WHITESPACE,
-          CommandId.HIDE_ANSI,
-          CommandId.BLOCK_SELECTION,
-          // Debug log file.
-          CommandId.DEBUG_LOG_FILE);
-
-  /** Commands that need a document with a file. */
-  private static final Set<CommandId> FILE_COMMANDS =
-      EnumSet.of(
-          CommandId.RELOAD,
-          CommandId.COPY_PATH,
-          CommandId.COPY_FILE_NAME,
-          CommandId.OPEN_FOLDER,
-          CommandId.OPEN_IN_EDITOR);
-
   /** Narrowest the path field gets in the top row, in pixels. */
   static final int MIN_PATH_WIDTH = 160;
 
@@ -166,9 +127,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Composite statusBar;
   private final Map<CommandId, ToolItem> toolItems =
       new EnumMap<CommandId, ToolItem>(CommandId.class);
-  private final Map<CommandId, MenuItem> fileItems =
-      new EnumMap<CommandId, MenuItem>(CommandId.class);
-  private Menu openedFilesMenu;
   private Palette palette;
   private final List<Image> icons;
   private final SearchBar searchBar;
@@ -182,8 +140,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Label prefix;
   private final BusyCounter busy;
   private final SwtUiDispatcher dispatcher;
-  private final Map<CommandId, MenuItem> checkItems =
-      new EnumMap<CommandId, MenuItem>(CommandId.class);
   private ApplicationController controller;
   private QuickFindBar quickFindBar;
   private LogCanvas canvas;
@@ -193,8 +149,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   // Tab drag and tab context menu.
   private boolean movingTab;
   private Menu tabMenu;
-  // Tab move between windows.
-  private MenuItem moveItem;
   private PointerProbe pointer =
       new PointerProbe() {
         @Override
@@ -202,11 +156,14 @@ public final class MainWindow implements MainView, ApplicationListener {
           return shell.getDisplay().getCursorControl();
         }
       };
-  private Menu highlightMenu;
-  // Recent files, favorites and encoding menus.
-  private Menu recentMenu;
-  private Menu favoritesMenu;
-  private Menu encodingMenu;
+  private MainMenuBar menuBar;
+  private EncodingSource encodingSource =
+      new EncodingSource() {
+        @Override
+        public void load(EncodingChoices.Listener listener) {
+          controller.loadEncodingChoices(listener);
+        }
+      };
   private WindowGeometry.Request normalBounds = new WindowGeometry.Request(null, null, null, null);
   private ShortcutsWindow shortcuts;
   private Clipboard clipboard;
@@ -718,9 +675,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     for (MenuItem old : menu.getItems()) {
       old.dispose();
     }
-    int index = controller.documents().indexOf(document);
-    int count = controller.documents().size();
-    boolean file = document.state().hasFile();
+    CommandStates.TabItems state = menuBar.states().tabItems(document);
+    boolean file = state.file();
     tabMenuItem(
         menu,
         UiText.TAB_CLOSE,
@@ -734,7 +690,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     tabMenuItem(
         menu,
         UiText.TAB_CLOSE_OTHERS,
-        count > 1,
+        state.closeOthers(),
         new Runnable() {
           @Override
           public void run() {
@@ -744,7 +700,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     tabMenuItem(
         menu,
         UiText.TAB_CLOSE_LEFT,
-        index > 0,
+        state.closeLeft(),
         new Runnable() {
           @Override
           public void run() {
@@ -754,7 +710,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     tabMenuItem(
         menu,
         UiText.TAB_CLOSE_RIGHT,
-        index < count - 1,
+        state.closeRight(),
         new Runnable() {
           @Override
           public void run() {
@@ -997,11 +953,10 @@ public final class MainWindow implements MainView, ApplicationListener {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            DocumentController document = controller == null ? null : controller.activeDocument();
-            boolean file = document != null && document.state().hasFile();
-            copyPath.setEnabled(file);
-            copyName.setEnabled(file);
-            folder.setEnabled(file);
+            boolean attached = menuBar != null;
+            copyPath.setEnabled(attached && menuBar.states().enabled(CommandId.COPY_PATH));
+            copyName.setEnabled(attached && menuBar.states().enabled(CommandId.COPY_FILE_NAME));
+            folder.setEnabled(attached && menuBar.states().enabled(CommandId.OPEN_FOLDER));
             copy.setEnabled(pathField.getSelectionCount() > 0);
           }
         });
@@ -1097,197 +1052,61 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   private void buildMenuBar() {
-    Menu old = shell.getMenuBar();
-    checkItems.clear();
-    fileItems.clear();
-    Menu bar = new Menu(shell, SWT.BAR);
-    boolean mac = SwtKeys.mac();
-    boolean appMenu = AppMenu.present(shell.getDisplay());
-    for (CommandGroup group : CommandGroup.values()) {
-      if (!group.menu()) {
-        continue;
-      }
-      MenuItem header = new MenuItem(bar, SWT.CASCADE);
-      header.setText(group.label());
-      Menu menu = new Menu(shell, SWT.DROP_DOWN);
-      header.setMenu(menu);
-      Menu target = menu;
-      String cascade = null;
-      for (final CommandId command : MenuTable.commands(group, appMenu)) {
-        String submenu = command.submenu();
-        if (submenu == null) {
-          target = menu;
-          cascade = null;
-        } else if (!submenu.equals(cascade)) {
-          if (command.separatorBefore() && menu.getItemCount() > 0) {
-            new MenuItem(menu, SWT.SEPARATOR);
+    if (menuBar == null) {
+      menuBar = new MainMenuBar(shell, controller);
+    }
+    menuBar.build(keymap);
+    encodingSource.load(
+        new EncodingChoices.Listener() {
+          @Override
+          public void loaded(EncodingChoices choices) {
+            if (!shell.isDisposed()) {
+              menuBar.encodingsLoaded(choices);
+            }
           }
-          MenuItem holder = new MenuItem(menu, SWT.CASCADE);
-          holder.setText(submenu);
-          target = new Menu(shell, SWT.DROP_DOWN);
-          holder.setMenu(target);
-          cascade = submenu;
-        }
-        if (command.separatorBefore() && target.getItemCount() > 0) {
-          new MenuItem(target, SWT.SEPARATOR);
-        }
-        UiText cascadeBefore = MenuTable.cascadeBefore(command);
-        if (cascadeBefore != null) {
-          MenuItem opened = new MenuItem(target, SWT.CASCADE);
-          opened.setText(cascadeBefore.text());
-          openedFilesMenu = new Menu(shell, SWT.DROP_DOWN);
-          opened.setMenu(openedFilesMenu);
-        }
-        MenuItem item = new MenuItem(target, command.check() ? SWT.CHECK : SWT.PUSH);
-        item.setData(command);
-        String keys = keymap.keysText(command, mac);
-        item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
-        KeyStroke accelerator = keymap.accelerator(command);
-        if (accelerator != null) {
-          item.setAccelerator(SwtKeys.accelerator(accelerator));
-        }
-        item.addListener(
-            SWT.Selection,
-            new Listener() {
-              @Override
-              public void handleEvent(Event event) {
-                controller.execute(command);
-              }
-            });
-        if (command.check()) {
-          checkItems.put(command, item);
-        }
-        if (command == CommandId.CLEAN_RECENT) {
-          recentMenu = target;
-        }
-        if (FILE_COMMANDS.contains(command)) {
-          fileItems.put(command, item);
-        }
-        if (command == CommandId.MOVE_TO_NEW_WINDOW) {
-          moveItem = item;
-        }
-      }
-      if (group == CommandGroup.HIGHLIGHT) {
-        highlightMenu = menu;
-      }
-      if (group == CommandGroup.ENCODING) {
-        encodingMenu = menu;
-      }
-      if (group == CommandGroup.FAVORITES) {
-        favoritesMenu = menu;
-      }
-      menu.addListener(
-          SWT.Show,
-          new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-              syncMenu();
-            }
-          });
-    }
-    shell.setMenuBar(bar);
-    if (old != null) {
-      old.dispose();
-    }
-    syncEnablement();
+        });
+  }
+
+  /** Delivers the Encoding menu's lists to a listener on the UI thread. */
+  interface EncodingSource {
+    /**
+     * Requests the lists.
+     *
+     * @param listener receives them on the UI thread, at once or later
+     */
+    void load(EncodingChoices.Listener listener);
   }
 
   /**
-   * Sets each check item from the controllers' state, enables the commands that need a file, and
-   * lists the highlighter sets and the open files.
+   * Sets where the menu bar gets the Encoding menu's lists; the default asks the controller.
+   *
+   * @param source the source, used from the next menu bar build
    */
+  void setEncodingSource(EncodingSource source) {
+    encodingSource = source;
+  }
+
+  /** Syncs every menu of the menu bar, as showing each would. */
   void syncMenu() {
-    DocumentController document = controller == null ? null : controller.activeDocument();
-    syncHighlightMenu();
-    syncOpenedFilesMenu();
-    syncListedMenus(document);
-    syncEnablement();
-    for (Map.Entry<CommandId, MenuItem> entry : checkItems.entrySet()) {
-      MenuItem item = entry.getValue();
-      if (item.isDisposed()) {
-        continue;
-      }
-      CommandId command = entry.getKey();
-      if (APPLICATION_CHECKS.contains(command)) {
-        item.setSelection(controller != null && applicationChecked(command));
-        continue;
-      }
-      item.setSelection(document != null && checked(command, document));
+    if (menuBar != null) {
+      menuBar.syncAll();
     }
-    syncEncodingMenu(document);
+  }
+
+  /** Enables the menu items from the command states; runs on every document change. */
+  void syncEnablement() {
+    if (menuBar != null) {
+      menuBar.syncEnablement();
+    }
   }
 
   /**
-   * Enables the menu items that need a file or a document. Runs on every document change as well as
-   * on menu Show: a disabled item's accelerator does not fire.
+   * Returns the menu bar.
+   *
+   * @return the menu bar, or null before {@link #attach}
    */
-  void syncEnablement() {
-    DocumentController document = controller == null ? null : controller.activeDocument();
-    boolean file = document != null && document.state().hasFile();
-    for (MenuItem item : fileItems.values()) {
-      if (!item.isDisposed()) {
-        item.setEnabled(file);
-      }
-    }
-    if (moveItem != null && !moveItem.isDisposed()) {
-      moveItem.setEnabled(document != null);
-    }
-    for (Map.Entry<CommandId, MenuItem> entry : checkItems.entrySet()) {
-      MenuItem item = entry.getValue();
-      if (!item.isDisposed() && !APPLICATION_CHECKS.contains(entry.getKey())) {
-        item.setEnabled(document != null);
-      }
-    }
-  }
-
-  /** The state of a check item in {@link #APPLICATION_CHECKS}. */
-  private boolean applicationChecked(CommandId command) {
-    ThemeMode theme = controller.theme().mode();
-    HighlightSettings highlights = controller.highlightSettings();
-    return switch (command) {
-      case RUN_SEARCH_ON_ADD -> controller.runSearchOnAdd();
-      case FOLLOW_ON_LOAD -> controller.preferences().follow().onLoad();
-      case FOLLOW_ON_OVERSCROLL -> controller.preferences().follow().onOverscroll();
-      case TOGGLE_OVERVIEW -> controller.preferences().overview();
-      case TOGGLE_MATCH_HIGHLIGHT -> highlights.match().enabled();
-      case THEME_LIGHT -> theme == ThemeMode.LIGHT;
-      case THEME_DARK -> theme == ThemeMode.DARK;
-      case THEME_SYSTEM -> theme == ThemeMode.SYSTEM;
-      case NO_HIGHLIGHTERS -> highlights.active().isEmpty();
-      case WRAP_ON_OPEN -> controller.preferences().view().wrapOnOpen();
-      case TOGGLE_WHITESPACE -> controller.preferences().view().showWhitespace();
-      case HIDE_ANSI -> controller.preferences().view().hideAnsi();
-      case BLOCK_SELECTION -> controller.blockMode();
-      case DEBUG_LOG_FILE -> controller.debugLogFile();
-      default -> false;
-    };
-  }
-
-  /** Lists the open files in View > Opened Files, the shown one checked; choosing one shows it. */
-  private void syncOpenedFilesMenu() {
-    if (openedFilesMenu == null || openedFilesMenu.isDisposed() || controller == null) {
-      return;
-    }
-    for (MenuItem item : openedFilesMenu.getItems()) {
-      item.dispose();
-    }
-    DocumentController shown = controller.activeDocument();
-    for (final DocumentController document : controller.documents()) {
-      MenuItem item = new MenuItem(openedFilesMenu, SWT.RADIO);
-      String path = document.state().path();
-      item.setText(path.isEmpty() ? controller.tabTitle(document) : path);
-      item.setSelection(document == shown);
-      item.addListener(
-          SWT.Selection,
-          new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-              if (((MenuItem) event.widget).getSelection()) {
-                controller.activate(document);
-              }
-            }
-          });
-    }
+  MainMenuBar menuBar() {
+    return menuBar;
   }
 
   /**
@@ -1296,57 +1115,7 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @return the submenu, filled when the View menu shows
    */
   Menu openedFilesMenu() {
-    return openedFilesMenu;
-  }
-
-  /** Lists the highlighter sets after None in the Highlighters menu, the active ones checked. */
-  private void syncHighlightMenu() {
-    if (highlightMenu == null || highlightMenu.isDisposed() || controller == null) {
-      return;
-    }
-    MenuItem none = checkItems.get(CommandId.NO_HIGHLIGHTERS);
-    for (MenuItem item : highlightMenu.getItems()) {
-      if (item.getData() instanceof HighlightSet) {
-        item.dispose();
-      }
-    }
-    HighlightSettings settings = controller.highlightSettings();
-    int at = highlightMenu.indexOf(none) + 1;
-    for (final HighlightSet set : settings.sets()) {
-      MenuItem item = new MenuItem(highlightMenu, SWT.CHECK, at++);
-      item.setText(set.name());
-      item.setData(set);
-      item.setSelection(settings.isActive(set.id()));
-      item.addListener(
-          SWT.Selection,
-          new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-              controller.toggleHighlightSet(set.id());
-            }
-          });
-    }
-  }
-
-  private static boolean checked(CommandId command, DocumentController document) {
-    SearchOptions options = document.search().options();
-    Visibility visibility = document.filtered().visibility();
-    return switch (command) {
-      case FOLLOW -> document.following();
-      case TOGGLE_LINE_NUMBERS -> document.lineNumbers();
-      case TOGGLE_FILTERED_LINE_NUMBERS -> document.filtered().lineNumbers();
-      case SHOW_MARKS_AND_MATCHES -> visibility == Visibility.MARKS_AND_MATCHES;
-      case SHOW_MARKS -> visibility == Visibility.MARKS;
-      case SHOW_MATCHES -> visibility == Visibility.MATCHES;
-      case TOGGLE_CASE -> options.caseSensitive();
-      case TOGGLE_REGEX -> options.mode() == MatchMode.REGEX;
-      case TOGGLE_INVERSE -> options.inverse();
-      case TOGGLE_COMBINING -> options.combining();
-      case TOGGLE_AUTO_REFRESH -> options.autoRefresh();
-      case TOGGLE_KEEP_RESULTS -> options.keepResults();
-      case TOGGLE_WRAP -> document.wrap();
-      default -> false;
-    };
+    return menuBar.openedFilesMenu();
   }
 
   /**
@@ -2038,28 +1807,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     return new WindowGeometry.Rect(r.x, r.y, r.width, r.height);
   }
 
-  // Options dialog, recent files, favorites, encoding, zoom and remembered window state.
-
-  /** Charsets the Encoding menu lists first, when the runtime supports them. */
-  static final String[] COMMON_ENCODINGS = {
-    "UTF-8",
-    "UTF-16LE",
-    "UTF-16BE",
-    "ISO-8859-1",
-    "ISO-8859-15",
-    "windows-1252",
-    "US-ASCII",
-    "windows-1251",
-    "KOI8-R",
-    "GB18030",
-    "Big5",
-    "Shift_JIS",
-    "EUC-JP",
-    "EUC-KR"
-  };
-
-  /** Widget data of the items the menus list after their commands. */
-  private static final String LISTED = "qlogg.listed";
+  // Options dialog, zoom and remembered window state.
 
   /** Keeps the normal bounds whenever the window moves or resizes unmaximized. */
   private void trackWindowState() {
@@ -2273,142 +2021,13 @@ public final class MainWindow implements MainView, ApplicationListener {
         });
   }
 
-  /** Lists the recent files in File > Open Recent and the favorites in the Favorites menu. */
-  private void syncListedMenus(DocumentController document) {
-    if (controller == null) {
-      return;
-    }
-    if (recentMenu != null && !recentMenu.isDisposed()) {
-      clearListed(recentMenu);
-      List<String> recent = controller.preferences().state().recentFiles();
-      int at = 0;
-      for (String path : recent) {
-        listedItem(recentMenu, at++, path);
-      }
-      if (recent.isEmpty()) {
-        MenuItem none = new MenuItem(recentMenu, SWT.PUSH, at++);
-        none.setText(UiText.RECENT_NONE.text());
-        none.setEnabled(false);
-        none.setData(LISTED);
-      }
-      new MenuItem(recentMenu, SWT.SEPARATOR, at).setData(LISTED);
-    }
-    if (favoritesMenu != null && !favoritesMenu.isDisposed()) {
-      clearListed(favoritesMenu);
-      boolean file = document != null && document.state().hasFile();
-      boolean favorite = controller.isFavorite(document);
-      for (MenuItem item : favoritesMenu.getItems()) {
-        if (item.getData() == CommandId.ADD_FAVORITE) {
-          item.setEnabled(file && !favorite);
-        } else if (item.getData() == CommandId.REMOVE_FAVORITE) {
-          item.setEnabled(favorite);
-        }
-      }
-      new MenuItem(favoritesMenu, SWT.SEPARATOR).setData(LISTED);
-      List<String> favorites = controller.preferences().options().favorites();
-      for (String path : favorites) {
-        listedItem(favoritesMenu, favoritesMenu.getItemCount(), path);
-      }
-      if (favorites.isEmpty()) {
-        MenuItem none = new MenuItem(favoritesMenu, SWT.PUSH);
-        none.setText(UiText.FAVORITES_NONE.text());
-        none.setEnabled(false);
-        none.setData(LISTED);
-      }
-    }
-  }
-
-  private static void clearListed(Menu menu) {
-    for (MenuItem item : menu.getItems()) {
-      if (LISTED.equals(item.getData()) || item.getData() instanceof Path) {
-        item.dispose();
-      }
-    }
-  }
-
-  private void listedItem(Menu menu, int index, final String path) {
-    MenuItem item = new MenuItem(menu, SWT.PUSH, index);
-    item.setText(path.replace("&", "&&"));
-    item.setData(LISTED);
-    item.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            controller.openListed(path);
-          }
-        });
-  }
-
-  /**
-   * Lists the encodings after Auto, the shown file's forced one checked, and checks Auto while its
-   * encoding is detected. Every other charset the runtime supports sits in the Other cascade.
-   */
-  private void syncEncodingMenu(DocumentController document) {
-    if (encodingMenu == null || encodingMenu.isDisposed() || controller == null) {
-      return;
-    }
-    boolean file = document != null && document.state().hasFile();
-    String forced =
-        file && document.state().encodingForced() ? document.state().encodingName() : "";
-    MenuItem auto = checkItems.get(CommandId.ENCODING_AUTO);
-    if (auto != null && !auto.isDisposed()) {
-      auto.setEnabled(file);
-      auto.setSelection(file && forced.isEmpty());
-    }
-    for (MenuItem item : encodingMenu.getItems()) {
-      if (LISTED.equals(item.getData()) || item.getData() instanceof Charset) {
-        item.dispose();
-      }
-    }
-    new MenuItem(encodingMenu, SWT.SEPARATOR).setData(LISTED);
-    List<Charset> common = new ArrayList<Charset>();
-    for (String name : COMMON_ENCODINGS) {
-      Charset charset = Options.charset(name);
-      if (charset != null) {
-        common.add(charset);
-        encodingItem(encodingMenu, charset, file, forced);
-      }
-    }
-    MenuItem other = new MenuItem(encodingMenu, SWT.CASCADE);
-    other.setText(UiText.MENU_ENCODING_OTHER.text());
-    other.setData(LISTED);
-    other.setEnabled(file);
-    Menu all = new Menu(shell, SWT.DROP_DOWN);
-    other.setMenu(all);
-    for (Charset charset : Charset.availableCharsets().values()) {
-      if (!common.contains(charset)) {
-        encodingItem(all, charset, file, forced);
-      }
-    }
-  }
-
-  private void encodingItem(Menu menu, final Charset charset, boolean enabled, String forced) {
-    MenuItem item = new MenuItem(menu, SWT.RADIO);
-    item.setText(charset.name());
-    item.setData(charset);
-    item.setEnabled(enabled);
-    item.setSelection(charset.name().equals(forced));
-    item.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            DocumentController shown = controller.activeDocument();
-            if (((MenuItem) event.widget).getSelection() && shown != null) {
-              controller.setEncoding(shown, charset);
-            }
-          }
-        });
-  }
-
   /**
    * Returns the Encoding menu.
    *
-   * @return the menu, filled when it shows
+   * @return the menu
    */
   Menu encodingMenu() {
-    return encodingMenu;
+    return menuBar.encodingMenu();
   }
 
   /**
@@ -2417,7 +2036,7 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @return the menu, filled when it shows
    */
   Menu favoritesMenu() {
-    return favoritesMenu;
+    return menuBar.favoritesMenu();
   }
 
   /**
@@ -2426,7 +2045,7 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @return the cascade, filled when the File menu shows
    */
   Menu recentMenu() {
-    return recentMenu;
+    return menuBar.recentMenu();
   }
 
   // User guide.

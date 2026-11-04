@@ -24,27 +24,35 @@ Compiled and tested against the build host's SWT fragment.
 - A close request from the window system is vetoed and passed to the handler
   given to `onCloseRequest`; the controller disposes the window when shutdown
   ends.
-- `attach(controller)` builds the menu bar from the controller's `keymap()`:
+- `MainMenuBar`, created by `attach(controller)`, builds the menu bar from the
+  controller's `keymap()`:
   one menu per `CommandGroup` (File, Edit, View, Tools, Highlighters,
   Encoding, Favorites, Help), items in
   `MenuTable.commands` order; consecutive commands with the same `submenu()` form one
   cascade, Edit > Search. Each item's text shows all its
   keys; only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys
   such as `Ctrl+C` reach the log view and never a text field. A `check()`
-  command is a check item, set from the controllers' state when its menu
-  shows. Items that need a document or a file are enabled on every document
-  open, activation, replacement and close (`syncEnablement`), not only when a
-  menu shows: a disabled item's accelerator does not fire. The Highlighters menu lists the sets after None as check items,
-  rebuilt when it shows. View > Opened Files lists the open files as radio
-  items, rebuilt when the View menu shows; choosing one shows its tab. Reload
-  and the Edit menu's path commands are disabled for text opened from the
-  clipboard.
-- When the File menu shows, File > Open Recent lists the recent paths before
-  Clean Up; the Favorites menu lists the favorites after Add to Favorites and
-  Remove from Favorites, each enabled for the shown file's state. The
-  Encoding menu lists, after Auto, the common charsets as radio items and
-  every other charset the runtime supports in Other; the shown file's forced
-  charset is checked, else Auto. A `&` in a path is doubled so it shows.
+  command is a check item. Checked and enabled state comes from
+  `CommandStates` (`qlogg-app`); the menu bar only applies it. Showing a top
+  menu syncs that menu's items and listed entries, no other menu's. Every
+  item's enablement is also applied on each document open, activation,
+  replacement and close (`syncEnablement`): a disabled item's accelerator
+  does not fire. The Highlighters menu lists the sets after None as check
+  items. View > Opened Files lists the open files as radio items; choosing one
+  shows its tab. Reload and the Edit menu's path commands are disabled for
+  text opened from the clipboard. `MainWindow` keeps `syncMenu`, which syncs
+  every menu, and the menu accessors the tests use.
+- File > Open Recent lists the recent paths before Clean Up; the Favorites
+  menu lists the favorites after Add to Favorites and Remove from Favorites.
+  Both are refilled when their menu shows. The Encoding menu lists, after Auto,
+  the common charsets as radio items and every other charset the runtime
+  supports in Other (`EncodingChoices`). The common items are created with
+  the menu bar; Other stays empty and disabled until
+  `ApplicationController.loadEncodingChoices` delivers the full list from a
+  worker, then `encodingsLoaded` fills it once. A show sets the items'
+  enablement and checks the shown file's forced charset, else Auto. Other's
+  items stay enabled; the disabled Other item keeps them out of reach. A `&`
+  in a path is doubled so it shows.
 - `keymapChanged` rebuilds the menu bar, the tool tips and the shown views
   from a later UI task, because the event that changed the key bindings may
   come from a menu item or a view the rebuild disposes; the focused log view
@@ -432,6 +440,12 @@ a menu sync, then four more rounds, and requires each tracked type's count
 (`Font`, `Image`, `Cursor` and `TextLayout` on GTK 3) to return to the
 warm-up's; a failure lists each new object's allocation stack. SWT 3.135.0
 does not track `Color`.
+`MainMenuBarTest` shows one top menu and checks that no other menu's items or
+sets changed, and that the Encoding menu's charset items are the same objects
+after each show while the check follows Auto, a forced charset and a choice
+from Other, with one charset checked at a time. With the list held back
+through `MainWindow.setEncodingSource`, Other is empty and disabled while a
+forced charset is checked, and fills in once when the list arrives.
 `CommandStatesTest` records every check item's checked and enabled state, and
 the file commands' enabled state, after `syncMenu` with no document, with a
 document and with its filtered view focused. `TextGridCasesTest` records
