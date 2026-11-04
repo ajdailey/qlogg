@@ -342,7 +342,7 @@ A value out of range falls back to its default.
 | `qlogg-ui-swt/` | SWT views: main window, log views, search and quick find bars, dialogs; the toolbar icon set (`src/icons/*.svg`), rendered to PNG at build time |
 | `qlogg-launcher/` | Composition, logging configuration, architecture rules |
 | `qlogg-dist/` | Universal jar, launchers, runtimes and archives; icons |
-| `qlogg-bench/` | JMH benchmarks; not shipped |
+| `qlogg-bench/` | Benchmark harness, JMH probes and comparison scripts; not shipped |
 | `config/` | Checkstyle, SpotBugs and find-sec-bugs configuration |
 | `docker/`, `compose.yaml`, `scripts/` | Container build |
 | `.github/` | CI workflow and the scripts its steps run |

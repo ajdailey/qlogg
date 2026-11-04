@@ -223,7 +223,9 @@ results), each row's source line number in a gutter sized to the document's
 line count, the current line and the selection. Rows
 the block does not hold yet stay blank, numbers included, until the next read
 arrives, so painting never touches the file. One implementation serves both
-views.
+views. The first paint in the process that draws a loaded line logs
+`First paint of file text` at DEBUG; the benchmark harness's `startup`
+command waits for that line.
 
 - Focus, a click, a key and the context menu set it as the view that
   commands go to (`ApplicationController.setFocusedView`).

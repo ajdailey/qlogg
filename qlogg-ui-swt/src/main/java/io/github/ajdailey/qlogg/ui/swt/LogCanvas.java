@@ -19,6 +19,7 @@ import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
@@ -32,6 +33,8 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.ScrollBar;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A log view: paints the visible rows of a {@link LineViewController} (the main view or the
@@ -66,6 +69,14 @@ public final class LogCanvas {
 
   /** Measured for the grid advance; over a long run a rounded extent errs little per column. */
   private static final String ADVANCE_SAMPLE = "0".repeat(1000);
+
+  /** Startup timing marker: the benchmark harness waits for this DEBUG line on standard error. */
+  static final String FIRST_TEXT_PAINT = "First paint of file text";
+
+  private static final Logger LOG = LoggerFactory.getLogger(LogCanvas.class);
+
+  /** Set by the first paint in this process that draws a loaded line. */
+  private static final AtomicBoolean TEXT_PAINTED = new AtomicBoolean();
 
   private final Canvas canvas;
 
@@ -843,6 +854,12 @@ public final class LogCanvas {
       }
     }
     paintGutter(gc, viewport, block, wrap, gutter, area);
+    if (!TEXT_PAINTED.get()
+        && y > 0
+        && block.contains(viewport.topLine())
+        && TEXT_PAINTED.compareAndSet(false, true)) {
+      LOG.debug(FIRST_TEXT_PAINT);
+    }
   }
 
   /** The selected columns {@code [from, to)} of a line, from -1 for none. */

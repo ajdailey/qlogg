@@ -14,6 +14,8 @@ import io.github.ajdailey.qlogg.core.model.DocumentListener;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.search.ExpressionException;
+import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
@@ -53,11 +55,18 @@ import java.util.concurrent.atomic.AtomicReference;
  * generate PROFILE BYTES FILE [SEED]   write a LogGenerator file
  * run FILE [SEARCH...]                 open, index, search, random reads, end of file
  * tail FILE LINES_PER_SECOND SECONDS   append to a new file and measure write-to-index latency
+ * startup TARGET FILE SETTINGS [RUNS]  launch QLogg and time process start to first text paint
  * </pre>
  *
- * <p>A {@code SEARCH} is {@code literal:TEXT}, {@code literal-i:TEXT} (case folded) or {@code
- * regex:PATTERN}. Without one, {@code run} searches {@link LogGenerator#RARE_TOKEN} and {@link
- * LogGenerator#COMMON_TOKEN} as literals and a regex.
+ * <p>A {@code SEARCH} is {@code literal:TEXT}, {@code literal-i:TEXT} (case folded), {@code
+ * regex:PATTERN}, or {@code expr:TEXT} and {@code expr-regex:TEXT}: a search-field expression
+ * ({@link ExpressionParser}, combining on) with literal or regex terms. Without one, {@code run}
+ * searches {@link LogGenerator#RARE_TOKEN} and {@link LogGenerator#COMMON_TOKEN} as literals and a
+ * regex.
+ *
+ * <p>{@code run} and {@code tail} use the shipped launchers' heap, {@value #LAUNCHER_HEAP}: a JVM
+ * started without a heap option relaunches the harness with it. A heap option on the command line,
+ * or {@code -Dqlogg.bench.heap=jvm} for the JVM default, runs in place.
  */
 public final class Harness {
   private static final int READS = 10_000;
@@ -65,6 +74,18 @@ public final class Harness {
   private static final int SCREEN_COLUMNS = 200;
   private static final long BOUND_MINUTES = 30;
   private static final String DEFAULT_REGEX = "worker-1[0-5]\\] #\\d+7 ";
+
+  /** The heap option of {@code qlogg-dist/src/bin/qlogg} and the Windows launchers. */
+  public static final String LAUNCHER_HEAP = "-XX:MaxRAMPercentage=50";
+
+  private static final String[] HEAP_OPTIONS = {
+    "-Xmx", "-XX:MaxRAMPercentage=", "-XX:MaxRAM=", "-XX:MaxHeapSize="
+  };
+
+  /** The DEBUG line {@code LogCanvas} logs on the first paint that shows file text. */
+  private static final String FIRST_TEXT_PAINT = "First paint of file text";
+
+  private static final long STARTUP_BOUND_SECONDS = 120;
 
   private final PrintStream out;
   private final Workers workers;
@@ -109,11 +130,20 @@ public final class Harness {
     if (args.length < 2) {
       System.err.println(
           "usage: generate PROFILE BYTES FILE [SEED] | run FILE [SEARCH...]"
-              + " | tail FILE LINES_PER_SECOND SECONDS");
+              + " | tail FILE LINES_PER_SECOND SECONDS | startup TARGET FILE SETTINGS [RUNS]");
       System.exit(2);
+    }
+    if ((args[0].equals("run") || args[0].equals("tail")) && relaunchNeeded()) {
+      System.exit(relaunch(args));
     }
     switch (args[0]) {
       case "generate" -> generate(args);
+      case "startup" ->
+          startup(
+              args[1],
+              Path.of(args[2]),
+              Path.of(args[3]),
+              args.length > 4 ? Integer.parseInt(args[4]) : 6);
       case "run" -> {
         Harness harness = new Harness(System.out);
         try {
@@ -134,6 +164,121 @@ public final class Harness {
     }
   }
 
+  /** True when no heap option was given and {@code qlogg.bench.heap} is not {@code jvm}. */
+  private static boolean relaunchNeeded() {
+    return heapOption() == null && !"jvm".equals(System.getProperty("qlogg.bench.heap"));
+  }
+
+  /** The heap option this JVM was started with, or null. */
+  private static String heapOption() {
+    for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+      for (String option : HEAP_OPTIONS) {
+        if (argument.startsWith(option)) {
+          return argument;
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Runs the same command in a new JVM with {@link #LAUNCHER_HEAP} and this JVM's options. */
+  private static int relaunch(String[] args) throws IOException, InterruptedException {
+    List<String> command = new ArrayList<String>();
+    command.add(javaCommand());
+    command.add(LAUNCHER_HEAP);
+    command.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
+    command.add("-cp");
+    command.add(System.getProperty("java.class.path"));
+    command.add(Harness.class.getName());
+    command.addAll(Arrays.asList(args));
+    return new ProcessBuilder(command).inheritIO().start().waitFor();
+  }
+
+  private static String javaCommand() {
+    return Path.of(System.getProperty("java.home"), "bin", "java").toString();
+  }
+
+  /**
+   * Launches QLogg {@code runs} times, one at a time, and times each from just before the process
+   * starts to the {@link #FIRST_TEXT_PAINT} line in its output, then requests termination. The
+   * first run is reported apart: it also fills the settings directory and, for {@code qlogg.jar},
+   * extracts the SWT natives.
+   *
+   * @param target {@code qlogg.jar}, run with this JVM's {@code java} and {@link #LAUNCHER_HEAP};
+   *     anything else is an executable launcher such as a bundle's {@code bin/qlogg}
+   * @param file the file opened
+   * @param settings the {@code --settings} directory, created when missing; holds each run's output
+   * @param runs launches, at least 1
+   */
+  private static void startup(String target, Path file, Path settings, int runs)
+      throws IOException, InterruptedException {
+    Files.createDirectories(settings);
+    System.out.println("startup.target=" + target);
+    System.out.println("startup.file=" + file);
+    long[] millis = new long[Math.max(1, runs)];
+    for (int i = 0; i < millis.length; i++) {
+      List<String> command = new ArrayList<String>();
+      if (target.endsWith(".jar")) {
+        command.add(javaCommand());
+        command.add(LAUNCHER_HEAP);
+        command.add("-jar");
+      }
+      command.add(target);
+      command.addAll(
+          Arrays.asList(
+              "--settings", settings.toString(), "-m", "-n", "-d", "debug", file.toString()));
+      Path output = settings.resolve("startup-" + i + ".out");
+      Files.deleteIfExists(output);
+      ProcessBuilder builder =
+          new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(output.toFile());
+      long start = System.nanoTime();
+      Process process = builder.start();
+      try {
+        millis[i] = awaitFirstPaint(process, output, start);
+      } finally {
+        process.destroy();
+        if (!process.waitFor(30, TimeUnit.SECONDS)) {
+          process.destroyForcibly().waitFor();
+        }
+      }
+      System.out.println("startup.run" + i + ".ms=" + millis[i] + " exit=" + process.exitValue());
+    }
+    System.out.println("startup.first.ms=" + millis[0]);
+    if (millis.length > 1) {
+      long[] later = Arrays.copyOfRange(millis, 1, millis.length);
+      Arrays.sort(later);
+      System.out.println("startup.later.runs=" + later.length);
+      System.out.println("startup.later.p50.ms=" + later[later.length / 2]);
+      System.out.println("startup.later.min.ms=" + later[0]);
+      System.out.println("startup.later.max.ms=" + later[later.length - 1]);
+    }
+  }
+
+  /** Polls the output file every millisecond for {@link #FIRST_TEXT_PAINT}; returns ms. */
+  private static long awaitFirstPaint(Process process, Path output, long start)
+      throws IOException, InterruptedException {
+    long deadline = start + TimeUnit.SECONDS.toNanos(STARTUP_BOUND_SECONDS);
+    long read = 0;
+    String text = "";
+    while (System.nanoTime() < deadline) {
+      long size = Files.exists(output) ? Files.size(output) : 0;
+      if (size > read) {
+        byte[] bytes = Files.readAllBytes(output);
+        long now = System.nanoTime();
+        text = new String(bytes, StandardCharsets.UTF_8);
+        read = bytes.length;
+        if (text.contains(FIRST_TEXT_PAINT)) {
+          return TimeUnit.NANOSECONDS.toMillis(now - start);
+        }
+      }
+      if (!process.isAlive()) {
+        throw new IOException("QLogg exited with " + process.exitValue() + ":\n" + text);
+      }
+      TimeUnit.MILLISECONDS.sleep(1);
+    }
+    throw new IOException("No first paint within " + STARTUP_BOUND_SECONDS + " s:\n" + text);
+  }
+
   private static void generate(String[] args) throws IOException {
     LogGenerator.Profile profile = LogGenerator.Profile.of(args[1]);
     long bytes = Long.parseLong(args[2]);
@@ -144,9 +289,12 @@ public final class Harness {
     System.out.println("generate.ms=" + millis(System.nanoTime() - start));
   }
 
-  private void run(Path file, String[] searches) throws IOException, InterruptedException {
+  private void run(Path file, String[] searches)
+      throws IOException, InterruptedException, ExpressionException {
     out.println("file=" + file);
     out.println("file.bytes=" + Files.size(file));
+    String heapOption = heapOption();
+    out.println("heap.option=" + (heapOption == null ? "jvm-default" : heapOption));
     out.println("heap.max=" + Runtime.getRuntime().maxMemory());
     out.println("cpus=" + Runtime.getRuntime().availableProcessors());
     long start = System.nanoTime();
@@ -227,19 +375,23 @@ public final class Harness {
     heap("heap.afterIndex");
   }
 
-  private MutableLineSet search(LogDocument document, String spec) throws InterruptedException {
+  private MutableLineSet search(LogDocument document, String spec)
+      throws InterruptedException, ExpressionException {
     int colon = spec.indexOf(':');
     String kind = spec.substring(0, colon);
     String pattern = spec.substring(colon + 1);
-    MatchMode mode = kind.equals("regex") ? MatchMode.REGEX : MatchMode.LITERAL;
+    MatchMode mode =
+        kind.equals("regex") || kind.equals("expr-regex") ? MatchMode.REGEX : MatchMode.LITERAL;
     boolean caseSensitive = !kind.equals("literal-i");
+    SearchExpression expression =
+        kind.startsWith("expr")
+            ? ExpressionParser.parse(pattern, mode, true)
+            : new SearchExpression.Term(pattern, mode);
     MutableLineSet results = new MutableLineSet(budget);
     final CountDownLatch done = new CountDownLatch(1);
     final AtomicReference<OperationOutcome> outcome = new AtomicReference<OperationOutcome>();
     final AtomicReference<SearchLimit> limit = new AtomicReference<SearchLimit>();
-    SearchQuery query =
-        new SearchQuery(
-            new SearchExpression.Term(pattern, mode), caseSensitive, false, false, null);
+    SearchQuery query = new SearchQuery(expression, caseSensitive, false, false, null);
     long cpu = cpuNanos();
     long start = System.nanoTime();
     OperationHandle handle =

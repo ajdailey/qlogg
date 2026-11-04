@@ -70,6 +70,7 @@ public final class SearchEngine {
   private final MatcherFactory matchers;
   private final SearchSettings settings;
   private final ReadBuffers buffers;
+  private final boolean trimAtEnd;
 
   /**
    * Creates an engine with its own buffer pool.
@@ -79,11 +80,25 @@ public final class SearchEngine {
    * @param settings chunk sizes, in-flight bound, result limit and budget
    */
   public SearchEngine(Workers workers, MatcherFactory matchers, SearchSettings settings) {
+    this(workers, matchers, settings, true);
+  }
+
+  /**
+   * Creates an engine with its own buffer pool.
+   *
+   * @param workers runs coordinators and matching
+   * @param matchers compiles queries
+   * @param settings chunk sizes, in-flight bound, result limit and budget
+   * @param trimAtEnd true trims the pool when a search ends; false keeps every buffer it grew to
+   */
+  SearchEngine(
+      Workers workers, MatcherFactory matchers, SearchSettings settings, boolean trimAtEnd) {
     this.workers = workers;
     this.matchers = matchers;
     this.settings = settings;
     this.buffers =
         new ReadBuffers(settings.chunkBytes(), settings.maxChunksInFlight(), settings.budget());
+    this.trimAtEnd = trimAtEnd;
   }
 
   /**
@@ -541,7 +556,9 @@ public final class SearchEngine {
         }
       }
       inFlight.clear();
-      buffers.trim();
+      if (trimAtEnd) {
+        buffers.trim();
+      }
       if (interrupted) {
         Thread.currentThread().interrupt();
       }

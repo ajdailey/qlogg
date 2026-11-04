@@ -32,8 +32,14 @@ per measurement. Run it in its own JVM so heap and diagnostic options apply:
 ```sh
 H="java -cp qlogg-bench/target/benchmarks.jar io.github.ajdailey.qlogg.bench.Harness"
 $H generate ascii-short 1000000000 <scratch>/ascii-short-1g.log [seed]
-$H run <scratch>/ascii-short-1g.log [literal:TEXT | literal-i:TEXT | regex:PATTERN ...]
+$H run <scratch>/ascii-short-1g.log [SEARCH ...]
+$H run <scratch>/ascii-short-1g.log 'expr:"flagword" or "blockterm"' \
+    'expr-regex:"worker-1[0-5]" and not "blockterm"'
 $H tail <scratch>/tail.log 50000 20
+xvfb-run -a env GDK_BACKEND=x11 $H startup qlogg-dist/target/qlogg.jar \
+    <scratch>/ascii-short-100m.log <scratch>/startup-jar [runs]
+xvfb-run -a env GDK_BACKEND=x11 $H startup <scratch>/bundle/qlogg/bin/qlogg \
+    <scratch>/ascii-short-100m.log <scratch>/startup-bundle [runs]
 ```
 
 | Command | Measures |
@@ -41,23 +47,73 @@ $H tail <scratch>/tail.log 50000 20
 | `generate` | Writes a new file of at least the given size; fails when it exists |
 | `run` | Open; index (time, CPU, lines, index bytes per line, sparse or full); each search (time, CPU, matches, result-set bytes), by default `flagword`, `blockterm` and a regex; 10,000 random 50-line reads (p50, p99, max); the last screen; heap after GC with the result sets held; every share's reservation; process CPU and peak RSS (`VmHWM`, Linux) |
 | `tail` | Appends lines at the given rate for the given seconds to a new file opened with the default monitor settings; latency from the write to the line entering the index (p50, p99, max) |
+| `startup` | Launches QLogg `runs` times (6 by default), one at a time, with `--settings <dir> -m -n -d debug <file>`, and times each from process start to the first paint that shows file text (`LogCanvas` logs it at DEBUG); the first run, which also fills the settings directory and extracts the SWT natives, is reported apart from the median of the rest |
 
-For the heap run, add `-Xmx256m -XX:NativeMemoryTracking=summary
--XX:StartFlightRecording=filename=<f>.jfr,settings=profile -Xlog:gc:file=<f>.log`
-and read native memory with `jcmd <pid> VM.native_memory summary` while it
-runs.
+A `SEARCH` is `literal:TEXT`, `literal-i:TEXT` (case folded), `regex:PATTERN`,
+or a search-field expression with combining on: `expr:TEXT` (literal terms)
+or `expr-regex:TEXT` (regex terms), terms in double quotes, operators `and`,
+`or`, `xor`, `not` and parentheses.
+
+`startup` takes `qlogg.jar`, run with the harness JVM's `java` and
+`-XX:MaxRAMPercentage=50`, or an executable launcher: extract the bundle
+archive from `dist/` first, because the staging tree under
+`qlogg-dist/target` has no execute bits. QLogg writes only inside the
+settings directory (on Linux `--settings` also moves `user.home` there),
+which holds each run's output as `startup-<n>.out`. Under Xvfb,
+`GDK_BACKEND=x11` keeps GTK off a Wayland session.
+
+### Heap
+
+`run` and `tail` use the shipped launchers' heap, `-XX:MaxRAMPercentage=50`:
+a harness JVM started without a heap option relaunches itself with it, and
+`run` prints the option in force as `heap.option`. A heap option on the
+command line (`-Xmx`, `-XX:MaxRAMPercentage`, `-XX:MaxRAM`,
+`-XX:MaxHeapSize`) runs in place; `-Dqlogg.bench.heap=jvm` runs in place at
+the JVM default (25% of RAM). Give a run with JFR or NMT options a heap
+option: without one, both the first JVM and the relaunched one apply them.
+
+## Comparison scripts
+
+`scripts/` runs the reference viewer beside the harness. Each script takes
+the path of an extracted reference-viewer Linux tree (`usr/bin`, `usr/lib`);
+nothing in the repository bundles or downloads it. The viewer runs in a
+`--network none` container under Xvfb and is driven with `xdotool`; its
+times are its own log lines, and its peak RSS is `VmHWM` read before it
+exits. Generated files and output go in a scratch directory `$S`. Build
+`qlogg-bench` first; the scripts use `$JAVA_HOME/bin/java` when set.
+
+```sh
+qlogg-bench/scripts/kdock.sh <tree> $S /scripts/run-reference.sh /data/<file> [PATTERN ...]
+qlogg-bench/scripts/compare.sh <tree> $S 5 ascii-short-100m.log ascii-short-1g.log
+HEAP=-Xmx256m qlogg-bench/scripts/heap-run.sh $S/tiny-10g.log $S/runs/tiny \
+    literal:blkt literal:flag 'regex:^blkt\d+7$'
+qlogg-bench/scripts/cold.sh <tree> $S ascii-short-50g.log 2
+```
+
+| Script | Does |
+|---|---|
+| `kdock.sh` | Runs a command in the container, with `$S` at `/data`, a copy of the tree at `/viewer` (made in `$S` on first use; the viewer writes its configuration beside its binary) and `scripts/` at `/scripts`. Builds the image `qlogg-bench-x:local` from `qlogg-build:local` (`docker compose build`) on first use |
+| `run-reference.sh` | In the container: opens the file, waits for indexing, then runs each pattern (default `flagword`, `blockterm` and the harness regex) through the search box in the viewer's default regex mode; prints index and search milliseconds and peak RSS |
+| `compare.sh` | `RUNS` rounds; each round runs `Harness run` and then `run-reference.sh` on every file after a `cat` warms the cache. Raw output in `$S/compare/<file>.<tool>.<round>`; prints the median of every time and of peak RSS per file and tool. `RUNS` 0 reprints the medians |
+| `heap-run.sh` | `Harness run` at `$HEAP` (default `-Xmx256m`) with JFR, a GC log and native memory tracking; writes `<prefix>.out`, `.jfr`, `.gc.log`, `.nmt` (`VM.native_memory summary` every 2 s) and `.heap` (`jdk.GCHeapSummary`) |
+| `cold.sh` | Rounds of `Harness run ... literal:flagword` and then the viewer with `flagword`. The page cache is not dropped, so the file must be larger than RAM |
 
 ## JMH probes
 
 ```sh
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar ReadProbe
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar SearchProbe
+java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar SearchTrimProbe
 ```
+
+Each fork runs at `-XX:MaxRAMPercentage=50`; `-jvmArgsPrepend
+-XX:MaxRAMPercentage=25` runs the JVM default instead.
 
 | Benchmark | Measures |
 |---|---|
 | `ReadProbe` | Sequential LF count over a generated log (`-p fileMib=1024` by default): `positional` reads into one 4 MiB direct buffer, the indexer's read path; `mapped` reads `MappedByteBuffer` windows of 1 GiB. Both use the same counting loop. Warm page cache |
 | `SearchProbe` | Whole-file `SearchEngine` search of a generated, indexed log (`-p fileMib=1024`) with the default settings and every CPU: `literal` (byte search), `literalIgnoreCase` (ASCII folding on bytes), `regex` (decoded text). Warm page cache |
+| `SearchTrimProbe` | Repeated whole-file literal searches for `blockterm` in an `ascii-short` file (`-p fileMib=16,256`), with `trim=true` (the shipped engine: the read-buffer pool drops back to `ReadBuffers.MIN_BUFFERS` when a search ends, so the next search allocates its direct buffers again) against `trim=false` (the pool keeps them). The difference is the trim's cost per search. In package `core.search` for the engine's package-private constructor. Warm page cache |
 
 ## Scrolling frame time
 
@@ -83,4 +139,19 @@ class loading and GTK setup. It runs only when `qlogg.bench.file` is set:
 ```sh
 xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=OpenStallProbe \
   -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.file=<file>
+```
+
+## Row paint time
+
+`RowPaintProbe` in `qlogg-ui-swt` writes two 2,000-line files of about 150
+columns, one ASCII and one whose lines start with CJK, Hangul, fullwidth and
+combining characters, opens each in the main window (1100 x 700) and repaints
+the first screen 500 times. `RowPainter` draws an ASCII row as a string and
+lays out a non-ASCII row in a `TextLayout`. It prints the paint time per frame
+(p50, p90, p99, max, mean) for each file and the ratio of the means. It runs
+only when `qlogg.bench.rowPaint` is `true`:
+
+```sh
+xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=RowPaintProbe \
+  -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.rowPaint=true
 ```
