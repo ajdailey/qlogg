@@ -473,7 +473,9 @@ an integer advance, plus `wrappedWordHit`. `RowPixelsTest` compares painted exte
 a span and the selection on the second row of a wrapped ASCII line and of a
 wrapped CJK line, and a span over CJK glyphs at the start of an unwrapped row
 and after leading spaces. A wrapped case waits for the wrapped read, because
-the block read before it holds one screen width of each line. With
+the block read before it holds one screen width of each line. The wrapped
+cases and the CJK case after leading spaces skip on cocoa, where the span
+extents do not match the glyph ink and the cause is not yet found. With
 `-Dqlogg.shots=<dir>` it writes `rows-plain.png`, `rows-cjk.png`,
 `rows-wrapped.png` and `rows-wrapped-selection.png` at 1100x700.
 
