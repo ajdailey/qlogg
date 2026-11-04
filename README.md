@@ -169,6 +169,11 @@ smoke-tests `qlogg.jar` and writes no archive. The Temurin JDK archives and
 `rcodesign` are downloaded once into `~/.m2/repository/.cache/qlogg/`
 (`-Dqlogg.cache.dir` overrides it) and checked against pinned SHA-256 digests.
 
+Builds are reproducible: with the same JDK, two builds of one commit write
+byte-identical jars, `qlogg.exe` and archives, every entry dated
+`project.build.outputTimestamp` from the parent POM.
+`.github/scripts/check-reproducible.sh` builds twice and compares SHA-256.
+
 ### Container build
 
 A host with Docker (or Podman with compose) and no JDK builds in the image

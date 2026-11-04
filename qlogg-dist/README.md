@@ -52,8 +52,29 @@ lacks on Windows and macOS. `jdeps` reports `java.desktop` too, used only by
 
 jlink on Linux writes the `legal/<module>/` notices as symlinks into
 `legal/java.base/`. The build replaces them with copies before signing,
-because Ant's `tar` and `zip` store a link as a regular file and the macOS
-seal must match what unzips.
+because Ant's `zip` stores a link as a regular file and the macOS seal must
+match what unzips.
+
+## Reproducible output
+
+Every archive entry, and every entry of `qlogg.jar`, is dated
+`project.build.outputTimestamp` (parent POM; set it to the release date when
+the version changes):
+
+- `jar` and `zip` take `modificationtime` from `archive.time`, the instant's
+  UTC wall time. Ant writes DOS entry times in the host time zone, so every
+  host then writes the same fields.
+- The `.tar.gz` bundles are written by GNU `tar` with entries sorted by name,
+  one mtime, owner and group 0, and modes set by `chmod` beforehand, then
+  compressed by Ant's `gzip`. Ant's `tar` has no `modificationtime`.
+- launch4j's `ld` stamps `qlogg.exe` with the link time. `PeTimestamp.java`
+  rewrites the COFF time stamp and the PE checksum to the values `ld` writes
+  with `SOURCE_DATE_EPOCH` set, which cannot reach `ld` inside the Maven JVM.
+
+The jlink runtimes and the ad-hoc rcodesign signature hold no build time.
+`.github/scripts/check-reproducible.sh` builds twice, the second time under
+another time zone and umask, and compares the SHA-256 of every archive,
+`qlogg.exe` and module jar.
 
 ## Launchers
 
