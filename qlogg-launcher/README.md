@@ -108,8 +108,10 @@ message become `_`, a backstop behind `LogText.oneLine` at the call sites.
 no line, and a slow disk holds the thread that logs. Before a write would take
 `qlogg.log` past 10 MiB it moves the file to `qlogg.log.1` and starts a new
 one. It writes no lock file. The `logs` folder is created owner-only, and on
-POSIX the file `rw-------`. A failed write, roll or open detaches the file and
-logs an ERROR.
+POSIX the file `rw-------`. A failed move reopens `qlogg.log` and keeps
+appending; the next line over the size tries the move again, and the first
+failure after a successful move logs a WARN. A failed write or open detaches
+the file and logs an ERROR.
 
 `RetainingLogManager` ignores `reset()` once configured. The JDK's logging
 shutdown hook calls `reset()`, which would remove the handlers while
@@ -196,9 +198,10 @@ line reached the log. Windows has no
 SIGTERM; `destroy` there terminates without hooks. `FileLogTest` checks the file's location, the
 level with the file attached and detached, that the folder holds only
 `qlogg.log` after a detach, `-d trace` staying finer, a process without the
-lock writing `qlogg-<pid>.log`, the roll to `qlogg.log.1`, and that a failed
-roll (a non-empty directory named `qlogg.log.1`) detaches the file and its
-ERROR reaches the recent lines; with set
+lock writing `qlogg-<pid>.log`, the roll to `qlogg.log.1`, that a failed roll
+(a non-empty directory named `qlogg.log.1`) keeps writing the file with one
+WARN and rolls once the directory is gone, and that a failed reopen (a
+read-only file) detaches the file and its ERROR reaches the recent lines; with set
 modification times, prune deletes only an old `qlogg-<pid>.log` and `.1` of an
 ended process and keeps a young one, a running process's, `qlogg.log`, a `.2`
 name, other names and a directory. `LauncherTest` checks the WebView2 data folder for
