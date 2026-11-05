@@ -22,6 +22,7 @@ the same bytes. Every profile except `tiny` puts `flagword` in 0.1% and
 | `long-lines` | ASCII, 0 to 7 KiB, plus one 1 MiB line in 2,000 |
 | `no-final-newline` | `ascii-short` without a newline after the last line |
 | `tiny` | 10 bytes (`mock12345` and LF); `blkt` starts 1% and `flag` 0.1% of them |
+| `timed` | `ascii-short` with `yyyy-MM-dd HH:mm:ss.SSS` stamps in file order, 0 to 9 ms apart; one entry in 50 is followed by a 9-line stack trace |
 
 ## Harness
 
@@ -104,6 +105,7 @@ qlogg-bench/scripts/cold.sh <tree> $S ascii-short-50g.log 2
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar ReadProbe
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar SearchProbe
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar SearchTrimProbe
+java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar TimeProbe -p fileMib=2560
 ```
 
 Each fork runs at `-XX:MaxRAMPercentage=50`; `-jvmArgsPrepend
@@ -114,6 +116,7 @@ Each fork runs at `-XX:MaxRAMPercentage=50`; `-jvmArgsPrepend
 | `ReadProbe` | Sequential LF count over a generated log (`-p fileMib=1024` by default): `positional` reads into one 4 MiB direct buffer, the indexer's read path; `mapped` reads `MappedByteBuffer` windows of 1 GiB. Both use the same counting loop. Warm page cache |
 | `SearchProbe` | Whole-file `SearchEngine` search of a generated, indexed log (`-p fileMib=1024`) with the default settings and every CPU: `literal` (byte search), `literalIgnoreCase` (ASCII folding on bytes), `regex` (decoded text). Warm page cache |
 | `SearchTrimProbe` | Repeated whole-file literal searches for `blockterm` in an `ascii-short` file (`-p fileMib=16,256`), with `trim=true` (the shipped engine: the read-buffer pool drops back to `ReadBuffers.MIN_BUFFERS` when a search ends, so the next search allocates its direct buffers again) against `trim=false` (the pool keeps them). The difference is the trim's cost per search. In package `core.search` for the engine's package-private constructor. Warm page cache |
+| `TimeProbe` | Over a generated, indexed `timed` log (`-p fileMib=1024` by default): `parse`, the `iso` scanner per line over the 64 KiB head (ns per line); `detect`, `FormatDetector` on that head; `locate`, one go to time by bisection to a random time; `linear`, a `locateLinear` pass over the whole file on one thread; `samples`, 4,000 `TimeSamples`. Warm page cache |
 
 ## Scrolling frame time
 

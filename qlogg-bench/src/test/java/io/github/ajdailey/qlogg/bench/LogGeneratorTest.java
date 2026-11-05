@@ -89,6 +89,25 @@ class LogGeneratorTest {
     assertTrue(nonAscii > 0 && nonAscii < lines.length / 10, "non-ASCII lines " + nonAscii);
   }
 
+  @Test
+  void timedStampsAreInOrderWithStackTraces() throws IOException {
+    String[] lines = text("timed", StandardCharsets.US_ASCII).split("\n");
+    String previous = "";
+    int traces = 0;
+    for (String line : lines) {
+      if (line.startsWith("\tat ")) {
+        traces++;
+        continue;
+      }
+      String stamp = line.substring(0, 23);
+      assertTrue(stamp.compareTo(previous) >= 0, stamp + " after " + previous);
+      assertTrue(stamp.matches("2026-11-01 \\d\\d:\\d\\d:\\d\\d\\.\\d{3}"), stamp);
+      previous = stamp;
+    }
+    double share = traces / (double) lines.length;
+    assertTrue(share > 0.1 && share < 0.2, "trace share " + share);
+  }
+
   private String text(String profile, Charset charset) throws IOException {
     return new String(bytes(profile, 1), charset);
   }

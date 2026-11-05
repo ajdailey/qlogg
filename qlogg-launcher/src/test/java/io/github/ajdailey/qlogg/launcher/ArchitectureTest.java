@@ -174,7 +174,8 @@ class ArchitectureTest {
             ROOT + ".core.index..",
             ROOT + ".core.search..",
             ROOT + ".core.watch..",
-            ROOT + ".core.concurrent..")
+            ROOT + ".core.concurrent..",
+            ROOT + ".core.time..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage(ROOT + ".core.model..")
@@ -215,6 +216,7 @@ class ArchitectureTest {
             ROOT + ".core.search..",
             ROOT + ".core.watch..",
             ROOT + ".core.model..",
+            ROOT + ".core.time..",
             APP,
             UI,
             LAUNCHER)

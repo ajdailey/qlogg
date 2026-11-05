@@ -37,6 +37,17 @@ public interface LineIndex {
   long lineStart(long line);
 
   /**
+   * Returns the nearest line start at or before a line that needs no file read: the line itself in
+   * a full index, the last checkpoint at or before it in a sparse one (at most 1,024 lines or 1 MiB
+   * earlier).
+   *
+   * @param line 0 to {@code lineCount() - 1}
+   * @return the line and its first byte
+   * @throws IndexOutOfBoundsException for any other line
+   */
+  LineStart nearestStart(long line);
+
+  /**
    * Returns a line's exclusive end before its LF. A CR before the LF is part of the line; {@link
    * io.github.ajdailey.qlogg.core.text.LineDecoder} drops it.
    *

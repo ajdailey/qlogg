@@ -1,8 +1,9 @@
 # qlogg-core
 
 Model-side code with no SWT and no logging dependency: thread ownership, the
-memory budget, file access, text handling, the line index, search, the
-document model and small utilities. Tests run without a display.
+memory budget, file access, text handling, the line index, search,
+timestamps, the document model and small utilities. Tests run without a
+display.
 
 The test jar carries `testkit` for the other modules' tests and `qlogg-bench`:
 `SyntheticLog`, the deterministic log writer; `Poll.until`, a bounded poll for
@@ -318,6 +319,85 @@ removing CR and LF.
 and `used()` counts the reads. `lineLimit(line)` is `8 * length + 65,536`.
 `Highlighter` and the app's `HighlightSelector` use it, so a backtracking
 pattern ends at the bound instead of stalling the reading thread.
+
+## Timestamps (`core.time`)
+
+`core.time` parses a timestamp at the start of each line and finds lines by
+time. It depends on `core.io`, `core.text`, `core.index` and
+`core.concurrent`, not on `core.model`. Every call blocks; callers run it on a
+worker.
+
+| Format id | Layout | Zone |
+|---|---|---|
+| `iso` | `yyyy-MM-dd`, space or `T`, `HH:mm:ss`, then optional fraction and `Z`, `+hh:mm` or `+hhmm` | The offset when present, else the document zone |
+| `ymd-slash`, `ymd-dot` | `yyyy/MM/dd HH:mm:ss`, `yyyy.MM.dd HH:mm:ss` | Document zone |
+| `dmy-dot` | `dd.MM.yyyy HH:mm:ss`, or a two-digit year | Document zone |
+| `dmy-slash`, `mdy-slash` | `dd/MM/yyyy HH:mm:ss`, `MM/dd/yyyy HH:mm:ss` | Document zone |
+| `dmony` | `dd MMM yyyy HH:mm:ss` | Document zone |
+| `syslog` | `MMM d HH:mm:ss`, no year | Document zone |
+| `clf` | `[dd/MMM/yyyy:HH:mm:ss +hhmm]` anywhere in the first 256 chars | The offset |
+| `jul` | `MMM dd, yyyy h:mm:ss a` | Document zone |
+| `epoch` | 10 digits of seconds or 13 of milliseconds, optional fraction, then a non-digit | UTC |
+
+- `BuiltInFormat` scanners run at the line's first char and after one leading
+  `[`, allocate nothing per line, and accept a fraction of 1-9 digits after
+  `.` or `,`; month names are English in any case. A field out of range (month
+  13, hour 24, Feb 29 of a non-leap year) is no timestamp.
+- `TimestampParser.parse` returns epoch nanoseconds in a `long`
+  (1677-09-21 to 2262-04-11) or `NONE`, and `fractionDigits()` for display.
+  One parser per thread.
+- `TimeContext` carries the document zone and a reference year and month:
+  the file's modification time, or `current(zone)` for a document without
+  one. `syslog` takes the reference year, or the year before for a month
+  after the reference month. A two-digit year (`dmy-dot`, or `yy` in a user
+  pattern) takes the century that puts the date nearest the reference month,
+  the earlier on a tie (`nearestYear`).
+- A local time takes `ZoneRules.getOffset`: in a DST gap and in an overlap,
+  the offset before the transition, so the repeated hour of a fall-back maps
+  onto its first occurrence and reads as time going backward. The offset is
+  cached per local hour with no transition.
+- `UserFormat(name, locate, pattern)` compiles both at construction and throws
+  `IllegalArgumentException` for a regex without a group named `ts`, a
+  pattern `DateTimeFormatter` refuses, or a value over 256 chars. Its `id()`
+  is `user:` and the name. The regex runs with `find` over the first 256
+  chars under `BoundedChars` (`8 * length + 65,536` reads); reaching the
+  bound or a `StackOverflowError` is no timestamp. The group's text resolves
+  to an instant when it carries an offset or zone, else a local date and
+  time, else a month and day with the `syslog` year rule; a time alone is no
+  timestamp. The formatter resolves `SMART`, so Feb 30 becomes Feb 28.
+- `FormatDetector.detect` runs the built-ins over the first 200 non-empty lines
+  of the encoding head and picks the one that parses the most, with at least
+  3 lines and 20% of the sample; ties go to table order, except that
+  `mdy-slash` wins a tie with `dmy-slash`, which parses more only when a
+  first field is over 12. It returns null when nothing qualifies.
+
+### Lookups
+
+`TimeReader` (one per worker, a 64 KiB heap buffer; a lookup loads 8 KiB at a
+time, a sequential scan the whole buffer) decodes the first 256
+units of a line through `LineDecoder`, so UTF-16 and UTF-32 parse like UTF-8. A
+line that does not parse continues the stamped line above it.
+
+| Method | Reads | Bound |
+|---|---|---|
+| `next(offset, end, token)` | Forward through the `BlockCache`: the first stamp on a line that starts at or after `offset` and before `end` | 10,000 lines or 1 MiB from `offset`; past it, null |
+| `at(lineStart, token)` | The line's own stamp, else backward to the nearest stamped line | 10,000 lines or 1 MiB above the line; past it, null |
+| `TimeSearch.locate` | Bisection over byte offsets with `next`: about log2 of the size in probes | Each probe as `next` |
+| `TimeSearch.locateLinear` | Every line in file order, from the source directly so a full pass does not evict the cache; `ScanProgress` every 4 MiB and at the end | None; the token cancels between lines |
+
+- Both searches return the first stamp equal to the target, else the last
+  stamp before it, else the first stamp, or null without stamps.
+  `locateLinear` stops at the first stamp at or after the target.
+- `locate` is exact only when stamps do not decrease in file order. Local
+  jitter (stamps a few ms out of order) lands it within the jitter window. A
+  larger step back needs `locateLinear`.
+- `TimeSamples.sample(reader, index, lineCount, count, token)` reads the stamp
+  at or after `LineIndex.nearestStart` of `count` evenly spaced lines, first
+  and last included. `nearestStart` returns the line itself in a full index
+  and its checkpoint in a sparse one, so sampling reads no line start.
+  `descents()` counts samples earlier than the stamped sample before them;
+  any descent marks the document out of order. The caller reserves
+  `bytesFor(count)` (`8 * count + 64`) before sampling.
 
 ## File monitoring (`core.watch`)
 

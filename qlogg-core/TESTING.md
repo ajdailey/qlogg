@@ -155,6 +155,26 @@ markers with CRLF, a lone CR and a last line without LF, and hidden ANSI
 colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 `hideAnsi` matches across removed sequences, which a byte search would miss.
 
+## Timestamps
+
+- `TimeSearchTest` checks `locate` and `locateLinear` against an in-memory
+  oracle for every millisecond target across generated files with equal
+  stamps and continuation lines, from before the first stamp to after the
+  last.
+- `bisectionOverThreeGigabytes` runs over `GeneratedSource`, a `ByteSource`
+  that computes fixed-width lines from their offset and stores nothing, so
+  probes and results past 2^31 run without a 3 GB file.
+- Two concatenated days must give one descent in 256 samples; a +-5 ms jitter
+  must land bisection within 11 ms of the target (two jitter widths plus one
+  step).
+- Zone cases use `America/New_York` 2025 dates for the DST overlap and gap.
+- Two-digit years are checked against a 2026-03 reference on both sides of
+  the 50-year pivot (`76` in April is 1976, in February 2076, in March a tie
+  that takes 1976) and against the current date.
+- A `StackOverflowError` in a user format is provoked by a `CharSequence`
+  whose `charAt` throws it: the 256-char prefix is too short to overflow the
+  regex stack on every platform.
+
 ## Threads and file monitoring
 
 - `WorkersTest.noTaskRunsAfterCloseReturns` races `tryStart` against `close`

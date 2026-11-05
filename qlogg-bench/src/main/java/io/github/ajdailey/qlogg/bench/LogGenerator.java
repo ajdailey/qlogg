@@ -6,6 +6,7 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDate;
 import java.util.SplittableRandom;
 
 /**
@@ -56,7 +57,12 @@ public final class LogGenerator {
     /** {@link #ASCII_SHORT} without a newline after the last line. */
     NO_FINAL_NEWLINE("no-final-newline"),
     /** 10-byte lines. */
-    TINY("tiny");
+    TINY("tiny"),
+    /**
+     * {@link #ASCII_SHORT} with timestamps in file order, 0 to 9 ms apart from 2026-11-01 00:00;
+     * one entry in 50 is followed by a 9-line stack trace.
+     */
+    TIMED("timed");
 
     private final String key;
 
@@ -95,6 +101,8 @@ public final class LogGenerator {
   private final StringBuilder line = new StringBuilder(LONG_LINE_BYTES + 64);
   private final byte[] tinyLine = new byte[10];
   private long number;
+  private long clockMillis;
+  private int traceLines;
 
   /**
    * Creates a generator.
@@ -173,6 +181,7 @@ public final class LogGenerator {
     switch (profile) {
       case UTF8_MIXED -> mixed();
       case LONG_LINES -> longLine();
+      case TIMED -> timed();
       default -> shortLine();
     }
     line.append('\n');
@@ -209,6 +218,33 @@ public final class LogGenerator {
     line.append(':');
     two(random.nextInt(60));
     line.append('.').append(100 + random.nextInt(900)).append(' ');
+    entry();
+  }
+
+  /** Writes the next stack-trace line, or an entry stamped {@link #clockMillis}. */
+  private void timed() {
+    if (traceLines > 0) {
+      line.append("\tat mock.Frame.run(Frame.java:").append(traceLines--).append(')');
+      return;
+    }
+    clockMillis += random.nextInt(10);
+    long day = clockMillis / 86_400_000L;
+    line.append(LocalDate.of(2026, 11, 1).plusDays(day)).append(' ');
+    long rest = clockMillis % 86_400_000L;
+    two((int) (rest / 3_600_000L));
+    line.append(':');
+    two((int) (rest / 60_000L % 60));
+    line.append(':');
+    two((int) (rest / 1000 % 60));
+    line.append('.').append(String.valueOf(1000 + rest % 1000).substring(1)).append(' ');
+    entry();
+    words();
+    if (random.nextInt(50) == 0) {
+      traceLines = 9;
+    }
+  }
+
+  private void entry() {
     line.append(LEVELS[random.nextInt(LEVELS.length)]);
     line.append(" [worker-").append(random.nextInt(16)).append("] #").append(number);
     if (random.nextDouble() < RARE) {
@@ -221,6 +257,10 @@ public final class LogGenerator {
 
   private void shortLine() {
     prefix();
+    words();
+  }
+
+  private void words() {
     int words = random.nextInt(11);
     for (int i = 0; i < words; i++) {
       line.append(' ').append(WORDS[random.nextInt(WORDS.length)]);

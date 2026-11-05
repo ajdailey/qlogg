@@ -58,6 +58,11 @@ abstract class IndexSnapshot implements LineIndex {
   }
 
   @Override
+  public LineStart nearestStart(long line) {
+    return new LineStart(line, lineStart(line));
+  }
+
+  @Override
   public long lineEnd(long line) {
     check(line);
     if (line == startCount - 1) {

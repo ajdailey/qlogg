@@ -67,6 +67,18 @@ final class SparseSnapshot extends IndexSnapshot {
   }
 
   @Override
+  public LineStart nearestStart(long line) {
+    if (line < 0 || line >= lineCount()) {
+      throw new IndexOutOfBoundsException("Line " + line + " of " + lineCount());
+    }
+    if (line == startCount - 1) {
+      return new LineStart(line, lastStart);
+    }
+    int checkpoint = view.byLine(line);
+    return new LineStart(view.line(checkpoint), view.offset(checkpoint));
+  }
+
+  @Override
   long lineContaining(long offset) {
     int checkpoint = view.byOffset(offset);
     return advance(view.line(checkpoint), view.offset(checkpoint), Long.MAX_VALUE, offset)[0];
