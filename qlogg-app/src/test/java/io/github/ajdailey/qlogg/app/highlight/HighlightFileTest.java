@@ -9,7 +9,9 @@ import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -136,5 +138,57 @@ class HighlightFileTest {
     assertEquals(second.rules().get(1), rules.get(0));
     assertEquals(first.rules().get(0), rules.get(3));
     assertEquals(List.of("b"), settings.toggle("a").active());
+  }
+
+  // Keyword triggers.
+
+  private static HighlightSet triggered(String id) {
+    HighlightSet set = sample(id);
+    return set.withRules(
+        List.of(
+            set.rules().get(0).withTrigger(new RuleTrigger(true, true, "at %L {x(\\d)}{$1}", true)),
+            set.rules().get(1).withTrigger(new RuleTrigger(false, false, "kept", false))));
+  }
+
+  @Test
+  void triggersRoundTripThroughExportAndProperties() throws Exception {
+    Path file = temp.resolve("triggers.conf");
+    HighlightFile.write(file, List.of(triggered("a")));
+    assertEquals(List.of(triggered("a")), HighlightFile.read(file));
+    Properties properties = new Properties();
+    HighlightSettings settings =
+        new HighlightSettings(
+            List.of(triggered("a")), List.of("a"), ColorLabel.defaults(), MatchHighlight.DEFAULTS);
+    HighlightFile.store(settings, properties);
+    assertEquals(settings, HighlightFile.load(properties));
+  }
+
+  @Test
+  void aFileWithoutTriggersLoadsWithoutActions() throws Exception {
+    Path file = temp.resolve("old.conf");
+    HighlightFile.write(file, List.of(sample("a")));
+    String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+    assertTrue(!text.contains("stopFollow") && !text.contains(".quiet"), text);
+    HighlightSet read = HighlightFile.read(file).get(0);
+    assertEquals(sample("a"), read);
+    assertEquals(RuleTrigger.NONE, read.rules().get(0).trigger());
+  }
+
+  @Test
+  void aMalformedTriggerValueTurnsOnlyThatActionOff() throws Exception {
+    Path file = temp.resolve("bad.conf");
+    HighlightFile.write(file, List.of(triggered("a")));
+    String text =
+        Files.readString(file, StandardCharsets.ISO_8859_1)
+            .replace("rule.0.stopFollow=true", "rule.0.stopFollow=yes")
+            .replace("rule.1.comment=kept", "rule.1.comment=" + "c".repeat(1001));
+    Files.writeString(file, text, StandardCharsets.ISO_8859_1);
+    HighlightSet read = HighlightFile.read(file).get(0);
+    assertEquals(
+        new RuleTrigger(false, true, "at %L {x(\\d)}{$1}", true), read.rules().get(0).trigger());
+    assertEquals(RuleTrigger.NONE, read.rules().get(1).trigger());
+    Properties properties = new Properties();
+    properties.load(new StringReader(text));
+    assertEquals(read, HighlightFile.load(properties).sets().get(0));
   }
 }

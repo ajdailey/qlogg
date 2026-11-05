@@ -965,6 +965,7 @@ public final class MainWindow implements MainView, ApplicationListener {
           case NONE -> "";
           case NEW_LINES -> UiText.TAB_DATA_NEW_LINES.text();
           case NEW_MATCHES -> UiText.TAB_DATA_NEW_MATCHES.text();
+          case FOLLOW_STOPPED -> UiText.TAB_DATA_FOLLOW_STOPPED.text();
         };
     String tip = path.isEmpty() || line.isEmpty() ? path + line : path + "\n" + line;
     item.setToolTipText(tip.isEmpty() ? null : tip);

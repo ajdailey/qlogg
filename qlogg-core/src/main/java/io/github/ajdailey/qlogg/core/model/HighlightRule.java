@@ -17,6 +17,8 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
  * @param variance 0 for one color, else up to {@link #MAX_VARIANCE}: distinct matched strings of a
  *     match-only rule get colors up to that many percent darker or lighter
  * @param enabled false skips the rule
+ * @param trigger what the rule does to appended lines it matches; {@link RuleTrigger#NONE} for
+ *     nothing
  */
 public record HighlightRule(
     String pattern,
@@ -27,7 +29,8 @@ public record HighlightRule(
     Rgb background,
     int alpha,
     int variance,
-    boolean enabled) {
+    boolean enabled,
+    RuleTrigger trigger) {
   /** Longest pattern. */
   public static final int MAX_PATTERN_CHARS = 4096;
 
@@ -36,8 +39,8 @@ public record HighlightRule(
 
   /** Checks the components. */
   public HighlightRule {
-    if (pattern == null || mode == null) {
-      throw new IllegalArgumentException("pattern and mode are required");
+    if (pattern == null || mode == null || trigger == null) {
+      throw new IllegalArgumentException("pattern, mode and trigger are required");
     }
     if (pattern.length() > MAX_PATTERN_CHARS) {
       throw new IllegalArgumentException("pattern is too long");
@@ -48,6 +51,42 @@ public record HighlightRule(
     if (variance < 0 || variance > MAX_VARIANCE) {
       throw new IllegalArgumentException("variance out of range");
     }
+  }
+
+  /**
+   * Creates a rule without a trigger.
+   *
+   * @param pattern the text or regular expression
+   * @param mode how the pattern is read
+   * @param caseSensitive false folds case
+   * @param wholeLine true colors the whole line of a match
+   * @param foreground text color, or null
+   * @param background background color, or null
+   * @param alpha opacity of the background, 0 to 255
+   * @param variance 0 to {@link #MAX_VARIANCE}
+   * @param enabled false skips the rule
+   */
+  public HighlightRule(
+      String pattern,
+      MatchMode mode,
+      boolean caseSensitive,
+      boolean wholeLine,
+      Rgb foreground,
+      Rgb background,
+      int alpha,
+      int variance,
+      boolean enabled) {
+    this(
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        RuleTrigger.NONE);
   }
 
   /**
@@ -72,7 +111,16 @@ public record HighlightRule(
    */
   public HighlightRule withWholeLine(boolean value) {
     return new HighlightRule(
-        pattern, mode, caseSensitive, value, foreground, background, alpha, variance, enabled);
+        pattern,
+        mode,
+        caseSensitive,
+        value,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        trigger);
   }
 
   /**
@@ -83,7 +131,7 @@ public record HighlightRule(
    */
   public HighlightRule withCaseSensitive(boolean value) {
     return new HighlightRule(
-        pattern, mode, value, wholeLine, foreground, background, alpha, variance, enabled);
+        pattern, mode, value, wholeLine, foreground, background, alpha, variance, enabled, trigger);
   }
 
   /**
@@ -95,7 +143,16 @@ public record HighlightRule(
    */
   public HighlightRule withAlphaAndVariance(int opacity, int percent) {
     return new HighlightRule(
-        pattern, mode, caseSensitive, wholeLine, foreground, background, opacity, percent, enabled);
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        opacity,
+        percent,
+        enabled,
+        trigger);
   }
 
   /**
@@ -106,6 +163,35 @@ public record HighlightRule(
    */
   public HighlightRule withEnabled(boolean value) {
     return new HighlightRule(
-        pattern, mode, caseSensitive, wholeLine, foreground, background, alpha, variance, value);
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        value,
+        trigger);
+  }
+
+  /**
+   * Returns a copy with another trigger.
+   *
+   * @param value the trigger
+   * @return the copy
+   */
+  public HighlightRule withTrigger(RuleTrigger value) {
+    return new HighlightRule(
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        value);
   }
 }

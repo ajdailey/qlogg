@@ -64,4 +64,15 @@ public interface DocumentHost {
 
   /** A document's follow state or marks changed, which the session keeps. */
   void documentStateChanged();
+
+  // Keyword triggers.
+
+  /**
+   * A trigger turned follow off for a document.
+   *
+   * @param document the document's controller
+   * @param rule the rule's pattern, cut for display
+   * @param line the 0-based line it matched
+   */
+  void followStoppedByTrigger(DocumentController document, String rule, long line);
 }

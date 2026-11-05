@@ -26,6 +26,7 @@ final class TabDots {
 
   private final Image newLines;
   private final Image newMatches;
+  private final Image followStopped;
 
   /**
    * Creates the images.
@@ -36,6 +37,7 @@ final class TabDots {
   TabDots(Display display, Palette palette) {
     newLines = image(display, palette.newLinesDot());
     newMatches = image(display, palette.newMatchesDot());
+    followStopped = image(display, palette.followStoppedDot());
   }
 
   /**
@@ -49,12 +51,14 @@ final class TabDots {
       case NONE -> null;
       case NEW_LINES -> newLines;
       case NEW_MATCHES -> newMatches;
+      case FOLLOW_STOPPED -> followStopped;
     };
   }
 
   void dispose() {
     newLines.dispose();
     newMatches.dispose();
+    followStopped.dispose();
   }
 
   private static Image image(Display display, final Rgb color) {

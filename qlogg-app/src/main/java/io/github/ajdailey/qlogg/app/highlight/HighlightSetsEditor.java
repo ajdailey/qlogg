@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.highlight;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.core.model.CommentTemplate;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
@@ -184,18 +185,20 @@ public final class HighlightSetsEditor {
   }
 
   /**
-   * Checks that a rule's pattern compiles.
+   * Checks that a rule's pattern and its comment template's regexes compile.
    *
    * @param rule the rule
-   * @return null when it compiles, else {@link UiText#RULE_INVALID} with the pattern error
+   * @return null when both compile, else {@link UiText#RULE_INVALID} with the pattern error or
+   *     {@link UiText#RULE_TEMPLATE_INVALID} with the template error
    */
   public static String validate(HighlightRule rule) {
     try {
       Highlighter.compile(rule);
-      return null;
     } catch (PatternSyntaxException e) {
       return UiText.RULE_INVALID.format(e.getDescription());
     }
+    String template = CommentTemplate.parse(rule.trigger().commentTemplate()).invalid();
+    return template == null ? null : UiText.RULE_TEMPLATE_INVALID.format(template);
   }
 
   /**

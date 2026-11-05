@@ -1007,7 +1007,29 @@ public enum UiText {
   /** Notice: context lines stop at the memory limit. */
   FILTERED_CONTEXT_LIMIT,
   /** Results tab text of a range search: the start and end expressions. */
-  RESULTS_RANGE;
+  RESULTS_RANGE,
+
+  // Keyword triggers.
+  /** Tab tooltip line for a tab whose follow a trigger turned off. */
+  TAB_DATA_FOLLOW_STOPPED,
+  /** Notice: a trigger turned follow off; the rule's pattern and the 1-based line. */
+  NOTICE_TRIGGER_FOLLOW_STOPPED,
+  /** Notice: trigger marks or comments were refused; the tab title and the comment cap. */
+  NOTICE_TRIGGER_MARKS_REFUSED,
+  /** Notice: quiet lines count toward the tab dot again at the memory limit. */
+  NOTICE_TRIGGER_QUIET_LIMIT,
+  /** Highlighter editor caption of the trigger actions. */
+  RULE_TRIGGERS,
+  /** Highlighter editor check box. */
+  RULE_STOP_FOLLOW,
+  /** Highlighter editor check box before the comment template field. */
+  RULE_SET_MARK,
+  /** Tooltip of the comment template field, listing the placeholders. */
+  RULE_COMMENT_TEMPLATE_HINT,
+  /** Highlighter editor check box. */
+  RULE_QUIET,
+  /** Editor status: the comment template's regex does not compile; the reason. */
+  RULE_TEMPLATE_INVALID;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

@@ -49,8 +49,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
   window; a middle click closes it. View > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the tabs.
 - A tab that is not shown gets a dot when its file grows: green for new lines,
-  orange when the tab's search, with Auto-refresh on, found new matches. A
-  reload or truncation counts as new lines. Showing the tab clears the dot.
+  orange when the tab's search, with Auto-refresh on, found new matches,
+  purple when a highlighter trigger stopped follow. A reload or truncation
+  counts as new lines. Showing the tab clears the dot.
 - The overview bar beside the main view marks matches and marks across the
   whole file; a click goes there.
 - Below the splitter: the search row, the result tabs and the filtered view.
@@ -158,6 +159,33 @@ import and export from the Configure Highlighters dialog.
 Color labels color every occurrence of the selected text: `Ctrl+D` takes the
 next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0`
 clears them. View > Highlight Search Matches colors the last search's matches.
+
+### Keyword triggers
+
+A rule can also act on lines appended to an open file (Configure
+Highlighters, "On appended lines"). Every matching rule of an active set
+acts, whatever its color precedence. Lines already in the file when it opens
+or reloads never trigger.
+
+| Action | Effect |
+|---|---|
+| Stop follow | Follow turns off. The status bar names the rule; a tab that is not shown gets the purple dot. |
+| Set mark with comment | The line is marked. A comment on the line stays; otherwise the comment is the template with its placeholders expanded. |
+| Do not light the tab dot | The line does not count as new, and a search match on it does not count as a new match. |
+
+A comment template expands these placeholders:
+
+| Placeholder | Expands to |
+|---|---|
+| `%L` | Line number |
+| `%F` | Full path |
+| `%P` | Directory |
+| `%N` | File name |
+| `%M` | File name without its extension |
+| `%E` | Extension |
+| `{regex}{replacement}` | The line with every match of `regex` replaced; `$1` is the first group, so `{.*user=(\w+).*}{$1}` gives the user name |
+
+A template whose regular expression fails is kept as typed.
 
 ## Following a growing file
 

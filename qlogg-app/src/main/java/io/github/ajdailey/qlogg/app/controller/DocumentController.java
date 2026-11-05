@@ -76,6 +76,8 @@ import org.slf4j.LoggerFactory;
  * highlighter set chosen for the file by a {@link
  * io.github.ajdailey.qlogg.app.highlight.HighlightSelector} replaces the active sets for this
  * document until the user picks sets.
+ *
+ * <p>The {@link TriggerController} applies the triggers of the same rules to appended lines.
  */
 public final class DocumentController extends LineViewController {
   /** Least interval between flushes of index progress. */
@@ -121,6 +123,8 @@ public final class DocumentController extends LineViewController {
   private final FoldMap folds;
   private final FoldController folding;
   private String autoSet;
+  // Keyword triggers.
+  private final TriggerController triggers;
 
   /**
    * Creates the controller for an open document; {@link #start} begins indexing.
@@ -166,6 +170,7 @@ public final class DocumentController extends LineViewController {
         new FilteredController(
             this, search, workers, ui, clipboard, notifications, activity, budget);
     this.overview = new OverviewController(this, workers, ui, budget);
+    this.triggers = new TriggerController(this, document);
     search.addListener(
         new SearchViewListener() {
           @Override
@@ -343,6 +348,7 @@ public final class DocumentController extends LineViewController {
     document.addListener(events);
     indexStarted.set(System.nanoTime());
     document.startIndexing();
+    triggers.started();
     refresh();
   }
 
@@ -976,6 +982,32 @@ public final class DocumentController extends LineViewController {
                 host.highlightSettings(), autoSet, lastSearch(), labels, host.palette()));
     setHighlighter(highlighter);
     filtered.setHighlighter(highlighter);
+    triggers.setRules(HighlightComposer.triggerRules(host.highlightSettings(), autoSet));
+  }
+
+  // Keyword triggers.
+
+  /**
+   * Returns the keyword triggers applied to appended lines.
+   *
+   * @return the controller
+   */
+  public TriggerController triggers() {
+    return triggers;
+  }
+
+  /**
+   * Turns follow off for a trigger and reports it to the host; nothing happens while not following.
+   *
+   * @param rule the rule's pattern, cut for display
+   * @param line the 0-based line it matched
+   */
+  void followStoppedByTrigger(String rule, long line) {
+    if (!following || isClosed()) {
+      return;
+    }
+    setFollowing(false);
+    host.followStoppedByTrigger(this, rule, line);
   }
 
   private HighlightComposer.LastSearch lastSearch() {
@@ -1026,6 +1058,7 @@ public final class DocumentController extends LineViewController {
     search.detach();
     filtered.detach();
     overview.detach();
+    triggers.detach();
     budget().release(MemoryShare.HIGHLIGHT, labelCharge);
     labelCharge = 0;
     document.removeListener(events);
@@ -1071,6 +1104,7 @@ public final class DocumentController extends LineViewController {
     overview.refresh();
     search.appended();
     filtered.grew(index.lineCount());
+    triggers.flushed(status.indexing());
   }
 
   private long estimatedColumns(LineIndex index) {

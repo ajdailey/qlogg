@@ -7,7 +7,10 @@ public enum TabDataState {
   /** The document gained lines. */
   NEW_LINES(1),
   /** The tab's search results gained a line from the document's growth. */
-  NEW_MATCHES(2);
+  NEW_MATCHES(2),
+  // Keyword triggers.
+  /** A keyword trigger turned follow off. */
+  FOLLOW_STOPPED(3);
 
   private final int rank;
 

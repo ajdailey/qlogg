@@ -583,7 +583,8 @@ menu while that document shows drops its automatic set.
 ### Tab data dot
 
 `TabDataModel` (`ApplicationController.tabData()`) keeps a `TabDataState` per
-tab of one window: `NONE`, `NEW_LINES` or `NEW_MATCHES`. It listens to each
+tab of one window: `NONE`, `NEW_LINES`, `NEW_MATCHES` or `FOLLOW_STOPPED`
+(a keyword trigger turned follow off). It listens to each
 document's `DocumentViewListener` and `SearchViewListener` from
 `ApplicationController.start`, before indexing begins, and to the
 `ApplicationListener` events. A tab that is not shown takes `NEW_LINES` when
@@ -594,6 +595,42 @@ run never sets a state. A state replaces only a lower-ranked one
 (`outranks`). Showing the tab sets `NONE`. A reload or reopen keeps the
 tab's state, and a replacement indexed in the background with at least one
 line takes `NEW_LINES`. A close or move out detaches the listeners.
+
+While a quiet rule acts on a document (`TriggerController.defersDot`), its
+growth waits for the trigger scan: `NEW_LINES` needs a scanned line no quiet
+rule matched, and `NEW_MATCHES` needs a new match on such a line, checked once
+the scan covers the last new match. At most 10,000 new matches are checked
+per growth; past that the growth counts as matching.
+
+### Keyword triggers
+
+`TriggerController` (`DocumentController.triggers()`) applies the
+`Triggers` of the rules `HighlightComposer.triggerRules` returns: the active
+sets, or the automatic set, highest priority first. `refreshHighlights`
+rebuilds them when the rules change; a running scan keeps the rules it
+started with.
+
+- Scope: complete lines appended after the first indexing pass ends. A
+  reload or reopen creates a new controller, so a first pass, `F5` and an
+  automatic reopen never fire. A partial last line is scanned once it ends.
+  Growth that arrives while no rule acts is skipped, so a rule added later
+  does not act on it.
+- Each flush with unscanned growth and no scan running starts one on a
+  `qlogg-search-` worker under `LogDocument.enter`. It loops over
+  `Triggers.scan` in batches of 4,096 lines to the indexed end, re-reading
+  the index each batch, and posts each batch. The token is canceled by
+  `detach`.
+- On the UI thread a batch: logs a template failure once (WARN), repaints
+  after marks, calls `followStoppedByTrigger` for a stop-follow match, and
+  notifies `TriggerListener`s. `followStoppedByTrigger` does nothing while not
+  following; otherwise follow turns off and `DocumentHost.followStoppedByTrigger`
+  shows a notice naming the rule (pattern cut to 60 chars) for the shown tab,
+  or sets `FOLLOW_STOPPED` for another.
+- A mark or comment refused by `RESULTS` or the 1,000-comment cap shows one
+  notice per scan, naming the tab.
+- Quiet lines stay in a `MutableLineSet` charged to `RESULTS` until the
+  document closes. When the share refuses them the set is cleared, a notice
+  shows, and quiet lines count toward the dot again for that document.
 
 ### Menu state
 
@@ -688,9 +725,9 @@ Pure functions, tested without a document.
 | Class | Contract |
 |---|---|
 | `HighlightSettings` | The sets (at most 256, distinct ids), the active ids (unknown ids dropped), 9 `ColorLabel`s and the `MatchHighlight`. `rulesInApplyOrder` lists the active sets' rules so the top rule of the first active set applies last and wins; `withImported` appends only sets with new ids |
-| `HighlightFile` | The keys in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. `read` takes the user's path through `SafePaths.logFile`, refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `write` replaces the file through `AtomicFiles` |
-| `HighlightComposer` | `compose` returns one document's rules, lowest priority first: the active sets (`rulesInApplyOrder`), or only the automatic set while a set has its id; the match rule of the last search; the color labels in the palette's colors. `LastSearch` carries the search toggles the match rule reads, so `app.highlight` does not depend on `app.view` (that dependency forms a package cycle). `matchRule` returns null when the match highlight is off, for empty text, for a combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`, counting the whole-word wrap `(?<!\w)(?:...)(?!\w)` that `StandardMatchers.wholeWord` puts around the quoted or regex text |
-| `HighlightSetsEditor` | The Configure Highlighters list model over a copy of the sets: add, remove, move and rename sets, add, remove and move rules, at most `MAX_SETS` sets and `MAX_RULES` rules per set. Each edit returns the index to select next; an index out of range changes nothing; removing a set drops its active id. `setRule` keeps a rule that does not compile and returns `validate`'s message; `importSets` appends the sets with new ids |
+| `HighlightFile` | The keys in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. A malformed trigger value (flag not `true` or `false`, template over 1,000 chars) turns only that action off in `load` and `read`, with one WARN per call; a file without trigger keys loads with `RuleTrigger.NONE`. `read` takes the user's path through `SafePaths.logFile`, refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `write` replaces the file through `AtomicFiles` |
+| `HighlightComposer` | `triggerRules` returns the active or automatic set's rules highest priority first, for `TriggerController`. `compose` returns one document's rules, lowest priority first: the active sets (`rulesInApplyOrder`), or only the automatic set while a set has its id; the match rule of the last search; the color labels in the palette's colors. `LastSearch` carries the search toggles the match rule reads, so `app.highlight` does not depend on `app.view` (that dependency forms a package cycle). `matchRule` returns null when the match highlight is off, for empty text, for a combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`, counting the whole-word wrap `(?<!\w)(?:...)(?!\w)` that `StandardMatchers.wholeWord` puts around the quoted or regex text |
+| `HighlightSetsEditor` | The Configure Highlighters list model over a copy of the sets: add, remove, move and rename sets, add, remove and move rules, at most `MAX_SETS` sets and `MAX_RULES` rules per set. Each edit returns the index to select next; an index out of range changes nothing; removing a set drops its active id. `setRule` keeps a rule that does not compile and returns `validate`'s message, which also reports a comment template whose regex does not compile; `importSets` appends the sets with new ids |
 | `LabelState` | One document's labeled texts. `apply(n, text)` moves a text to label n, or removes it when it has n; `next` steps the cycle (labels with `cycle`) and removes a labeled text's label, still advancing; `EMPTY` clears and restarts the cycle. At most 256 texts; cost 56 bytes per text plus 2 per char |
 
 ## Scratchpad (`app.scratch`)
@@ -831,6 +868,15 @@ set no state, background growth sets `NEW_LINES` and showing clears it,
 matching growth wins over new lines and survives a reload, a search run in a
 background tab sets nothing, a background reload or truncation sets
 `NEW_LINES`, and a closed tab reports no further change.
+`TriggerControllerTest` covers stop follow on the shown tab (notice) and a
+background tab (`FOLLOW_STOPPED` above `NEW_MATCHES`), a templated mark on
+appended lines only, no firing on the first index, a reload or a truncation
+reopen, rules of two sets firing together, quiet growth and quiet matches
+leaving the dot, an append of three batches and more scanned once per line in
+contiguous batches, one notice for refused comments, and growth before a rule
+acts staying unscanned. `HighlightFileTest` round-trips triggers through
+export and `qlogg.conf`, loads a file without them, and turns off only the
+malformed action.
 `ViewFeaturesTest` covers the fold mapping, expansion by go to line, mark
 jumps, find next and `showLine`, collapse all and expand all with the `FOLDS`
 charge returned, copy skipping hidden lines, block copy and block extension,

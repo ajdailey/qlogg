@@ -76,6 +76,29 @@ public final class HighlightComposer {
     return rules;
   }
 
+  // Keyword triggers.
+
+  /**
+   * Returns the rules of the sets active for a document, highest priority first: the top rule of
+   * the top active set first.
+   *
+   * @param settings the highlight settings
+   * @param autoSet the selector's set for the document, as in {@link #compose}; null for none
+   * @return the rules, color labels and the match highlight excluded
+   */
+  public static List<HighlightRule> triggerRules(HighlightSettings settings, String autoSet) {
+    HighlightSettings applied = settings;
+    if (autoSet != null && settings.ids().contains(autoSet)) {
+      applied = settings.withActive(List.of(autoSet));
+    }
+    List<HighlightRule> applyOrder = applied.rulesInApplyOrder();
+    List<HighlightRule> rules = new ArrayList<HighlightRule>(applyOrder.size());
+    for (int i = applyOrder.size() - 1; i >= 0; i--) {
+      rules.add(applyOrder.get(i));
+    }
+    return rules;
+  }
+
   /**
    * Returns the rule coloring a search's matches. Whole word wraps the quoted or regex pattern in
    * word-boundary lookarounds and matches as a regex.

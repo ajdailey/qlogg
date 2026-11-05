@@ -61,7 +61,7 @@ shares that all open documents draw from:
 | Share | Percent | Holder |
 |---|---|---|
 | `LINE_INDEX` | 40 | `GrowableLineIndex` |
-| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows |
+| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines |
 | `BLOCK_CACHE` | 10 | `BlockCache` |
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `FOLDS` | 3 | Fold maps |
@@ -498,7 +498,8 @@ only a thumb drag goes through `setScrollbarSelection`.
 
 `HighlightRule` is one highlighter: pattern, regex or literal, case, whole line
 or matched text, text and background colors (either null for none),
-background opacity 0-255, color variance 0-50 and enabled. `HighlightSet` is a
+background opacity 0-255, color variance 0-50, enabled and a `RuleTrigger`
+(`NONE` by default). `HighlightSet` is a
 named, ordered list of rules with an id (at most 1,000 rules).
 
 `Highlighter.of(rules)` takes rules in apply order: each paints over the ones
@@ -522,6 +523,41 @@ so it wins.
   pattern bounds a read instead of stalling it.
 - Measured once on this host, one thread: four rules over a 1 MiB line take
   15 ms; 60 rows of 80 chars take 0.08 ms.
+
+### Keyword triggers
+
+`RuleTrigger` holds a rule's actions on appended lines: stop follow, set a
+mark with a comment template (at most 1,000 chars), and quiet.
+`Triggers.of(rules)` takes the rules highest priority first and keeps the
+enabled ones with a pattern and an action; a pattern that does not compile is
+left out. Every kept rule that matches a line acts, whatever its color
+precedence. A rule matches with `find` under the highlighter's bound;
+reaching it or a stack overflow counts as no match.
+
+`Triggers.scan` reads at most `BATCH_LINES` (4,096) lines and returns a
+`Batch`: lines scanned, lines no quiet rule matched, the first stop-follow
+rule and its line, marks added, refusals and template failures. It applies the
+batch itself:
+
+- Marks go in with one `addSorted`, all or none against `RESULTS`. A refusal
+  adds no mark and no comment.
+- A marked line keeps an existing comment. Otherwise it takes the expansion of
+  the first marking rule with a template, through `MarkComments.put`; a
+  comment past `MAX_COMMENTS` or the share is a refusal and the mark stays.
+- Quiet lines go into the caller's `MutableLineSet`.
+- A template that fails expands to its own text and is reported once per
+  `Triggers` instance.
+
+`CommentTemplate.parse` compiles a template once. `%L`, `%F`, `%P`, `%N`,
+`%M` and `%E` expand to the 1-based line, the path, the directory, the file
+name, the name without and the extension without the dot (path placeholders
+are empty without a file). `{regex}{replacement}` inserts the line with every
+match replaced (`Matcher.appendReplacement` syntax); braces nest and `\`
+escapes, so `{a{2}}` is one regex, and a brace that does not open a complete
+pair is text. `expand` throws `TemplateException` for a regex that does not
+compile, reaches `8 * length + 65,536` reads, overflows the stack, or names a
+missing group. Output stops at 1,024 chars; `MarkComments.clean` cuts it to
+200.
 
 ### Overview bins and mark toggles
 

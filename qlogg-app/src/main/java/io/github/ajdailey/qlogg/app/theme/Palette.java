@@ -24,6 +24,7 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
  * @param newLinesDot the tab dot for new lines
  * @param newMatchesDot the tab dot for new matching lines
  * @param contextRow filtered-view background of a context line around a search result
+ * @param followStoppedDot the tab dot for follow stopped by a keyword trigger
  */
 public record Palette(
     boolean dark,
@@ -45,7 +46,9 @@ public record Palette(
     Rgb newLinesDot,
     Rgb newMatchesDot,
     // Context lines.
-    Rgb contextRow) {
+    Rgb contextRow,
+    // Keyword triggers.
+    Rgb followStoppedDot) {
   /** The default palette. */
   public static final Palette LIGHT =
       new Palette(
@@ -68,7 +71,9 @@ public record Palette(
           Rgb.of(0x2e9e44),
           Rgb.of(0xe8590c),
           // Context lines.
-          Rgb.of(0xebebeb));
+          Rgb.of(0xebebeb),
+          // Keyword triggers.
+          Rgb.of(0x8e44ad));
 
   /** The dark palette. */
   public static final Palette DARK =
@@ -92,5 +97,7 @@ public record Palette(
           Rgb.of(0x4ec26a),
           Rgb.of(0xff7b3a),
           // Context lines.
-          Rgb.of(0x2f2f30));
+          Rgb.of(0x2f2f30),
+          // Keyword triggers.
+          Rgb.of(0xc27ae0));
 }

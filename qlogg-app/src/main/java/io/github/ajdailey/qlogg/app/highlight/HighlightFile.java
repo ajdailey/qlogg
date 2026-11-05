@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.util.Streams;
 import java.io.ByteArrayInputStream;
@@ -21,6 +22,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Highlight settings as Java properties, under indexed keys with no gap from 0:
@@ -36,6 +40,9 @@ import java.util.Properties;
  *       for none</td></tr>
  *   <tr><td>{@code highlight.set.N.rule.M.alpha}, {@code .variance}</td><td>0-255; 0 to
  *       {@link HighlightRule#MAX_VARIANCE}</td></tr>
+ *   <tr><td>{@code highlight.set.N.rule.M.stopFollow}, {@code .setMark}, {@code .quiet},
+ *       {@code .comment}</td><td>The rule's trigger: flags, and the comment template of at most
+ *       {@link RuleTrigger#MAX_TEMPLATE_CHARS} chars; absent keys mean no action</td></tr>
  *   <tr><td>{@code highlight.active.N}</td><td>An active set's id</td></tr>
  *   <tr><td>{@code label.N.name}, {@code .fore}, {@code .back}, {@code .cycle}</td><td>Color
  *       label N, 0 to 8</td></tr>
@@ -47,8 +54,10 @@ import java.util.Properties;
  * the default for a malformed label. An export file holds {@code version=1} and the sets only;
  * {@link #read} accepts at most {@link FilterFile#MAX_BYTES} bytes, {@link
  * HighlightSettings#MAX_SETS} sets and {@link HighlightSet#MAX_RULES} rules a set, and rejects the
- * whole file on any malformed entry. Both file methods block, so they run on a worker, and take the
- * user's path through {@link SafePaths#logFile(Path)}.
+ * whole file on any malformed entry. A malformed trigger key is not a malformed entry: in either
+ * method the rule loads without that action, and one warning per load names the count. Both file
+ * methods block, so they run on a worker, and take the user's path through {@link
+ * SafePaths#logFile(Path)}.
  */
 public final class HighlightFile {
   static final String SET = "highlight.set.";
@@ -63,6 +72,8 @@ public final class HighlightFile {
 
   /** Marks a color value that does not parse; compared by identity. */
   private static final Rgb BAD_COLOR = new Rgb(0, 0, 0);
+
+  private static final Logger LOG = LoggerFactory.getLogger(HighlightFile.class);
 
   private HighlightFile() {}
 
@@ -94,17 +105,19 @@ public final class HighlightFile {
       throw new FilterFile.FormatException(UiText.HIGHLIGHT_FILE_NOT_EXPORT.text());
     }
     List<HighlightSet> sets = new ArrayList<HighlightSet>();
+    AtomicInteger malformed = new AtomicInteger();
     for (int i = 0; properties.getProperty(SET + i + ".id") != null; i++) {
       if (sets.size() == HighlightSettings.MAX_SETS) {
         throw new FilterFile.FormatException(
             UiText.HIGHLIGHT_FILE_TOO_MANY.format(HighlightSettings.MAX_SETS));
       }
-      HighlightSet set = set(properties, i, true);
+      HighlightSet set = set(properties, i, true, malformed);
       if (set == null) {
         throw new FilterFile.FormatException(UiText.HIGHLIGHT_FILE_INCOMPLETE.format(i + 1));
       }
       sets.add(set);
     }
+    warnMalformed(malformed);
     return Collections.unmodifiableList(sets);
   }
 
@@ -184,6 +197,7 @@ public final class HighlightFile {
         properties.setProperty(key + ".alpha", Integer.toString(rule.alpha()));
         properties.setProperty(key + ".variance", Integer.toString(rule.variance()));
         properties.setProperty(key + ".enabled", Boolean.toString(rule.enabled()));
+        storeTrigger(rule.trigger(), key, properties);
       }
     }
   }
@@ -197,13 +211,15 @@ public final class HighlightFile {
   public static HighlightSettings load(Properties properties) {
     List<HighlightSet> sets = new ArrayList<HighlightSet>();
     List<String> ids = new ArrayList<String>();
+    AtomicInteger malformed = new AtomicInteger();
     for (int i = 0; properties.getProperty(SET + i + ".id") != null; i++) {
-      HighlightSet set = set(properties, i, false);
+      HighlightSet set = set(properties, i, false, malformed);
       if (set != null && !ids.contains(set.id()) && sets.size() < HighlightSettings.MAX_SETS) {
         sets.add(set);
         ids.add(set.id());
       }
     }
+    warnMalformed(malformed);
     List<String> active = new ArrayList<String>();
     for (int i = 0; i < HighlightSettings.MAX_SETS; i++) {
       String id = properties.getProperty(ACTIVE + i);
@@ -232,7 +248,8 @@ public final class HighlightFile {
   }
 
   /** Returns a set, or null when malformed; {@code strict} also rejects a malformed rule. */
-  private static HighlightSet set(Properties properties, int i, boolean strict) {
+  private static HighlightSet set(
+      Properties properties, int i, boolean strict, AtomicInteger malformed) {
     String prefix = SET + i;
     String id = properties.getProperty(prefix + ".id", "").strip();
     String name = properties.getProperty(prefix + ".name");
@@ -247,7 +264,7 @@ public final class HighlightFile {
       if (rules.size() == HighlightSet.MAX_RULES) {
         return null;
       }
-      HighlightRule rule = rule(properties, prefix + ".rule." + r);
+      HighlightRule rule = rule(properties, prefix + ".rule." + r, malformed);
       if (rule != null) {
         rules.add(rule);
       } else if (strict) {
@@ -257,7 +274,7 @@ public final class HighlightFile {
     return new HighlightSet(id, name.strip(), rules);
   }
 
-  private static HighlightRule rule(Properties properties, String key) {
+  private static HighlightRule rule(Properties properties, String key, AtomicInteger malformed) {
     String pattern = properties.getProperty(key + ".pattern");
     int regex = flag(properties.getProperty(key + ".regex", "true"));
     int ignoreCase = flag(properties.getProperty(key + ".ignoreCase", "false"));
@@ -286,7 +303,53 @@ public final class HighlightFile {
         back == NO_COLOR ? null : back,
         alpha,
         variance,
-        enabled == 1);
+        enabled == 1,
+        trigger(properties, key, malformed));
+  }
+
+  // Keyword triggers.
+
+  private static void storeTrigger(RuleTrigger trigger, String key, Properties properties) {
+    if (!trigger.any() && trigger.commentTemplate().isEmpty()) {
+      return;
+    }
+    properties.setProperty(key + ".stopFollow", Boolean.toString(trigger.stopFollow()));
+    properties.setProperty(key + ".setMark", Boolean.toString(trigger.setMark()));
+    properties.setProperty(key + ".comment", trigger.commentTemplate());
+    properties.setProperty(key + ".quiet", Boolean.toString(trigger.quiet()));
+  }
+
+  /** Reads a rule's trigger; a malformed value turns its action off and counts once. */
+  private static RuleTrigger trigger(Properties properties, String key, AtomicInteger malformed) {
+    int stopFollow = flag(properties.getProperty(key + ".stopFollow", "false"));
+    int setMark = flag(properties.getProperty(key + ".setMark", "false"));
+    int quiet = flag(properties.getProperty(key + ".quiet", "false"));
+    String comment = properties.getProperty(key + ".comment", "");
+    int bad = 0;
+    if (stopFollow < 0) {
+      bad++;
+    }
+    if (setMark < 0) {
+      bad++;
+    }
+    if (quiet < 0) {
+      bad++;
+    }
+    if (comment.length() > RuleTrigger.MAX_TEMPLATE_CHARS) {
+      bad++;
+      comment = "";
+    }
+    malformed.addAndGet(bad);
+    if (stopFollow != 1 && setMark != 1 && quiet != 1 && comment.isEmpty()) {
+      return RuleTrigger.NONE;
+    }
+    return new RuleTrigger(stopFollow == 1, setMark == 1, comment, quiet == 1);
+  }
+
+  private static void warnMalformed(AtomicInteger malformed) {
+    if (malformed.get() > 0) {
+      LOG.warn("Ignored {} malformed highlighter trigger values", malformed.get());
+    }
   }
 
   private static ColorLabel label(Properties properties, int i) {

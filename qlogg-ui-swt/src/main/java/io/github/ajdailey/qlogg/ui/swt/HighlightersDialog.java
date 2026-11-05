@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.highlight.MatchHighlight;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -54,6 +55,11 @@ final class HighlightersDialog {
   private final ColorField background;
   private final Spinner alpha;
   private final Spinner variance;
+  // Keyword triggers.
+  private final Button stopFollow;
+  private final Button setMark;
+  private final Text commentTemplate;
+  private final Button quiet;
   private final Label status;
   private final List<Text> labelNames = new ArrayList<Text>();
   private final List<ColorField> labelForegrounds = new ArrayList<ColorField>();
@@ -129,6 +135,15 @@ final class HighlightersDialog {
     background = new ColorField(fields, UiText.RULE_BACKGROUND.text(), false, edited);
     alpha = spinner(fields, UiText.RULE_ALPHA, 255, edited);
     variance = spinner(fields, UiText.RULE_VARIANCE, HighlightRule.MAX_VARIANCE, edited);
+    // Keyword triggers.
+    Dialogs.label(fields, UiText.RULE_TRIGGERS.text());
+    stopFollow = check(fields, UiText.RULE_STOP_FOLLOW, edited);
+    setMark = check(fields, UiText.RULE_SET_MARK, edited);
+    commentTemplate = new Text(fields, SWT.SINGLE | SWT.BORDER);
+    commentTemplate.setTextLimit(RuleTrigger.MAX_TEMPLATE_CHARS);
+    commentTemplate.setToolTipText(UiText.RULE_COMMENT_TEMPLATE_HINT.format());
+    commentTemplate.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+    quiet = check(fields, UiText.RULE_QUIET, edited);
 
     Composite labelsTab = tab(tabs, UiText.HIGHLIGHTERS_TAB_LABELS, 4);
     for (int i = 0; i < ColorLabel.COUNT; i++) {
@@ -290,6 +305,14 @@ final class HighlightersDialog {
             ruleEdited();
           }
         });
+    commentTemplate.addListener(
+        SWT.Modify,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            ruleEdited();
+          }
+        });
     setName.addListener(
         SWT.Modify,
         new Listener() {
@@ -321,7 +344,13 @@ final class HighlightersDialog {
             background.get(),
             alpha.getSelection(),
             variance.getSelection(),
-            enabled.getSelection());
+            enabled.getSelection(),
+            new RuleTrigger(
+                stopFollow.getSelection(),
+                setMark.getSelection(),
+                commentTemplate.getText(),
+                quiet.getSelection()));
+    commentTemplate.setEnabled(setMark.getSelection());
     String invalid = editor.setRule(s, r, rule);
     ruleList.setItem(r, label(rule));
     status.setText(invalid == null ? "" : invalid);
@@ -538,6 +567,15 @@ final class HighlightersDialog {
       background.set(any ? rule.background() : null);
       alpha.setSelection(any ? rule.alpha() : 255);
       variance.setSelection(any ? rule.variance() : 0);
+      RuleTrigger trigger = any ? rule.trigger() : RuleTrigger.NONE;
+      stopFollow.setSelection(trigger.stopFollow());
+      setMark.setSelection(trigger.setMark());
+      commentTemplate.setText(trigger.commentTemplate());
+      quiet.setSelection(trigger.quiet());
+      stopFollow.setEnabled(any);
+      setMark.setEnabled(any);
+      commentTemplate.setEnabled(any && trigger.setMark());
+      quiet.setEnabled(any);
       pattern.setEnabled(any);
       regex.setEnabled(any);
       ignoreCase.setEnabled(any);
@@ -585,6 +623,30 @@ final class HighlightersDialog {
 
   Text pattern() {
     return pattern;
+  }
+
+  // Keyword triggers.
+
+  Button stopFollow() {
+    return stopFollow;
+  }
+
+  Button setMark() {
+    return setMark;
+  }
+
+  Text commentTemplate() {
+    return commentTemplate;
+  }
+
+  Button quiet() {
+    return quiet;
+  }
+
+  /** Selects a set and a rule as a click would. */
+  void selectRule(int set, int rule) {
+    setList.select(set);
+    refillRules(rule);
   }
 
   String statusText() {

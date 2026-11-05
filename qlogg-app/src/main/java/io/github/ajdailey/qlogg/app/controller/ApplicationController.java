@@ -1826,6 +1826,18 @@ public final class ApplicationController implements DocumentHost {
     scheduleSave();
   }
 
+  // Keyword triggers.
+
+  /** The shown document shows a notice; a background tab takes {@code FOLLOW_STOPPED}. */
+  @Override
+  public void followStoppedByTrigger(DocumentController document, String rule, long line) {
+    if (document == active) {
+      view.showNotice(UiText.NOTICE_TRIGGER_FOLLOW_STOPPED.format(rule, line + 1));
+    } else {
+      tabData.followStopped(document);
+    }
+  }
+
   /** Saves {@link #SAVE_DELAY_MILLIS} after the last call. */
   private void scheduleSave() {
     if (!shuttingDown) {

@@ -119,9 +119,9 @@ Compiled and tested against the build host's SWT fragment.
   reorders. `documentMovedOut` removes the tab and views as a close does;
   `documentMovedIn` inserts the tab at its index. No `DragSource` is used.
 - A tab whose `TabDataModel` state is not `NONE` shows a `TabDots` image, a
-  dot in the palette's `newLinesDot` or `newMatchesDot` color with a darker
-  rim, and its tooltip adds "New lines" or "New matching lines" under the
-  path. `TabDots` renders each image per zoom through an
+  dot in the palette's `newLinesDot`, `newMatchesDot` or `followStoppedDot`
+  color with a darker rim, and its tooltip adds "New lines", "New matching
+  lines" or "Follow stopped by a highlighter" under the path. `TabDots` renders each image per zoom through an
   `ImageDataProvider`; a palette change creates the next palette's dots,
   sets them on every tab, then disposes the old ones. A tab with no state has
   no image, so a dot widens its tab. The folder shows images on unselected
@@ -217,7 +217,7 @@ event loop:
 | Predefined Filters | Add and Remove icons at the left, Import and Export centered, Move Up and Move Down icons at the right; a table of Name, Pattern and Regex, where a click on a selected row's name or pattern edits it in place and a click on Regex toggles it; Import appends the filters of a chosen file not in the list yet, Export writes the list, both on a worker with the result reported in the dialog; OK saves and closes, Apply saves |
 | Save as Filter, Rename Tab | `NameDialog`: the filter's name, prefilled with the pattern cut at 64 chars; or the tab's name, empty to reset it |
 | Switch to File | `SwitchFileDialog`: the open files by path and a filter field matching any part of it, ignoring case; Up and Down in the field move the selection, Enter or a double click shows the tab |
-| Configure Highlighters | Highlighter Sets tab: the sets (Add, Remove, Move Up, Move Down, Import, Export, name) and the selected set's highlighters (Add, Remove, Move Up, Move Down) with the editor (pattern, Regex, Ignore case, whole line, Enabled, text and background colors through `ColorField`, opacity, variance); a pattern that does not compile is reported below. Color Labels tab: name, colors and cycle membership per label. Match Highlight tab: on or off, theme color or a chosen one, variance. Import adds the sets of a chosen file whose ids are new. The list edits and the pattern check run in `HighlightSetsEditor` (qlogg-app); the dialog holds the widgets. OK saves |
+| Configure Highlighters | Highlighter Sets tab: the sets (Add, Remove, Move Up, Move Down, Import, Export, name) and the selected set's highlighters (Add, Remove, Move Up, Move Down) with the editor (pattern, Regex, Ignore case, whole line, Enabled, text and background colors through `ColorField`, opacity, variance, and the trigger actions Stop follow, Set mark with a comment template field enabled only with it, and Do not light the tab dot); a pattern or template regex that does not compile is reported below. Color Labels tab: name, colors and cycle membership per label. Match Highlight tab: on or off, theme color or a chosen one, variance. Import adds the sets of a chosen file whose ids are new. The list edits and the pattern check run in `HighlightSetsEditor` (qlogg-app); the dialog holds the widgets. OK saves |
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
 | Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
 | User guide | `GuideWindow`: an SWT `Browser` with JavaScript off on the guide's copy, and Close. A `LocationListener` refuses every location but that file (with or without an anchor) and `about:blank`. An `SWTException` or `SWTError` from a browser call, or a page not loaded 15 s after the load request (a `UiDispatcher.timerExec`, so the UI thread does not wait), closes the window and calls `ApplicationController.showGuideElsewhere`: the OS browser, else a notice naming the copy. A failure during `create` returns null instead, and the controller takes the same fallback. A bound that expires during one of `GuideWindow`'s own browser or shell calls closes the window after that call returns: on Cocoa an SWT timer runs inside any nested run loop a native call spins. A second Documentation reloads the page, restarts the bound and activates the window |
@@ -436,7 +436,8 @@ File list and show tabs, and dropped files open.
 `TabDotTest` appends to a background tab's file: the tab gets the
 `NEW_LINES` dot and tooltip line, a theme change recolors it and disposes the
 old image, and showing the tab clears both; the rendered dot is opaque at its
-center and transparent at the corners.
+center and transparent at the corners. A stop-follow trigger on a following
+background tab gives it the `FOLLOW_STOPPED` dot and tooltip line.
 `TabMoveGuiTest` opens two windows over one `WindowSet`: View > Move to New
 Window and the tab menu item each move the shown tab to a new window, the
 emptied window stays open without views and its menu item is disabled; a
@@ -480,7 +481,9 @@ layout, the search bar with `N` and
 operations. `ThemeAndHighlightTest` switches the palette and reads painted
 pixels of both canvases, clicks the overview bar, and toggles a set from the
 Highlighters menu and reads the span's painted color; it also drives
-`HighlightersDialog` through add, an invalid pattern, move and remove.
+`HighlightersDialog` through add, an invalid pattern, move and remove, and
+sets a rule's trigger actions, reports an invalid template regex and reads the
+actions back after OK.
 `EventLoop.runUntil`
 dispatches events until a condition holds, with a bound and no fixed sleep.
 `ViewFeaturesGuiTest` drives `Alt` and `Shift` with the wheel, an `Alt`-drag

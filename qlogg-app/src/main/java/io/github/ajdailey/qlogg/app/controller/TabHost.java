@@ -159,4 +159,11 @@ final class TabHost
   public void documentStateChanged() {
     window.documentStateChanged();
   }
+
+  // Keyword triggers.
+
+  @Override
+  public void followStoppedByTrigger(DocumentController document, String rule, long line) {
+    window.followStoppedByTrigger(document, rule, line);
+  }
 }

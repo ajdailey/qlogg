@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,10 +21,19 @@ import java.util.Map;
  * tab's state and, while not shown, takes {@code NEW_LINES} when its first pass ends with at least
  * one line. A run of a new search starts a new generation and never sets a state.
  *
+ * <p>A keyword trigger that turns follow off sets {@code FOLLOW_STOPPED}, which outranks {@code
+ * NEW_MATCHES}. While a quiet rule acts on the document ({@link TriggerController#defersDot}),
+ * growth waits for the trigger scan: {@code NEW_LINES} needs a scanned line no quiet rule matched,
+ * and {@code NEW_MATCHES} a new match on such a line. At most {@link #QUIET_CHECKS} new matches are
+ * checked; past that the growth counts as matching.
+ *
  * <p>Listeners attach to a document's controllers at {@link #started} and detach when the tab
  * closes, moves out or is replaced. Each tab costs one small object, not charged to the budget.
  */
 public final class TabDataModel implements ApplicationListener {
+  /** New matches checked against the quiet lines per growth. */
+  static final int QUIET_CHECKS = 10_000;
+
   private final Map<DocumentController, Watch> watches = new HashMap<DocumentController, Watch>();
   private final List<TabDataListener> listeners = new ArrayList<TabDataListener>();
   private DocumentController shown;
@@ -71,6 +81,18 @@ public final class TabDataModel implements ApplicationListener {
       watches.put(document, watch);
     }
     watch.attach(false);
+  }
+
+  /**
+   * Sets {@code FOLLOW_STOPPED} on a tab that is not shown.
+   *
+   * @param document the tab's controller
+   */
+  void followStopped(DocumentController document) {
+    Watch watch = watches.get(document);
+    if (watch != null) {
+      watch.raise(TabDataState.FOLLOW_STOPPED);
+    }
   }
 
   @Override
@@ -126,7 +148,7 @@ public final class TabDataModel implements ApplicationListener {
   }
 
   /** One tab's state and the baselines its growth is measured from. */
-  private final class Watch implements DocumentViewListener, SearchViewListener {
+  private final class Watch implements DocumentViewListener, SearchViewListener, TriggerListener {
     private final DocumentController document;
     private final boolean reopened;
     private TabDataState state = TabDataState.NONE;
@@ -136,6 +158,9 @@ public final class TabDataModel implements ApplicationListener {
     private long generation;
     private long matches;
     private boolean searchDone;
+    // Keyword triggers: new matches waiting for the scan, as result indexes [from, to).
+    private long pendingFrom = -1;
+    private long pendingTo;
 
     Watch(DocumentController document, boolean reopened) {
       this.document = document;
@@ -152,6 +177,7 @@ public final class TabDataModel implements ApplicationListener {
       takeSearch(document.search().state());
       document.addListener(this);
       document.search().addListener(this);
+      document.triggers().addListener(this);
     }
 
     void detach() {
@@ -159,6 +185,7 @@ public final class TabDataModel implements ApplicationListener {
         attached = false;
         document.removeListener(this);
         document.search().removeListener(this);
+        document.triggers().removeListener(this);
       }
     }
 
@@ -188,7 +215,7 @@ public final class TabDataModel implements ApplicationListener {
             raise(TabDataState.NEW_LINES);
           }
         }
-      } else if (count > lines) {
+      } else if (count > lines && !document.triggers().defersDot()) {
         raise(TabDataState.NEW_LINES);
       }
       lines = count;
@@ -203,10 +230,52 @@ public final class TabDataModel implements ApplicationListener {
     public void stateChanged(SearchViewState searchState) {
       long current = document.search().generation();
       boolean done = searchState.phase() == SearchViewState.Phase.DONE;
+      if (current != generation) {
+        pendingFrom = -1;
+      }
       if (current == generation && searchDone && done && searchState.matchCount() > matches) {
-        raise(TabDataState.NEW_MATCHES);
+        if (document.triggers().defersDot()) {
+          pendingFrom = pendingFrom < 0 ? matches : pendingFrom;
+          pendingTo = searchState.matchCount();
+        } else {
+          raise(TabDataState.NEW_MATCHES);
+        }
       }
       takeSearch(searchState);
+      checkPending();
+    }
+
+    @Override
+    public void linesScanned(long from, long to, long loudLines) {
+      if (loudLines > 0) {
+        raise(TabDataState.NEW_LINES);
+      }
+      checkPending();
+    }
+
+    /** Raises {@code NEW_MATCHES} once the scan covers the waiting matches and one is not quiet. */
+    private void checkPending() {
+      if (pendingFrom < 0) {
+        return;
+      }
+      TriggerController triggers = document.triggers();
+      LineSet results = document.search().results();
+      long end = Math.min(pendingTo, results.size());
+      if (end <= pendingFrom) {
+        pendingFrom = -1;
+        return;
+      }
+      if (triggers.defersDot() && results.select(end - 1) >= triggers.scannedTo()) {
+        return;
+      }
+      boolean loud = !triggers.defersDot();
+      for (long i = pendingFrom; i < end && !loud; i++) {
+        loud = i - pendingFrom >= QUIET_CHECKS || !triggers.isQuiet(results.select(i));
+      }
+      pendingFrom = -1;
+      if (loud) {
+        raise(TabDataState.NEW_MATCHES);
+      }
     }
 
     private void takeSearch(SearchViewState searchState) {

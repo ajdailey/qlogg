@@ -28,6 +28,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
@@ -48,6 +49,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -343,5 +345,38 @@ class ThemeAndHighlightTest {
     dialog.removeSet();
     assertEquals(List.of(SET), dialog.result().sets());
     dialog.shell().dispose();
+  }
+
+  // Keyword triggers.
+
+  private static void click(Button check) {
+    check.setSelection(!check.getSelection());
+    check.notifyListeners(SWT.Selection, new Event());
+  }
+
+  @Test
+  void theHighlightersDialogEditsARulesTriggers() {
+    HighlightersDialog dialog = new HighlightersDialog(window.shell(), controller);
+    dialog.selectRule(0, 0);
+    assertFalse(dialog.stopFollow().getSelection());
+    assertFalse(dialog.commentTemplate().getEnabled(), "no mark, no template");
+    click(dialog.stopFollow());
+    click(dialog.setMark());
+    assertTrue(dialog.commentTemplate().getEnabled());
+    dialog.commentTemplate().setText("at %L");
+    click(dialog.quiet());
+    assertEquals(
+        new RuleTrigger(true, true, "at %L", true), dialog.sets().get(0).rules().get(0).trigger());
+    dialog.commentTemplate().setText("{(}{x}");
+    assertTrue(dialog.statusText().startsWith(UiText.RULE_TEMPLATE_INVALID.format("")));
+    controller.setHighlightSettings(dialog.result());
+    dialog.shell().dispose();
+    HighlightersDialog reopened = new HighlightersDialog(window.shell(), controller);
+    reopened.selectRule(0, 0);
+    assertTrue(reopened.stopFollow().getSelection());
+    assertTrue(reopened.setMark().getSelection());
+    assertTrue(reopened.quiet().getSelection());
+    assertEquals("{(}{x}", reopened.commentTemplate().getText());
+    reopened.shell().dispose();
   }
 }

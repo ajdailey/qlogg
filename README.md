@@ -110,6 +110,9 @@ plugins.
   square bullet whose tooltip shows the comment. Tools > Marks List lists the
   shown tab's marks with comments and line text; go to, edit and remove from
   the list.
+- Keyword triggers on highlighter rules act on lines appended to an open
+  file: stop follow, set a mark with a comment template, or keep the line off
+  the tab dot.
 
 ### Sessions and settings
 

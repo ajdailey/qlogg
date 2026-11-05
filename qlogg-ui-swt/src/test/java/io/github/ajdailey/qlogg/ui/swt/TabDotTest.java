@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.TabDataState;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -23,7 +24,11 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.HighlightRule;
+import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.RuleTrigger;
+import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -172,5 +177,42 @@ class TabDotTest {
         color.red() << 16 | color.green() << 8 | color.blue(), data.getPixel(center, center));
     assertEquals(0, data.getAlpha(0, 0));
     assertTrue(data.getAlpha(center, 2) > 0, "the rim reaches the top");
+  }
+
+  // Keyword triggers.
+
+  @Test
+  void aTriggerThatStopsFollowGivesABackgroundTabItsOwnDot() throws Exception {
+    HighlightRule stop =
+        HighlightRule.matchOnly("FATAL", MatchMode.LITERAL, null, null)
+            .withTrigger(new RuleTrigger(true, false, "", false));
+    HighlightSet set = new HighlightSet("mock-stop", "Mock stop", List.of(stop));
+    controller.setHighlightSettings(
+        controller.highlightSettings().withSets(List.of(set)).withActive(List.of("mock-stop")));
+    final DocumentController background = controller.documents().get(0);
+    background.setFollowing(true);
+    final CTabItem first = window.tabs().getItem(0);
+    Files.writeString(
+        temp.resolve("first.log"),
+        "FATAL d\n",
+        StandardCharsets.US_ASCII,
+        StandardOpenOption.APPEND);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return first.getImage() == window.tabDots().image(TabDataState.FOLLOW_STOPPED);
+              }
+            }));
+    assertTrue(!background.following());
+    assertTrue(
+        first.getToolTipText().endsWith("\n" + UiText.TAB_DATA_FOLLOW_STOPPED.text()),
+        first.getToolTipText());
+    Rgb color = Palette.LIGHT.followStoppedDot();
+    ImageData data = TabDots.render(color, 2 * TabDots.SIZE);
+    assertEquals(
+        color.red() << 16 | color.green() << 8 | color.blue(),
+        data.getPixel(TabDots.SIZE, TabDots.SIZE));
   }
 }
