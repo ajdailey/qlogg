@@ -3,9 +3,9 @@
 The command line, the key bindings, the controllers and the view contracts.
 It depends on
 `qlogg-core` and slf4j-api, never on SWT, so every class here is tested
-without a display. Tests bind logback through `QuietLogging`, which turns the
-root logger off; a test that checks a log statement attaches a `ListAppender`
-to that logger.
+without a display. Tests log through `slf4j-jdk14` with logging off
+(`quiet-logging.properties`); a test that checks a log statement attaches a JUL
+`Handler` to that logger and sets its level.
 
 ## Command line (`app.cli`)
 
@@ -698,7 +698,7 @@ remapped.
 
 `RecentLog` holds the last 500 log lines, each cut at 2,000 chars, for Show
 Log. Append and snapshot each hold the deque's lock only to copy references.
-The launcher's logback appender feeds it and marks WARN and ERROR lines;
+The launcher's `RecentHandler` feeds it and marks WARN and ERROR lines;
 `warnings()` counts them, and the warning listener runs on the logging thread
 after each one. `LogFiles` is the debug log file as the controllers see it;
 the launcher's `FileLog` implements it.

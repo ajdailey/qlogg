@@ -46,7 +46,7 @@ class StoreFaultsTest {
 
   /** The recent log lines added since {@code from}. */
   private static List<String> recentSince(int from) {
-    List<String> lines = LogbackConfigurator.RECENT.snapshot();
+    List<String> lines = LogConfigurator.RECENT.snapshot();
     return new ArrayList<String>(lines.subList(Math.min(from, lines.size()), lines.size()));
   }
 
@@ -106,7 +106,7 @@ class StoreFaultsTest {
   }
 
   private void assertEmptyStartWithWarn(Path directory, String warning) {
-    int from = LogbackConfigurator.RECENT.snapshot().size();
+    int from = LogConfigurator.RECENT.snapshot().size();
     Observed observed = start(directory, List.of());
     assertEquals(0, observed.exit);
     assertTrue(observed.ready, "window did not open empty");

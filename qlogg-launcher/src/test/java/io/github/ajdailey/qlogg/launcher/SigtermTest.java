@@ -21,11 +21,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * SIGTERM to a running QLogg process that restored a session of two files: the shutdown hook runs
- * the quit, which saves the session and the positions and removes the handoff endpoint, and the
- * process ends within the hook's bound. The session is saved only by a run that restored it, so the
- * run starts without files from a session file dated in the past. Linux only: {@code
- * Process.destroy} sends SIGTERM there, while on Windows it terminates the process without running
- * hooks.
+ * the quit, which saves the session and the positions and removes the handoff endpoint, the process
+ * ends within the hook's bound, and the hook's log line reaches the debug log file. The session is
+ * saved only by a run that restored it, so the run starts without files from a session file dated
+ * in the past. Linux only: {@code Process.destroy} sends SIGTERM there, while on Windows it
+ * terminates the process without running hooks.
  */
 @Tag("swt")
 @EnabledOnOs(OS.LINUX)
@@ -101,6 +101,7 @@ class SigtermTest {
     String session = Files.readString(sessionFile, StandardCharsets.ISO_8859_1);
     assertTrue(session.contains("first.log") && session.contains("second.log"), session);
     assertTrue(Files.isRegularFile(settings.resolve(PositionStore.FILE)));
+    assertTrue(read(log).contains("Exit requested by the system; quitting"), read(log));
   }
 
   private static String read(Path log) throws IOException {

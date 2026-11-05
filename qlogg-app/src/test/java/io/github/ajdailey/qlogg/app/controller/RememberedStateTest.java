@@ -4,10 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -34,9 +30,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.LoggerFactory;
 
 /** Settings, the session, positions and UI state written by one run and read by the next. */
 class RememberedStateTest {
@@ -265,31 +264,38 @@ class RememberedStateTest {
     }
   }
 
-  /** Records the WARN events {@code DocumentOpener} logs while open. */
-  private static final class OpenerWarnings implements AutoCloseable {
-    final ListAppender<ILoggingEvent> events = new ListAppender<ILoggingEvent>();
-    final Logger logger = (Logger) LoggerFactory.getLogger(DocumentOpener.class);
+  /** Records the WARN records {@code DocumentOpener} logs while open. */
+  private static final class OpenerWarnings extends Handler implements AutoCloseable {
+    final List<String> records = new ArrayList<String>();
+    final Logger logger = Logger.getLogger(DocumentOpener.class.getName());
 
     OpenerWarnings() {
-      events.setContext(logger.getLoggerContext());
-      events.start();
-      logger.addAppender(events);
-      logger.setLevel(Level.WARN);
+      logger.addHandler(this);
+      logger.setLevel(Level.WARNING);
+    }
+
+    @Override
+    public void publish(LogRecord record) {
+      synchronized (records) {
+        records.add(record.getMessage());
+      }
+    }
+
+    @Override
+    public void flush() {
+      // Nothing is buffered.
     }
 
     List<String> messages() {
-      List<String> out = new ArrayList<String>();
-      for (ILoggingEvent event : events.list) {
-        out.add(event.getFormattedMessage());
+      synchronized (records) {
+        return new ArrayList<String>(records);
       }
-      return out;
     }
 
     @Override
     public void close() {
-      logger.detachAppender(events);
+      logger.removeHandler(this);
       logger.setLevel(null);
-      events.stop();
     }
   }
 

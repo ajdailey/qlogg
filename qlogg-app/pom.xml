@@ -34,15 +34,10 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Tests that check a log statement capture it with a ListAppender. -->
+        <!-- Tests that check a log statement capture it with a JUL Handler. -->
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-core</artifactId>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -157,6 +152,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Logging off in tests; a test that checks a statement attaches its own
+                 Handler and sets that logger's level. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Duser.home=${project.build.directory}/test-home ${qlogg.test.jvmArgs} -Djava.util.logging.config.file=${project.basedir}/src/test/resources/quiet-logging.properties</argLine>
+                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -246,14 +246,15 @@ class ArchitectureTest {
     slices().matching(ROOT + ".(**)").should().beFreeOfCycles().check(classes);
   }
 
+  /** Only the launcher configures handlers, levels or the {@code LogManager}. */
   @Test
-  void logbackOnlyInLauncher() {
+  void julOnlyInLauncher() {
     noClasses()
         .that()
         .resideOutsideOfPackage(LAUNCHER)
         .should()
         .dependOnClassesThat()
-        .resideInAPackage("ch.qos.logback..")
+        .resideInAnyPackage("java.util.logging..", "org.slf4j.jul..")
         .check(classes);
   }
 

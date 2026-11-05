@@ -273,7 +273,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 |---|---|
 | `-h`, `--help`, `--help-all` | Print usage and exit 0 |
 | `-v`, `--version` | Print `qlogg <version>` and exit 0 |
-| `-d`, `--debug <level>` | stderr log level: `1` INFO, `2` DEBUG, `3` and above TRACE, or `error`, `warn`, `info`, `debug`, `trace`; WARN when absent |
+| `-d`, `--debug <level>` | stderr log level: `1` INFO, `2` DEBUG, `3` and above TRACE, or `error`, `warn`, `info`, `debug`, `trace`; WARN when absent. Show Log (INFO) and the `-l` file (DEBUG) take it when finer. It applies to QLogg's own loggers; the Java runtime's stay at INFO |
 | `-l`, `--log` | Also write the log at DEBUG to `logs/qlogg.log` in the settings directory, for this run; a process that is not the running instance (`-m`, or a failed handoff) writes `logs/qlogg-<pid>.log` |
 | `-m`, `--multi` | Run as an independent instance: no handoff, and it never replaces the saved session |
 | `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on |

@@ -168,7 +168,7 @@ final class Gui {
       }
       final SwtUiDispatcher ui = new SwtUiDispatcher(display);
       final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
-      set.setLogging(LogbackConfigurator.RECENT, logFiles);
+      set.setLogging(LogConfigurator.RECENT, logFiles);
       set.setFactory(
           new WindowSet.Factory() {
             @Override

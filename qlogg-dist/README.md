@@ -118,8 +118,10 @@ setup-java's JDK as `JAVA_HOME`.
 ## Smoke tests
 
 `SmokeTest` (tag `swt`) runs at `integration-test`: `java -jar qlogg.jar -v`
-prints the manifest version; `java -jar qlogg.jar` opens a 900 x 600 window at
-50,40; and on linux-x86_64 the extracted bundle runs with `PATH` holding only
-`uname` and `readlink`, reports its own `runtime/` as `java.home`, and opens
-the same window. That runtime must have `jdk.charsets` and support every
+prints the manifest version as its first line; `java -jar qlogg.jar` opens a
+900 x 600 window at 50,40 and writes no `logs` folder; and on linux-x86_64 the
+extracted bundle runs with `-l` and `PATH` holding only `uname` and
+`readlink`, reports its own `runtime/` as `java.home`, opens the same window,
+and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's
+line and no other file in `logs`. That runtime must have `jdk.charsets` and support every
 charset the Encoding menu lists (`CharsetProbe`).

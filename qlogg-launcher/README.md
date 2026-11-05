@@ -1,9 +1,9 @@
 # qlogg-launcher
 
 Composes the application: parses the command line, configures logging and the
-platform, then runs the SWT event loop. It is the only module that depends on
-logback, and its test class path sees every module except the bootstrap, so
-it holds the architecture rules.
+platform, then runs the SWT event loop. It is the only module that configures
+java.util.logging (through `slf4j-jdk14`), and its test class path sees every
+module except the bootstrap, so it holds the architecture rules.
 
 ## Startup and exit
 
@@ -46,7 +46,7 @@ worker, so the first open does not read the JDK time-zone data on the UI
 thread. It creates the `MemoryBudget` from `Runtime.maxMemory()`, the document
 services (an `Indexer` with default settings, a `BlockCache` of 64 KiB blocks
 holding the whole `BLOCK_CACHE` share, `encoding.default` as the fallback
-charset), the dispatcher, the `WindowSet` with `LogbackConfigurator.RECENT`
+charset), the dispatcher, the `WindowSet` with `LogConfigurator.RECENT`
 and the `FileLog`, connects the macOS application menu (`AppMenu.hook`, a
 no-op elsewhere), and the first window with the default `Keymap` and the
 user's overrides and its `ApplicationController`, places the window (the
@@ -80,25 +80,40 @@ every window is disposed; then the Display is disposed and `run` returns.
 
 ## Logging
 
-`LogbackConfigurator` configures logback in code. It is registered in
-`META-INF/services` at `CUSTOM_TOP_PRIORITY` and returns
-`DO_NOT_INVOKE_NEXT_IF_ANY`, so logback never reads a `logback.xml`. There is
-no XML configuration, so no logback condition is evaluated, and the enforcer
-bans janino.
+SLF4J logs through `slf4j-jdk14` to java.util.logging (JUL). `Main` calls
+`LogConfigurator.install` before any class logs. It sets
+`java.util.logging.manager` to `RetainingLogManager` unless the property is set,
+then calls `LogManager.reset()`, which drops what the JDK read from
+`$JAVA_HOME/conf/logging.properties` or a `java.util.logging.config.*`
+property, and attaches the root handlers:
 
-| Appender | Level | Destination |
+| Handler | Level | Destination |
 |---|---|---|
-| `stderr` | `-d`, WARN when absent | Standard error |
-| `recent` | INFO, or `-d` when finer | `LogbackConfigurator.RECENT` (`RecentLog`); WARN and ERROR lines count as warnings |
-| `qlogg-logfile` | DEBUG, or `-d` when finer | `<settings>/logs/qlogg.log` through `FileLog`, while attached; `qlogg-<pid>.log` in a process without the handoff lock |
+| `StderrHandler` | `-d`, WARN when absent | Standard error |
+| `RecentHandler` | INFO, or `-d` when finer | `LogConfigurator.RECENT` (`RecentLog`); WARN and ERROR lines count as warnings |
+| `LogFileHandler` | DEBUG, or `-d` when finer | `<settings>/logs/qlogg.log` through `FileLog`, while attached; `qlogg-<pid>.log` in a process without the handoff lock |
 
-The root level is the finest of them. `FileLog` wraps a `RollingFileAppender`
-(`qlogg.log`, rolled to `qlogg.log.1` at 10 MiB) in an `AsyncAppender` with a
-4,096-line queue that drops a line when full and never blocks the logging
-thread; logback's own daemon thread `AsyncAppender-Worker-qlogg-logfile`
-writes the file. The `logs` folder is created owner-only, and on POSIX the
-file `rw-------`. An ERROR status from the file appender, its rolling policy or
-its output stream detaches the file and logs an ERROR.
+`-d` maps to JUL as slf4j-jdk14 maps the SLF4J levels: `error` SEVERE, `warn`
+WARNING, `info` INFO, `debug` FINE, `trace` FINEST. The `io.github.ajdailey.qlogg`
+logger takes the finest handler level; every other logger, including the JDK's
+own, stays at INFO, so `-d` and the file do not turn on JDK debug output.
+
+Every handler formats with `LineFormatter` and publishes on the logging thread:
+`2026-11-04 12:00:00,123 WARN  [thread] i.g.a.q.l.Launcher - message`, then
+the stack trace when there is one. The logger name is cut to 20 characters by
+shortening packages from the left. CR, LF, NEL, U+2028 and U+2029 in the
+message become `_`, a backstop behind `LogText.oneLine` at the call sites.
+
+`LogFileHandler` writes each line with one unbuffered write, so a crash loses
+no line, and a slow disk holds the thread that logs. Before a write would take
+`qlogg.log` past 10 MiB it moves the file to `qlogg.log.1` and starts a new
+one. It writes no lock file. The `logs` folder is created owner-only, and on
+POSIX the file `rw-------`. A failed write, roll or open detaches the file and
+logs an ERROR.
+
+`RetainingLogManager` ignores `reset()` once configured. The JDK's logging
+shutdown hook calls `reset()`, which would remove the handlers while
+`ShutdownHook` still logs its forced-exit WARN.
 
 A primary instance started with the file attached runs `FileLog.prune` on a
 `qlogg-lifecycle-` worker: it deletes each regular file in `logs` named
@@ -109,10 +124,7 @@ protect a live instance's file: its process runs, and its writes keep it
 young. `qlogg.log` and other names are never
 deleted.
 
-The pattern ends with
-`%replace(%msg){'[\r\n\u0085  ]', '_'}`, a backstop behind
-`LogText.oneLine` at the call sites. The uncaught exception handler logs the
-throwable with its stack trace.
+The uncaught exception handler logs the throwable with its stack trace.
 
 ## Architecture rules
 
@@ -135,7 +147,7 @@ fails:
 | Public `app.controller` methods do not return `MutableLineSet` | Views cannot change marks or results |
 | `app.controller` reads no system property or environment variable | Tests choose the platform through the view |
 | Every `UiText` constant is read outside `UiText` | No unused bundle entry |
-| logback only in `launcher` | Everything else logs through slf4j |
+| `java.util.logging` and `org.slf4j.jul` only in `launcher` | Everything else logs through slf4j; only the launcher sets handlers, levels or the `LogManager` |
 | No `java.net.http`, `URLConnection`, `Socket` or `URL.openStream`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |
 | No `ProcessBuilder`, `Runtime.exec`, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
 | `System.exit` and `Runtime.halt` only in `launcher.Main` | Exit only before the Display exists |
@@ -161,8 +173,10 @@ mock log through `Gui` at 1100 x 700 (`-Dqlogg.screenshots.width` and
 `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab
 row shows) with a highlighter set, runs a search,
 marks two lines, and writes `qlogg-light.png` and `qlogg-dark.png` through
-`Shell.print`. `LogbackConfiguratorTest` puts a
-`logback.xml` on the test class path and checks that logback ignores it.
+`Shell.print`. Surefire plants `java.util.logging.config.file`
+(`planted-logging.properties`); `LogConfiguratorTest` checks that its handlers,
+levels and properties are gone after `install`. `RetainingLogManagerTest`
+checks that `reset()` keeps the handlers once retained.
 `PortableRunTest` (tag `swt`) runs `Gui` twice over a portable bundle with
 `user.home` set as `PlatformSetup` sets it: the first run opens a log, zooms
 and adds a favorite, the second restores the session; afterwards every new or
@@ -177,11 +191,14 @@ threads. `SigtermTest` (tag `swt`, Linux) starts `Main` as a
 child process that restores a two-file session, waits for both files'
 `Indexing ... done` lines in its `-l` log, sends SIGTERM (`Process.destroy`)
 and checks that the process ends within the hook's bound, the endpoint file is
-gone, and the session and positions files were written. Windows has no
-SIGTERM; `destroy` there terminates without hooks. `FileLogTest` checks the file's location, the root level with the file
-attached and detached, `-d trace` staying finer, a process without the lock
-writing `qlogg-<pid>.log`, and that an ERROR status
-from the file appender detaches it and reaches the recent lines; with set
+gone, the session and positions files were written, and the hook's INFO
+line reached the log. Windows has no
+SIGTERM; `destroy` there terminates without hooks. `FileLogTest` checks the file's location, the
+level with the file attached and detached, that the folder holds only
+`qlogg.log` after a detach, `-d trace` staying finer, a process without the
+lock writing `qlogg-<pid>.log`, the roll to `qlogg.log.1`, and that a failed
+roll (a non-empty directory named `qlogg.log.1`) detaches the file and its
+ERROR reaches the recent lines; with set
 modification times, prune deletes only an old `qlogg-<pid>.log` and `.1` of an
 ended process and keeps a young one, a running process's, `qlogg.log`, a `.2`
 name, other names and a directory. `LauncherTest` checks the WebView2 data folder for
