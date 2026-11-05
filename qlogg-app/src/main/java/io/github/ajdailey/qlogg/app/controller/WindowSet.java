@@ -513,7 +513,8 @@ public final class WindowSet {
   record WindowDraft(List<DraftTab> tabs, int active) {}
 
   /** A session tab captured on the UI thread; its marks are read on the worker. */
-  record DraftTab(String path, String name, boolean follow, LogDocument document) {}
+  record DraftTab(
+      String path, String name, boolean follow, long timeOffset, LogDocument document) {}
 
   private SaveSnapshot capture() {
     long sequence = ++captured;
@@ -576,7 +577,14 @@ public final class WindowSet {
         }
         ranges += marks.length / 2;
         comments += tabComments.size();
-        tabs.add(new Session.Tab(draft.path(), draft.name(), draft.follow(), marks, tabComments));
+        tabs.add(
+            new Session.Tab(
+                draft.path(),
+                draft.name(),
+                draft.follow(),
+                marks,
+                tabComments,
+                draft.timeOffset()));
       }
       sessions.add(new Session(tabs, window.active()));
     }

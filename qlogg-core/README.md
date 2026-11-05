@@ -453,7 +453,12 @@ The detector opens the file only to read a digest and closes it at once.
 
 `LogDocument` is one open file. `open(path, forcedCharset, services)` validates
 the path (`FileByteSource.open`), reads the first 64 KiB, detects the encoding
-and creates the line index; it blocks, so it runs on a worker.
+and the timestamp format from those bytes (`FormatDetector`; `timeFormat()`,
+null for none) and creates the line index; it blocks, so it runs on a worker.
+`open(..., false)` skips the format detection, for a file whose format the
+owner remembers. `newTimeReader(parser)` is a `TimeReader` over the document
+through the shared `BlockCache`, and `openedModifiedMillis()` the modification
+time at open, for `TimeContext`.
 `startIndexing()` starts the `Indexer` and returns. `index()` and `status()`
 read published state without I/O. `DocumentServices` carries the shared
 `Workers`, `Indexer`, `SearchEngine`, `BlockCache`, `MemoryBudget` and
@@ -466,7 +471,7 @@ a retarget reads as `REPLACED`, and the owner's reopen opens the new target.
 
 `ofText(name, text, maxBytes, services)` creates a document over pasted text:
 the UTF-8 bytes are held in a `MemoryByteSource` and charged to `PASTED` until
-`close`. Text over `maxBytes` or the share throws `PastedTextException` with
+`close`; its timestamp format is detected as for a file. Text over `maxBytes` or the share throws `PastedTextException` with
 the size and the limit. Such a document reports `inMemory()`, has a null
 `path()`, and ignores `startWatching`.
 

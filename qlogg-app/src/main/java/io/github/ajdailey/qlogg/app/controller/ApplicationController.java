@@ -41,6 +41,8 @@ import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.time.TimestampFormat;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import java.io.IOException;
@@ -142,6 +144,8 @@ public final class ApplicationController implements DocumentHost {
   private final HelpController help;
   // Wrap, folding, block selection, save, scratchpad, search across files, selectors.
   private final ViewFeatures features;
+  // Timestamps.
+  private final TimeFeatures time;
   // Tab data dot.
   private final TabDataModel tabData = new TabDataModel();
 
@@ -205,6 +209,7 @@ public final class ApplicationController implements DocumentHost {
     quickFind.applyPreferences(current.quickFindIncremental(), current.quickFindRegex());
     this.theme = set.theme();
     this.features = new ViewFeatures(this, workers, ui, view);
+    this.time = new TimeFeatures(this, workers, ui, view, config);
     this.monitor = set.monitor();
     this.opener = new DocumentOpener(workers, ui, config, new Claims());
     this.help = new HelpController(set, view, this::isShuttingDown);
@@ -687,6 +692,7 @@ public final class ApplicationController implements DocumentHost {
       }
       start(shown);
       rememberRecent(document);
+      shown.time().setOffset(opening.timeOffset());
     }
     present(shown, line, follow);
   }
@@ -1020,6 +1026,7 @@ public final class ApplicationController implements DocumentHost {
             set.services().search(),
             host);
     features.configure(created);
+    time.configure(created);
     UiState state = preferences.get().state();
     created.setLineNumbers(state.lineNumbers());
     created.filtered().setLineNumbers(state.filteredLineNumbers());
@@ -1265,6 +1272,7 @@ public final class ApplicationController implements DocumentHost {
     replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
     replacement.search().setText(old.search().fieldText(), old.search().options());
     boolean follow = old.following();
+    long timeOffset = old.time().offset();
     long caret = Math.max(0, old.sourceLine(old.selection().caret().line()));
     LabelState labels = old.labels();
     documents.set(index, replacement);
@@ -1285,6 +1293,7 @@ public final class ApplicationController implements DocumentHost {
       }
     }
     start(replacement);
+    replacement.time().setOffset(timeOffset);
     if (follow) {
       replacement.setFollowing(true);
     } else if (change == null) {
@@ -1409,11 +1418,43 @@ public final class ApplicationController implements DocumentHost {
       case MARKS_LIST -> view.showMarks();
       case EDIT_MARK_COMMENT -> editMarkComment();
       default -> {
-        if (!features.execute(command)) {
+        if (!features.execute(command) && !time.execute(command)) {
           documentCommand(command);
         }
       }
     }
+  }
+
+  // Timestamps.
+
+  /**
+   * Lists the formats View > Timestamps > Format offers: the built-ins, then the user formats.
+   *
+   * @return the formats
+   */
+  public List<TimestampFormat> timeFormats() {
+    return time.formats();
+  }
+
+  /**
+   * Applies a timestamp format to a document and records it for its file.
+   *
+   * @param document an open document
+   * @param format the format, or null for none
+   */
+  public void setTimeFormat(DocumentController document, TimestampFormat format) {
+    if (documents.contains(document)) {
+      time.setFormat(document, format);
+    }
+  }
+
+  /**
+   * Replaces the user timestamp formats and saves them.
+   *
+   * @param formats the formats in order
+   */
+  public void setUserTimeFormats(List<UserFormat> formats) {
+    time.setUserFormats(formats);
   }
 
   // Mark comments and marks list.
@@ -1878,6 +1919,7 @@ public final class ApplicationController implements DocumentHost {
               path.toString(),
               name == null ? "" : name,
               document.following(),
+              document.time().offset(),
               document.document()));
     }
     return new WindowSet.WindowDraft(tabs, shown);

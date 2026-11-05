@@ -123,6 +123,22 @@ class RememberedStateTest {
   }
 
   @Test
+  void aTabsTimeOffsetComesBackWithTheSession() throws Exception {
+    Path file = lines("offset.log", 10);
+    try (Run run = new Run()) {
+      run.application.restoreSession(Session.EMPTY);
+      run.application.open(List.of(new FileRequest(file, 0)));
+      run.untilOpen(1);
+      run.tab("offset.log").time().setOffset(-90_000_000_000L);
+    }
+    try (Run run = new Run()) {
+      run.application.restoreSession(run.config.sessions().load());
+      run.untilOpen(1);
+      assertEquals(-90_000_000_000L, run.tab("offset.log").time().offset());
+    }
+  }
+
+  @Test
   void sessionPositionsAndStateRoundTripThroughRestart() throws Exception {
     Path alpha = lines("alpha.log", 40);
     Path beta = lines("beta.log", 40);

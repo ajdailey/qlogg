@@ -9,13 +9,14 @@ import java.util.Properties;
 
 /**
  * Loads and saves one {@link Session} per main window in {@code qlogg_session.conf}: {@code
- * window.W.active} and {@code window.W.tab.N.path}, {@code .name}, {@code .follow} and {@code
- * .marks}, windows numbered from 0 without gaps. Marks are ranges {@code first-last} or single
- * lines, comma-separated, 0-based. A session keeps at most {@link #MAX_WINDOWS} windows, {@link
- * #MAX_TABS} tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks
- * past that are not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line,
- * a space and the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs
- * are kept. Blocking; workers call it.
+ * window.W.active} and {@code window.W.tab.N.path}, {@code .name}, {@code .follow}, {@code .marks}
+ * and {@code .timeOffset} (nanoseconds, written when not 0; a malformed value reads as 0), windows
+ * numbered from 0 without gaps. Marks are ranges {@code first-last} or single lines,
+ * comma-separated, 0-based. A session keeps at most {@link #MAX_WINDOWS} windows, {@link #MAX_TABS}
+ * tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks past that are
+ * not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line, a space and
+ * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
+ * Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -95,7 +96,8 @@ public final class SessionStore {
                 p.getProperty(key + "name", ""),
                 "true".equals(p.getProperty(key + "follow", "false").strip()),
                 marks,
-                tabComments));
+                tabComments,
+                offset(p.getProperty(key + "timeOffset", "0"))));
       }
       int active = -1;
       try {
@@ -142,6 +144,9 @@ public final class SessionStore {
           p.setProperty(key + "name", tab.name());
         }
         p.setProperty(key + "follow", Boolean.toString(tab.follow()));
+        if (tab.timeOffset() != 0) {
+          p.setProperty(key + "timeOffset", Long.toString(tab.timeOffset()));
+        }
         if (tab.marks().length > 0) {
           p.setProperty(key + "marks", formatMarks(tab.marks()));
         }
@@ -154,6 +159,15 @@ public final class SessionStore {
       count += tabs;
     }
     return file.save(p);
+  }
+
+  /** Reads a time offset; a malformed value reads as none. */
+  private static long offset(String value) {
+    try {
+      return Long.parseLong(value.strip());
+    } catch (NumberFormatException e) {
+      return 0;
+    }
   }
 
   /**

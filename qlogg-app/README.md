@@ -53,8 +53,8 @@ which Maven writes from the project version; outside a jar it returns
   index, following, file size and modification time, missing file, stopped
   loading, error) and `contentChanged()` (repaint from the controller's
   snapshot). `hasFile()` is false for pasted text, which has no path.
-  `StatusText` formats the top row's size, modification time and
-  encoding and the status bar's notes.
+  `StatusText` formats the top row's size and encoding, the size's tooltip
+  (`Last modified` and the time) and the status bar's notes.
 - `SearchViewListener` receives `stateChanged(SearchViewState)` (text,
   `SearchOptions`, phase `IDLE` `RUNNING` `DONE` `CANCELED` `FAILED`,
   percent, match count, limit, skipped lines, error; `statusText()` is the
@@ -67,6 +67,18 @@ which Maven writes from the project version; outside a jar it returns
   regex, incremental, running, and the last notice.
 - `PositionText.of(selection, lineCount)` is the top row's position field:
   `Ln 12/200  Col 5`, plus `Sel 6 chars` within one line or `Sel 4 lines`.
+  The four-argument form takes the size from another selection and appends
+  its time difference to `Sel N lines`.
+- `TimeText` formats the caret time (`yyyy-MM-dd HH:mm:ss` with at least 3
+  fraction digits, more when the line has them), a selection's difference
+  (`+00:01:23.456`, `+2d 03:00:00.000`, negative when the last line is
+  earlier, with the larger fraction-digit count of the two lines, at least
+  3), and the offset (`[+-][d.]HH:mm:ss[.fff]`), and parses an offset and a
+  Go to Time target (`yyyy-MM-dd HH:mm:ss[.f]`, or `HH:mm:ss[.f]` on a given
+  date); a refused text parses as `INVALID`. `TimeStatus` is a view's caret,
+  first and last line times as read, before the offset;
+  `DocumentViewListener.timeChanged` reports a change of it, the offset or
+  the format.
 - `UiUpdateQueue` coalesces notices from worker threads into flushes on the UI
   thread: `post()` from any thread schedules at most one flush, at most one
   per interval (50 ms in both controllers), and the flush reads the latest
@@ -398,7 +410,8 @@ document's `SearchController` and `FilteredController`.
   `ActivityIndicator` active: one toggle at a time (a second `M` shows a
   notice), progress notices at most every 250 ms, `Esc` (`STOP`) cancels and
   keeps what changed. `STOP` also stops loading: indexing ends and growth
-  stays unindexed until a reload. Marking reserves from `RESULTS` and stops with a notice
+  stays unindexed until a reload. While a go to time runs, `STOP` leaves
+  loading for the next press. Marking reserves from `RESULTS` and stops with a notice
   at the share's limit. A toggle over more than 4,096 rows reports the count
   when it ends. Unmarking removes the lines' comments.
 - Edit Mark Comment (`Shift+M`, `EDIT_MARK_COMMENT`) asks for the focused
@@ -580,6 +593,46 @@ regex reads at most `8 * length + 65,536` chars through the core
 (`DocumentController.setAutoHighlightSet`). Choosing sets in the Highlighters
 menu while that document shows drops its automatic set.
 
+### Timestamps
+
+`TimeController` (`DocumentController.time()`) holds a document's format
+(null disables Go to Time, Time Offset and Time Zone), the zone of local
+times, the display zone (`time.displayZone`) and the tab's offset in
+nanoseconds. A format or zone change makes both views read their times
+again; an offset change only reformats them and schedules a session save.
+
+- `TimeFeatures` gives a new document the format chosen for its file
+  (`PositionStore` `.timeFormat`; `none` or an unknown id is no format), else
+  the one `LogDocument.open` detected, and the zone chosen for the file
+  (`.zone`), else `time.zone`. `DocumentOpener` skips the detection for a file
+  with a remembered `.timeFormat`. View > Timestamps > Format
+  (`setTimeFormat`) and Time Zone apply at once and record the choice for
+  the file; pasted text records nothing. Edit Formats replaces the user
+  formats (`setUserTimeFormats`, saved as `time.format.N.*`); an open
+  document's user format takes the edited format of its name, or none when
+  it was removed. The editor's preview line is the caret line's first 256
+  chars, read on a `qlogg-read-` worker before the editor opens.
+- Each view reads the caret line's time and, for a selection over more than
+  one row, its first and last rows' lines' times through `TimeReader.at` on
+  a `qlogg-read-` worker, one read at a time with one more queued, skipped
+  when the lines and the format are those of the last read. The filtered
+  view reads its rows' source lines.
+- `goToTime(shown)` subtracts the offset and runs on a `qlogg-search-` worker
+  inside `LogDocument.enter`, holding the `ActivityIndicator` until its result
+  posts. It searches the index snapshot taken at the start. The order check
+  (256 `TimeSamples`, 2,112 bytes charged to `HIGHLIGHT`) is kept while the
+  index generation and the format stand and returned on `detach`; a refused
+  charge skips it and bisects. A descent runs `locateLinear` with progress
+  notices at most every 250 ms. A newer request, `Esc` and `detach` cancel
+  the running one, and a result whose generation is not the newest is
+  dropped. The found line turns follow off and shows through `showLine`, and
+  the filtered view's caret moves to that line's row or the next listed one.
+  Notices: no format, no stamped line, target before the first stamp,
+  target after the last stamp while indexing runs, out of order, canceled,
+  and a read failure.
+- The offset is the session's `window.W.tab.N.timeOffset`; a reload, a reopen
+  and a tab move keep it, as they keep the follow state.
+
 ### Tab data dot
 
 `TabDataModel` (`ApplicationController.tabData()`) keeps a `TabDataState` per
@@ -686,7 +739,10 @@ size, `search.maxResults`, `search.runOnAdd`, the quick find options,
 `view.splitPercent`, `view.overview`, the predefined filters, the
 `HighlightSettings`, the `ViewOptions` (wrap on open, whitespace markers,
 hidden ANSI colors, fold rules and highlighter selectors, read and written by
-`ViewFile`), the `Options` (font, `recent.count`, `monitor.*`,
+`ViewFile`), the `TimeSettings` (`time.zone`, `time.displayZone`, at most 32
+`time.format.N.name`, `.locate` and `.pattern`, read and written by
+`TimeFile`; an unknown zone reads as the system zone and a format that does
+not compile, or repeats a name, is dropped), the `Options` (font, `recent.count`, `monitor.*`,
 `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`,
 `log.file`) and the `UiState` (`window.*`, `searchOption.*`, `view.lineNumbers`,
 `view.filteredLineNumbers`, `open.directory`, `recent.N`, `dialog.*`), read
@@ -701,10 +757,10 @@ write through `SettingsFile`, which applies the table above to their own file
 
 | Store | File | Contents | Limits |
 |---|---|---|---|
-| `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
-`PositionStore.get`, `put` and `setEncoding` touch memory under a lock held
+`PositionStore.get`, `put` and the setters touch memory under a lock held
 for no I/O, so the UI thread calls them; `load` and `save` block. A session's
 marks go into `MutableLineSet`s charged to the `RESULTS` share; a refusal
 keeps the earlier marks and shows a notice.
@@ -887,6 +943,23 @@ closed tab's group, selectors by
 name and first line, a catastrophic first-line regex giving up within its
 bound, hidden ANSI colors in search, and sending text to the scratchpad.
 `TransformsTest` covers each transform and the derived values.
+`TimeControllerTest` covers detection at open with the caret time, a trace
+line taking the time above it, a selection's difference and the offset
+applied; go to time moving the caret, releasing follow and pairing the
+activity, between two entries and with an offset; the notice before the
+first stamp; an out-of-order file searched line by line; a newer request
+dropping the older result; `Esc` canceling with its notice and a held save,
+and over held indexing leaving it running until a second `Esc` stops loading; the notice for
+a target past the indexed part; progress notices of a linear scan held at a
+gated line; the filtered view's rows' times; a file without
+timestamps disabling the commands; a remembered format, none or a user
+format, skipping detection on the next open; the Go to Time, Time Offset and
+Time Zone dialogs' results, the offset in the session draft; a reload keeping
+the offset; and the order check's charge returned on close. `RememberedStateTest` brings a tab's offset back through a session reopen,
+and `TabMoveTest` moves it with the tab. `TimeTextTest`
+covers the caret time, differences (sub-second, days, negative, fraction
+digits), offsets round-tripping and refused, targets with and without a
+date, and the format names and tooltip.
 `ShutdownLifecycleTest` shuts down 12 times at random
 points during a search, a quick find, indexing and the watches, and checks
 that no thread survives `Workers.close()`, every file is closed, every
@@ -946,7 +1019,10 @@ while its id exists. `HighlightComposerTest` runs the same cases on
 colors. `CopyReleaseTest` checks that a save over the `COPY`
 share, a save whose write fails, a copy whose tab closes and a selection read
 whose tab closes all return the `COPY` charge and the activity.
-`StoreFaultsTest` (config) loads a malformed, oversized and unknown-version
+`StateStoresTest` (config) also round-trips a tab's time offset and a
+file's timestamp format and zone, and reads a malformed offset as 0;
+`ConfigStoreTest` round-trips the timestamp settings and drops a format that
+does not compile. `StoreFaultsTest` (config) loads a malformed, oversized and unknown-version
 session file as no windows and keeps each as `.invalid` on the next save; a
 remembered encoding the runtime lacks reads as detection.
 

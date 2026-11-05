@@ -11,4 +11,7 @@ public interface DocumentViewListener {
 
   /** Lines, viewport or selection changed; the view repaints from the controller's snapshot. */
   void contentChanged();
+
+  /** The caret time, the selection's time difference, the time offset or the format changed. */
+  default void timeChanged() {}
 }

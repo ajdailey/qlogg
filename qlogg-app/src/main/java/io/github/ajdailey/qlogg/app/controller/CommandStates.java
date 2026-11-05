@@ -2,11 +2,14 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.time.TimestampFormat;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -129,6 +132,9 @@ public final class CommandStates {
       case MOVE_TO_NEW_WINDOW -> document != null;
       case ADD_FAVORITE -> file && !application.isFavorite(document);
       case REMOVE_FAVORITE -> application.isFavorite(document);
+      // Timestamps.
+      case GO_TO_TIME, TIME_OFFSET, TIME_ZONE ->
+          document != null && document.time().format() != null;
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }
@@ -153,6 +159,35 @@ public final class CommandStates {
     for (HighlightSet set : settings.sets()) {
       choices.add(new SetChoice(set, settings.isActive(set.id())));
     }
+    return choices;
+  }
+
+  // Timestamps.
+
+  /**
+   * A format as View > Timestamps > Format lists it.
+   *
+   * @param format the format, or null for none
+   * @param label the menu text
+   * @param chosen true for the shown document's format
+   */
+  public record FormatChoice(TimestampFormat format, String label, boolean chosen) {}
+
+  /**
+   * Lists the formats: the built-ins, the user formats, then None.
+   *
+   * @return the choices; none is chosen without a shown document
+   */
+  public List<FormatChoice> timeFormats() {
+    DocumentController document = application.activeDocument();
+    TimestampFormat current = document == null ? null : document.time().format();
+    List<FormatChoice> choices = new ArrayList<FormatChoice>();
+    for (TimestampFormat format : application.timeFormats()) {
+      choices.add(new FormatChoice(format, TimeText.formatName(format), format.equals(current)));
+    }
+    choices.add(
+        new FormatChoice(
+            null, UiText.TIME_FORMAT_NONE.text(), document != null && current == null));
     return choices;
   }
 

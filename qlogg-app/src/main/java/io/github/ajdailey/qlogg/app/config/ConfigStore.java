@@ -274,7 +274,8 @@ public final class ConfigStore {
         .withView(ViewFile.load(properties))
         // Options dialog settings, favorites and remembered UI state.
         .withOptions(OptionsFile.loadOptions(properties, file))
-        .withState(OptionsFile.loadState(properties, file));
+        .withState(OptionsFile.loadState(properties, file))
+        .withTime(TimeFile.load(properties));
   }
 
   /** Returns a whole number in range, -1 when absent, or -1 with one WARN when invalid. */
@@ -337,6 +338,8 @@ public final class ConfigStore {
     ViewFile.store(preferences.view(), properties);
     // Options dialog settings, favorites and remembered UI state.
     OptionsFile.store(preferences.options(), preferences.state(), properties);
+    // Timestamps.
+    TimeFile.store(preferences.time(), properties);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     properties.store(out, null);
     String text = out.toString(StandardCharsets.ISO_8859_1);

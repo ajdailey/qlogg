@@ -11,6 +11,7 @@ import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +32,11 @@ final class ControllerFixture implements AutoCloseable {
   final ApplicationController application;
 
   ControllerFixture(Path temp, Preferences preferences) {
+    this(temp, preferences, StandardCharsets.ISO_8859_1);
+  }
+
+  /** An application whose encoding detection falls back to {@code fallback}. */
+  ControllerFixture(Path temp, Preferences preferences, Charset fallback) {
     this.temp = temp;
     workers =
         new Workers(
@@ -46,7 +52,7 @@ final class ControllerFixture implements AutoCloseable {
             workers,
             ui,
             view,
-            ApplicationControllerTest.services(workers, budget),
+            ApplicationControllerTest.services(workers, budget, fallback),
             ApplicationControllerTest.config(temp),
             preferences);
   }

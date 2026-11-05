@@ -7,8 +7,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * The document fields: file size, modification time and encoding for the top row, and the indexing,
- * follow, missing-file, stopped-loading, sparse-index and failure notes for the status bar.
+ * The document fields: file size, its tooltip's modification time and encoding for the top row, and
+ * the indexing, follow, missing-file, stopped-loading, sparse-index and failure notes for the
+ * status bar.
  */
 public final class StatusText {
   /** Separates the notes. */
@@ -20,15 +21,15 @@ public final class StatusText {
   private StatusText() {}
 
   /**
-   * Formats the modification time in a zone.
+   * Formats the size field's tooltip: the modification time in a zone.
    *
    * @param state the document's state
    * @param zone the zone the time shows in
-   * @return for example {@code modified on 2026-11-01 14:05:09}, or empty when unknown
+   * @return for example {@code Last modified 2026-11-01 14:05:09}, or empty when unknown
    */
-  public static String modified(DocumentViewState state, ZoneId zone) {
+  public static String sizeTip(DocumentViewState state, ZoneId zone) {
     return state.modifiedMillis() > 0
-        ? UiText.STATUS_MODIFIED.format(modified(state.modifiedMillis(), zone))
+        ? UiText.STATUS_MODIFIED_TIP.format(modified(state.modifiedMillis(), zone))
         : "";
   }
 

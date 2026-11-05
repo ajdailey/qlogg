@@ -50,6 +50,9 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.RangeFinder;
+import io.github.ajdailey.qlogg.core.time.TimeReader;
+import io.github.ajdailey.qlogg.core.time.TimeSamples;
+import io.github.ajdailey.qlogg.core.time.TimeSearch;
 import java.beans.XMLDecoder;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -658,6 +661,9 @@ class ArchitectureTest {
           new Blocking(LineFinder.class, "find"),
           new Blocking(RangeFinder.class, "around"),
           new Blocking(FoldClassifier.class, "entries"),
+          new Blocking(TimeReader.class, "next|at"),
+          new Blocking(TimeSearch.class, "locate|locateLinear"),
+          new Blocking(TimeSamples.class, "sample"),
           new Blocking(Files.class, ".*"),
           new Blocking(FileChannel.class, ".*"),
           new Blocking(Path.class, "toRealPath"),

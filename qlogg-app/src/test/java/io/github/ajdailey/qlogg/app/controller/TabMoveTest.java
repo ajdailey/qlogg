@@ -259,6 +259,17 @@ class TabMoveTest {
   }
 
   @Test
+  void theTimeOffsetMovesWithTheTab() throws Exception {
+    final DocumentController document = openIn(first, lines("offset.log", 20));
+    document.time().setOffset(7_000_000_000L);
+    ApplicationController target =
+        set.moveDocument(first, document, null, new WindowSet.Placement(0, null, null));
+    assertSame(document, target.activeDocument());
+    assertEquals(7_000_000_000L, target.activeDocument().time().offset());
+    assertEquals(7_000_000_000L, target.draft().tabs().get(0).timeOffset());
+  }
+
+  @Test
   void aTabDroppedOnAnotherWindowGoesToTheDropIndex() throws Exception {
     first.execute(CommandId.NEW_WINDOW);
     ApplicationController second = set.windows().get(1);

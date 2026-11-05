@@ -36,12 +36,18 @@ public final class MenuTable {
   }
 
   /**
-   * Returns the cascade listed just before a command, filled from the open documents.
+   * Returns the cascade listed just before a command: View > Opened Files, filled from the open
+   * documents, or View > Timestamps > Format, filled from the timestamp formats.
    *
    * @param command a command
    * @return the cascade's label, or null
    */
   public static UiText cascadeBefore(CommandId command) {
-    return command == CommandId.SWITCH_FILE ? UiText.MENU_OPENED_FILES : null;
+    return switch (command) {
+      case SWITCH_FILE -> UiText.MENU_OPENED_FILES;
+      // Timestamps.
+      case TIMESTAMP_FORMATS -> UiText.MENU_TIME_FORMAT;
+      default -> null;
+    };
   }
 }

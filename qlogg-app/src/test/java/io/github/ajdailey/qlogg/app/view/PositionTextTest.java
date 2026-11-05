@@ -22,4 +22,21 @@ class PositionTextTest {
         PositionText.of(
             new Selection(new TextPosition(0, 0), new TextPosition(9, Long.MAX_VALUE)), 10));
   }
+
+  @Test
+  void addsTheTimeDifferenceOfASelectionOverLines() {
+    Selection caret = Selection.caretAt(new TextPosition(1, 0));
+    Selection rows = new Selection(new TextPosition(2, 0), new TextPosition(5, 4));
+    assertEquals(
+        "Ln 2/10  Col 1  Sel 4 lines  +00:01:23.456",
+        PositionText.of(caret, 10, rows, "+00:01:23.456"));
+    assertEquals(
+        "Ln 3/10  Col 9  Sel 6 chars",
+        PositionText.of(
+            new Selection(new TextPosition(2, 2), new TextPosition(2, 8)),
+            10,
+            new Selection(new TextPosition(2, 2), new TextPosition(2, 8)),
+            "+00:00:00.000"));
+    assertEquals("Ln 2/10  Col 1  Sel 4 lines", PositionText.of(caret, 10, rows, ""));
+  }
 }

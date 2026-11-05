@@ -28,6 +28,7 @@ import java.util.List;
  * @param options font, recent-files count, monitoring, default encoding, session, shortcuts and
  *     favorites
  * @param state remembered UI state
+ * @param time {@code time.*}: zones and user timestamp formats
  */
 public record Preferences(
     ThemeMode theme,
@@ -45,7 +46,9 @@ public record Preferences(
     ViewOptions view,
     // Options dialog settings, favorites and remembered UI state.
     Options options,
-    UiState state) {
+    UiState state,
+    // Timestamps.
+    TimeSettings time) {
   /** Smallest {@code view.splitPercent}. */
   public static final int MIN_SPLIT = 10;
 
@@ -69,7 +72,8 @@ public record Preferences(
           FollowSettings.DEFAULTS,
           ViewOptions.DEFAULTS,
           Options.DEFAULTS,
-          UiState.DEFAULTS);
+          UiState.DEFAULTS,
+          TimeSettings.DEFAULTS);
 
   /** Checks the components and copies the lists. */
   public Preferences {
@@ -80,7 +84,8 @@ public record Preferences(
         || follow == null
         || view == null
         || options == null
-        || state == null) {
+        || state == null
+        || time == null) {
       throw new IllegalArgumentException("every component is required");
     }
     if (historySize < 1 || historySize > SearchHistory.MAX_SIZE) {
@@ -118,7 +123,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -143,7 +149,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -168,7 +175,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -193,7 +201,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -219,7 +228,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -244,7 +254,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -269,7 +280,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -294,7 +306,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -319,7 +332,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -344,7 +358,8 @@ public record Preferences(
         settings,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -369,7 +384,8 @@ public record Preferences(
         follow,
         view,
         options,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -394,7 +410,8 @@ public record Preferences(
         follow,
         value,
         options,
-        state);
+        state,
+        time);
   }
 
   // Options dialog settings, favorites and remembered UI state.
@@ -421,7 +438,8 @@ public record Preferences(
         follow,
         view,
         value,
-        state);
+        state,
+        time);
   }
 
   /**
@@ -446,6 +464,35 @@ public record Preferences(
         follow,
         view,
         options,
+        value,
+        time);
+  }
+
+  // Timestamps.
+
+  /**
+   * Returns a copy with other timestamp settings.
+   *
+   * @param value the settings
+   * @return the copy
+   */
+  public Preferences withTime(TimeSettings value) {
+    return new Preferences(
+        theme,
+        historySize,
+        maxResults,
+        runSearchOnAdd,
+        quickFindIncremental,
+        quickFindRegex,
+        splitPercent,
+        searchHistory,
+        filters,
+        highlights,
+        overview,
+        follow,
+        view,
+        options,
+        state,
         value);
   }
 }

@@ -147,6 +147,21 @@ public final class FilteredController extends LineViewController {
     refresh();
   }
 
+  /**
+   * Puts the caret on a line's row, or the next listed row, without moving the main view.
+   *
+   * @param line a 0-based line
+   */
+  void showNearest(long line) {
+    if (isClosed() || view.size() == 0) {
+      return;
+    }
+    long row = Math.min(view.rowOf(line), view.size() - 1);
+    placeCaret(row);
+    viewport().ensureVisible(row);
+    changed();
+  }
+
   /** Re-reads the rows after the results, the marks or the mode changed. */
   void refresh() {
     if (isClosed()) {

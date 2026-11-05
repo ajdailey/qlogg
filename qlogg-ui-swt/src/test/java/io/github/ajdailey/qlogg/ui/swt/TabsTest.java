@@ -267,7 +267,9 @@ class TabsTest {
     assertEquals("Copy", menu[4].getText());
     assertEquals("Select All", menu[6].getText());
     assertTrue(window.infoText().contains("4 B"), window.infoText());
-    assertTrue(window.infoText().contains("modified on "), window.infoText());
+    assertTrue(
+        window.sizeTip().matches("Last modified \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"),
+        window.sizeTip());
     assertTrue(window.positionText().startsWith("Ln "), window.positionText());
   }
 

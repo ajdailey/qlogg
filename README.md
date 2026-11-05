@@ -43,10 +43,10 @@ plugins.
 ### Viewing
 
 - Main window: a top row with the icon toolbar (Open, Reload, Follow), the
-  file's path, Stop and the file's size, modification time, encoding and
-  position; a tab row while two or more files are open; the search row,
-  result tabs and filtered view below a splitter with a grip; a status bar
-  for notes and notices.
+  file's path, Stop and the file's size (its tooltip gives the modification
+  time), encoding, position and caret time; a tab row while two or more files are open; the
+  search row, result tabs and filtered view below a splitter with a grip; a
+  status bar for notes and notices.
 - Tabs are movable and renamable, switch with `Ctrl+PageDown` and
   `Ctrl+PageUp`, and close by middle click or from the tab menu (this,
   others, left, right, all) or File > Close All. View > Opened Files and Switch to File
@@ -73,6 +73,22 @@ plugins.
   Out (`Ctrl+-`, `Ctrl`+keypad `-`) and Reset Zoom (`Ctrl+0`); the zoomed size
   is saved. `Alt`+wheel scrolls sideways and `Shift`+wheel by pages.
 - Light, dark and system themes (View menu).
+
+### Timestamps
+
+- The timestamp format is detected when a file opens (ISO 8601, slashed and
+  dotted dates, syslog, Common Log Format, Java logging, epoch seconds or
+  milliseconds); View > Timestamps > Format picks another or None, and Edit
+  Formats defines formats by regex and pattern. The choice and a Time Zone
+  for local times are remembered per file.
+- The top row shows the caret line's time; a selection over several lines
+  shows the time from its first to its last line in the position field.
+- Time Offset shifts every time a tab shows, as an offset or as the time the
+  caret line should show; the session keeps it.
+- Go to Time (`Ctrl+Shift+L`, or a click on the time field) goes to the
+  first line at a time, else the last line before it; a file whose
+  timestamps are out of order is searched line by line. `Esc` cancels it
+  with any running mark, copy or save; loading stops at a second `Esc`.
 
 ### Search and filtering
 
@@ -119,7 +135,9 @@ plugins.
 - Sessions restore the open tabs, the shown tab, tab names, follow, marks
   and mark comments at start (`-s`, `-n`, Tools > Options). A run given files or `-m` leaves the
   saved session alone; the session keeps each window's tabs.
-- Remembered per file: position (`+line:N` wins) and a forced encoding.
+- Remembered per file: position (`+line:N` wins), a forced encoding, and the
+  timestamp format and zone chosen. A tab's time offset is kept in the
+  session.
   Remembered UI state: window size, position and maximized state, split,
   search toggles and history, line numbers, last Open directory and dialog
   sizes.
@@ -365,6 +383,9 @@ every launch opens its own window.
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers |
 | `open.directory` | Where File > Open starts with no file shown | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
+| `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
+| `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |
+| `time.format.N.name`, `.locate`, `.pattern` | A user timestamp format: a name, a regex whose group `ts` holds the time, a `DateTimeFormatter` pattern; at most 32 | none | View > Timestamps > Edit Formats |
 
 A value out of range falls back to its default.
 

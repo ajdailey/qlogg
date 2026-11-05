@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.config;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -11,12 +12,15 @@ import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -243,5 +247,35 @@ class ConfigStoreTest {
     Preferences loaded = store(temp).load();
     assertEquals(List.of(), loaded.view().selectors());
     assertEquals(false, loaded.view().hideAnsi());
+  }
+
+  // Timestamps.
+
+  @Test
+  void timeSettingsRoundTripAndABadFormatIsDropped() throws IOException {
+    Preferences saved =
+        Preferences.DEFAULTS.withTime(
+            new TimeSettings(
+                ZoneId.of("Europe/Berlin"),
+                ZoneOffset.UTC,
+                List.of(
+                    new UserFormat("app", "^(?<ts>\\S+ \\S+)", "yyyy-MM-dd HH:mm:ss.SSS"),
+                    new UserFormat("short", "(?<ts>\\d+:\\d+:\\d+)", "HH:mm:ss"))));
+    ConfigStore store = store(temp);
+    assertTrue(store.save(saved));
+    assertEquals(saved, store(temp).load());
+    String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
+    assertTrue(text.contains("time.zone=Europe/Berlin"));
+    assertTrue(text.contains("time.format.1.name=short"));
+    Files.writeString(
+        conf(),
+        "time.zone=Nowhere/Mock\ntime.format.0.name=bad\ntime.format.0.locate=(no group)\n"
+            + "time.format.0.pattern=HH\ntime.format.1.name=good\n"
+            + "time.format.1.locate=(?<ts>\\\\d+)\ntime.format.1.pattern=HH\n",
+        StandardCharsets.ISO_8859_1);
+    TimeSettings loaded = store(temp).load().time();
+    assertNull(loaded.zone());
+    assertEquals(1, loaded.formats().size());
+    assertEquals("good", loaded.formats().get(0).name());
   }
 }

@@ -12,8 +12,10 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationListener;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
+import io.github.ajdailey.qlogg.app.controller.LineViewController;
 import io.github.ajdailey.qlogg.app.controller.TabDataListener;
 import io.github.ajdailey.qlogg.app.controller.TabDataState;
+import io.github.ajdailey.qlogg.app.controller.TimeController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.PaletteListener;
@@ -23,10 +25,14 @@ import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.PositionText;
 import io.github.ajdailey.qlogg.app.view.StatusText;
+import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -72,22 +78,22 @@ import org.eclipse.swt.widgets.ToolItem;
 
 /**
  * The main window: the menu bar built from the {@link Keymap}; a top row with the icon toolbar
- * (Open, Reload, Follow), the read-only path field, Stop, and the shown file's size, modification
- * time, encoding and position; a row of tabs, one per open file, shown while two or more are open;
- * the main log view with the {@link OverviewBar} between its text and scroll bar over the bottom
- * pane, split by a sash with a grip; the bottom pane holds the {@link SearchBar} over the {@link
- * ResultsPane}; then the {@link QuickFindBar} and a status bar with the document notes, notices and
- * the key-prefix field. The views show the active tab: switching tabs disposes them and creates
- * them over the other document's controllers, which hold the viewport, selection and rows. Tabs
- * show file names and move by dragging, within the strip or to another window ({@link #dropTab}); a
- * tab's close button or a middle click closes its file, and its context menu holds the close
- * variants, the path commands, Rename Tab and Move to New Window. The path field's context menu
- * holds the path commands, Copy and Select All. Files dropped on the window open a tab each. A
- * palette change from the theme recolors both log views and the overview bar at once; native
- * widgets follow the system. Created, placed and opened on the UI thread; a close request from the
- * window system is vetoed and forwarded to the close handler, which ends with {@link #dispose}.
- * Every QLogg dialog returns at once. The platform file and color choosers run a nested event loop,
- * and on GTK {@link #clipboardText} waits on the UI thread for the clipboard owner.
+ * (Open, Reload, Follow), the read-only path field, Stop, and the shown file's size, encoding and
+ * position; a row of tabs, one per open file, shown while two or more are open; the main log view
+ * with the {@link OverviewBar} between its text and scroll bar over the bottom pane, split by a
+ * sash with a grip; the bottom pane holds the {@link SearchBar} over the {@link ResultsPane}; then
+ * the {@link QuickFindBar} and a status bar with the document notes, notices and the key-prefix
+ * field. The views show the active tab: switching tabs disposes them and creates them over the
+ * other document's controllers, which hold the viewport, selection and rows. Tabs show file names
+ * and move by dragging, within the strip or to another window ({@link #dropTab}); a tab's close
+ * button or a middle click closes its file, and its context menu holds the close variants, the path
+ * commands, Rename Tab and Move to New Window. The path field's context menu holds the path
+ * commands, Copy and Select All. Files dropped on the window open a tab each. A palette change from
+ * the theme recolors both log views and the overview bar at once; native widgets follow the system.
+ * Created, placed and opened on the UI thread; a close request from the window system is vetoed and
+ * forwarded to the close handler, which ends with {@link #dispose}. Every QLogg dialog returns at
+ * once. The platform file and color choosers run a nested event loop, and on GTK {@link
+ * #clipboardText} waits on the UI thread for the clipboard owner.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
@@ -113,8 +119,10 @@ public final class MainWindow implements MainView, ApplicationListener {
   /** Narrowest the path field gets in the top row, in pixels. */
   static final int MIN_PATH_WIDTH = 160;
 
-  /** Width of the position field, in pixels. */
-  static final int POSITION_WIDTH = 190;
+  /**
+   * Narrowest the position field gets, in pixels; a longer text widens it until the tab changes.
+   */
+  static final int POSITION_WIDTH = 100;
 
   /** Height of the splitter between the main view and the bottom pane, in pixels. */
   static final int SASH_WIDTH = 7;
@@ -126,7 +134,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final ToolIcons toolIcons;
   private final Text pathField;
   private final Label sizeLabel;
-  private final Label modifiedLabel;
   private final Label encodingLabel;
   private final Composite statusBar;
   private final Map<CommandId, ToolItem> toolItems =
@@ -141,6 +148,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Label status;
   private final Label notice;
   private final Label position;
+  // Timestamps.
+  private final Label timeField;
   private final Label prefix;
   private final BusyCounter busy;
   private final SwtUiDispatcher dispatcher;
@@ -205,6 +214,30 @@ public final class MainWindow implements MainView, ApplicationListener {
 
         @Override
         public void contentChanged() {
+          showPosition();
+        }
+
+        @Override
+        public void timeChanged() {
+          showTime();
+          showPosition();
+          // A format change enables the timestamp commands' accelerators.
+          syncEnablement();
+        }
+      };
+  // Timestamps: the filtered view's selection and its time difference.
+  private final DocumentViewListener filteredListener =
+      new DocumentViewListener() {
+        @Override
+        public void stateChanged(DocumentViewState state) {}
+
+        @Override
+        public void contentChanged() {
+          showPosition();
+        }
+
+        @Override
+        public void timeChanged() {
           showPosition();
         }
       };
@@ -273,10 +306,21 @@ public final class MainWindow implements MainView, ApplicationListener {
     stopBar.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     toolItem(stopBar, CommandId.STOP, ToolIcons.STOP, UiText.TOOLBAR_STOP, SWT.PUSH);
     sizeLabel = infoLabel();
-    modifiedLabel = infoLabel();
     encodingLabel = infoLabel();
     position = infoLabel();
     ((GridData) position.getLayoutData()).widthHint = POSITION_WIDTH;
+    timeField = infoLabel();
+    timeField.setCursor(display.getSystemCursor(SWT.CURSOR_HAND));
+    timeField.addListener(
+        SWT.MouseUp,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (controller != null && event.button == 1 && !timeField.getText().isEmpty()) {
+              controller.execute(CommandId.GO_TO_TIME);
+            }
+          }
+        });
     tabs = new CTabFolder(shell, SWT.TOP | SWT.FLAT);
     GridData tabsData = new GridData(SWT.FILL, SWT.TOP, true, false);
     // The folder adds its tab row as trim around the hint, which is the empty client area.
@@ -1355,14 +1399,19 @@ public final class MainWindow implements MainView, ApplicationListener {
   /**
    * Returns the top row's file fields.
    *
-   * @return size, modification time and encoding separated by {@link StatusText#GAP}
+   * @return size and encoding separated by {@link StatusText#GAP}
    */
   public String infoText() {
-    return sizeLabel.getText()
-        + StatusText.GAP
-        + modifiedLabel.getText()
-        + StatusText.GAP
-        + encodingLabel.getText();
+    return sizeLabel.getText() + StatusText.GAP + encodingLabel.getText();
+  }
+
+  /**
+   * Returns the size field's tooltip.
+   *
+   * @return the text, or null without a modification time
+   */
+  String sizeTip() {
+    return sizeLabel.getToolTipText();
   }
 
   /**
@@ -1436,9 +1485,12 @@ public final class MainWindow implements MainView, ApplicationListener {
     showOverview(controller.preferences().overview());
     results = new ResultsPane(resultsHolder, document, controller, keymap, palette, prefixListener);
     document.addListener(statusListener);
+    document.filtered().addListener(filteredListener);
+    ((GridData) position.getLayoutData()).widthHint = POSITION_WIDTH;
     searchBar.bind(document);
     showStatus(document.state());
     showPosition();
+    showTime();
     mainHolder.layout(true);
     resultsHolder.layout(true);
     canvas.control().setFocus();
@@ -1471,6 +1523,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     if (canvas != null) {
       canvas.document().removeListener(statusListener);
+      canvas.document().owner().filtered().removeListener(filteredListener);
       canvas.frame().dispose();
       canvas = null;
     }
@@ -1493,7 +1546,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     pathField.setEnabled(true);
     boolean changed = set(sizeLabel, StatusText.size(state.fileBytes()));
-    changed |= set(modifiedLabel, StatusText.modified(state, zone));
+    String sizeTip = StatusText.sizeTip(state, zone);
+    sizeLabel.setToolTipText(sizeTip.isEmpty() ? null : sizeTip);
     changed |= set(encodingLabel, StatusText.encoding(state));
     if (changed) {
       topRow.layout(true);
@@ -1508,9 +1562,10 @@ public final class MainWindow implements MainView, ApplicationListener {
     pathField.setToolTipText(null);
     pathField.setEnabled(false);
     set(sizeLabel, "");
-    set(modifiedLabel, "");
     set(encodingLabel, "");
     set(position, "");
+    set(timeField, "");
+    timeField.setToolTipText(null);
     set(status, "");
     topRow.layout(true);
   }
@@ -1525,12 +1580,84 @@ public final class MainWindow implements MainView, ApplicationListener {
     return true;
   }
 
+  /**
+   * Shows the main view's caret position with the size and time difference of a selection: the
+   * filtered view's while it has focus and a selection over more than one row, else the main
+   * view's.
+   */
   private void showPosition() {
     if (position.isDisposed() || canvas == null) {
       return;
     }
     DocumentController document = (DocumentController) canvas.document();
-    set(position, PositionText.of(document.selection(), document.viewport().lineCount()));
+    LineViewController selected = document;
+    LineViewController focused = controller.focusedView();
+    if (focused != null
+        && focused != document
+        && focused.owner() == document
+        && focused.selection().start().line() != focused.selection().end().line()) {
+      selected = focused;
+    }
+    boolean changed =
+        set(
+            position,
+            PositionText.of(
+                document.selection(),
+                document.viewport().lineCount(),
+                selected.selection(),
+                TimeText.difference(selected.timeStatus())));
+    GridData data = (GridData) position.getLayoutData();
+    int width = Math.max(POSITION_WIDTH, position.computeSize(SWT.DEFAULT, SWT.DEFAULT).x);
+    if (changed && width != data.widthHint) {
+      data.widthHint = width;
+      topRow.layout(true);
+    }
+  }
+
+  /** Shows the main view's caret time and names the format, zone and offset in the tooltip. */
+  private void showTime() {
+    if (timeField.isDisposed() || canvas == null) {
+      return;
+    }
+    DocumentController document = (DocumentController) canvas.document();
+    TimeController time = document.time();
+    if (time.format() == null) {
+      set(timeField, "");
+      timeField.setToolTipText(null);
+    } else {
+      if (set(
+          timeField, TimeText.caret(document.timeStatus(), time.offset(), time.displayZone()))) {
+        topRow.layout(true);
+      }
+      timeField.setToolTipText(TimeText.tooltip(time.format(), time.zone(), time.offset()));
+    }
+  }
+
+  /**
+   * Returns the top row's time field.
+   *
+   * @return the text
+   */
+  public String timeText() {
+    return timeField.getText();
+  }
+
+  /**
+   * Returns the time field's tooltip.
+   *
+   * @return the text, or null
+   */
+  String timeTip() {
+    return timeField.getToolTipText();
+  }
+
+  /**
+   * Returns the time field.
+   *
+   * @return the label
+   */
+  Label timeLabel() {
+    return timeField;
   }
 
   private void setSplit(int mainPercent) {
@@ -2215,5 +2342,33 @@ public final class MainWindow implements MainView, ApplicationListener {
    */
   GuideWindow guideWindow() {
     return guide;
+  }
+
+  // Timestamps.
+
+  @Override
+  public void askGoToTime(String initial, ZoneId zone, LocalDate caretDate, TimeListener listener) {
+    new GoToTimeDialog(shell, initial, zone, caretDate, listener).open();
+  }
+
+  @Override
+  public void askTimeOffset(
+      long offset, long caret, int caretDigits, ZoneId zone, TimeListener listener) {
+    new TimeOffsetDialog(shell, offset, caret, caretDigits, zone, listener).open();
+  }
+
+  @Override
+  public void askTimeZone(String current, ZoneId defaultZone, NameListener listener) {
+    new TimeZoneDialog(shell, current, defaultZone, listener).open();
+  }
+
+  @Override
+  public void showTimestampFormats(
+      List<UserFormat> formats,
+      String caretLine,
+      TimeContext context,
+      ZoneId zone,
+      FormatsListener listener) {
+    new TimestampFormatsDialog(shell, formats, caretLine, context, zone, listener).open();
   }
 }

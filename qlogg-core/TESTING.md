@@ -90,8 +90,10 @@
 - `LogDocumentTest` opens real files: tab expansion, CR handling, column
   windows, UTF-16 by BOM, the 1 MiB line cap, a line read past 2^31 bytes in
   a sparse file, close releasing the `LINE_INDEX` reservation, close during
-  indexing, close dropping the document's `BlockCache` blocks, and a read
-  after close throwing `ClosedChannelException`.
+  indexing, close dropping the document's `BlockCache` blocks, a read after
+  close throwing `ClosedChannelException`, timestamp format detection (ISO,
+  UTF-16 by BOM, none, skipped on request) and `newTimeReader`.
+  `InMemoryDocumentTest` also detects the format of pasted text.
 - `LogDocumentFollowTest` watches real files with a 20 ms poll: appended lines
   indexed, including a last line that grew; truncation reported once;
   rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) while

@@ -71,6 +71,8 @@ public final class Keymap {
     view(b, CommandId.EXCLUDE_FROM_SEARCH, 0, 'E');
     view(b, CommandId.REPLACE_SEARCH, 0, 'R');
     window(b, CommandId.GO_TO_LINE, P, 'l');
+    // Timestamps.
+    window(b, CommandId.GO_TO_TIME, P, 'L');
     view(b, CommandId.GO_TO_TOP, P, KeyStroke.HOME);
     view(b, CommandId.GO_TO_BOTTOM, P, KeyStroke.END);
     view(b, CommandId.GO_TO_BOTTOM, 0, 'G');

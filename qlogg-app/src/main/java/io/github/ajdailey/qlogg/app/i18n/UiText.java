@@ -564,8 +564,8 @@ public enum UiText {
   STATUS_LOADING_STOPPED,
   /** Status field: the encoding chosen by the user. */
   STATUS_ENCODING_FORCED,
-  /** Status field: the modification time. */
-  STATUS_MODIFIED,
+  /** Tooltip of the top row's size field: the modification time. */
+  STATUS_MODIFIED_TIP,
   /** File size in bytes. */
   SIZE_BYTES,
   /** File size in KiB. */
@@ -1029,7 +1029,93 @@ public enum UiText {
   /** Highlighter editor check box. */
   RULE_QUIET,
   /** Editor status: the comment template's regex does not compile; the reason. */
-  RULE_TEMPLATE_INVALID;
+  RULE_TEMPLATE_INVALID,
+
+  // Timestamps.
+  /** Command label. */
+  COMMAND_GO_TO_TIME,
+  /** Command label. */
+  COMMAND_TIMESTAMP_FORMATS,
+  /** Command label. */
+  COMMAND_TIME_ZONE,
+  /** Command label. */
+  COMMAND_TIME_OFFSET,
+  /** View cascade of the timestamp commands. */
+  MENU_TIMESTAMPS,
+  /** Timestamps cascade listing the formats. */
+  MENU_TIME_FORMAT,
+  /** Format list entry: no timestamps. */
+  TIME_FORMAT_NONE,
+  /** Built-in format name. */
+  TIME_FORMAT_ISO,
+  /** Built-in format name. */
+  TIME_FORMAT_YMD_SLASH,
+  /** Built-in format name. */
+  TIME_FORMAT_YMD_DOT,
+  /** Built-in format name. */
+  TIME_FORMAT_DMY_DOT,
+  /** Built-in format name. */
+  TIME_FORMAT_DMY_SLASH,
+  /** Built-in format name. */
+  TIME_FORMAT_MDY_SLASH,
+  /** Built-in format name. */
+  TIME_FORMAT_DMONY,
+  /** Built-in format name. */
+  TIME_FORMAT_SYSLOG,
+  /** Built-in format name. */
+  TIME_FORMAT_CLF,
+  /** Built-in format name. */
+  TIME_FORMAT_JUL,
+  /** Built-in format name. */
+  TIME_FORMAT_EPOCH,
+  /** Time field tooltip: the format, the zone and the offset. */
+  TIME_FIELD_TIP,
+  /** Go to Time prompt: the display zone. */
+  GO_TO_TIME_PROMPT,
+  /** Time Offset dialog: the offset field. */
+  TIME_OFFSET_PROMPT,
+  /** Time Offset dialog: the caret line's time field; the display zone. */
+  TIME_OFFSET_CARET_PROMPT,
+  /** Time Offset dialog: the caret line has no time. */
+  TIME_OFFSET_NO_CARET,
+  /** Time Zone dialog prompt. */
+  TIME_ZONE_PROMPT,
+  /** Time Zone dialog entry for the default zone; the zone. */
+  TIME_ZONE_DEFAULT,
+  /** Timestamp format editor title. */
+  TIME_FORMATS_TITLE,
+  /** Timestamp format editor field. */
+  TIME_FORMAT_NAME,
+  /** Timestamp format editor field. */
+  TIME_FORMAT_LOCATE,
+  /** Timestamp format editor field. */
+  TIME_FORMAT_PATTERN,
+  /** Timestamp format editor: the caret line's time. */
+  TIME_FORMAT_PREVIEW,
+  /** Timestamp format editor: the caret line has no timestamp in this format. */
+  TIME_FORMAT_PREVIEW_NONE,
+  /** Name of a new user format; its number. */
+  TIME_FORMAT_NEW_NAME,
+  /** Timestamp format editor status: two formats share a name. */
+  TIME_FORMAT_DUPLICATE,
+  /** Timestamp format editor status: the format's name and why it does not compile. */
+  TIME_FORMAT_INVALID,
+  /** Notice: the file has no timestamp format. */
+  NOTICE_TIME_NO_FORMAT,
+  /** Notice: no line has a timestamp. */
+  NOTICE_TIME_NONE,
+  /** Notice: the target is before the first timestamp. */
+  NOTICE_TIME_BEFORE_FIRST,
+  /** Notice: the target is after the last timestamp while indexing runs. */
+  NOTICE_TIME_INDEXED_PART,
+  /** Notice: the order check found timestamps out of order. */
+  NOTICE_TIME_OUT_OF_ORDER,
+  /** Notice: progress of a go to time over every line. */
+  NOTICE_TIME_PROGRESS,
+  /** Notice: Esc canceled a go to time. */
+  NOTICE_TIME_CANCELED,
+  /** Notice: a go to time failed; the reason. */
+  NOTICE_TIME_FAILED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

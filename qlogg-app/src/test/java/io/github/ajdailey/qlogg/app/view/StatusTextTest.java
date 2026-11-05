@@ -31,7 +31,7 @@ class StatusTextTest {
   void formatsTheTopRowFields() {
     DocumentViewState state = state(false, false, false, false, false);
     assertEquals("5.0 MiB", StatusText.size(state.fileBytes()));
-    assertEquals("modified on 2026-10-31 12:00:00", StatusText.modified(state, ZoneOffset.UTC));
+    assertEquals("Last modified 2026-10-31 12:00:00", StatusText.sizeTip(state, ZoneOffset.UTC));
     assertEquals("UTF-8", StatusText.encoding(state));
     assertEquals("UTF-8 (forced)", StatusText.encoding(state(true, false, false, false, false)));
   }

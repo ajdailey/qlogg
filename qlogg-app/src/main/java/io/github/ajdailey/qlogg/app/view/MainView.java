@@ -1,7 +1,12 @@
 package io.github.ajdailey.qlogg.app.view;
 
 import io.github.ajdailey.qlogg.app.about.AboutInfo;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
 
 /**
  * The main window as the controllers see it. Every method is called on the UI thread and returns
@@ -249,4 +254,72 @@ public interface MainView
    * @return false when the browser fails before the window opens
    */
   boolean showGuide(Path file);
+
+  // Timestamps.
+
+  /** Receives a time or an offset the user entered. */
+  interface TimeListener {
+    /**
+     * Called on the UI thread when the user confirms.
+     *
+     * @param nanos epoch nanoseconds, or an offset in nanoseconds
+     */
+    void timeChosen(long nanos);
+  }
+
+  /** Receives the user timestamp formats the user saved. */
+  interface FormatsListener {
+    /**
+     * Called on the UI thread when the user confirms.
+     *
+     * @param formats the formats in order
+     */
+    void formatsChosen(List<UserFormat> formats);
+  }
+
+  /**
+   * Asks for a Go to Time target, read by {@link TimeText#parseTarget}.
+   *
+   * @param initial the field's text: the caret line's time, or empty
+   * @param zone the display zone the text is in
+   * @param caretDate the date of a time entered without one, or null to refuse such a time
+   * @param listener receives the target as shown, offset included
+   */
+  void askGoToTime(String initial, ZoneId zone, LocalDate caretDate, TimeListener listener);
+
+  /**
+   * Asks for the shown tab's time offset, as an offset or as the time the caret line should show.
+   *
+   * @param offset the current offset
+   * @param caret the caret line's time without the offset, or {@link TimeText#INVALID} for none
+   * @param caretDigits fraction digits of the caret line's time
+   * @param zone the display zone
+   * @param listener receives the offset; 0 clears it
+   */
+  void askTimeOffset(long offset, long caret, int caretDigits, ZoneId zone, TimeListener listener);
+
+  /**
+   * Asks for the zone of the shown file's local times.
+   *
+   * @param current the chosen zone's id, or empty for the default
+   * @param defaultZone the zone {@code time.zone} gives
+   * @param listener receives a zone id, or empty for the default
+   */
+  void askTimeZone(String current, ZoneId defaultZone, NameListener listener);
+
+  /**
+   * Shows the user timestamp format editor.
+   *
+   * @param formats the formats in order
+   * @param caretLine the start of the shown file's caret line for the preview, or empty
+   * @param context the shown file's zone and date for the preview
+   * @param zone the display zone of the preview
+   * @param listener receives the formats on OK
+   */
+  void showTimestampFormats(
+      List<UserFormat> formats,
+      String caretLine,
+      TimeContext context,
+      ZoneId zone,
+      FormatsListener listener);
 }

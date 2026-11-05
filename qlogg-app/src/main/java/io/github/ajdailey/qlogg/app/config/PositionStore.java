@@ -10,12 +10,12 @@ import java.util.Properties;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The remembered position and encoding override per file, in {@code positions.conf}: {@code
- * pos.N.path}, {@code .top}, {@code .line}, {@code .column} and {@code .encoding}, most recently
- * used first. Keys are canonical paths. At most {@link #MAX_ENTRIES}; the least recently used goes
- * first. Thread-safe: {@link #get}, {@link #put} and {@link #setEncoding} touch memory only under a
- * lock held for no I/O, so the UI thread may call them; {@link #load} and {@link #save} block and
- * run on workers.
+ * The remembered position, encoding override and timestamp choices per file, in {@code
+ * positions.conf}: {@code pos.N.path}, {@code .top}, {@code .line}, {@code .column}, {@code
+ * .encoding}, {@code .timeFormat} and {@code .zone}, most recently used first. Keys are canonical
+ * paths. At most {@link #MAX_ENTRIES}; the least recently used goes first. Thread-safe: {@link
+ * #get}, {@link #put} and the setters touch memory only under a lock held for no I/O, so the UI
+ * thread may call them; {@link #load} and {@link #save} block and run on workers.
  */
 public final class PositionStore {
   /** The file name in the settings directory. */
@@ -36,16 +36,37 @@ public final class PositionStore {
    * @param line the caret's line, 0-based
    * @param column the caret's column
    * @param encoding the forced charset's name, or empty for detection
+   * @param timeFormat the timestamp format id the user chose, {@link TimeSettings#NO_FORMAT}, or
+   *     empty for detection
+   * @param zone the time zone id the user chose, or empty for {@code time.zone}
    */
-  public record Entry(long top, long line, long column, String encoding) {
+  public record Entry(
+      long top, long line, long column, String encoding, String timeFormat, String zone) {
     /** No position and no override. */
     public static final Entry NONE = new Entry(0, 0, 0, "");
 
     /** Checks the components. */
     public Entry {
-      if (top < 0 || line < 0 || column < 0 || encoding == null) {
-        throw new IllegalArgumentException("negative position or null encoding");
+      if (top < 0
+          || line < 0
+          || column < 0
+          || encoding == null
+          || timeFormat == null
+          || zone == null) {
+        throw new IllegalArgumentException("negative position or null text");
       }
+    }
+
+    /**
+     * Creates an entry without timestamp choices.
+     *
+     * @param top the first visible line, 0-based
+     * @param line the caret's line, 0-based
+     * @param column the caret's column
+     * @param encoding the forced charset's name, or empty for detection
+     */
+    public Entry(long top, long line, long column, String encoding) {
+      this(top, line, column, encoding, "", "");
     }
 
     /**
@@ -89,7 +110,9 @@ public final class PositionStore {
                 Long.parseLong(properties.getProperty(PREFIX + i + ".top", "0").strip()),
                 Long.parseLong(properties.getProperty(PREFIX + i + ".line", "0").strip()),
                 Long.parseLong(properties.getProperty(PREFIX + i + ".column", "0").strip()),
-                properties.getProperty(PREFIX + i + ".encoding", "").strip()));
+                properties.getProperty(PREFIX + i + ".encoding", "").strip(),
+                properties.getProperty(PREFIX + i + ".timeFormat", "").strip(),
+                properties.getProperty(PREFIX + i + ".zone", "").strip()));
         paths.add(path);
       } catch (IllegalArgumentException e) {
         // A malformed entry is dropped; the others stay.
@@ -146,6 +169,12 @@ public final class PositionStore {
         if (!entry.encoding().isEmpty()) {
           properties.setProperty(key + ".encoding", entry.encoding());
         }
+        if (!entry.timeFormat().isEmpty()) {
+          properties.setProperty(key + ".timeFormat", entry.timeFormat());
+        }
+        if (!entry.zone().isEmpty()) {
+          properties.setProperty(key + ".zone", entry.zone());
+        }
       }
       return properties;
     } finally {
@@ -179,7 +208,7 @@ public final class PositionStore {
   }
 
   /**
-   * Records a file's position, keeping its encoding override.
+   * Records a file's position, keeping its encoding override and timestamp choices.
    *
    * @param path the canonical path
    * @param top the first visible line
@@ -190,8 +219,10 @@ public final class PositionStore {
     lock.lock();
     try {
       Entry old = entries.get(path.toString());
-      Entry entry = new Entry(top, line, column, old == null ? "" : old.encoding());
-      store(path, entry);
+      if (old == null) {
+        old = Entry.NONE;
+      }
+      store(path, new Entry(top, line, column, old.encoding(), old.timeFormat(), old.zone()));
     } finally {
       lock.unlock();
     }
@@ -212,7 +243,57 @@ public final class PositionStore {
       }
       store(
           path,
-          new Entry(old.top(), old.line(), old.column(), charset == null ? "" : charset.name()));
+          new Entry(
+              old.top(),
+              old.line(),
+              old.column(),
+              charset == null ? "" : charset.name(),
+              old.timeFormat(),
+              old.zone()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  // Timestamps.
+
+  /**
+   * Records the timestamp format the user chose for a file, keeping the rest of its entry.
+   *
+   * @param path the canonical path
+   * @param formatId a format id or {@link TimeSettings#NO_FORMAT}
+   */
+  public void setTimeFormat(Path path, String formatId) {
+    lock.lock();
+    try {
+      Entry old = entries.get(path.toString());
+      if (old == null) {
+        old = Entry.NONE;
+      }
+      store(
+          path,
+          new Entry(old.top(), old.line(), old.column(), old.encoding(), formatId, old.zone()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Records the time zone the user chose for a file, keeping the rest of its entry.
+   *
+   * @param path the canonical path
+   * @param zoneId a zone id, or empty for {@code time.zone}
+   */
+  public void setZone(Path path, String zoneId) {
+    lock.lock();
+    try {
+      Entry old = entries.get(path.toString());
+      if (old == null) {
+        old = Entry.NONE;
+      }
+      store(
+          path,
+          new Entry(old.top(), old.line(), old.column(), old.encoding(), old.timeFormat(), zoneId));
     } finally {
       lock.unlock();
     }

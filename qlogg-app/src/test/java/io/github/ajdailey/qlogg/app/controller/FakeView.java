@@ -5,7 +5,11 @@ import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.UiThreadCheck;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -359,5 +363,56 @@ final class FakeView implements MainView {
     ui.check("showGuide");
     guides.add(file);
     return browser;
+  }
+
+  // Timestamps.
+  String timeInitial;
+  ZoneId timeZone;
+  LocalDate caretDate;
+  TimeListener timeListener;
+  long askedOffset;
+  long askedCaret;
+  String zoneCurrent;
+  List<UserFormat> formatsShown;
+  String formatSample;
+  FormatsListener formatsListener;
+
+  @Override
+  public void askGoToTime(String initial, ZoneId zone, LocalDate date, TimeListener listener) {
+    ui.check("askGoToTime");
+    timeInitial = initial;
+    timeZone = zone;
+    caretDate = date;
+    timeListener = listener;
+  }
+
+  @Override
+  public void askTimeOffset(
+      long offset, long caret, int caretDigits, ZoneId zone, TimeListener listener) {
+    ui.check("askTimeOffset");
+    askedOffset = offset;
+    askedCaret = caret;
+    timeZone = zone;
+    timeListener = listener;
+  }
+
+  @Override
+  public void askTimeZone(String current, ZoneId defaultZone, NameListener listener) {
+    ui.check("askTimeZone");
+    zoneCurrent = current;
+    nameListener = listener;
+  }
+
+  @Override
+  public void showTimestampFormats(
+      List<UserFormat> formats,
+      String caretLine,
+      TimeContext context,
+      ZoneId zone,
+      FormatsListener listener) {
+    ui.check("showTimestampFormats");
+    formatsShown = formats;
+    formatSample = caretLine;
+    formatsListener = listener;
   }
 }

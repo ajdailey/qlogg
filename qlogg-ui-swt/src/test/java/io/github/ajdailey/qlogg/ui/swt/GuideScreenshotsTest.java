@@ -8,6 +8,7 @@ import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.app.config.TimeSettings;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
@@ -35,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,10 +56,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Writes the user guide's screenshots to {@code -Dqlogg.guide.shots=<dir>} ({@code
- * tools/screenshots.sh}): the main window with search results and marks, collapsed stack traces,
- * the highlighters dialog, the Options Folding tab and Keyboard Shortcuts, each painted through
- * {@code Shell.print} from a generated mock log, written to {@code -Dqlogg.screenshots.logs=<dir>}
- * when given, so the path field shows that path.
+ * tools/screenshots.sh}): the main window with search results and marks, a selection's time
+ * difference, collapsed stack traces, the highlighters dialog, the Options Folding tab and Keyboard
+ * Shortcuts, each painted through {@code Shell.print} from a generated mock log, written to {@code
+ * -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows that path.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.guide.shots", matches = ".+")
@@ -104,7 +106,9 @@ class GuideScreenshotsTest {
               window,
               services,
               new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, temp)),
-              Preferences.DEFAULTS.withHighlights(highlights()));
+              Preferences.DEFAULTS
+                  .withHighlights(highlights())
+                  .withTime(new TimeSettings(ZoneOffset.UTC, ZoneOffset.UTC, List.of())));
       window.attach(controller);
       window.place(new WindowGeometry.Request(0, 0, 960, 600), null);
       window.open();
@@ -156,6 +160,24 @@ class GuideScreenshotsTest {
     document.select(Selection.caretAt(new TextPosition(58, 0)));
     settle();
     save(window.shell(), "main.png");
+
+    // Timestamps: the caret time and the time across a selection, in a wider window that fits both.
+    Point narrow = window.shell().getSize();
+    window.shell().setSize(1100, 700);
+    document.select(new Selection(new TextPosition(50, 0), new TextPosition(66, 4)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return window.positionText().contains("+00:") && !window.timeText().isEmpty();
+              }
+            }));
+    settle();
+    save(window.shell(), "timestamps.png");
+    window.shell().setSize(narrow);
+    document.select(Selection.caretAt(new TextPosition(58, 0)));
+    settle();
 
     controller.execute(CommandId.COLLAPSE_ALL_FOLDS);
     assertTrue(

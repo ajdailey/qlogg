@@ -74,9 +74,15 @@ final class DocumentOpener {
    * @param marksCopied true when session marks were added
    * @param marksComplete false when the {@code RESULTS} share refused part of them
    * @param handed true when another launch handed the file over
+   * @param timeOffset the restored tab's time offset in nanoseconds, else 0
    */
   record Opening(
-      long line, boolean follow, boolean marksCopied, boolean marksComplete, boolean handed) {}
+      long line,
+      boolean follow,
+      boolean marksCopied,
+      boolean marksComplete,
+      boolean handed,
+      long timeOffset) {}
 
   private static final Logger LOG = LoggerFactory.getLogger(DocumentOpener.class);
 
@@ -132,7 +138,7 @@ final class DocumentOpener {
                   if (closed) {
                     break;
                   }
-                  load(request.path(), request.line(), follow, null, null, services, handed);
+                  load(request.path(), request.line(), follow, null, null, 0, services, handed);
                 }
               }
             });
@@ -190,7 +196,7 @@ final class DocumentOpener {
           @Override
           public void run() {
             try {
-              final LogDocument document = LogDocument.open(path, forcedEncoding(path), services);
+              final LogDocument document = openRemembered(path, services);
               if (!register(document)) {
                 return;
               }
@@ -252,7 +258,15 @@ final class DocumentOpener {
                   Session.Tab tab = tabs.get(i);
                   long[] marks = tab.marks().length > 0 ? tab.marks() : null;
                   LogDocument document =
-                      load(paths.get(i), 0, tab.follow(), marks, tab.comments(), services, false);
+                      load(
+                          paths.get(i),
+                          0,
+                          tab.follow(),
+                          marks,
+                          tab.comments(),
+                          tab.timeOffset(),
+                          services,
+                          false);
                   if (document != null && !tab.name().isEmpty()) {
                     final Path opened = document.path();
                     final String name = tab.name();
@@ -325,6 +339,7 @@ final class DocumentOpener {
    *
    * @param marks session mark ranges, or null
    * @param comments the marks' comments, or null
+   * @param timeOffset the restored tab's time offset, or 0
    * @return the document, or null when it did not open or the window closed
    */
   @WorkerThread
@@ -334,10 +349,11 @@ final class DocumentOpener {
       boolean follow,
       long[] marks,
       List<MarkComments.Comment> comments,
+      long timeOffset,
       DocumentServices services,
       boolean handed) {
     try {
-      final LogDocument document = LogDocument.open(path, forcedEncoding(path), services);
+      final LogDocument document = openRemembered(path, services);
       if (!register(document)) {
         return null;
       }
@@ -345,7 +361,8 @@ final class DocumentOpener {
       if (marks != null && comments != null) {
         marksComplete &= document.markComments().addAll(comments, document.marks());
       }
-      final Opening opening = new Opening(line, follow, marks != null, marksComplete, handed);
+      final Opening opening =
+          new Opening(line, follow, marks != null, marksComplete, handed, timeOffset);
       deliver(
           document,
           new Runnable() {
@@ -376,7 +393,7 @@ final class DocumentOpener {
       if (!register(document)) {
         return;
       }
-      final Opening opening = new Opening(0, false, false, true, false);
+      final Opening opening = new Opening(0, false, false, true, false, 0);
       deliver(
           document,
           new Runnable() {
@@ -447,17 +464,26 @@ final class DocumentOpener {
   }
 
   /**
-   * Returns a file's remembered encoding override, or null for detection. A remembered name this
-   * runtime does not support logs a WARN naming it and gives null.
+   * Opens a file with its remembered encoding override; a remembered timestamp format skips the
+   * format detection.
    */
   @WorkerThread
-  private Charset forcedEncoding(Path path) {
+  private LogDocument openRemembered(Path path, DocumentServices services) throws IOException {
     PositionStore.Entry entry;
     try {
       entry = config.positions().get(SafePaths.logPath(path).given());
     } catch (IOException e) {
-      return null;
+      entry = PositionStore.Entry.NONE;
     }
+    return LogDocument.open(
+        path, forcedEncoding(path, entry), services, entry.timeFormat().isEmpty());
+  }
+
+  /**
+   * Returns a file's remembered encoding override, or null for detection. A remembered name this
+   * runtime does not support logs a WARN naming it and gives null.
+   */
+  private static Charset forcedEncoding(Path path, PositionStore.Entry entry) {
     Charset charset = entry.charset();
     if (charset == null && !entry.encoding().isEmpty()) {
       LOG.warn(

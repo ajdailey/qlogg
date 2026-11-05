@@ -60,8 +60,9 @@ import org.slf4j.LoggerFactory;
  *
  * <p>{@link #toggleMarks} runs {@link MarkToggle} on a {@code qlogg-search-} worker with the {@link
  * ActivityIndicator} active and progress notices at most every {@link #PROGRESS_MILLIS} ms; {@code
- * Esc} ({@link CommandId#STOP}) cancels it and stops loading. One toggle runs at a time per
- * document. The filtered view rebuilds its marks snapshot after the toggle ends.
+ * Esc} ({@link CommandId#STOP}) cancels it and stops loading; while a go to time runs, loading goes
+ * on until the next {@code Esc}. One toggle runs at a time per document. The filtered view rebuilds
+ * its marks snapshot after the toggle ends.
  *
  * <p>Follow: while following, each flush scrolls to the last line. A user move that leaves the
  * bottom releases follow; with {@code follow.onOverscroll}, scrolling down {@link #OVERSCROLL_ROWS}
@@ -125,6 +126,8 @@ public final class DocumentController extends LineViewController {
   private String autoSet;
   // Keyword triggers.
   private final TriggerController triggers;
+  // Timestamps.
+  private final TimeController time;
 
   /**
    * Creates the controller for an open document; {@link #start} begins indexing.
@@ -151,6 +154,7 @@ public final class DocumentController extends LineViewController {
       DocumentHost host) {
     super(document, workers, ui, clipboard, notifications, activity, budget);
     this.document = document;
+    this.time = new TimeController(this);
     this.folds = new FoldMap(budget);
     this.folding = new FoldController(this, folds);
     this.state = buildState(document.status());
@@ -326,15 +330,17 @@ public final class DocumentController extends LineViewController {
   }
 
   /**
-   * Cancels a mark toggle, the copies and saves of both views, and stops loading; growth stays
-   * unindexed until a reload.
+   * Cancels a go to time, a mark toggle and the copies and saves of both views. Unless a go to time
+   * was running, also stops loading; growth stays unindexed until a reload.
    */
   public void stop() {
+    boolean searching = time.running();
+    time.cancel();
     cancelMarks();
     // Copy and save cancel.
     cancelExports();
     filtered.cancelExports();
-    if (document.stopIndexing()) {
+    if (!searching && document.stopIndexing()) {
       notifications()
           .showNotice(UiText.NOTICE_LOADING_STOPPED.format(document.index().lineCount()));
     }
@@ -1038,6 +1044,23 @@ public final class DocumentController extends LineViewController {
     }
   }
 
+  // Timestamps.
+
+  /**
+   * Returns the time state and go to time.
+   *
+   * @return the controller
+   */
+  public TimeController time() {
+    return time;
+  }
+
+  /** The time state changed; both views read or reformat their times. */
+  void timeChanged(boolean reread) {
+    timeSettingsChanged(reread);
+    filtered.timeSettingsChanged(reread);
+  }
+
   /**
    * Returns the search toggles new documents start with.
    *
@@ -1059,6 +1082,7 @@ public final class DocumentController extends LineViewController {
     filtered.detach();
     overview.detach();
     triggers.detach();
+    time.detach();
     budget().release(MemoryShare.HIGHLIGHT, labelCharge);
     labelCharge = 0;
     document.removeListener(events);

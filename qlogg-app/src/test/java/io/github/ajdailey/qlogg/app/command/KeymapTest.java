@@ -52,6 +52,18 @@ class KeymapTest {
   }
 
   @Test
+  void goToTimeHasCtrlShiftLAloneInEveryScope() {
+    KeyStroke stroke = new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'l');
+    assertEquals(stroke, keymap.accelerator(CommandId.GO_TO_TIME));
+    for (Binding binding : keymap.bindings()) {
+      if (binding.first().equals(stroke) || stroke.equals(binding.second())) {
+        assertEquals(CommandId.GO_TO_TIME, binding.command(), binding.text(false));
+      }
+    }
+    assertEquals(List.of(), keymap.conflicts(keymap.bindingsFor(CommandId.GO_TO_TIME).get(0)));
+  }
+
+  @Test
   void kloggBindingsWinCollisions() {
     assertEquals(new KeyStroke(KeyStroke.PRIMARY, 'l'), keymap.accelerator(CommandId.GO_TO_LINE));
     assertEquals("Shift+G", keymap.bindingsFor(CommandId.GO_TO_BOTTOM).get(1).text(false));

@@ -13,6 +13,7 @@ Options, Shortcuts changes them.
 - [Marks and quick find](#marks-and-quick-find)
 - [Highlighters and color labels](#highlighters-and-color-labels)
 - [Following a growing file](#following-a-growing-file)
+- [Timestamps](#timestamps)
 - [Folding multi-line entries](#folding-multi-line-entries)
 - [Selecting, copying and saving](#selecting-copying-and-saving)
 - [View options](#view-options)
@@ -43,7 +44,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
 
 - The top row holds Open, Reload and Follow, the file's path (its menu copies
   the path or opens the containing folder), Stop, and the file's size,
-  modification time, encoding and position.
+  encoding, position and the time of the current line
+  ([Timestamps](#timestamps)). The size's tooltip shows when the file last
+  changed.
 - A tab row appears while two or more files are open. A tab's menu closes tabs,
   copies the path, opens the folder, renames the tab or moves it to a new
   window; a middle click closes it. View > Opened Files and Switch to File
@@ -70,6 +73,7 @@ Encoding menu forces another one, and the choice is remembered for the file.
 | `Ctrl+Home`, `Ctrl+End`, `G` | First line, last line |
 | `Home`, `0`, `^`, `$`, `End` | Line start, line end, right edge of the text |
 | `Ctrl+L` | Go to a line |
+| `Ctrl+Shift+L` | Go to a time |
 | `Ctrl+PageDown`, `Ctrl+PageUp` | Next and previous tab |
 | `Space` | Switch between the main and the filtered view |
 | `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Options size |
@@ -197,6 +201,48 @@ Overscroll). View > Follow New Files follows every file as it opens.
 A file that is truncated, replaced or rotated reopens by name with its results
 cleared. A deleted file keeps its content on screen until a file with that name
 appears again.
+
+## Timestamps
+
+![Time of the current line and the time across a selection](images/guide/timestamps.png)
+
+QLogg finds the timestamp at the start of each line when a file opens: ISO
+8601 (`2026-03-01 05:00:00.002`, with `T`, a comma or a zone offset),
+dates with slashes or dots, `01 Mar 2026`, syslog (`Mar  1 05:00:00`), Common
+Log Format, Java logging (`Mar 01, 2026 5:00:00 AM`) and epoch seconds or
+milliseconds. A line without a timestamp, such as a stack trace line, takes
+the time of the line above it.
+
+- **Time field**: the top row shows the current line's time. Its tooltip names
+  the format, the time zone and the offset; a click opens Go to Time. A file
+  without timestamps leaves it empty and disables the timestamp commands.
+- **Selection difference**: with several lines selected, the position field
+  adds the time from the first to the last selected line, for example
+  `Sel 4 lines  +00:01:23.456`, or `+2d 03:00:00.000` past a day. A negative
+  time means the lines are out of order. In the filtered view the lines are
+  the selected rows' lines.
+- **Format**: View > Timestamps > Format picks another format, or None. Edit
+  Formats defines your own: a name, a regular expression whose group named
+  `ts` finds the time in the first 256 characters, and a pattern such as
+  `yyyy-MM-dd HH:mm:ss.SSS`; the editor shows the value it reads from the
+  current line before you save. QLogg remembers the format you pick for each
+  file.
+- **Time zone**: times without a zone are read in the zone set in View >
+  Timestamps > Time Zone for the file, else `time.zone` in `qlogg.conf`, else
+  the system zone. Times show in `time.displayZone`, else the system zone, so
+  files written in different zones compare on one clock.
+- **Time offset**: View > Timestamps > Time Offset shifts every time the tab
+  shows, as `[+-][d.]HH:mm:ss[.fff]` or as the time the current line should
+  show; zero clears it. The line text does not change. The session keeps the
+  offset, and a reload keeps it.
+- **Go to Time** (`Ctrl+Shift+L`, Edit menu): enter `yyyy-MM-dd HH:mm:ss` or
+  `HH:mm:ss` on the current line's date, with an optional fraction. QLogg goes
+  to the first line with that time, else the last line before it, and stops
+  following. A time before the first line goes to the first line. A file
+  whose timestamps go backward, such as two logs joined together, is searched
+  line by line with progress in the status bar. While a go to time runs, `Esc`
+  stops it and any running mark, copy or save; loading goes on until a second
+  `Esc`.
 
 ## Folding multi-line entries
 

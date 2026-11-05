@@ -73,11 +73,21 @@ Compiled and tested against the build host's SWT fragment.
 - The top row holds, left to right: a `ToolBar` with Open, Reload and Follow
   (a check item set from the shown document's follow state on every state
   change), a read-only path field, a `ToolBar` with Stop, then the shown
-  file's size,
-  modification time, encoding (with "(forced)" when the user chose it) and
-  position (`PositionText`), each after a separator. Tool items carry
+  file's size (tooltip `Last modified` and the time, updated with the file),
+  encoding (with "(forced)" when the user chose it), position (`PositionText`)
+  and caret time (`TimeText`), each after a separator. Tool items carry
   `ToolIcons` images and a tooltip with the command and its keys. Reload and
   Follow are disabled without a file, Stop without a tab.
+- The position field is at least 100 px wide and takes the width of a longer
+  text, such as a selection's time difference; the path field gives up the
+  difference.
+  The selection part describes the filtered view's selection while that view
+  has focus and a selection over more than one row, else the main view's.
+  The time field shows the main view's caret time in the display zone with
+  the offset, empty for a file without a format; its tooltip names the
+  format, the zone and the offset, and a click runs Go to Time. Both update
+  on the views' `timeChanged`. A long position text cuts the time field once
+  the path field is at its 160 px minimum.
 - The path field shows the shown file's full path (a clipboard document's
   tab name); with no file it is empty and disabled. Its context menu holds
   Copy Full Path, Copy File Name and Open Containing Folder, which run the
@@ -355,6 +365,18 @@ nothing while the bar is hidden.
 - `SelectorsDialog` (Highlighters > Automatic Highlighters) edits the
   ordered selectors: a table of match kind, pattern and set over an editor
   row, with Add, Update, Remove and Move Up and Down; OK saves them.
+- Timestamp dialogs, each modal with OK disabled until its input parses:
+  `GoToTimeDialog` (`TimeText.parseTarget`), `TimeOffsetDialog` (an offset
+  field and a caret-time field; editing one rewrites the other, and an offset
+  that moves the caret line's time out of the `long` range is refused),
+  `TimeZoneDialog` (an editable list of Default and the runtime's zone ids)
+  and `TimestampFormatsDialog` (the user formats as a list with name,
+  locating regex and pattern; Add, Remove; OK refuses a format that does not
+  compile or a repeated name, and the preview parses the caret line with the
+  selected format on the UI thread, bounded as every user format is).
+  View > Timestamps > Format is a cascade `MainMenuBar` fills on show from
+  `CommandStates.timeFormats`: the built-ins, the user formats and None as
+  radio items, the shown file's checked.
 
 ## Other classes
 
@@ -462,6 +484,14 @@ met. It also checks the locations `GuideWindow` allows, and that without the
 application menu the menu bar keeps About and Options.
 `GuideScreenshotsTest` runs only with `-Dqlogg.guide.shots=<dir>`
 (`tools/screenshots.sh`) and writes the user guide's images.
+`TimestampsGuiTest` checks that the time field shows the caret time and the
+format in its tooltip, the position field a selection's difference, the
+filtered view's while it has focus, an offset changes both, the size's
+tooltip follows the file's modification time, and a click on the field opens Go to Time; that Go to Time
+accepts a date and time or a time on the caret line's date and refuses
+anything else; that the Time Offset fields rewrite each other and refuse
+text that does not parse; and that the format editor previews the caret line
+and refuses a pattern that does not compile.
 `OptionsAndMenusTest` checks a bullet-column click marking and unmarking,
 `Ctrl`+wheel zoom over the focused filtered view applying in place (same
 views, menu bar and focus, fewer rows, the height restored by Reset Zoom),

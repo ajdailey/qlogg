@@ -11,6 +11,8 @@ import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.time.TimestampFormat;
+import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -57,6 +59,9 @@ final class MainMenuBar {
   private CommandGroup openedFilesGroup;
   private Menu recentMenu;
   private CommandGroup recentGroup;
+  // Timestamps.
+  private Menu timeFormatMenu;
+  private CommandGroup timeFormatGroup;
 
   /**
    * Creates the menu bar's owner; {@link #build} creates the menus.
@@ -95,6 +100,7 @@ final class MainMenuBar {
     otherLoaded = false;
     openedFilesMenu = null;
     recentMenu = null;
+    timeFormatMenu = null;
     Menu bar = new Menu(shell, SWT.BAR);
     boolean mac = SwtKeys.mac();
     boolean appMenu = AppMenu.present(shell.getDisplay());
@@ -131,9 +137,16 @@ final class MainMenuBar {
         if (cascadeBefore != null) {
           MenuItem opened = new MenuItem(target, SWT.CASCADE);
           opened.setText(cascadeBefore.text());
-          openedFilesMenu = new Menu(shell, SWT.DROP_DOWN);
-          opened.setMenu(openedFilesMenu);
-          openedFilesGroup = group;
+          Menu listed = new Menu(shell, SWT.DROP_DOWN);
+          opened.setMenu(listed);
+          if (cascadeBefore == UiText.MENU_TIME_FORMAT) {
+            timeFormatMenu = listed;
+            timeFormatGroup = group;
+            new MenuItem(target, SWT.SEPARATOR);
+          } else {
+            openedFilesMenu = listed;
+            openedFilesGroup = group;
+          }
         }
         MenuItem item = new MenuItem(target, command.check() ? SWT.CHECK : SWT.PUSH);
         item.setData(command);
@@ -206,6 +219,9 @@ final class MainMenuBar {
     if (group == recentGroup) {
       syncRecent();
     }
+    if (group == timeFormatGroup) {
+      syncTimeFormats();
+    }
     if (group == CommandGroup.HIGHLIGHT) {
       syncHighlightSets();
     }
@@ -256,6 +272,53 @@ final class MainMenuBar {
             }
           });
     }
+  }
+
+  /**
+   * Lists the timestamp formats as radio items, the shown file's checked: the built-ins, the user
+   * formats, then None, each group after a separator. Choosing one applies it to the shown file.
+   */
+  private void syncTimeFormats() {
+    if (timeFormatMenu == null || timeFormatMenu.isDisposed()) {
+      return;
+    }
+    for (MenuItem item : timeFormatMenu.getItems()) {
+      item.dispose();
+    }
+    boolean shown = controller.activeDocument() != null;
+    boolean user = false;
+    for (CommandStates.FormatChoice choice : states.timeFormats()) {
+      final TimestampFormat format = choice.format();
+      boolean userFormat = format instanceof UserFormat;
+      if ((userFormat && !user) || format == null) {
+        new MenuItem(timeFormatMenu, SWT.SEPARATOR);
+      }
+      user |= userFormat;
+      MenuItem item = new MenuItem(timeFormatMenu, SWT.RADIO);
+      item.setText(choice.label().replace("&", "&&"));
+      item.setSelection(choice.chosen());
+      item.setEnabled(shown);
+      item.addListener(
+          SWT.Selection,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              DocumentController document = controller.activeDocument();
+              if (((MenuItem) event.widget).getSelection() && document != null) {
+                controller.setTimeFormat(document, format);
+              }
+            }
+          });
+    }
+  }
+
+  /**
+   * Returns View > Timestamps > Format.
+   *
+   * @return the cascade, filled when its top menu shows
+   */
+  Menu timeFormatMenu() {
+    return timeFormatMenu;
   }
 
   /** Lists the highlighter sets after None as check items, the active ones checked. */

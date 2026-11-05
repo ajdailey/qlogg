@@ -179,8 +179,11 @@ class ScreenshotsTest {
                         || document.search().state().phase() == SearchViewState.Phase.RUNNING
                         || document.markingRunning()) {
                       step[0]++;
-                    } else {
+                    } else if (document.selection().caret().line() != 180) {
+                      // Ten more ticks, so the time field reads the new caret line.
                       document.select(Selection.caretAt(new TextPosition(180, 0)));
+                      step[0] = 20;
+                    } else {
                       save(window, png);
                       saved[0] = true;
                       controller.shutdown();

@@ -2,9 +2,11 @@ package io.github.ajdailey.qlogg.core.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
@@ -18,6 +20,10 @@ import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.text.DetectionReason;
+import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
+import io.github.ajdailey.qlogg.core.time.Stamp;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -114,6 +121,44 @@ class LogDocumentTest {
     Path file = dir.resolve(name);
     Files.write(file, content);
     return file;
+  }
+
+  @Test
+  void detectsTheTimestampFormatFromTheHeadUnlessTheOwnerRemembersIt() throws Exception {
+    String text = "2026-03-01 05:00:00 a\n2026-03-01 05:00:01 b\n2026-03-01 05:00:02 c\n";
+    Path file = write("timed.log", text.getBytes(StandardCharsets.US_ASCII));
+    try (LogDocument document = LogDocument.open(file, null, services)) {
+      assertEquals(BuiltInFormat.ISO, document.timeFormat());
+      assertEquals(Files.getLastModifiedTime(file).toMillis(), document.openedModifiedMillis());
+    }
+    try (LogDocument document = LogDocument.open(file, null, services, false)) {
+      assertNull(document.timeFormat());
+    }
+    Path utf16 = dir.resolve("timed16.log");
+    Files.write(utf16, ("\uFEFF" + text).getBytes(StandardCharsets.UTF_16LE));
+    try (LogDocument document = LogDocument.open(utf16, null, services)) {
+      assertEquals(BuiltInFormat.ISO, document.timeFormat());
+    }
+    Path plain = write("plain.log", "one\ntwo\nthree\n".getBytes(StandardCharsets.US_ASCII));
+    try (LogDocument document = LogDocument.open(plain, null, services)) {
+      assertNull(document.timeFormat());
+    }
+  }
+
+  @Test
+  void aTimeReaderReadsTheDocumentsStamps() throws Exception {
+    Path file =
+        write(
+            "stamps.log",
+            "2026-03-01 05:00:00.250 a\n  trace\n".getBytes(StandardCharsets.US_ASCII));
+    try (LogDocument document = indexed(file, new Events())) {
+      TimeContext context = TimeContext.of(ZoneOffset.UTC, document.openedModifiedMillis());
+      TimeReader reader = document.newTimeReader(BuiltInFormat.ISO.parser(context));
+      Stamp stamp = reader.at(document.index().lineStart(1), new CancellationToken());
+      assertEquals(0, stamp.offset());
+      assertEquals(1_772_341_200_250_000_000L, stamp.nanos());
+      assertEquals(3, stamp.fractionDigits());
+    }
   }
 
   @Test

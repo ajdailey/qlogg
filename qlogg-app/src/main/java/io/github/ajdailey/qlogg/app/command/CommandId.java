@@ -46,6 +46,9 @@ public enum CommandId {
   FIND_PREVIOUS(CommandGroup.EDIT, UiText.COMMAND_FIND_PREVIOUS, false, false),
   /** Ask for a line and go to it. */
   GO_TO_LINE(CommandGroup.EDIT, UiText.COMMAND_GO_TO_LINE, true, false),
+  // Timestamps.
+  /** Ask for a time and go to the line with it. */
+  GO_TO_TIME(CommandGroup.EDIT, UiText.COMMAND_GO_TO_TIME, false, false),
   /** Go to the first line. */
   GO_TO_TOP(CommandGroup.EDIT, UiText.COMMAND_GO_TO_TOP, false, false),
   /** Go to the last line. */
@@ -130,7 +133,7 @@ public enum CommandId {
   FOLLOW_ON_OVERSCROLL(CommandGroup.VIEW, UiText.COMMAND_FOLLOW_ON_OVERSCROLL, false, true),
   /** Reopen the active file and index it again. */
   RELOAD(CommandGroup.VIEW, UiText.COMMAND_RELOAD, true, false),
-  /** Cancel indexing and a running mark toggle. */
+  /** Cancel a go to time, a mark toggle and exports; with no go to time, also indexing. */
   STOP(CommandGroup.VIEW, UiText.COMMAND_STOP, false, false),
   /** Shows or hides the overview bar beside the main view. */
   TOGGLE_OVERVIEW(CommandGroup.VIEW, UiText.COMMAND_TOGGLE_OVERVIEW, true, true),
@@ -155,6 +158,14 @@ public enum CommandId {
   COLLAPSE_ALL_FOLDS(CommandGroup.VIEW, UiText.COMMAND_COLLAPSE_ALL_FOLDS, false, false),
   /** Expand every entry. */
   EXPAND_ALL_FOLDS(CommandGroup.VIEW, UiText.COMMAND_EXPAND_ALL_FOLDS, false, false),
+  // Timestamps.
+  /** Edit the user timestamp formats; the cascade lists the formats before it. */
+  TIMESTAMP_FORMATS(
+      CommandGroup.VIEW, UiText.COMMAND_TIMESTAMP_FORMATS, true, false, UiText.MENU_TIMESTAMPS),
+  /** Choose the zone of the shown file's local times. */
+  TIME_ZONE(CommandGroup.VIEW, UiText.COMMAND_TIME_ZONE, true, false, UiText.MENU_TIMESTAMPS),
+  /** Set the time offset of the shown tab. */
+  TIME_OFFSET(CommandGroup.VIEW, UiText.COMMAND_TIME_OFFSET, false, false, UiText.MENU_TIMESTAMPS),
   /** List marks and matches in the filtered view. */
   SHOW_MARKS_AND_MATCHES(
       CommandGroup.VIEW, UiText.COMMAND_SHOW_MARKS_AND_MATCHES, true, true, UiText.MENU_VISIBILITY),

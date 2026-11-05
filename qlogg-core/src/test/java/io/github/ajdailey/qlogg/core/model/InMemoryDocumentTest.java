@@ -16,6 +16,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
@@ -95,6 +96,17 @@ class InMemoryDocumentTest {
 
     @Override
     public void closed() {}
+  }
+
+  @Test
+  void pastedTextHasItsTimestampFormatDetected() throws Exception {
+    String text = "Mar  1 05:00:00 a\nMar  1 05:00:01 b\nMar  1 05:00:02 c\n";
+    try (LogDocument document = LogDocument.ofText("Clipboard 2", text, 1000, services)) {
+      assertEquals(BuiltInFormat.SYSLOG, document.timeFormat());
+    }
+    try (LogDocument document = LogDocument.ofText("Clipboard 3", "plain\n", 1000, services)) {
+      assertNull(document.timeFormat());
+    }
   }
 
   @Test

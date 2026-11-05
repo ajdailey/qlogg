@@ -18,6 +18,11 @@ import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
+import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
+import io.github.ajdailey.qlogg.core.time.FormatDetector;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.TimeReader;
+import io.github.ajdailey.qlogg.core.time.TimestampParser;
 import io.github.ajdailey.qlogg.core.watch.Baseline;
 import io.github.ajdailey.qlogg.core.watch.ChangeDetector;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
@@ -31,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -82,6 +88,8 @@ public final class LogDocument implements LineSource, Closeable {
   private final long pastedBytes;
   private final String name;
   private final EncodingDetection detection;
+  private final BuiltInFormat timeFormat;
+  private final long openedModifiedMillis;
   private final GrowableLineIndex index;
   private final DocumentServices services;
   private final List<DocumentListener> listeners = new CopyOnWriteArrayList<DocumentListener>();
@@ -107,6 +115,7 @@ public final class LogDocument implements LineSource, Closeable {
   private LogDocument(
       ByteSource source,
       EncodingDetection detection,
+      BuiltInFormat timeFormat,
       GrowableLineIndex index,
       DocumentServices services,
       String name,
@@ -115,6 +124,8 @@ public final class LogDocument implements LineSource, Closeable {
     this.name = name;
     this.pastedBytes = pastedBytes;
     this.detection = detection;
+    this.timeFormat = timeFormat;
+    this.openedModifiedMillis = source.identity().modifiedMillis();
     this.index = index;
     this.services = services;
     this.marks = new MutableLineSet(services.budget());
@@ -127,9 +138,8 @@ public final class LogDocument implements LineSource, Closeable {
   }
 
   /**
-   * Validates and opens a file and detects its encoding from the first 64 KiB. The document keeps
-   * the path as given for its name, its watch and the owner's reopen. Indexing starts with {@link
-   * #startIndexing}. Blocking; never call it on the UI thread.
+   * Opens a file as {@link #open(Path, Charset, DocumentServices, boolean)} does, detecting the
+   * timestamp format.
    *
    * @param path the path as given
    * @param forcedEncoding the charset to use, or null to detect it
@@ -140,6 +150,26 @@ public final class LogDocument implements LineSource, Closeable {
    */
   public static LogDocument open(Path path, Charset forcedEncoding, DocumentServices services)
       throws IOException {
+    return open(path, forcedEncoding, services, true);
+  }
+
+  /**
+   * Validates and opens a file and detects its encoding from the first 64 KiB, then, when asked,
+   * the timestamp format from the same bytes ({@link #timeFormat}). The document keeps the path as
+   * given for its name, its watch and the owner's reopen. Indexing starts with {@link
+   * #startIndexing}. Blocking; never call it on the UI thread.
+   *
+   * @param path the path as given
+   * @param forcedEncoding the charset to use, or null to detect it
+   * @param services shared services
+   * @param detectTimeFormat false when the owner has a remembered format
+   * @return the open document; the caller closes it
+   * @throws IOException when the path is rejected, the file cannot be read, or the line index share
+   *     cannot hold an empty index
+   */
+  public static LogDocument open(
+      Path path, Charset forcedEncoding, DocumentServices services, boolean detectTimeFormat)
+      throws IOException {
     FileByteSource source = FileByteSource.open(path);
     boolean opened = false;
     try {
@@ -148,11 +178,14 @@ public final class LogDocument implements LineSource, Closeable {
           forcedEncoding == null
               ? EncodingDetector.detect(head, services.fallbackCharset())
               : EncodingDetector.forced(forcedEncoding, head);
+      BuiltInFormat timeFormat =
+          detectTimeFormat ? detectTimeFormat(head, detection, source.identity()) : null;
       GrowableLineIndex index =
           new GrowableLineIndex(detection.encoding(), services.budget(), source, services.cache());
       Path file = source.path().getFileName();
       String title = file == null ? source.path().toString() : file.toString();
-      LogDocument document = new LogDocument(source, detection, index, services, title, 0);
+      LogDocument document =
+          new LogDocument(source, detection, timeFormat, index, services, title, 0);
       opened = true;
       return document;
     } finally {
@@ -190,12 +223,13 @@ public final class LogDocument implements LineSource, Closeable {
     boolean opened = false;
     try {
       MemoryByteSource source = new MemoryByteSource(bytes, System.currentTimeMillis());
-      EncodingDetection detection =
-          EncodingDetector.forced(StandardCharsets.UTF_8, readHead(source));
+      ByteBuffer head = readHead(source);
+      EncodingDetection detection = EncodingDetector.forced(StandardCharsets.UTF_8, head);
+      BuiltInFormat timeFormat = detectTimeFormat(head, detection, source.identity());
       GrowableLineIndex index =
           new GrowableLineIndex(detection.encoding(), services.budget(), source, services.cache());
       LogDocument document =
-          new LogDocument(source, detection, index, services, name, bytes.length);
+          new LogDocument(source, detection, timeFormat, index, services, name, bytes.length);
       opened = true;
       return document;
     } finally {
@@ -235,6 +269,16 @@ public final class LogDocument implements LineSource, Closeable {
     public long limit() {
       return limit;
     }
+  }
+
+  /**
+   * Detects the timestamp format of the head. The zone does not change which lines parse, so UTC
+   * stands in for the document zone the owner sets later.
+   */
+  private static BuiltInFormat detectTimeFormat(
+      ByteBuffer head, EncodingDetection detection, FileIdentity identity) {
+    return FormatDetector.detect(
+        head, detection.encoding(), TimeContext.of(ZoneOffset.UTC, identity.modifiedMillis()));
   }
 
   private static ByteBuffer readHead(ByteSource source) throws IOException {
@@ -302,6 +346,24 @@ public final class LogDocument implements LineSource, Closeable {
    */
   public EncodingDetection detection() {
     return detection;
+  }
+
+  /**
+   * Returns the timestamp format detected at open.
+   *
+   * @return the format, or null when detection was skipped or found none
+   */
+  public BuiltInFormat timeFormat() {
+    return timeFormat;
+  }
+
+  /**
+   * Returns the modification time the file had at open, for the year of timestamps without one.
+   *
+   * @return epoch milliseconds; the paste time for pasted text
+   */
+  public long openedModifiedMillis() {
+    return openedModifiedMillis;
   }
 
   @Override
@@ -381,6 +443,16 @@ public final class LogDocument implements LineSource, Closeable {
             return hideAnsi;
           }
         });
+  }
+
+  /**
+   * Creates a timestamp reader over this document, reading through the block cache; one per worker.
+   *
+   * @param parser the parser, used only by the reader
+   * @return the reader
+   */
+  public TimeReader newTimeReader(TimestampParser parser) {
+    return new TimeReader(source, services.cache(), detection.encoding(), parser);
   }
 
   /**

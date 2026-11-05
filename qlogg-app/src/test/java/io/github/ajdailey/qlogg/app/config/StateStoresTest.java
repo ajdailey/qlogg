@@ -103,6 +103,24 @@ class StateStoresTest {
   }
 
   @Test
+  void positionsKeepTheTimestampChoices() throws Exception {
+    PositionStore store = new PositionStore(location());
+    Path file = Path.of("/mock/t.log");
+    store.setTimeFormat(file, "user:app");
+    store.setZone(file, "Europe/Berlin");
+    store.put(file, 4, 5, 6);
+    store.setEncoding(file, StandardCharsets.UTF_8);
+    store.setTimeFormat(Path.of("/mock/n.log"), TimeSettings.NO_FORMAT);
+    assertTrue(store.save());
+    PositionStore loaded = new PositionStore(location());
+    loaded.load();
+    assertEquals(
+        new PositionStore.Entry(4, 5, 6, "UTF-8", "user:app", "Europe/Berlin"), loaded.get(file));
+    assertEquals(TimeSettings.NO_FORMAT, loaded.get(Path.of("/mock/n.log")).timeFormat());
+    assertEquals("", loaded.get(Path.of("/mock/n.log")).zone());
+  }
+
+  @Test
   void aMalformedPositionsFileIsKeptAsInvalid() throws Exception {
     Files.writeString(temp.resolve(PositionStore.FILE), "version=2\n");
     PositionStore store = new PositionStore(location());
@@ -132,6 +150,26 @@ class StateStoresTest {
     assertArrayEquals(new long[] {0, 0, 3, 7}, tab.marks());
     assertTrue(tab.comments().isEmpty());
     assertEquals("", loaded.tabs().get(1).name());
+  }
+
+  @Test
+  void sessionRoundTripsTheTimeOffset() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session.Tab tab =
+        new Session.Tab("/mock/a.log", "", false, new long[0], List.of(), -90_000_000_001L);
+    Session.Tab plain = new Session.Tab("/mock/b.log", "", false, new long[0]);
+    assertTrue(store.save(new Session(List.of(tab, plain), 0)));
+    Session loaded = new SessionStore(location()).load();
+    assertEquals(-90_000_000_001L, loaded.tabs().get(0).timeOffset());
+    assertEquals(0, loaded.tabs().get(1).timeOffset());
+    assertFalse(
+        Files.readString(temp.resolve(SessionStore.FILE), StandardCharsets.ISO_8859_1)
+            .contains("tab.1.timeOffset"));
+    Files.writeString(
+        temp.resolve(SessionStore.FILE),
+        "window.0.active=0\nwindow.0.tab.0.path=/mock/a.log\nwindow.0.tab.0.timeOffset=soon\n",
+        StandardCharsets.ISO_8859_1);
+    assertEquals(0, new SessionStore(location()).load().tabs().get(0).timeOffset());
   }
 
   @Test
