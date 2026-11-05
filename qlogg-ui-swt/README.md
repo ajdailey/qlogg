@@ -119,10 +119,10 @@ Compiled and tested against the build host's SWT fragment.
   reorders. `documentMovedOut` removes the tab and views as a close does;
   `documentMovedIn` inserts the tab at its index. No `DragSource` is used.
 - The window body is a vertical `SashForm`: the main log view with the
-  `OverviewBar` at its right over the bottom pane, split by
-  `view.splitPercent`. The sash is 7 px and paints a dotted grip. View >
-  Overview Bar shows or hides the bar. `+` and `-` move the split by 5 points
-  between 10% and 90%; View > Save Splitter Position stores it.
+  `OverviewBar` between its text and its vertical scroll bar over the bottom
+  pane, split by `view.splitPercent`. The sash is 7 px and paints a dotted
+  grip. View > Overview Bar shows or hides the bar. `+` and `-` move the split
+  by 5 points between 10% and 90%; View > Save Splitter Position stores it.
 - The bottom pane holds the `SearchBar`, then the `ResultsPane`. Showing a tab
   binds the `SearchBar` to its document. The status bar shows the document
   notes from `StatusText.notes` (index percent, Following, File missing,
@@ -272,7 +272,10 @@ command waits for that line.
   `GC.setTextAntialias` does not reach
   a `TextLayout` on GTK, so forced anti-aliasing applies to printable-ASCII
   rows only.
-- The vertical scroll bar takes `Viewport`'s maximum, thumb and selection.
+- The vertical scroll bar is a `Slider` beside the canvas in
+  `LogCanvas.frame()`, so `addSide` can place a control between the text and
+  the bar; the canvas keeps its native horizontal bar. The slider takes
+  `Viewport`'s maximum, thumb and selection and hands focus back to the canvas.
   Arrow and page clicks scroll by lines; a drag goes through
   `setScrollbarSelection`, which maps past `int` range. The wheel scrolls by
   its event count; with `Alt` it scrolls that many columns, with `Shift` one
@@ -307,7 +310,8 @@ command waits for that line.
 
 `OverviewBar` (14 px wide) paints the `OverviewController`'s last bins: a
 mark line where a pixel row holds marks, a match line over it where it holds
-matches, and a frame around the visible lines. A click or drag shows the line
+matches, a line down its left edge, and a line at the first and at the last
+visible line. A click or drag shows the line
 under the pointer; a resize reports the height, and the controller computes
 nothing while the bar is hidden.
 

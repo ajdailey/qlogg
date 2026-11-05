@@ -71,20 +71,20 @@ import org.eclipse.swt.widgets.ToolItem;
  * The main window: the menu bar built from the {@link Keymap}; a top row with the icon toolbar
  * (Open, Reload, Follow), the read-only path field, Stop, and the shown file's size, modification
  * time, encoding and position; a row of tabs, one per open file, shown while two or more are open;
- * the main log view with the {@link OverviewBar} beside it over the bottom pane, split by a sash
- * with a grip; the bottom pane holds the {@link SearchBar} over the {@link ResultsPane}; then the
- * {@link QuickFindBar} and a status bar with the document notes, notices and the key-prefix field.
- * The views show the active tab: switching tabs disposes them and creates them over the other
- * document's controllers, which hold the viewport, selection and rows. Tabs show file names and
- * move by dragging, within the strip or to another window ({@link #dropTab}); a tab's close button
- * or a middle click closes its file, and its context menu holds the close variants, the path
- * commands, Rename Tab and Move to New Window. The path field's context menu holds the path
- * commands, Copy and Select All. Files dropped on the window open a tab each. A palette change from
- * the theme recolors both log views and the overview bar at once; native widgets follow the system.
- * Created, placed and opened on the UI thread; a close request from the window system is vetoed and
- * forwarded to the close handler, which ends with {@link #dispose}. Every QLogg dialog returns at
- * once. The platform file and color choosers run a nested event loop, and on GTK {@link
- * #clipboardText} waits on the UI thread for the clipboard owner.
+ * the main log view with the {@link OverviewBar} between its text and scroll bar over the bottom
+ * pane, split by a sash with a grip; the bottom pane holds the {@link SearchBar} over the {@link
+ * ResultsPane}; then the {@link QuickFindBar} and a status bar with the document notes, notices and
+ * the key-prefix field. The views show the active tab: switching tabs disposes them and creates
+ * them over the other document's controllers, which hold the viewport, selection and rows. Tabs
+ * show file names and move by dragging, within the strip or to another window ({@link #dropTab}); a
+ * tab's close button or a middle click closes its file, and its context menu holds the close
+ * variants, the path commands, Rename Tab and Move to New Window. The path field's context menu
+ * holds the path commands, Copy and Select All. Files dropped on the window open a tab each. A
+ * palette change from the theme recolors both log views and the overview bar at once; native
+ * widgets follow the system. Created, placed and opened on the UI thread; a close request from the
+ * window system is vetoed and forwarded to the close handler, which ends with {@link #dispose}.
+ * Every QLogg dialog returns at once. The platform file and color choosers run a nested event loop,
+ * and on GTK {@link #clipboardText} waits on the UI thread for the clipboard owner.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
@@ -280,7 +280,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     split.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     split.setSashWidth(SASH_WIDTH);
     mainHolder = new Composite(split, SWT.NONE);
-    GridLayout mainLayout = new GridLayout(2, false);
+    GridLayout mainLayout = new GridLayout(1, false);
     mainLayout.marginWidth = 0;
     mainLayout.marginHeight = 0;
     mainLayout.horizontalSpacing = 0;
@@ -1339,11 +1339,12 @@ public final class MainWindow implements MainView, ApplicationListener {
   private void showViews(DocumentController document) {
     removeViews();
     canvas = new LogCanvas(mainHolder, document, controller, keymap, palette, prefixListener);
-    canvas.control().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-    overviewBar = new OverviewBar(mainHolder, document, palette);
+    canvas.frame().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    overviewBar = new OverviewBar(canvas.frame(), document, palette);
     GridData barData = new GridData(SWT.FILL, SWT.FILL, false, true);
     barData.widthHint = OverviewBar.WIDTH;
     overviewBar.control().setLayoutData(barData);
+    canvas.addSide(overviewBar.control());
     showOverview(controller.preferences().overview());
     results = new ResultsPane(resultsHolder, document, controller, keymap, palette, prefixListener);
     document.addListener(statusListener);
@@ -1376,18 +1377,18 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   private void removeViews() {
+    if (overviewBar != null) {
+      overviewBar.control().dispose();
+      overviewBar = null;
+    }
     if (canvas != null) {
       canvas.document().removeListener(statusListener);
-      canvas.control().dispose();
+      canvas.frame().dispose();
       canvas = null;
     }
     if (results != null) {
       results.control().dispose();
       results = null;
-    }
-    if (overviewBar != null) {
-      overviewBar.control().dispose();
-      overviewBar = null;
     }
   }
 
@@ -1514,7 +1515,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     GridData data = (GridData) overviewBar.control().getLayoutData();
     data.exclude = !shown;
     overviewBar.control().setVisible(shown);
-    mainHolder.layout(true);
+    canvas.frame().layout(true);
     overviewBar.geometry();
   }
 

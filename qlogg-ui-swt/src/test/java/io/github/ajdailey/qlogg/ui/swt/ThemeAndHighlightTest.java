@@ -47,7 +47,9 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
@@ -237,6 +239,26 @@ class ThemeAndHighlightTest {
     window.syncMenu();
     controller.execute(CommandId.THEME_LIGHT);
     assertEquals(rgb(Palette.LIGHT.background()), pixel(main, x, y));
+  }
+
+  @Test
+  void overviewBarSitsBetweenTheTextAndTheScrollBar() {
+    LogCanvas main = window.canvas();
+    Control[] row = main.frame().getChildren();
+    assertEquals(3, row.length);
+    assertSame(main.control(), row[0]);
+    assertSame(window.overviewBar().control(), row[1]);
+    assertSame(main.verticalScrollBar(), row[2]);
+    Rectangle text = main.control().getBounds();
+    Rectangle bar = window.overviewBar().control().getBounds();
+    assertEquals(text.x + text.width, bar.x);
+    assertEquals(bar.x + bar.width, main.verticalScrollBar().getBounds().x);
+    assertEquals(
+        rgb(window.overviewBar().palette().overviewFrame()),
+        pixel(window.overviewBar().control(), 0, bar.height / 2));
+    Control[] filtered = window.results().canvas().frame().getChildren();
+    assertEquals(2, filtered.length);
+    assertSame(window.results().canvas().verticalScrollBar(), filtered[1]);
   }
 
   @Test

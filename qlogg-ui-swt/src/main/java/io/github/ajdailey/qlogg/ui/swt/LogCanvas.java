@@ -26,13 +26,17 @@ import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.ScrollBar;
+import org.eclipse.swt.widgets.Slider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +61,10 @@ import org.slf4j.LoggerFactory;
  * SwtUiDispatcher} timer, which stops on release, focus loss and dispose. {@code Alt}+wheel scrolls
  * sideways and {@code Shift}+wheel by pages. With text wrap on, the view reports the lines that fit
  * whole ({@link LineViewController#wrapFitted}).
+ *
+ * <p>The canvas sits in a {@link #frame()} with a {@link Slider} as the vertical scroll bar at its
+ * right, so a side control ({@link #addSide}) goes between the text and the scroll bar. The canvas
+ * keeps its native horizontal scroll bar.
  */
 public final class LogCanvas {
   /** Receives the pending key prefix for the status bar. */
@@ -80,7 +88,9 @@ public final class LogCanvas {
   /** Set by the first paint in this process that draws a loaded line. */
   private static final AtomicBoolean TEXT_PAINTED = new AtomicBoolean();
 
+  private final Composite frame;
   private final Canvas canvas;
+  private final Slider vertical;
 
   /** Commands of the right-click menu, in order; null is a separator. */
   static final CommandId[] CONTEXT_MENU = {
@@ -181,8 +191,16 @@ public final class LogCanvas {
     this.keys = new KeySequencer(keymap);
     this.keymapRef = keymap;
     this.prefix = prefix;
-    canvas =
-        new Canvas(parent, SWT.V_SCROLL | SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
+    frame = new Composite(parent, SWT.NONE);
+    GridLayout layout = new GridLayout(2, false);
+    layout.marginWidth = 0;
+    layout.marginHeight = 0;
+    layout.horizontalSpacing = 0;
+    frame.setLayout(layout);
+    canvas = new Canvas(frame, SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
+    canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    vertical = new Slider(frame, SWT.VERTICAL);
+    vertical.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true));
     FontSettings settings = application.preferences().options().font();
     font = createFont(settings);
     antialias = settings.antialias();
@@ -406,6 +424,36 @@ public final class LogCanvas {
   }
 
   /**
+   * Returns the composite holding the canvas, any side control and the vertical scroll bar. Lay out
+   * and dispose the view through it.
+   *
+   * @return the frame
+   */
+  public Composite frame() {
+    return frame;
+  }
+
+  /**
+   * Returns the vertical scroll bar.
+   *
+   * @return the slider
+   */
+  Slider verticalScrollBar() {
+    return vertical;
+  }
+
+  /**
+   * Places a control between the canvas and the vertical scroll bar.
+   *
+   * @param side a child of {@link #frame()}
+   */
+  public void addSide(Control side) {
+    side.moveAbove(vertical);
+    ((GridLayout) frame.getLayout()).numColumns = frame.getChildren().length;
+    frame.layout(true);
+  }
+
+  /**
    * Returns the controller shown.
    *
    * @return the controller
@@ -576,16 +624,17 @@ public final class LogCanvas {
             document.scrollColumns(-event.count);
           }
         });
-    canvas
-        .getVerticalBar()
-        .addListener(
-            SWT.Selection,
-            new Listener() {
-              @Override
-              public void handleEvent(Event event) {
-                verticalBar(event.detail);
-              }
-            });
+    vertical.addListener(
+        SWT.Selection,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            verticalBar(event.detail);
+            if (vertical.isFocusControl()) {
+              canvas.setFocus();
+            }
+          }
+        });
     canvas
         .getHorizontalBar()
         .addListener(
@@ -635,7 +684,7 @@ public final class LogCanvas {
       case SWT.ARROW_DOWN -> document.scrollLines(1);
       case SWT.PAGE_UP -> document.scrollLines(-viewport.rows());
       case SWT.PAGE_DOWN -> document.scrollLines(viewport.rows());
-      default -> document.setScrollbarSelection(canvas.getVerticalBar().getSelection());
+      default -> document.setScrollbarSelection(vertical.getSelection());
     }
   }
 
@@ -818,7 +867,6 @@ public final class LogCanvas {
 
   private void updateScrollBars() {
     Viewport viewport = document.viewport();
-    ScrollBar vertical = canvas.getVerticalBar();
     int thumb = viewport.scrollbarThumb();
     vertical.setValues(
         viewport.scrollbarSelection(),

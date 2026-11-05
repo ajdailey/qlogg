@@ -17,10 +17,11 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
 /**
- * The overview bar beside the main view: one pixel row per range of lines, a mark line where the
- * range holds marks and a match line, drawn over it, where it holds matches, plus a frame around
- * the visible lines. Painting reads the controller's last {@link OverviewBins} snapshot only. A
- * click or a drag shows the line under the pointer.
+ * The overview bar between the main view's text and its scroll bar: one pixel row per range of
+ * lines, a mark line where the range holds marks and a match line, drawn over it, where it holds
+ * matches. A line down the left edge separates it from the text, and a line across it marks the
+ * first and the last visible line. Painting reads the controller's last {@link OverviewBins}
+ * snapshot only. A click or a drag shows the line under the pointer.
  */
 final class OverviewBar {
   /** Width of the bar in pixels. */
@@ -153,21 +154,23 @@ final class OverviewBar {
     for (int y = 0; y < height; y++) {
       if (bins.marks()[y] > 0) {
         gc.setForeground(colors.markMarker);
-        gc.drawLine(2, y, area.width - 3, y);
+        gc.drawLine(3, y, area.width - 3, y);
       }
       if (bins.matches()[y] > 0) {
         gc.setForeground(colors.matchMarker);
-        gc.drawLine(2, y, area.width - 3, y);
+        gc.drawLine(3, y, area.width - 3, y);
       }
     }
+    gc.setForeground(colors.overviewFrame);
+    gc.drawLine(0, 0, 0, area.height - 1);
     Viewport viewport = document.viewport();
     long count = viewport.lineCount();
     if (count > 0 && area.height > 0) {
       int top = OverviewBins.rowOf(viewport.topLine(), count, area.height);
       long last = Math.min(count - 1, viewport.topLine() + Math.max(0, viewport.rows() - 1));
       int bottom = OverviewBins.rowOf(last, count, area.height);
-      gc.setForeground(colors.overviewFrame);
-      gc.drawRectangle(0, top, area.width - 1, Math.max(1, bottom - top));
+      gc.drawLine(1, top, area.width - 1, top);
+      gc.drawLine(1, bottom, area.width - 1, bottom);
     }
   }
 }

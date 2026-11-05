@@ -364,10 +364,10 @@ class LogViewTest {
 
   @Test
   void scrollBarAndWheelScroll() {
-    canvas().getVerticalBar().setSelection(100);
+    window.canvas().verticalScrollBar().setSelection(100);
     Event drag = new Event();
     drag.detail = SWT.DRAG;
-    canvas().getVerticalBar().notifyListeners(SWT.Selection, drag);
+    window.canvas().verticalScrollBar().notifyListeners(SWT.Selection, drag);
     assertEquals(100, document().viewport().topLine());
     Event wheel = new Event();
     wheel.count = -3;
@@ -382,7 +382,7 @@ class LogViewTest {
               }
             }));
     assertEquals("line 104", document().lines().text(103));
-    assertEquals(103, canvas().getVerticalBar().getSelection());
+    assertEquals(103, window.canvas().verticalScrollBar().getSelection());
   }
 
   @Test

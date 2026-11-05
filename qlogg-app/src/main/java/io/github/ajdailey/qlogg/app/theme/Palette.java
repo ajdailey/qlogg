@@ -20,7 +20,7 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
  * @param matchMarker match bullets in the gutter and match lines in the overview bar
  * @param markMarker mark bullets in the gutter and mark lines in the overview bar
  * @param overview overview bar background
- * @param overviewFrame the overview bar's frame around the visible lines
+ * @param overviewFrame the overview bar's left edge and its first and last visible line
  */
 public record Palette(
     boolean dark,
