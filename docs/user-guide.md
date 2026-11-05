@@ -243,6 +243,29 @@ the time of the line above it.
   line by line with progress in the status bar. While a go to time runs, `Esc`
   stops it and any running mark, copy or save; loading goes on until a second
   `Esc`.
+- **Scroll All Tabs to This Time** (Edit menu, log view context menu): every
+  other tab with a timestamp format, in every window, goes to the current
+  line's time and stops following. Each tab applies its own time offset.
+- **Time Sync** (tab and log view context menus): check another tab to keep
+  the two on one time. That tab moves to this tab's time, or, when it is in a
+  group already (its number shows beside it), this tab joins and moves to its
+  time. Moving the current line in a member moves the others shortly after;
+  a hidden tab moves too. A move reaching a member stops its following, but
+  following in a member moves nobody. The tab's tooltip shows its group.
+  Uncheck a tab or choose Leave Time Sync to end it; a group left with one
+  tab ends. Groups survive a reload and a move to another window, and the
+  session keeps them.
+- **Time spread**: View > Timestamps > Time Spread shades the
+  [overview bar](#the-main-window) by how the lines spread over time, for
+  every open file with a format. Activity shades rows where lines come at
+  least twice as fast as the average, Pauses rows that span at least twice the
+  average time; the color deepens at 4, 8 and 16 times. Purple rows are places
+  where the time goes backward. A click still goes to the line under the
+  pointer. A growing file updates every 2 seconds. Off is the default.
+
+![Time spread, Activity: the burst of lines shows dark in the overview bar](images/guide/time-spread-activity.png)
+
+![Time spread, Pauses: each long gap shows as a line in the overview bar](images/guide/time-spread-pauses.png)
 
 ## Folding multi-line entries
 
@@ -252,7 +275,9 @@ A fold hides an entry's continuation lines, such as a stack trace, under its
 first line. `Alt+Backspace` collapses or expands the entry at the current line;
 `Ctrl+E Ctrl+C` collapses every entry as it scrolls into view and
 `Ctrl+E Ctrl+X` expands them all. Going to a line, a match or a mark inside a
-collapsed entry expands it. Copy, mark and save skip hidden lines.
+collapsed entry expands it. Copy, mark and save skip hidden lines. The overview
+bar shrinks a collapsed entry to one line and shows its hidden matches and
+marks there; a click on it leaves the entry collapsed.
 
 By default a line continues the entry above it when it starts with white
 space, `at `, `Caused by:` or `... N more`. Tools > Options, Folding changes
@@ -304,7 +329,8 @@ epoch time.
 
 QLogg restores the last session at start when no file is given (Tools >
 Options, General; `-s` and `-n` decide for one run): the tabs of each window,
-the shown tab, tab names, follow, marks and mark comments. Each file's
+the shown tab, tab names, follow, marks, mark comments, time offsets and time
+sync groups. Each file's
 position and forced encoding are remembered; `+line:N` wins over the position.
 
 File > Open Recent lists recent files (Clean Up drops missing ones). The

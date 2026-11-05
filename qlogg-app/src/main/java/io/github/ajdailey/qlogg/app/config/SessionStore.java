@@ -10,7 +10,8 @@ import java.util.Properties;
 /**
  * Loads and saves one {@link Session} per main window in {@code qlogg_session.conf}: {@code
  * window.W.active} and {@code window.W.tab.N.path}, {@code .name}, {@code .follow}, {@code .marks}
- * and {@code .timeOffset} (nanoseconds, written when not 0; a malformed value reads as 0), windows
+ * {@code .timeOffset} (nanoseconds, written when not 0; a malformed value reads as 0) and {@code
+ * .syncGroup} (time sync group from 1, written when in one; a malformed value reads as 0), windows
  * numbered from 0 without gaps. Marks are ranges {@code first-last} or single lines,
  * comma-separated, 0-based. A session keeps at most {@link #MAX_WINDOWS} windows, {@link #MAX_TABS}
  * tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks past that are
@@ -97,7 +98,8 @@ public final class SessionStore {
                 "true".equals(p.getProperty(key + "follow", "false").strip()),
                 marks,
                 tabComments,
-                offset(p.getProperty(key + "timeOffset", "0"))));
+                offset(p.getProperty(key + "timeOffset", "0")),
+                syncGroup(p.getProperty(key + "syncGroup", "0"))));
       }
       int active = -1;
       try {
@@ -147,6 +149,9 @@ public final class SessionStore {
         if (tab.timeOffset() != 0) {
           p.setProperty(key + "timeOffset", Long.toString(tab.timeOffset()));
         }
+        if (tab.syncGroup() > 0) {
+          p.setProperty(key + "syncGroup", Integer.toString(tab.syncGroup()));
+        }
         if (tab.marks().length > 0) {
           p.setProperty(key + "marks", formatMarks(tab.marks()));
         }
@@ -162,6 +167,14 @@ public final class SessionStore {
   }
 
   /** Reads a time offset; a malformed value reads as none. */
+  private static int syncGroup(String value) {
+    try {
+      return Math.max(0, Integer.parseInt(value.strip()));
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
   private static long offset(String value) {
     try {
       return Long.parseLong(value.strip());

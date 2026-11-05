@@ -62,6 +62,8 @@ final class MainMenuBar {
   // Timestamps.
   private Menu timeFormatMenu;
   private CommandGroup timeFormatGroup;
+  // Time spread.
+  private Menu nestedMenu;
 
   /**
    * Creates the menu bar's owner; {@link #build} creates the menus.
@@ -101,6 +103,7 @@ final class MainMenuBar {
     openedFilesMenu = null;
     recentMenu = null;
     timeFormatMenu = null;
+    nestedMenu = null;
     Menu bar = new Menu(shell, SWT.BAR);
     boolean mac = SwtKeys.mac();
     boolean appMenu = AppMenu.present(shell.getDisplay());
@@ -148,7 +151,11 @@ final class MainMenuBar {
             openedFilesGroup = group;
           }
         }
-        MenuItem item = new MenuItem(target, command.check() ? SWT.CHECK : SWT.PUSH);
+        final boolean radio = MenuTable.radio(command);
+        MenuItem item =
+            new MenuItem(
+                nested(target, MenuTable.nestedCascade(command)),
+                radio ? SWT.RADIO : command.check() ? SWT.CHECK : SWT.PUSH);
         item.setData(command);
         String keys = keymap.keysText(command, mac);
         item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
@@ -161,7 +168,10 @@ final class MainMenuBar {
             new Listener() {
               @Override
               public void handleEvent(Event event) {
-                controller.execute(command);
+                // The item a radio choice clears also fires.
+                if (!radio || ((MenuItem) event.widget).getSelection()) {
+                  controller.execute(command);
+                }
               }
             });
         items.put(command, item);
@@ -187,6 +197,20 @@ final class MainMenuBar {
       old.dispose();
     }
     syncEnablement();
+  }
+
+  /** Returns the menu an item goes in: the cascade, created at its first item, or the target. */
+  private Menu nested(Menu target, UiText cascade) {
+    if (cascade == null) {
+      return target;
+    }
+    if (nestedMenu == null) {
+      MenuItem holder = new MenuItem(target, SWT.CASCADE);
+      holder.setText(cascade.text());
+      nestedMenu = new Menu(shell, SWT.DROP_DOWN);
+      holder.setMenu(nestedMenu);
+    }
+    return nestedMenu;
   }
 
   /** Syncs every menu, as showing each would. */

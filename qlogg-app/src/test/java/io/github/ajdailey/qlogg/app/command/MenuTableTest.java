@@ -36,6 +36,20 @@ class MenuTableTest {
   }
 
   @Test
+  void timeSpreadIsARadioCascadeInsideTimestamps() {
+    CommandId[] modes = {
+      CommandId.TIME_SPREAD_OFF, CommandId.TIME_SPREAD_ACTIVITY, CommandId.TIME_SPREAD_PAUSES
+    };
+    for (CommandId mode : modes) {
+      assertTrue(MenuTable.radio(mode));
+      assertEquals(UiText.MENU_TIME_SPREAD, MenuTable.nestedCascade(mode));
+      assertEquals(UiText.MENU_TIMESTAMPS.text(), mode.submenu());
+    }
+    assertFalse(MenuTable.radio(CommandId.THEME_LIGHT));
+    assertNull(MenuTable.nestedCascade(CommandId.TIME_OFFSET));
+  }
+
+  @Test
   void mnemonicsAreUniqueInFileViewAndTools() {
     CommandGroup[] groups = {CommandGroup.FILE, CommandGroup.VIEW, CommandGroup.TOOLS};
     for (CommandGroup group : groups) {

@@ -445,6 +445,7 @@ class LogViewTest {
             "-",
             "Go to Line",
             "Go to Time",
+            "Scroll All Tabs to This Time",
             "Go to Top",
             "Go to Bottom",
             "-",
@@ -465,7 +466,7 @@ class LogViewTest {
             "Block Selection",
             "Search All Open Files"),
         labels(bar.getItem(1).getMenu()));
-    MenuItem search = bar.getItem(1).getMenu().getItem(27);
+    MenuItem search = bar.getItem(1).getMenu().getItem(28);
     assertEquals(SWT.CASCADE, search.getStyle() & SWT.CASCADE);
     assertEquals("Search Field", labels(search.getMenu()).get(0));
     assertEquals(

@@ -68,4 +68,7 @@ public interface ApplicationListener {
    * @param index its tab position, 0 first
    */
   default void documentMovedIn(DocumentController document, int index) {}
+
+  /** A tab of any window joined or left a time sync group. Does nothing by default. */
+  default void timeSyncChanged() {}
 }

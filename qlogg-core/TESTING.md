@@ -134,7 +134,7 @@
   is missing. `BoundedCharsTest` checks the limit, `used()` and `reset`.
 - `OverviewBinsTest` compares `lineAt` with `BigInteger` arithmetic up to
   `Long.MAX_VALUE` lines, inverts it with `rowOf` past 2^31 lines, and counts
-  bins for dense, sparse and fewer-lines-than-pixels cases.
+  bins for dense, sparse, fewer-lines-than-pixels and uneven-span cases.
 - `MarkToggleTest` marks and unmarks a contiguous range, walks listed rows,
   unmarks the marks view while walking it, cancels from the progress
   callback, and stops at the results share over 2^32 lines.
@@ -169,6 +169,9 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 - Two concatenated days must give one descent in 256 samples; a +-5 ms jitter
   must land bisection within 11 ms of the target (two jitter widths plus one
   step).
+- `TimeSpreadTest` builds samples directly (`TimeSamples.of`), so each level
+  boundary, the clamp at 16 and the rows left out of the averages have exact
+  expected values.
 - Zone cases use `America/New_York` 2025 dates for the DST overlap and gap.
 - Two-digit years are checked against a 2026-03 reference on both sides of
   the 50-year pivot (`76` in April is 1976, in February 2076, in March a tie

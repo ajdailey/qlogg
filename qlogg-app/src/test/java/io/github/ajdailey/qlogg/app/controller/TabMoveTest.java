@@ -269,6 +269,37 @@ class TabMoveTest {
     assertEquals(7_000_000_000L, target.draft().tabs().get(0).timeOffset());
   }
 
+  private Path timed(String name) throws IOException {
+    StringBuilder text = new StringBuilder();
+    for (int i = 0; i < 60; i++) {
+      text.append(String.format("2026-03-01 05:00:%02d.000 INFO entry %d%n", i, i));
+    }
+    return Files.writeString(temp.resolve(name), text.toString(), StandardCharsets.US_ASCII);
+  }
+
+  @Test
+  void aTimeSyncGroupSpansWindowsAndSurvivesATabMove() throws Exception {
+    final DocumentController source = openIn(first, timed("sync-a.log"));
+    final DocumentController moved = openIn(first, timed("sync-b.log"));
+    TimeSyncGroups groups = set.timeSync();
+    groups.toggle(source, moved);
+    ApplicationController target =
+        set.moveDocument(first, moved, null, new WindowSet.Placement(0, null, null));
+    assertSame(moved, target.activeDocument());
+    assertEquals(1, groups.number(moved));
+    assertEquals(1, groups.number(source));
+    source.select(Selection.caretAt(new TextPosition(42, 0)));
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return moved.selection().caret().line() == 42;
+          }
+        });
+    assertEquals(1, target.draft().tabs().get(0).syncGroup());
+    assertEquals(1, first.draft().tabs().get(0).syncGroup());
+  }
+
   @Test
   void aTabDroppedOnAnotherWindowGoesToTheDropIndex() throws Exception {
     first.execute(CommandId.NEW_WINDOW);

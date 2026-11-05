@@ -24,7 +24,10 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
  * @param newLinesDot the tab dot for new lines
  * @param newMatchesDot the tab dot for new matching lines
  * @param contextRow filtered-view background of a context line around a search result
- * @param followStoppedDot the tab dot for follow stopped by a keyword trigger
+ * @param followStoppedDot the tab dot for follow stopped by a keyword trigger; the overview bar's
+ *     time-spread layer draws rows whose time runs backward in it
+ * @param spreadPause overview bar shading of rows spanning more time than the average
+ * @param spreadActivity overview bar shading of rows with more lines per second than the average
  */
 public record Palette(
     boolean dark,
@@ -48,7 +51,10 @@ public record Palette(
     // Context lines.
     Rgb contextRow,
     // Keyword triggers.
-    Rgb followStoppedDot) {
+    Rgb followStoppedDot,
+    // Time spread.
+    Rgb spreadPause,
+    Rgb spreadActivity) {
   /** The default palette. */
   public static final Palette LIGHT =
       new Palette(
@@ -73,7 +79,10 @@ public record Palette(
           // Context lines.
           Rgb.of(0xebebeb),
           // Keyword triggers.
-          Rgb.of(0x8e44ad));
+          Rgb.of(0x8e44ad),
+          // Time spread.
+          Rgb.of(0xc77700),
+          Rgb.of(0x00897b));
 
   /** The dark palette. */
   public static final Palette DARK =
@@ -99,5 +108,8 @@ public record Palette(
           // Context lines.
           Rgb.of(0x2f2f30),
           // Keyword triggers.
-          Rgb.of(0xc27ae0));
+          Rgb.of(0xc27ae0),
+          // Time spread.
+          Rgb.of(0xf0a030),
+          Rgb.of(0x35c4b0));
 }

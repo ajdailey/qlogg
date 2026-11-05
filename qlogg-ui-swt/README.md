@@ -116,6 +116,9 @@ Compiled and tested against the build host's SWT fragment.
   Containing Folder, then
   Rename Tab and Reset Tab Name, then Move to New Window; the side items are
   disabled at the ends and the path and name items for clipboard text.
+- A `&` is doubled in every tab text and tab tooltip, document and result tabs
+  alike: `CTabItem` draws text with mnemonics, and SWT drops a single `&` from
+  a tooltip. `tabTitle` stays unescaped; each consumer escapes for its widget.
 - A tab drag released off the tab under the press goes to `dropTab` with the
   display point and the control under the pointer
   (`Display.getCursorControl`, through a replaceable `PointerProbe`). The
@@ -131,7 +134,9 @@ Compiled and tested against the build host's SWT fragment.
 - A tab whose `TabDataModel` state is not `NONE` shows a `TabDots` image, a
   dot in the palette's `newLinesDot`, `newMatchesDot` or `followStoppedDot`
   color with a darker rim, and its tooltip adds "New lines", "New matching
-  lines" or "Follow stopped by a highlighter" under the path. `TabDots` renders each image per zoom through an
+  lines" or "Follow stopped by a highlighter" under the path, then "Time
+  synced, group N" for a time sync member (`timeSyncChanged` rebuilds every
+  tab's). `TabDots` renders each image per zoom through an
   `ImageDataProvider`; a palette change creates the next palette's dots,
   sets them on every tab, then disposes the old ones. A tab with no state has
   no image, so a dot widens its tab. The folder shows images on unselected
@@ -253,8 +258,8 @@ command waits for that line.
   selection forward and backward, add, exclude and replace search, search
   start, end and clear, selection start and end, Save Splitter Position, Copy
   with Line Numbers, Save Selection to File, Send Selection to Scratchpad,
-  Toggle Fold, a Highlighters submenu (None and the sets) and a Color Label submenu (None
-  and the label names). A right click outside the selection first moves the
+  Toggle Fold, Scroll All Tabs to This Time, a Highlighters submenu (None and the sets), a
+  Color Label submenu (None and the label names) and a Time Sync submenu. A right click outside the selection first moves the
   caret to that row. The menu is built on the canvas's first `MenuDetect`,
   not with the canvas: it costs 35-60 ms per view under GTK 4, which every
   file open would otherwise pay twice on the UI thread.
@@ -336,9 +341,13 @@ command waits for that line.
 `OverviewBar` (14 px wide) paints the `OverviewController`'s last bins: a
 mark line where a pixel row holds marks, a match line over it where it holds
 matches, a line down its left edge, and a line at the first and at the last
-visible line. A click or drag shows the line
-under the pointer; a resize reports the height, and the controller computes
-nothing while the bar is hidden.
+visible line. Under the lines lies the time-spread layer: each row of the
+controller's last `TimeSpread` filled from its second column on, in
+`spreadPause` or `spreadActivity` at one of four alphas, or in
+`followStoppedDot` where the row's time runs backward. Pixel rows split the
+main view's rows, not the file's lines. A click or drag shows the line under
+the pointer; a resize reports the height, and the controller
+computes nothing while the bar is hidden or after it is disposed.
 
 ## Tool windows
 
@@ -376,7 +385,15 @@ nothing while the bar is hidden.
   selected format on the UI thread, bounded as every user format is).
   View > Timestamps > Format is a cascade `MainMenuBar` fills on show from
   `CommandStates.timeFormats`: the built-ins, the user formats and None as
-  radio items, the shown file's checked.
+  radio items, the shown file's checked. View > Timestamps > Time Spread
+  holds the `MenuTable.radio` commands in the cascade
+  `MenuTable.nestedCascade` names; their listeners ignore the event of the
+  item a choice clears.
+- `TimeSyncMenu` fills the Time Sync cascade of the tab menu (built with the
+  menu; the rebuild disposes the old cascade) and the log-view menu (on
+  `SWT.Show`) from `TimeSyncGroups.entries`: a check item per other tab with a
+  format, or a disabled line when there is none, then Leave Time Sync, enabled
+  in a group. `&` in a title is escaped.
 
 ## Other classes
 
@@ -460,6 +477,10 @@ File list and show tabs, and dropped files open.
 old image, and showing the tab clears both; the rendered dot is opaque at its
 center and transparent at the corners. A stop-follow trigger on a following
 background tab gives it the `FOLLOW_STOPPED` dot and tooltip line.
+`TimeSyncGuiTest` joins through the tab cascade and the log-view cascade,
+checks the check marks, the group label, Leave's state and the tooltip line,
+a `&` in a file name and a tab name on the tab, tooltip and cascade, and that a
+caret move and Scroll All reach hidden tabs.
 `TabMoveGuiTest` opens two windows over one `WindowSet`: View > Move to New
 Window and the tab menu item each move the shown tab to a new window, the
 emptied window stays open without views and its menu item is disabled; a
@@ -492,6 +513,10 @@ accepts a date and time or a time on the caret line's date and refuses
 anything else; that the Time Offset fields rewrite each other and refuse
 text that does not parse; and that the format editor previews the caret line
 and refuses a pattern that does not compile.
+`TimeSpreadGuiTest` reads the bar's pixels: a level's blended color in both
+modes, the disorder color, a match line over the shading, the dark palette,
+Off clearing the layer; and the Time Spread cascade choosing a mode as a
+radio group.
 `OptionsAndMenusTest` checks a bullet-column click marking and unmarking,
 `Ctrl`+wheel zoom over the focused filtered view applying in place (same
 views, menu bar and focus, fewer rows, the height restored by Reset Zoom),

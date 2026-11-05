@@ -52,6 +52,8 @@ import org.slf4j.LoggerFactory;
  * owns the session, each window's tabs as {@code window.N}; a worker writes them. Each capture
  * takes a sequence number, and a writer skips a part (settings or session) a later capture has
  * written, so a debounced save that ends after the quit save cannot replace newer state.
+ *
+ * <p>{@link #timeSync} holds the time sync groups, which span the windows.
  */
 public final class WindowSet {
   /** Creates and opens a main window. */
@@ -110,6 +112,9 @@ public final class WindowSet {
 
   private long preferencesWritten;
   private long sessionWritten;
+
+  // Time sync.
+  private final TimeSyncGroups timeSync = new TimeSyncGroups(this);
 
   /**
    * Creates the set with no window.
@@ -344,6 +349,24 @@ public final class WindowSet {
     return destination;
   }
 
+  // Time sync.
+
+  /**
+   * Returns the time sync groups.
+   *
+   * @return the groups of every window
+   */
+  public TimeSyncGroups timeSync() {
+    return timeSync;
+  }
+
+  /** Shows a change of the groups in every window. */
+  void timeSyncChanged() {
+    for (ApplicationController window : new ArrayList<ApplicationController>(windows)) {
+      window.timeSyncChanged();
+    }
+  }
+
   // Shared state.
 
   Workers workers() {
@@ -514,7 +537,12 @@ public final class WindowSet {
 
   /** A session tab captured on the UI thread; its marks are read on the worker. */
   record DraftTab(
-      String path, String name, boolean follow, long timeOffset, LogDocument document) {}
+      String path,
+      String name,
+      boolean follow,
+      long timeOffset,
+      int syncGroup,
+      LogDocument document) {}
 
   private SaveSnapshot capture() {
     long sequence = ++captured;
@@ -584,7 +612,8 @@ public final class WindowSet {
                 draft.follow(),
                 marks,
                 tabComments,
-                draft.timeOffset()));
+                draft.timeOffset(),
+                draft.syncGroup()));
       }
       sessions.add(new Session(tabs, window.active()));
     }

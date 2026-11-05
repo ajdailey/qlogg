@@ -135,15 +135,18 @@ final class ResultsPane {
             ? UiText.RESULTS_CURRENT_EMPTY.text()
             : UiText.RESULTS_TAB.format(
                 shorten(label(state.text(), state.options())), search.resultCount());
-    sets.getItem(0).setText(current);
+    // A CTabItem takes a single & as a mnemonic, and SWT drops one from a tool tip.
+    sets.getItem(0).setText(current.replace("&", "&&"));
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);
       item.setText(
-          UiText.RESULTS_TAB.format(shorten(label(set.text(), set.options())), set.lineCount()));
-      item.setToolTipText(label(set.text(), set.options()));
+          UiText.RESULTS_TAB
+              .format(shorten(label(set.text(), set.options())), set.lineCount())
+              .replace("&", "&&"));
+      item.setToolTipText(label(set.text(), set.options()).replace("&", "&&"));
     }
-    sets.getItem(0).setToolTipText(label(state.text(), state.options()));
+    sets.getItem(0).setToolTipText(label(state.text(), state.options()).replace("&", "&&"));
     sets.setSelection(search.shown() + 1);
   }
 

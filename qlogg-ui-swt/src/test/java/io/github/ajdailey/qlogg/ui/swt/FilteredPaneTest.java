@@ -385,6 +385,18 @@ class FilteredPaneTest {
   }
 
   @Test
+  void anAmpersandInASearchShowsLiterallyOnItsResultTab() {
+    searchFor("a&b");
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    searchFor("event");
+    assertEquals("a&&b (0)", window.results().sets().getItem(1).getText());
+    assertEquals("a&&b", window.results().sets().getItem(1).getToolTipText());
+    searchFor("c&d");
+    assertEquals("c&&d (0)", window.results().sets().getItem(0).getText());
+    assertEquals("c&&d", window.results().sets().getItem(0).getToolTipText());
+  }
+
+  @Test
   void filtersMenuHistoryAndDialogs() {
     controller.setFilters(
         List.of(

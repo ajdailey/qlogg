@@ -89,6 +89,12 @@ plugins.
   first line at a time, else the last line before it; a file whose
   timestamps are out of order is searched line by line. `Esc` cancels it
   with any running mark, copy or save; loading stops at a second `Esc`.
+- Scroll All Tabs to This Time goes to the caret line's time in every other
+  tab of every window. Time Sync groups (tab and log-view context menus) keep
+  their tabs on one time as the caret moves in any of them; each tab's offset
+  applies, and the session keeps the groups.
+- Time Spread shades the overview bar where lines come faster than average
+  (Activity) or where they span more time than average (Pauses).
 
 ### Search and filtering
 
@@ -136,8 +142,8 @@ plugins.
   and mark comments at start (`-s`, `-n`, Tools > Options). A run given files or `-m` leaves the
   saved session alone; the session keeps each window's tabs.
 - Remembered per file: position (`+line:N` wins), a forced encoding, and the
-  timestamp format and zone chosen. A tab's time offset is kept in the
-  session.
+  timestamp format and zone chosen. A tab's time offset and time sync group
+  are kept in the session.
   Remembered UI state: window size, position and maximized state, split,
   search toggles and history, line numbers, last Open directory and dialog
   sizes.
@@ -357,6 +363,7 @@ every launch opens its own window.
 | `quickFind.incremental`, `quickFind.regex` | `true`, `false` | `true`, `false` | The quick find bar |
 | `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Save Splitter Position |
 | `view.overview` | `true`, `false` | `true` | View > Overview Bar |
+| `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
 | `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files |
 | `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |

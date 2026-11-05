@@ -1,8 +1,8 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
@@ -17,6 +17,18 @@ class OverviewBinsTest {
         .multiply(BigInteger.valueOf(lineCount))
         .divide(BigInteger.valueOf(height))
         .longValueExact();
+  }
+
+  /** The first line of each row of an even split, then the line count. */
+  private static long[] even(long lineCount, int height) {
+    if (lineCount == 0) {
+      return new long[] {0};
+    }
+    long[] lines = new long[height + 1];
+    for (int y = 0; y <= height; y++) {
+      lines[y] = OverviewBins.lineAt(y, lineCount, height);
+    }
+    return lines;
   }
 
   @Test
@@ -60,7 +72,8 @@ class OverviewBinsTest {
     matches.add(999);
     marks.add(500);
     marks.add(501);
-    OverviewBins bins = OverviewBins.compute(matches, marks, count, 10, new CancellationToken());
+    OverviewBins bins =
+        OverviewBins.compute(matches, marks, even(count, 10), new CancellationToken());
     assertEquals(10, bins.height());
     assertEquals(100, bins.matches()[0]);
     assertEquals(1, bins.matches()[9]);
@@ -73,7 +86,7 @@ class OverviewBinsTest {
   void fewerLinesThanPixels() {
     MutableLineSet matches = new MutableLineSet();
     matches.add(2);
-    OverviewBins bins = OverviewBins.compute(matches, null, 4, 100, new CancellationToken());
+    OverviewBins bins = OverviewBins.compute(matches, null, even(4, 100), new CancellationToken());
     int total = 0;
     for (int value : bins.matches()) {
       total += value;
@@ -88,10 +101,27 @@ class OverviewBinsTest {
     long count = 5_000_000_000L;
     matches.add(4_999_999_999L);
     matches.add(2_500_000_000L);
-    OverviewBins bins = OverviewBins.compute(matches, null, count, 1000, new CancellationToken());
+    OverviewBins bins =
+        OverviewBins.compute(matches, null, even(count, 1000), new CancellationToken());
     assertEquals(1, bins.matches()[999]);
     assertEquals(1, bins.matches()[500]);
-    assertTrue(OverviewBins.compute(matches, null, 0, 50, new CancellationToken()).height() == 0);
+    assertEquals(
+        0, OverviewBins.compute(matches, null, even(0, 50), new CancellationToken()).height());
+  }
+
+  @Test
+  void rowsOfUnevenSpansCountEveryLineOfTheirSpan() {
+    MutableLineSet matches = new MutableLineSet();
+    matches.add(1);
+    matches.add(500);
+    matches.add(998);
+    MutableLineSet marks = new MutableLineSet();
+    marks.add(999);
+    long[] lines = {0, 2, 2, 999, 1000};
+    OverviewBins bins = OverviewBins.compute(matches, marks, lines, new CancellationToken());
+    assertEquals(1000, bins.lineCount());
+    assertArrayEquals(new int[] {1, 0, 2, 0}, bins.matches());
+    assertArrayEquals(new int[] {0, 0, 0, 1}, bins.marks());
   }
 
   @Test
@@ -103,7 +133,7 @@ class OverviewBinsTest {
         new Executable() {
           @Override
           public void execute() {
-            OverviewBins.compute(new MutableLineSet(), null, 10, 10, token);
+            OverviewBins.compute(new MutableLineSet(), null, even(10, 10), token);
           }
         });
   }

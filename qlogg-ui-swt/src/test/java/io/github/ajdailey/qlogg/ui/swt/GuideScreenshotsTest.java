@@ -30,6 +30,7 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -58,8 +59,9 @@ import org.junit.jupiter.api.io.TempDir;
  * Writes the user guide's screenshots to {@code -Dqlogg.guide.shots=<dir>} ({@code
  * tools/screenshots.sh}): the main window with search results and marks, a selection's time
  * difference, collapsed stack traces, the highlighters dialog, the Options Folding tab and Keyboard
- * Shortcuts, each painted through {@code Shell.print} from a generated mock log, written to {@code
- * -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows that path.
+ * Shortcuts and both time-spread modes, each painted through {@code Shell.print} from a generated
+ * mock log, written to {@code -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows
+ * that path.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.guide.shots", matches = ".+")
@@ -161,9 +163,7 @@ class GuideScreenshotsTest {
     settle();
     save(window.shell(), "main.png");
 
-    // Timestamps: the caret time and the time across a selection, in a wider window that fits both.
-    Point narrow = window.shell().getSize();
-    window.shell().setSize(1100, 700);
+    // Timestamps: the caret time and the time across a selection.
     document.select(new Selection(new TextPosition(50, 0), new TextPosition(66, 4)));
     assertTrue(
         runUntil(
@@ -175,7 +175,6 @@ class GuideScreenshotsTest {
             }));
     settle();
     save(window.shell(), "timestamps.png");
-    window.shell().setSize(narrow);
     document.select(Selection.caretAt(new TextPosition(58, 0)));
     settle();
 
@@ -203,6 +202,35 @@ class GuideScreenshotsTest {
 
     controller.execute(CommandId.KEYBOARD_SHORTCUTS);
     saveDialog("shortcuts.png");
+
+    controller.open(List.of(new FileRequest(spreadLog(dir.resolve("batch.log")), 0)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return shown != document && !shown.state().indexing() && window.canvas() != null;
+              }
+            }));
+    spreadShot(CommandId.TIME_SPREAD_ACTIVITY, SpreadMode.ACTIVITY, "time-spread-activity.png");
+    spreadShot(CommandId.TIME_SPREAD_PAUSES, SpreadMode.PAUSES, "time-spread-pauses.png");
+    controller.execute(CommandId.TIME_SPREAD_OFF);
+  }
+
+  /** Chooses a time-spread mode and saves the window once the bar shows it. */
+  private void spreadShot(CommandId command, final SpreadMode mode, String name) {
+    controller.execute(command);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return controller.activeDocument().overview().spread().mode() == mode;
+              }
+            }));
+    settle();
+    save(window.shell(), name);
   }
 
   /** Runs the event loop for about half a second, so queued view updates reach the widgets. */
@@ -266,6 +294,27 @@ class GuideScreenshotsTest {
                     .withAlphaAndVariance(200, 25),
                 HighlightRule.matchOnly("\\[(\\w+)", MatchMode.REGEX, Rgb.of(0x2f7d32), null)));
     return HighlightSettings.DEFAULTS.withSets(List.of(set)).withActive(List.of(set.id()));
+  }
+
+  /** Mock batch runs: steady lines, then a burst, with two long pauses between. */
+  private static Path spreadLog(Path file) throws IOException {
+    try (BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+      long millis = 0;
+      for (int i = 0; i < 2400; i++) {
+        boolean burst = i >= 900 && i < 1500;
+        millis += i == 600 ? 2_400_000 : i == 1900 ? 1_200_000 : burst ? 20 : 1000;
+        writer.write(
+            String.format(
+                Locale.ROOT,
+                "2026-11-01 %02d:%02d:%02d.%03d INFO  [batch    ] record %d written%n",
+                8 + millis / 3_600_000,
+                millis / 60_000 % 60,
+                millis / 1000 % 60,
+                millis % 1000,
+                i));
+      }
+    }
+    return file;
   }
 
   /** Mock entries; every ERROR entry carries an indented stack trace to fold. */

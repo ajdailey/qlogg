@@ -14,12 +14,15 @@ import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimeSamples;
 import io.github.ajdailey.qlogg.core.time.TimeSearch;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
+import io.github.ajdailey.qlogg.core.time.TimestampParser;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.ClosedChannelException;
 import java.time.ZoneId;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * One document's time state and its go to time. Confined to the UI thread and never blocks it.
@@ -39,13 +42,47 @@ import java.util.concurrent.atomic.AtomicLong;
  * #detach} cancel the running one, and a result whose generation is not the newest is dropped. The
  * found line turns follow off and shows through {@link DocumentController#showLine}; the filtered
  * view's caret moves to the row of that line or the next listed one.
+ *
+ * <p>{@link #syncTo} is the same search for a move another tab caused: it does not report to the
+ * {@link SyncListener}, shows no position or progress notice, and ends when the tab's caret moves
+ * to another line first. {@link #readCaretTime} reads the caret line's time on a {@code
+ * qlogg-read-} worker; a newer read drops an older one.
  */
 public final class TimeController {
+  /** Receives a tab's moves while it is in a time sync group. */
+  interface SyncListener {
+    /**
+     * The caret reached another line through something other than a sync or a restored position.
+     *
+     * @param source the tab
+     */
+    void moved(DocumentController source);
+
+    /**
+     * The tab closed; it reports nothing more.
+     *
+     * @param document the tab
+     */
+    void detached(DocumentController document);
+  }
+
+  /** Receives a caret time read. */
+  interface CaretTimeListener {
+    /**
+     * Called on the UI thread, unless a newer read or {@link #detach} came first.
+     *
+     * @param shown the caret line's time with the offset applied, or {@link TimestampParser#NONE}
+     */
+    void caretTime(long shown);
+  }
+
   /** Samples of the order check. */
   public static final int ORDER_SAMPLES = 256;
 
   /** Least interval between progress notices of a linear scan. */
   public static final int PROGRESS_MILLIS = 250;
+
+  private static final Logger LOG = LoggerFactory.getLogger(TimeController.class);
 
   private final DocumentController document;
   private TimestampFormat format;
@@ -62,6 +99,13 @@ public final class TimeController {
   private long samplesIndex = -1;
   private int samplesFormat = -1;
   private long samplesCharge;
+  // Time sync.
+  private SyncListener syncListener;
+  private boolean runningSync;
+  private boolean quiet;
+  private long caretLine = -1;
+  private long caretReads;
+  private CancellationToken caretRead;
 
   TimeController(DocumentController document) {
     this.document = document;
@@ -174,6 +218,21 @@ public final class TimeController {
       document.notifications().showNotice(UiText.NOTICE_TIME_NO_FORMAT.text());
       return;
     }
+    start(shown, false);
+  }
+
+  /**
+   * Goes to a time another tab's move asked for. A tab without a format stays where it is.
+   *
+   * @param shown the target as the views show times: epoch nanoseconds with the offset applied
+   */
+  void syncTo(long shown) {
+    if (!detached && format != null) {
+      start(shown, true);
+    }
+  }
+
+  private void start(long shown, final boolean sync) {
     final long target;
     try {
       target = Math.subtractExact(shown, offset);
@@ -185,6 +244,7 @@ public final class TimeController {
     }
     final CancellationToken token = new CancellationToken();
     running = token;
+    runningSync = sync;
     final long current = ++generation;
     final LineIndex index = document.document().index();
     final boolean indexing = document.state().indexing();
@@ -212,7 +272,8 @@ public final class TimeController {
                             searchedContext,
                             searchedFormat,
                             cached,
-                            target));
+                            target,
+                            sync));
                   }
                 });
     if (!started) {
@@ -232,7 +293,161 @@ public final class TimeController {
   void detach() {
     detached = true;
     cancel();
+    if (caretRead != null) {
+      caretRead.cancel();
+    }
     dropSamples();
+    SyncListener listener = syncListener;
+    syncListener = null;
+    if (listener != null) {
+      listener.detached(document);
+    }
+  }
+
+  // Time sync.
+
+  /**
+   * Sets who hears of this tab's moves.
+   *
+   * @param listener the listener, or null
+   */
+  void setSyncListener(SyncListener listener) {
+    syncListener = listener;
+  }
+
+  /**
+   * Sets whether caret moves stay unreported, for a position restored rather than chosen.
+   *
+   * @param on true until the move ends
+   */
+  void setQuiet(boolean on) {
+    quiet = on;
+  }
+
+  /** The main view's caret may have moved: a move to another line ends a running sync move. */
+  void caretMoved() {
+    long line = document.sourceLine(document.selection().caret().line());
+    if (line == caretLine) {
+      return;
+    }
+    caretLine = line;
+    if (quiet) {
+      return;
+    }
+    cancelSync();
+    if (syncListener != null) {
+      syncListener.moved(document);
+    }
+  }
+
+  /** Cancels a running sync move without a notice. */
+  void cancelSync() {
+    if (running != null && runningSync) {
+      running.cancel();
+      generation++;
+    }
+  }
+
+  /**
+   * Reads the caret line's time on a worker.
+   *
+   * @param listener receives the time; without a format or a line, at once
+   */
+  void readCaretTime(final CaretTimeListener listener) {
+    if (detached) {
+      return;
+    }
+    if (caretRead != null) {
+      caretRead.cancel();
+      caretRead = null;
+    }
+    final long current = ++caretReads;
+    final LineIndex index = document.document().index();
+    final long line = document.sourceLine(document.selection().caret().line());
+    if (format == null || line < 0 || line >= index.lineCount()) {
+      listener.caretTime(TimestampParser.NONE);
+      return;
+    }
+    final CancellationToken token = new CancellationToken();
+    caretRead = token;
+    final TimestampFormat read = format;
+    final TimeContext readContext = context;
+    boolean started =
+        document
+            .workers()
+            .tryStart(
+                Workers.Kind.READ,
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    readCaret(current, token, index, line, read, readContext, listener);
+                  }
+                });
+    if (!started) {
+      caretRead = null;
+    }
+  }
+
+  /** Runs on a worker; posts back on every outcome. */
+  @WorkerThread
+  private void readCaret(
+      final long current,
+      CancellationToken token,
+      LineIndex index,
+      long line,
+      TimestampFormat read,
+      TimeContext readContext,
+      final CaretTimeListener listener) {
+    long nanos = TimestampParser.NONE;
+    LogDocument file = document.document();
+    boolean admitted = file.enter();
+    try {
+      if (admitted) {
+        TimeReader reader = file.newTimeReader(read.parser(readContext));
+        Stamp stamp = reader.at(index.lineStart(line), token);
+        if (stamp != null) {
+          nanos = stamp.nanos();
+        }
+      }
+    } catch (CancellationException | ClosedChannelException e) {
+      nanos = TimestampParser.NONE;
+    } catch (IOException | UncheckedIOException e) {
+      nanos = TimestampParser.NONE;
+      LOG.debug(
+          "Cannot read the caret time of {}: {}",
+          LogText.oneLine(file.path()),
+          LogText.oneLine(e.getMessage()));
+    } finally {
+      if (admitted) {
+        file.exit();
+      }
+      final long found = nanos;
+      document
+          .ui()
+          .asyncExec(
+              new Runnable() {
+                @Override
+                public void run() {
+                  caretTimeRead(current, found, listener);
+                }
+              });
+    }
+  }
+
+  private void caretTimeRead(long current, long nanos, CaretTimeListener listener) {
+    if (detached || current != caretReads) {
+      return;
+    }
+    caretRead = null;
+    long shown = TimestampParser.NONE;
+    if (nanos != TimestampParser.NONE) {
+      try {
+        shown = Math.addExact(nanos, offset);
+      } catch (ArithmeticException e) {
+        shown = TimestampParser.NONE;
+      }
+    }
+    listener.caretTime(shown);
   }
 
   /**
@@ -262,7 +477,8 @@ public final class TimeController {
       TimeContext context,
       int formatGeneration,
       TimeSamples cached,
-      long target) {}
+      long target,
+      boolean sync) {}
 
   /**
    * The outcome of one go to time.
@@ -363,7 +579,7 @@ public final class TimeController {
                 new Runnable() {
                   @Override
                   public void run() {
-                    if (running == request.token() && !detached) {
+                    if (running == request.token() && !detached && !request.sync()) {
                       document
                           .notifications()
                           .showNotice(UiText.NOTICE_TIME_PROGRESS.format(percent));
@@ -406,10 +622,12 @@ public final class TimeController {
     }
     if (found.line() >= 0) {
       document.setFollowing(false);
+      quiet = request.sync();
       document.showLine(found.line());
       document.filtered().showNearest(found.line());
+      quiet = false;
     }
-    if (found.notice() != null) {
+    if (found.notice() != null && !request.sync()) {
       document.notifications().showNotice(found.notice().text());
     }
   }

@@ -78,6 +78,10 @@ class CommandStatesTest {
     row(CommandId.ENCODING_AUTO, "-- ce ce");
     row(CommandId.DEBUG_LOG_FILE, "-e -e -e");
     row(CommandId.BLOCK_SELECTION, "-e -e -e");
+    // Time spread.
+    row(CommandId.TIME_SPREAD_OFF, "ce ce ce");
+    row(CommandId.TIME_SPREAD_ACTIVITY, "-e -e -e");
+    row(CommandId.TIME_SPREAD_PAUSES, "-e -e -e");
     row(CommandId.MOVE_TO_NEW_WINDOW, "-- -e -e");
     row(CommandId.ADD_FAVORITE, "-- -e -e");
     row(CommandId.REMOVE_FAVORITE, "-- -- --");

@@ -17,6 +17,8 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
+import io.github.ajdailey.qlogg.core.model.Selection;
+import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.io.BufferedWriter;
@@ -35,12 +37,12 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Interleaves open, paste, reload, search, copy, mark toggle, quick find, tab close, tab move and
- * window close across several windows at random, draining the UI queue at random points, then
- * quits. Afterwards every file a tab showed is closed, no thread survives, and the {@code RESULTS},
- * {@code LINE_INDEX}, {@code HIGHLIGHT}, {@code COPY} and {@code PASTED} reservations and the
- * activity counters are 0. A document an open finished but no window claimed never reaches a tab;
- * its {@code LINE_INDEX} reservation exposes it.
+ * Interleaves open, paste, reload, search, copy, mark toggle, quick find, tab close, tab move,
+ * window close, time sync joins and caret moves across several windows at random, draining the UI
+ * queue at random points, then quits. Afterwards every file a tab showed is closed, no thread
+ * survives, and the {@code RESULTS}, {@code LINE_INDEX}, {@code HIGHLIGHT}, {@code COPY} and {@code
+ * PASTED} reservations and the activity counters are 0. A document an open finished but no window
+ * claimed never reaches a tab; its {@code LINE_INDEX} reservation exposes it.
  *
  * <p>The seed is random per run and is in every failure message; {@code
  * -Dqlogg.closeLifecycle.seed=N} replays one.
@@ -79,7 +81,8 @@ class CloseLifecycleTest {
     Path file = temp.resolve(name);
     try (BufferedWriter out = Files.newBufferedWriter(file, StandardCharsets.US_ASCII)) {
       for (int i = 0; i < count; i++) {
-        out.write((i % 7 == 3 ? "hit " : "line ") + i + "\n");
+        String stamp = String.format("2026-03-01 %02d:%02d:%02d ", i / 3600, i / 60 % 60, i % 60);
+        out.write(stamp + (i % 7 == 3 ? "hit " : "line ") + i + "\n");
       }
     }
     return file;
@@ -236,8 +239,8 @@ class CloseLifecycleTest {
       ApplicationController window = windows.get(random.nextInt(windows.size()));
       List<DocumentController> tabs = window.documents();
       DocumentController tab = tabs.isEmpty() ? null : tabs.get(random.nextInt(tabs.size()));
-      int action = random.nextInt(11);
-      if (tab == null && action >= 3 && action <= 9) {
+      int action = random.nextInt(15);
+      if (tab == null && action >= 3 && action != 10) {
         action = 0;
       }
       if (action == 10 && windows.size() == 1) {
@@ -265,7 +268,25 @@ class CloseLifecycleTest {
         }
         case 8 -> window.closeDocument(tab);
         case 9 -> move(window, tab, windows);
+        // Time sync.
+        case 11 -> join(tab);
+        case 12 -> tab.select(Selection.caretAt(new TextPosition(random.nextInt(2_000), 0)));
+        case 13 -> {
+          window.setFocusedView(tab);
+          window.activate(tab);
+          window.execute(CommandId.SCROLL_TABS_TO_TIME);
+        }
+        case 14 -> set.timeSync().leave(tab);
         default -> window.closeWindow();
+      }
+    }
+
+    /** Toggles a random other tab of any window in a tab's Time Sync cascade. */
+    private void join(DocumentController tab) {
+      List<TimeSyncGroups.Entry> entries = set.timeSync().entries(tab);
+      if (!entries.isEmpty()) {
+        DocumentController other = entries.get(random.nextInt(entries.size())).document();
+        set.timeSync().toggle(tab, other);
       }
     }
 

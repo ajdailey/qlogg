@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -41,7 +42,11 @@ public final class CommandStates {
           CommandId.TOGGLE_WHITESPACE,
           CommandId.HIDE_ANSI,
           CommandId.BLOCK_SELECTION,
-          CommandId.DEBUG_LOG_FILE);
+          CommandId.DEBUG_LOG_FILE,
+          // Time spread.
+          CommandId.TIME_SPREAD_OFF,
+          CommandId.TIME_SPREAD_ACTIVITY,
+          CommandId.TIME_SPREAD_PAUSES);
 
   /** Commands that need a document with a file. */
   public static final Set<CommandId> FILE_COMMANDS =
@@ -133,7 +138,7 @@ public final class CommandStates {
       case ADD_FAVORITE -> file && !application.isFavorite(document);
       case REMOVE_FAVORITE -> application.isFavorite(document);
       // Timestamps.
-      case GO_TO_TIME, TIME_OFFSET, TIME_ZONE ->
+      case GO_TO_TIME, SCROLL_TABS_TO_TIME, TIME_OFFSET, TIME_ZONE ->
           document != null && document.time().format() != null;
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
@@ -238,6 +243,11 @@ public final class CommandStates {
       case HIDE_ANSI -> application.preferences().view().hideAnsi();
       case BLOCK_SELECTION -> application.blockMode();
       case DEBUG_LOG_FILE -> application.debugLogFile();
+      // Time spread.
+      case TIME_SPREAD_OFF -> application.preferences().view().timeSpread() == SpreadMode.OFF;
+      case TIME_SPREAD_ACTIVITY ->
+          application.preferences().view().timeSpread() == SpreadMode.ACTIVITY;
+      case TIME_SPREAD_PAUSES -> application.preferences().view().timeSpread() == SpreadMode.PAUSES;
       default -> false;
     };
   }

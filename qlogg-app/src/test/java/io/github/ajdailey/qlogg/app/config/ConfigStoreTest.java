@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -242,11 +243,12 @@ class ConfigStoreTest {
     Files.writeString(
         conf(),
         "highlight.selector.0.set=errors\nhighlight.selector.0.glob=*.err\n"
-            + "highlight.selector.0.firstLine=^x\nview.hideAnsi=maybe\n",
+            + "highlight.selector.0.firstLine=^x\nview.hideAnsi=maybe\nview.timeSpread=sideways\n",
         StandardCharsets.ISO_8859_1);
     Preferences loaded = store(temp).load();
     assertEquals(List.of(), loaded.view().selectors());
     assertEquals(false, loaded.view().hideAnsi());
+    assertEquals(SpreadMode.OFF, loaded.view().timeSpread());
   }
 
   // Timestamps.

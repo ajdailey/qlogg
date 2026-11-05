@@ -117,6 +117,7 @@ public final class DocumentController extends LineViewController {
   private long pendingLine = -1;
   private long pendingTop = -1;
   private long pendingColumn;
+  private boolean pendingQuiet;
   private boolean following;
   private long overscroll;
   private DocumentViewState state;
@@ -316,6 +317,11 @@ public final class DocumentController extends LineViewController {
     }
   }
 
+  @Override
+  void caretMoved() {
+    time.caretMoved();
+  }
+
   /**
    * Takes over a reloaded document's color labels and the marks copied into this document before
    * {@link #start}; the first completed indexing drops the marks past the last line. Call on the UI
@@ -484,7 +490,7 @@ public final class DocumentController extends LineViewController {
       }
     }
     refreshRows(rows);
-    overview.refresh();
+    overview.foldsChanged();
   }
 
   /** Asks the fold controller to classify the visible region, with collapse-all on. */
@@ -602,6 +608,7 @@ public final class DocumentController extends LineViewController {
    */
   public void goToLine(long oneBasedLine) {
     pendingTop = -1;
+    pendingQuiet = false;
     long line = Math.max(0, oneBasedLine - 1);
     if (reachable(line)) {
       pendingLine = -1;
@@ -609,6 +616,19 @@ public final class DocumentController extends LineViewController {
     } else {
       pendingLine = line;
     }
+  }
+
+  /**
+   * Goes to a line as {@link #goToLine} does, for a position kept rather than chosen: a time sync
+   * group does not hear of it.
+   *
+   * @param oneBasedLine the line as the user numbers it, from 1
+   */
+  void keepLine(long oneBasedLine) {
+    time.setQuiet(true);
+    goToLine(oneBasedLine);
+    time.setQuiet(false);
+    pendingQuiet = pendingLine >= 0;
   }
 
   /**
@@ -658,11 +678,13 @@ public final class DocumentController extends LineViewController {
   }
 
   private void applyPosition(long top, long line, long column) {
+    time.setQuiet(true);
     moveTo(line);
     long caret = selection().caret().line();
     if (caret == line) {
       select(Selection.caretAt(new TextPosition(caret, column)));
     }
+    time.setQuiet(false);
     viewport().scrollToLine(Math.min(top, caret));
     changed();
   }
@@ -1059,6 +1081,10 @@ public final class DocumentController extends LineViewController {
   void timeChanged(boolean reread) {
     timeSettingsChanged(reread);
     filtered.timeSettingsChanged(reread);
+    // Time spread.
+    if (reread) {
+      overview.timeFormatChanged();
+    }
   }
 
   /**
@@ -1116,7 +1142,10 @@ public final class DocumentController extends LineViewController {
         applyPosition(pendingTop, line, pendingColumn);
         pendingTop = -1;
       } else {
+        time.setQuiet(pendingQuiet);
         moveTo(revealRow(line));
+        time.setQuiet(false);
+        pendingQuiet = false;
       }
     }
     if (following) {

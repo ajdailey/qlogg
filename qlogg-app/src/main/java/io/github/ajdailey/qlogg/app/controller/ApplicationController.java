@@ -693,6 +693,7 @@ public final class ApplicationController implements DocumentHost {
       start(shown);
       rememberRecent(document);
       shown.time().setOffset(opening.timeOffset());
+      set.timeSync().restore(opening.syncGroup(), shown);
     }
     present(shown, line, follow);
   }
@@ -1278,6 +1279,7 @@ public final class ApplicationController implements DocumentHost {
     documents.set(index, replacement);
     quickFind.cancelRunning(old);
     features.documentClosed(old);
+    set.timeSync().replace(old, replacement);
     old.close();
     if (active == old) {
       active = replacement;
@@ -1297,7 +1299,7 @@ public final class ApplicationController implements DocumentHost {
     if (follow) {
       replacement.setFollowing(true);
     } else if (change == null) {
-      replacement.goToLine(caret + 1);
+      replacement.keepLine(caret + 1);
     }
     if (change != null) {
       UiText notice =
@@ -1894,6 +1896,13 @@ public final class ApplicationController implements DocumentHost {
     set.flushSettings();
   }
 
+  /** A tab joined or left a time sync group; the views show its membership again. */
+  void timeSyncChanged() {
+    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+      listener.timeSyncChanged();
+    }
+  }
+
   /** Remembers each tab's position for the next save. */
   void rememberPositions() {
     for (DocumentController document : documents) {
@@ -1920,6 +1929,7 @@ public final class ApplicationController implements DocumentHost {
               name == null ? "" : name,
               document.following(),
               document.time().offset(),
+              set.timeSync().sessionNumber(document),
               document.document()));
     }
     return new WindowSet.WindowDraft(tabs, shown);

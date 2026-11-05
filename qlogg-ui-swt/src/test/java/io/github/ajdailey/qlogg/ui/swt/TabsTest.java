@@ -189,10 +189,11 @@ class TabsTest {
     DocumentController first = documentOf(tabs.getItem(0));
     Menu menu = window.showTabMenu(first, 0, 0);
     MenuItem[] items = menu.getItems();
-    assertEquals(14, items.length);
+    assertEquals(16, items.length);
     assertEquals("Close This", items[0].getText());
-    assertEquals("Move to New Window", items[13].getText());
-    assertTrue(items[13].getEnabled());
+    assertEquals("Time Sync", items[13].getText().replace("&", ""));
+    assertEquals("Move to New Window", items[15].getText());
+    assertTrue(items[15].getEnabled());
     assertFalse(items[2].getEnabled(), "close to the left of the first tab");
     assertTrue(items[3].getEnabled());
     assertEquals("Copy Full Path", items[6].getText());
@@ -204,7 +205,7 @@ class TabsTest {
     Menu again = window.showTabMenu(first, 0, 0);
     again.setVisible(false);
     assertSame(menu, again);
-    assertEquals(14, again.getItemCount());
+    assertEquals(16, again.getItemCount());
     assertTrue(items[0].isDisposed(), "the previous items are disposed");
     controller.setTabName(first, "renamed");
     assertEquals("renamed", tabs.getItem(0).getText());

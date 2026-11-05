@@ -50,4 +50,30 @@ public final class MenuTable {
       default -> null;
     };
   }
+
+  // Time spread.
+
+  /**
+   * Returns the cascade a command's item sits in inside its {@link CommandId#submenu()}: View >
+   * Timestamps > Time Spread.
+   *
+   * @param command a command
+   * @return the cascade's label, or null when the item sits in the submenu itself
+   */
+  public static UiText nestedCascade(CommandId command) {
+    return radio(command) ? UiText.MENU_TIME_SPREAD : null;
+  }
+
+  /**
+   * Reports whether a command's item is a radio item.
+   *
+   * @param command a command
+   * @return true for one of a group where exactly one is chosen
+   */
+  public static boolean radio(CommandId command) {
+    return switch (command) {
+      case TIME_SPREAD_OFF, TIME_SPREAD_ACTIVITY, TIME_SPREAD_PAUSES -> true;
+      default -> false;
+    };
+  }
 }

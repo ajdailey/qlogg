@@ -5,19 +5,24 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 /**
  * A {@link UiDispatcher} for tests: submissions queue until the test runs them on its own thread,
- * which acts as the UI thread. Timer delays are ignored; timer tasks queue in submission order.
- * Draining from another thread throws; a listener call recorded off the UI thread by {@link
- * #checkUiThread} fails the next drain.
+ * which acts as the UI thread. Timer delays are ignored; timer tasks queue in submission order
+ * unless {@link #holdTimers} keeps those of one delay for {@link #runHeldTimers}. Draining from
+ * another thread throws; a listener call recorded off the UI thread by {@link #checkUiThread} fails
+ * the next drain.
  */
 public final class ManualUiDispatcher implements UiDispatcher {
   private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
   private final UiThreadCheck uiThread = new UiThreadCheck();
+  private final List<Runnable> heldTimers = new ArrayList<Runnable>();
+  private int heldDelay = -1;
   private volatile boolean disposed;
 
   @Override
@@ -29,7 +34,37 @@ public final class ManualUiDispatcher implements UiDispatcher {
 
   @Override
   public void timerExec(int delayMillis, Runnable task) {
-    asyncExec(task);
+    if (delayMillis == heldDelay) {
+      heldTimers.add(task);
+    } else {
+      asyncExec(task);
+    }
+  }
+
+  /**
+   * Keeps later timer tasks of one delay until {@link #runHeldTimers}, as timers not yet expired.
+   *
+   * @param delayMillis the delay to hold
+   */
+  public void holdTimers(int delayMillis) {
+    heldDelay = delayMillis;
+  }
+
+  /**
+   * Counts the timer tasks held.
+   *
+   * @return the count
+   */
+  public int heldTimers() {
+    return heldTimers.size();
+  }
+
+  /** Queues the held timer tasks, as if their delays had passed. */
+  public void runHeldTimers() {
+    for (Runnable task : heldTimers) {
+      asyncExec(task);
+    }
+    heldTimers.clear();
   }
 
   @Override

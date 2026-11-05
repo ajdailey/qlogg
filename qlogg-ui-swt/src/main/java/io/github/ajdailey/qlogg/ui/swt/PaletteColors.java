@@ -28,6 +28,8 @@ final class PaletteColors {
   final Color markMarker;
   final Color overview;
   final Color overviewFrame;
+  // Time spread.
+  final Color disorder;
   private final Display display;
   private final List<Color> all = new ArrayList<Color>();
   private final Map<Integer, Color> cached = new HashMap<Integer, Color>();
@@ -45,6 +47,7 @@ final class PaletteColors {
     markMarker = color(palette.markMarker());
     overview = color(palette.overview());
     overviewFrame = color(palette.overviewFrame());
+    disorder = color(palette.followStoppedDot());
   }
 
   private Color color(Rgb rgb) {

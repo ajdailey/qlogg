@@ -834,6 +834,13 @@ public final class MainWindow implements MainView, ApplicationListener {
             controller.resetTabName(document);
           }
         });
+    // Time sync.
+    new MenuItem(menu, SWT.SEPARATOR);
+    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
+    timeSync.setText(UiText.MENU_TIME_SYNC.text());
+    Menu timeSyncMenu = new Menu(menu);
+    timeSync.setMenu(timeSyncMenu);
+    TimeSyncMenu.fill(timeSyncMenu, controller.windowSet().timeSync(), document);
     // Tab move between windows.
     new MenuItem(menu, SWT.SEPARATOR);
     tabMenuItem(
@@ -957,9 +964,14 @@ public final class MainWindow implements MainView, ApplicationListener {
   private CTabItem newTab(DocumentController document, int index) {
     CTabItem item = new CTabItem(tabs, SWT.CLOSE, Math.min(index, tabs.getItemCount()));
     item.setData(document);
-    item.setText(controller.tabTitle(document));
+    showTabTitle(item, document);
     showTabData(item);
     return item;
+  }
+
+  /** Sets a tab's text; a {@code CTabItem} takes a single {@code &} as a mnemonic. */
+  private void showTabTitle(CTabItem item, DocumentController document) {
+    item.setText(controller.tabTitle(document).replace("&", "&&"));
   }
 
   // Tab data dot.
@@ -1012,7 +1024,14 @@ public final class MainWindow implements MainView, ApplicationListener {
           case FOLLOW_STOPPED -> UiText.TAB_DATA_FOLLOW_STOPPED.text();
         };
     String tip = path.isEmpty() || line.isEmpty() ? path + line : path + "\n" + line;
-    item.setToolTipText(tip.isEmpty() ? null : tip);
+    // Time sync.
+    int group = controller == null ? 0 : controller.windowSet().timeSync().number(document);
+    if (group > 0) {
+      String synced = UiText.TAB_TIME_SYNCED.format(group);
+      tip = tip.isEmpty() ? synced : tip + "\n" + synced;
+    }
+    // SWT drops a single & from a tool tip.
+    item.setToolTipText(tip.isEmpty() ? null : tip.replace("&", "&&"));
     item.setImage(tabDots == null ? null : tabDots.image(state));
   }
 
@@ -1037,11 +1056,20 @@ public final class MainWindow implements MainView, ApplicationListener {
     return tabDots;
   }
 
+  // Time sync.
+
+  @Override
+  public void timeSyncChanged() {
+    for (CTabItem item : tabs.getItems()) {
+      showTabData(item);
+    }
+  }
+
   @Override
   public void tabRenamed(DocumentController document) {
     CTabItem item = tabOf(document);
     if (item != null) {
-      item.setText(controller.tabTitle(document));
+      showTabTitle(item, document);
     }
   }
 

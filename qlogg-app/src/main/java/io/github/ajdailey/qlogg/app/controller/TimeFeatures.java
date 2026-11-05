@@ -3,7 +3,9 @@ package io.github.ajdailey.qlogg.app.controller;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.PositionStore;
+import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.TimeSettings;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.TimeStatus;
 import io.github.ajdailey.qlogg.app.view.TimeText;
@@ -13,6 +15,7 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
+import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
@@ -80,6 +83,8 @@ final class TimeFeatures {
       }
     }
     document.time().configure(format, zone, settings.displayZoneOrSystem());
+    // Time spread.
+    document.overview().setSpreadMode(application.preferences().view().timeSpread());
   }
 
   /**
@@ -94,6 +99,12 @@ final class TimeFeatures {
       case TIME_OFFSET -> askOffset(document);
       case TIME_ZONE -> askZone(document);
       case TIMESTAMP_FORMATS -> editFormats(document);
+      // Time sync.
+      case SCROLL_TABS_TO_TIME -> scrollTabs(document);
+      // Time spread.
+      case TIME_SPREAD_OFF -> setSpread(SpreadMode.OFF);
+      case TIME_SPREAD_ACTIVITY -> setSpread(SpreadMode.ACTIVITY);
+      case TIME_SPREAD_PAUSES -> setSpread(SpreadMode.PAUSES);
       default -> {
         return false;
       }
@@ -176,6 +187,17 @@ final class TimeFeatures {
     }
   }
 
+  /** Saves the time-spread mode and applies it to every open document of every window. */
+  private void setSpread(SpreadMode mode) {
+    Preferences current = application.preferences();
+    application.setPreferences(current.withView(current.view().withTimeSpread(mode)));
+    for (ApplicationController window : application.windowSet().windows()) {
+      for (DocumentController open : window.documents()) {
+        open.overview().setSpreadMode(mode);
+      }
+    }
+  }
+
   private void askGoToTime(final DocumentController document) {
     if (document == null || document.time().format() == null) {
       return;
@@ -199,6 +221,17 @@ final class TimeFeatures {
             }
           }
         });
+  }
+
+  private void scrollTabs(DocumentController document) {
+    if (document == null) {
+      return;
+    }
+    if (document.time().format() == null) {
+      view.showNotice(UiText.NOTICE_TIME_NO_FORMAT.text());
+      return;
+    }
+    application.windowSet().timeSync().scrollAll(document);
   }
 
   private void askOffset(final DocumentController document) {

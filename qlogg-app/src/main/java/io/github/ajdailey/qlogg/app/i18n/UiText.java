@@ -1044,6 +1044,15 @@ public enum UiText {
   MENU_TIMESTAMPS,
   /** Timestamps cascade listing the formats. */
   MENU_TIME_FORMAT,
+  // Time spread.
+  /** Timestamps cascade of the time-spread modes. */
+  MENU_TIME_SPREAD,
+  /** Command label. */
+  COMMAND_TIME_SPREAD_OFF,
+  /** Command label. */
+  COMMAND_TIME_SPREAD_ACTIVITY,
+  /** Command label. */
+  COMMAND_TIME_SPREAD_PAUSES,
   /** Format list entry: no timestamps. */
   TIME_FORMAT_NONE,
   /** Built-in format name. */
@@ -1115,7 +1124,22 @@ public enum UiText {
   /** Notice: Esc canceled a go to time. */
   NOTICE_TIME_CANCELED,
   /** Notice: a go to time failed; the reason. */
-  NOTICE_TIME_FAILED;
+  NOTICE_TIME_FAILED,
+  // Time sync.
+  /** Command label. */
+  COMMAND_SCROLL_TABS_TO_TIME,
+  /** Cascade label in the tab and log-view context menus. */
+  MENU_TIME_SYNC,
+  /** Time Sync cascade: a tab of another group; its title and group number. */
+  TIME_SYNC_OTHER_GROUP,
+  /** Time Sync cascade: leaves the group. */
+  TIME_SYNC_LEAVE,
+  /** Time Sync cascade: no other tab has a format. */
+  TIME_SYNC_NO_TABS,
+  /** Tab tooltip line; the group number. */
+  TAB_TIME_SYNCED,
+  /** Notice: the caret line has no time to scroll the tabs to. */
+  NOTICE_TIME_NO_CARET;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

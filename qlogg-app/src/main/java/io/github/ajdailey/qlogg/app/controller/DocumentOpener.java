@@ -75,6 +75,7 @@ final class DocumentOpener {
    * @param marksComplete false when the {@code RESULTS} share refused part of them
    * @param handed true when another launch handed the file over
    * @param timeOffset the restored tab's time offset in nanoseconds, else 0
+   * @param syncGroup the restored tab's time sync group number, else 0
    */
   record Opening(
       long line,
@@ -82,7 +83,8 @@ final class DocumentOpener {
       boolean marksCopied,
       boolean marksComplete,
       boolean handed,
-      long timeOffset) {}
+      long timeOffset,
+      int syncGroup) {}
 
   private static final Logger LOG = LoggerFactory.getLogger(DocumentOpener.class);
 
@@ -138,7 +140,7 @@ final class DocumentOpener {
                   if (closed) {
                     break;
                   }
-                  load(request.path(), request.line(), follow, null, null, 0, services, handed);
+                  load(request.path(), request.line(), follow, null, null, 0, 0, services, handed);
                 }
               }
             });
@@ -265,6 +267,7 @@ final class DocumentOpener {
                           marks,
                           tab.comments(),
                           tab.timeOffset(),
+                          tab.syncGroup(),
                           services,
                           false);
                   if (document != null && !tab.name().isEmpty()) {
@@ -340,6 +343,7 @@ final class DocumentOpener {
    * @param marks session mark ranges, or null
    * @param comments the marks' comments, or null
    * @param timeOffset the restored tab's time offset, or 0
+   * @param syncGroup the restored tab's time sync group number, or 0
    * @return the document, or null when it did not open or the window closed
    */
   @WorkerThread
@@ -350,6 +354,7 @@ final class DocumentOpener {
       long[] marks,
       List<MarkComments.Comment> comments,
       long timeOffset,
+      int syncGroup,
       DocumentServices services,
       boolean handed) {
     try {
@@ -362,7 +367,7 @@ final class DocumentOpener {
         marksComplete &= document.markComments().addAll(comments, document.marks());
       }
       final Opening opening =
-          new Opening(line, follow, marks != null, marksComplete, handed, timeOffset);
+          new Opening(line, follow, marks != null, marksComplete, handed, timeOffset, syncGroup);
       deliver(
           document,
           new Runnable() {
@@ -393,7 +398,7 @@ final class DocumentOpener {
       if (!register(document)) {
         return;
       }
-      final Opening opening = new Opening(0, false, false, true, false, 0);
+      final Opening opening = new Opening(0, false, false, true, false, 0, 0);
       deliver(
           document,
           new Runnable() {

@@ -49,6 +49,9 @@ public enum CommandId {
   // Timestamps.
   /** Ask for a time and go to the line with it. */
   GO_TO_TIME(CommandGroup.EDIT, UiText.COMMAND_GO_TO_TIME, false, false),
+  // Time sync.
+  /** Go to the caret line's time in every other tab. */
+  SCROLL_TABS_TO_TIME(CommandGroup.EDIT, UiText.COMMAND_SCROLL_TABS_TO_TIME, false, false),
   /** Go to the first line. */
   GO_TO_TOP(CommandGroup.EDIT, UiText.COMMAND_GO_TO_TOP, false, false),
   /** Go to the last line. */
@@ -166,6 +169,16 @@ public enum CommandId {
   TIME_ZONE(CommandGroup.VIEW, UiText.COMMAND_TIME_ZONE, true, false, UiText.MENU_TIMESTAMPS),
   /** Set the time offset of the shown tab. */
   TIME_OFFSET(CommandGroup.VIEW, UiText.COMMAND_TIME_OFFSET, false, false, UiText.MENU_TIMESTAMPS),
+  // Time spread: radio items of a cascade inside Timestamps (MenuTable).
+  /** Show no time spread in the overview bar. */
+  TIME_SPREAD_OFF(
+      CommandGroup.VIEW, UiText.COMMAND_TIME_SPREAD_OFF, true, true, UiText.MENU_TIMESTAMPS),
+  /** Shade the overview bar where lines come faster than average. */
+  TIME_SPREAD_ACTIVITY(
+      CommandGroup.VIEW, UiText.COMMAND_TIME_SPREAD_ACTIVITY, false, true, UiText.MENU_TIMESTAMPS),
+  /** Shade the overview bar where lines span more time than average. */
+  TIME_SPREAD_PAUSES(
+      CommandGroup.VIEW, UiText.COMMAND_TIME_SPREAD_PAUSES, false, true, UiText.MENU_TIMESTAMPS),
   /** List marks and matches in the filtered view. */
   SHOW_MARKS_AND_MATCHES(
       CommandGroup.VIEW, UiText.COMMAND_SHOW_MARKS_AND_MATCHES, true, true, UiText.MENU_VISIBILITY),

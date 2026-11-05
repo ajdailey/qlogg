@@ -121,7 +121,10 @@ public final class LogCanvas {
     CommandId.COPY_WITH_LINE_NUMBERS,
     CommandId.SAVE_SELECTION,
     CommandId.SEND_TO_SCRATCHPAD,
-    CommandId.TOGGLE_FOLD
+    CommandId.TOGGLE_FOLD,
+    // Time sync.
+    null,
+    CommandId.SCROLL_TABS_TO_TIME
   };
 
   private final LineViewController document;
@@ -306,6 +309,19 @@ public final class LogCanvas {
           @Override
           public void handleEvent(Event event) {
             fillLabels(labelsMenu);
+          }
+        });
+    // Time sync.
+    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
+    timeSync.setText(UiText.MENU_TIME_SYNC.text());
+    final Menu timeSyncMenu = new Menu(menu);
+    timeSync.setMenu(timeSyncMenu);
+    timeSyncMenu.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            TimeSyncMenu.fill(timeSyncMenu, application.windowSet().timeSync(), document.owner());
           }
         });
     return menu;

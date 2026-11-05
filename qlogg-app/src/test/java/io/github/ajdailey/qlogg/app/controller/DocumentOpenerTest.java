@@ -67,7 +67,7 @@ class DocumentOpenerTest {
     assertEquals(first, recorder.documents.get(0).path());
     assertEquals(second, recorder.documents.get(1).path());
     assertEquals(
-        new DocumentOpener.Opening(3, true, false, true, false, 0), recorder.openings.get(0));
+        new DocumentOpener.Opening(3, true, false, true, false, 0, 0), recorder.openings.get(0));
     assertEquals(0, opener.unclaimedCount());
   }
 
@@ -131,7 +131,7 @@ class DocumentOpenerTest {
         List.of("opened a.log", "name a.log first", "opened b.log", "active a.log"),
         recorder.events);
     assertEquals(
-        new DocumentOpener.Opening(0, true, true, true, false, 0), recorder.openings.get(1));
+        new DocumentOpener.Opening(0, true, true, true, false, 0, 0), recorder.openings.get(1));
     assertTrue(recorder.documents.get(1).marks().contains(0));
   }
 

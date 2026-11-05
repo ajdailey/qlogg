@@ -5,8 +5,9 @@ import io.github.ajdailey.qlogg.core.search.LineSet;
 
 /**
  * Per-pixel counts of matching and marked lines for the overview bar: pixel y covers lines {@code
- * [lineAt(y), lineAt(y + 1))}. Each count is a difference of two {@link LineSet#rank} calls, so
- * {@link #compute} costs a few rank lookups per pixel whatever the size of the sets. Immutable.
+ * [lines[y], lines[y + 1])} of the array given to {@link #compute}. Each count is a difference of
+ * two {@link LineSet#rank} calls, so {@link #compute} costs a few rank lookups per pixel whatever
+ * the size of the sets. Immutable.
  *
  * <p>Cost ({@link #retainedBytes}): 8 bytes per pixel row plus {@link #OVERHEAD}.
  *
@@ -47,25 +48,25 @@ public record OverviewBins(long lineCount, int[] matches, int[] marks) {
    *
    * @param matches the matching lines, or null
    * @param marks the marked lines, or null
-   * @param lineCount lines in the document
-   * @param height pixel rows, at least 0
+   * @param lines each pixel row's first line in ascending order, then the line after the last row;
+   *     read, not kept
    * @param token checked every {@link #CHECK_ROWS} rows
-   * @return the bins
+   * @return the bins, {@code lines.length - 1} rows high
    * @throws java.util.concurrent.CancellationException once the token is canceled
    */
   public static OverviewBins compute(
-      LineSet matches, LineSet marks, long lineCount, int height, CancellationToken token) {
-    int rows = lineCount <= 0 ? 0 : Math.max(0, height);
+      LineSet matches, LineSet marks, long[] lines, CancellationToken token) {
+    int rows = lines.length - 1;
     int[] matched = new int[rows];
     int[] marked = new int[rows];
-    long from = 0;
-    long matchesBelow = 0;
-    long marksBelow = 0;
+    long from = lines[0];
+    long matchesBelow = matches == null ? 0 : matches.rank(from);
+    long marksBelow = marks == null ? 0 : marks.rank(from);
     for (int y = 0; y < rows; y++) {
       if (y % CHECK_ROWS == 0) {
         token.check();
       }
-      long to = lineAt(y + 1, lineCount, rows);
+      long to = lines[y + 1];
       if (to > from) {
         long m = matches == null ? 0 : matches.rank(to);
         long k = marks == null ? 0 : marks.rank(to);
@@ -76,7 +77,7 @@ public record OverviewBins(long lineCount, int[] matches, int[] marks) {
         from = to;
       }
     }
-    return new OverviewBins(lineCount, matched, marked);
+    return new OverviewBins(lines[rows], matched, marked);
   }
 
   /**

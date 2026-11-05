@@ -436,7 +436,14 @@ document's `SearchController` and `FilteredController`.
 - `overview()` is the `OverviewController`: bins of matches and marks per
   pixel row, computed on a `qlogg-search-` worker from `OverviewBins` while
   the bar shows, one at a time, the newest generation kept and charged to
-  `HIGHLIGHT`. `jumpTo(y)` shows the line under the pointer.
+  `HIGHLIGHT`. The bar spreads the main view's rows, so a collapsed entry
+  takes one row's share and its hidden lines count in that row's pixel:
+  `refresh` maps each pixel row through `sourceLine` on the UI thread, a
+  binary search of the `FoldMap` that reads no file. `jumpTo(y)` shows the
+  line of the row under the pointer. A fold change refreshes the bar. It stops
+  computing when the bar is removed with its tab (`barRemoved`) and starts
+  again at the next `setGeometry`. It also holds the time spread
+  ([Timestamps](#timestamps)).
 - Follow (`F`, `F10`, `setFollowing`): while following, each flush scrolls to
   the last line. A user move that leaves the bottom (scroll, page, caret, go
   to line, scroll bar) releases it. With `follow.onOverscroll`, scrolling down
@@ -543,8 +550,8 @@ entry, or expands a collapsed one. Collapse All Folds collapses each entry as
 the region around the visible rows is classified; an entry the user expands
 stays expanded until the next Collapse All. A fold change keeps the top line
 and the selection on their lines. Go to line, find next and previous, mark
-jumps, filtered-view and overview clicks and quick find expand the entry that
-hides their line (`revealRow`). Copy, mark toggles and save walk `rows()`, so
+jumps, filtered-view clicks and quick find expand the entry that hides their
+line (`revealRow`); an overview click goes to a row and expands nothing. Copy, mark toggles and save walk `rows()`, so
 lines hidden in a fold are skipped. The filtered view lists lines regardless
 of folds. A Toggle Fold pressed while a classification runs waits for it and
 then runs; a later press replaces a waiting one, and Collapse All, Expand All
@@ -632,6 +639,47 @@ again; an offset change only reformats them and schedules a session save.
   and a read failure.
 - The offset is the session's `window.W.tab.N.timeOffset`; a reload, a reopen
   and a tab move keep it, as they keep the follow state.
+- View > Timestamps > Time Spread (`TIME_SPREAD_*`, `view.timeSpread`) sets
+  one mode for every open document. With a mode and a format,
+  `OverviewController` samples a stamp at each row boundary after the bins,
+  in the same `qlogg-search-` computation, and keeps the `TimeSpread` levels
+  (`spread()`, 1 B per row plus 64, charged to `HIGHLIGHT`). The samples are
+  charged only while they are read. A refusal or a read failure shows no
+  spread. A new height, mode, format or zone samples at the next computation;
+  an offset changes nothing. Growth, or any change of the row count, the
+  collapsed entries or the index generation, samples no sooner than
+  `GROWTH_MILLIS` (2 s) after the last spread: a `UiDispatcher.timerExec` wait starts when a sampled
+  computation posts, and its end samples what grew meanwhile.
+
+`TimeSyncGroups` (`WindowSet.timeSync()`, UI thread) holds the time sync
+groups, which span the windows, and runs Scroll All Tabs to This Time. A group
+is a set of `DocumentController`s, and a tab is in at most one.
+
+- `TimeController.syncTo(shown)` is `goToTime` for a move another tab caused:
+  the target for tab `k` is the source's time plus its offset, minus
+  `offset(k)`. It releases follow and shows no position or progress notice; a
+  cancel by `Esc` (`STOP` on that tab, with `goToTime`'s rule) and a read
+  failure show theirs. A tab without a format stays where it is, and a hidden
+  tab moves as a shown one does.
+- `DocumentController.caretMoved` feeds `TimeController.caretMoved`, which
+  reports a move to another source line to the group's `SyncListener`. A sync
+  move, a remembered position (`restorePosition`) and a reload's kept line
+  (`keepLine`) are quiet, so members cannot bounce and a reload moves nobody.
+  Follow scrolls without moving the caret and reports nothing.
+- A reported move cancels every member's running sync move; the group's last
+  move starts `readCaretTime` on the source (a `qlogg-read-` worker, the
+  newest read wins) after a 100 ms `timerExec`, then `syncTo` on the others.
+  A caret move in any tab also ends that tab's own sync move, Scroll All's
+  included.
+- Membership follows the controller, so a tab move keeps it; `replace` hands
+  it to a reload's or reopen's new controller before the old one closes, and
+  `TimeController.detach` removes it on any close. A group left with one member
+  dissolves. `ApplicationListener.timeSyncChanged` reports every change, for
+  the tab tooltips.
+- The session's `window.W.tab.N.syncGroup` is the group's place among the
+  groups with a saved tab, from 1. A restored tab waits in `restored` until a
+  second tab of its number arrives, so a group restored with one open member
+  never forms.
 
 ### Tab data dot
 
@@ -738,7 +786,8 @@ the file and key, never a value, because the settings hold search history.
 size, `search.maxResults`, `search.runOnAdd`, the quick find options,
 `view.splitPercent`, `view.overview`, the predefined filters, the
 `HighlightSettings`, the `ViewOptions` (wrap on open, whitespace markers,
-hidden ANSI colors, fold rules and highlighter selectors, read and written by
+hidden ANSI colors, fold rules, highlighter selectors and `view.timeSpread`,
+read and written by
 `ViewFile`), the `TimeSettings` (`time.zone`, `time.displayZone`, at most 32
 `time.format.N.name`, `.locate` and `.pattern`, read and written by
 `TimeFile`; an unknown zone reads as the system zone and a format that does
@@ -758,7 +807,7 @@ write through `SettingsFile`, which applies the table above to their own file
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held
 for no I/O, so the UI thread calls them; `load` and `save` block. A session's
@@ -831,8 +880,8 @@ else `showGuideElsewhere`: `launch` on the copy, else a notice naming it. The
 view also calls `showGuideElsewhere` when its guide window fails after
 `showGuide` returned true.
 
-`Palette` holds the log view, gutter bullet and overview bar colors as `Rgb`
-values (`LIGHT`, `DARK`). `ThemeController` resolves `ThemeMode` against
+`Palette` holds the log view, gutter bullet and overview bar colors, the
+time-spread colors among them, as `Rgb` values (`LIGHT`, `DARK`). `ThemeController` resolves `ThemeMode` against
 `ThemeService.systemDark()` and pushes a new palette to `PaletteListener`s;
 `SYSTEM` follows the service's change events. Each mode change, and each
 system change in `SYSTEM`, also calls `ThemeService.preferDark` so native
@@ -955,8 +1004,28 @@ gated line; the filtered view's rows' times; a file without
 timestamps disabling the commands; a remembered format, none or a user
 format, skipping detection on the next open; the Go to Time, Time Offset and
 Time Zone dialogs' results, the offset in the session draft; a reload keeping
-the offset; and the order check's charge returned on close. `RememberedStateTest` brings a tab's offset back through a session reopen,
-and `TabMoveTest` moves it with the tab. `TimeTextTest`
+the offset; and the order check's charge returned on close. `TimeSpreadTest`
+covers the mode from the menu command to every open document, a new document
+and the settings; the shaded rows of a generated pause in both modes; no
+spread without a format or with the bar hidden or removed; samples at once
+for a height, mode, format and zone, none for an offset; growth held until
+the 2 s timer (`ManualUiDispatcher.holdTimers`); a timer without growth
+sampling nothing; a refused share and its recovery; and the charges returned
+by Off and close. `OverviewFoldsTest` checks collapsed entries against rows:
+a match past the row count and one hidden in an entry, a click past the entry
+and on it, the bins refreshed by a fold change, the spread's rows, and a swap
+of equal entries, which keeps the row count. `RememberedStateTest` brings a tab's offset back through a session reopen,
+and `TabMoveTest` moves it with the tab. `TimeSyncGroupsTest` covers a move
+reaching a member through both offsets, a go to time and a filtered row of a
+member propagating, no report for a sync move, a kept or restored position,
+a kept line waiting for indexing and follow, no sync from a followed member's
+appended lines, a go to line waiting for indexing reporting its move, moves within the debounce running one sync, a newer move canceling the
+target's search without a notice, a target's own move ending its sync move, `Esc` on
+a target, follow released without a position notice, a hidden tab moving, the
+cascade's join rules and labels, close dissolving a group of one, a reload
+keeping the membership, session renumbering and restore, and Scroll All with
+its notices. `TabMoveTest` syncs across windows after a move and
+`StateStoresTest` round-trips `syncGroup`. `TimeTextTest`
 covers the caret time, differences (sub-second, days, negative, fraction
 digits), offsets round-tripping and refused, targets with and without a
 date, and the format names and tooltip.
@@ -969,7 +1038,9 @@ instead of draining the UI queue for it, because threads end without posting
 a UI task.
 `CloseLifecycleTest` drives several windows through 40 rounds of random
 open, paste, reload, search, copy, mark toggle, quick find, new window, tab
-close, tab move (to a new window or another window) and window close, draining the UI queue at random points, then quits.
+close, tab move (to a new window or another window), window close, time sync
+joins and leaves, member caret moves and Scroll All, draining the UI queue at
+random points, then quits.
 Every file a tab showed is closed, no thread survives, and the `RESULTS`,
 `LINE_INDEX`, `HIGHLIGHT`, `COPY` and `PASTED` reservations and the activity
 counters are 0. The seed is random per run and named in the failure;

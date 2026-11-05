@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.config;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -21,6 +22,8 @@ final class ViewFile {
   static final String FOLD_START_KEY = "fold.entryStart";
   static final String FOLD_CONTINUATION_KEY = "fold.continuation.";
   static final String SELECTOR_KEY = "highlight.selector.";
+  // Time spread.
+  static final String TIME_SPREAD_KEY = "view.timeSpread";
 
   /** Most continuation patterns read. */
   static final int MAX_CONTINUATION = 64;
@@ -74,7 +77,8 @@ final class ViewFile {
         flag(properties, WHITESPACE_KEY, defaults.showWhitespace()),
         flag(properties, ANSI_KEY, defaults.hideAnsi()),
         folds,
-        selectors);
+        selectors,
+        spread(properties, defaults.timeSpread()));
   }
 
   /**
@@ -87,6 +91,7 @@ final class ViewFile {
     properties.setProperty(WRAP_KEY, Boolean.toString(view.wrapOnOpen()));
     properties.setProperty(WHITESPACE_KEY, Boolean.toString(view.showWhitespace()));
     properties.setProperty(ANSI_KEY, Boolean.toString(view.hideAnsi()));
+    properties.setProperty(TIME_SPREAD_KEY, view.timeSpread().id());
     properties.setProperty(FOLD_START_KEY, view.folds().entryStart());
     List<String> continuation = view.folds().continuation();
     for (int i = 0; i < continuation.size() && i < MAX_CONTINUATION; i++) {
@@ -99,6 +104,19 @@ final class ViewFile {
       properties.setProperty(SELECTOR_KEY + i + ".firstLine", selector.firstLinePattern());
       properties.setProperty(SELECTOR_KEY + i + ".set", selector.setId());
     }
+  }
+
+  private static SpreadMode spread(Properties properties, SpreadMode fallback) {
+    String value = properties.getProperty(TIME_SPREAD_KEY);
+    if (value == null) {
+      return fallback;
+    }
+    SpreadMode mode = SpreadMode.byId(value.strip());
+    if (mode == null) {
+      LOG.warn("Ignoring an invalid {}", LogText.oneLine(TIME_SPREAD_KEY));
+      return fallback;
+    }
+    return mode;
   }
 
   private static boolean flag(Properties properties, String key, boolean fallback) {

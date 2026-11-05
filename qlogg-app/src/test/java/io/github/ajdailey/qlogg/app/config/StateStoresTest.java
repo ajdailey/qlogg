@@ -173,6 +173,31 @@ class StateStoresTest {
   }
 
   @Test
+  void sessionRoundTripsTheSyncGroup() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session.Tab tab = new Session.Tab("/mock/a.log", "", false, new long[0], List.of(), 0, 2);
+    Session.Tab plain = new Session.Tab("/mock/b.log", "", false, new long[0]);
+    assertTrue(store.save(new Session(List.of(tab, plain), 0)));
+    Session loaded = new SessionStore(location()).load();
+    assertEquals(2, loaded.tabs().get(0).syncGroup());
+    assertEquals(0, loaded.tabs().get(1).syncGroup());
+    assertFalse(
+        Files.readString(temp.resolve(SessionStore.FILE), StandardCharsets.ISO_8859_1)
+            .contains("tab.1.syncGroup"));
+    Files.writeString(
+        temp.resolve(SessionStore.FILE),
+        "window.0.active=0\n"
+            + "window.0.tab.0.path=/mock/a.log\n"
+            + "window.0.tab.0.syncGroup=soon\n"
+            + "window.0.tab.1.path=/mock/b.log\n"
+            + "window.0.tab.1.syncGroup=-3\n",
+        StandardCharsets.ISO_8859_1);
+    List<Session.Tab> tabs = new SessionStore(location()).load().tabs();
+    assertEquals(0, tabs.get(0).syncGroup());
+    assertEquals(0, tabs.get(1).syncGroup());
+  }
+
+  @Test
   void sessionRoundTripsMarkCommentsAndSkipsMalformedOnes() throws Exception {
     SessionStore store = new SessionStore(location());
     List<MarkComments.Comment> comments =

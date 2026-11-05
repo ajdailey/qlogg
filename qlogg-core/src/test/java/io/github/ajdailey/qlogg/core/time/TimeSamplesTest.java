@@ -35,6 +35,32 @@ class TimeSamplesTest {
   }
 
   @Test
+  void givenLinesAreSampledAndALinePastTheEndReadsTheLast() throws Exception {
+    MemoryByteSource source = source();
+    LineIndex index = TimeFixture.index(source, ASCII, MemoryBudget.of(64L << 20));
+    long[] lines = {0, 0, 7, 4000, LINES, LINES + 50L};
+    TimeSamples samples = TimeSamples.sample(reader(source, ASCII), index, lines, token);
+    assertEquals(lines.length, samples.count());
+    assertEquals(nanosAt(0), samples.nanos(0));
+    assertEquals(nanosAt(0), samples.nanos(1));
+    assertEquals(nanosAt(7), samples.nanos(2));
+    assertEquals(nanosAt(4000), samples.nanos(3));
+    assertEquals(nanosAt(LINES - 1), samples.nanos(4));
+    assertEquals(nanosAt(LINES - 1), samples.nanos(5));
+    assertEquals(0, samples.descents());
+  }
+
+  @Test
+  void anEmptySnapshotGivesNoStamps() throws Exception {
+    MemoryByteSource source = new MemoryByteSource(new byte[0], 0);
+    LineIndex index = TimeFixture.index(source, ASCII, MemoryBudget.of(64L << 20));
+    TimeSamples samples =
+        TimeSamples.sample(reader(source, ASCII), index, new long[] {0, 1}, token);
+    assertEquals(TimestampParser.NONE, samples.nanos(0));
+    assertEquals(TimestampParser.NONE, samples.nanos(1));
+  }
+
+  @Test
   void sparseIndexSnapsSamplesToCheckpoints() throws Exception {
     MemoryByteSource source = source();
     LineIndex index = TimeFixture.index(source, ASCII, MemoryBudget.of(150_000));

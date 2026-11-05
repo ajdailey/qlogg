@@ -397,7 +397,16 @@ line that does not parse continues the stamped line above it.
   and its checkpoint in a sparse one, so sampling reads no line start.
   `descents()` counts samples earlier than the stamped sample before them;
   any descent marks the document out of order. The caller reserves
-  `bytesFor(count)` (`8 * count + 64`) before sampling.
+  `bytesFor(count)` (`8 * count + 64`) before sampling. The overload taking
+  `long[] lines` samples those lines; lines that snap to one start share one
+  read and a line past the last reads the last.
+- `TimeSpread.of(samples, lines, mode)` gives one level per pixel row from a
+  stamp at each row boundary: `floor(log2(ratio))` from 0 to 4, unshaded
+  below twice the average. `PAUSES` compares the row's time with the average
+  row's; `ACTIVITY` compares its lines per second with the whole span's, and
+  a row with lines and no elapsed time takes level 4. A row whose time runs
+  backward is `DISORDER`. Backward rows, rows without lines and rows missing a
+  stamp stay out of the averages.
 
 ## File monitoring (`core.watch`)
 
@@ -646,11 +655,12 @@ missing group. Output stops at 1,024 chars; `MarkComments.clean` cuts it to
 
 ### Overview bins and mark toggles
 
-`OverviewBins.compute(matches, marks, lineCount, height, token)` counts the
-lines of each set per pixel row as differences of `rank` calls: a few lookups
-per row, whatever the set sizes. `lineAt(y)` is `floor(y * lineCount /
-height)`, exact for every `long` line count; `rowOf(line)` is its inverse.
-Cost: 8 bytes per pixel row plus 64.
+`OverviewBins.compute(matches, marks, lines, token)` counts the lines of each
+set per pixel row as differences of `rank` calls: a few lookups per row,
+whatever the set sizes. `lines` holds each pixel row's first line, then the
+line after the last row, so a row covers any span. `lineAt(y)` is `floor(y *
+lineCount / height)`, exact for every `long` line count; `rowOf(line)` is its
+inverse. Cost: 8 bytes per pixel row plus 64.
 
 `MarkToggle.run(marks, rows, firstLine, count, token, progress)` marks the
 rows' lines unless all are marked, then unmarks them, in batches of 4,096
