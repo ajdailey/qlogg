@@ -82,8 +82,9 @@ import org.eclipse.swt.widgets.ToolItem;
  * commands, Copy and Select All. Files dropped on the window open a tab each. A palette change from
  * the theme recolors both log views and the overview bar at once; native widgets follow the system.
  * Created, placed and opened on the UI thread; a close request from the window system is vetoed and
- * forwarded to the close handler, which ends with {@link #dispose}. Every dialog it opens returns
- * at once; none runs a nested event loop except the platform file chooser.
+ * forwarded to the close handler, which ends with {@link #dispose}. Every QLogg dialog returns at
+ * once. The platform file and color choosers run a nested event loop, and on GTK {@link
+ * #clipboardText} waits on the UI thread for the clipboard owner.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the

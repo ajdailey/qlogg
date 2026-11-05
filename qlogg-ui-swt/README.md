@@ -279,6 +279,10 @@ command waits for that line.
   page per notch.
 - An `Alt`-drag, or any drag with Edit > Block Selection on, selects a block
   of columns, painted per row between the two corners' columns.
+- A drag that leaves the view above or below scrolls one line at once, then
+  one line every 50 ms from a `SwtUiDispatcher.timerExec` timer while the button
+  stays down outside, extending the selection to the edge row. Release,
+  focus loss and dispose cancel the timer.
 - A collapsed entry's row has a triangle at the gutter's right edge and a
   rule under it.
 - With whitespace markers on, a tab's first cell shows an arrow, a trailing
@@ -332,7 +336,8 @@ nothing while the bar is hidden.
 - `SwtUiDispatcher` implements `UiDispatcher` over the Display. It drops a
   submission once the Display is disposed, including when disposal races the
   call. It is the only class that calls `Display.asyncExec` or `timerExec`,
-  and nothing calls `syncExec` (`ArchitectureTest`).
+  and nothing calls `syncExec` (`ArchitectureTest`). `cancelTimer` cancels a
+  `timerExec` task that has not run.
 - `Icons` loads the 16 to 256 px PNGs. `DARK` is the window and taskbar icon;
   `LIGHT` is for in-app use with the light palette. The PNGs are rendered by
   `tools/icons.sh` and owned by the views that create them.
@@ -448,12 +453,14 @@ Highlighters menu and reads the span's painted color; it also drives
 `EventLoop.runUntil`
 dispatches events until a condition holds, with a bound and no fixed sleep.
 `ViewFeaturesGuiTest` drives `Alt` and `Shift` with the wheel, an `Alt`-drag
-block selection, a click on the second wrapped row of a long line and the
+block selection, a drag held still below the view scrolling until release,
+focus loss or tab close, a click on the second wrapped row of a long line and the
 reported fit, a double click past a wrapped row's end selecting the word
 there, whitespace and fold painting, scratchpad transforms inline and
 on a worker (the tab read-only until the result) with the epoch value and
 `Ctrl+N`, the search across two files with its row selecting
-a tab, and the selectors editor row.
+a tab, and the selectors editor row. `SwtUiDispatcherTest` checks that a
+canceled timer does not run and that cancel after dispose does nothing.
 
 `ResourceLeakTest` starts its Display with `DeviceData.tracking`, runs a
 warm-up round of tab open and close, light and dark theme, zoom in and out and

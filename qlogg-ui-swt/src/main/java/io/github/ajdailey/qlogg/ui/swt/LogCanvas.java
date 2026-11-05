@@ -52,9 +52,11 @@ import org.slf4j.LoggerFactory;
  * A font change or {@code SWT.ZoomChanged} remeasures the grid and refits the viewport in place.
  *
  * <p>The gutter marks a collapsed entry's row with a triangle and a rule under the row. An
- * Alt-drag, or any drag with Edit > Block Selection on, selects a block of columns. {@code
- * Alt}+wheel scrolls sideways and {@code Shift}+wheel by pages. With text wrap on, the view reports
- * the lines that fit whole ({@link LineViewController#wrapFitted}).
+ * Alt-drag, or any drag with Edit > Block Selection on, selects a block of columns. A drag held
+ * above or below the view scrolls one line per {@link #AUTOSCROLL_MILLIS} on a {@link
+ * SwtUiDispatcher} timer, which stops on release, focus loss and dispose. {@code Alt}+wheel scrolls
+ * sideways and {@code Shift}+wheel by pages. With text wrap on, the view reports the lines that fit
+ * whole ({@link LineViewController#wrapFitted}).
  */
 public final class LogCanvas {
   /** Receives the pending key prefix for the status bar. */
@@ -122,6 +124,22 @@ public final class LogCanvas {
   private final RowPainter painter;
   private boolean dragging;
   private boolean dragBlock;
+
+  // Drag autoscroll.
+  /** Interval between autoscroll steps while a drag holds the pointer above or below the view. */
+  static final int AUTOSCROLL_MILLIS = 50;
+
+  private int dragX;
+  private int dragY;
+  private boolean autoscrolling;
+  private final SwtUiDispatcher timers;
+  private final Runnable autoscroll =
+      new Runnable() {
+        @Override
+        public void run() {
+          autoscrollStep();
+        }
+      };
   private final DocumentViewListener viewListener =
       new DocumentViewListener() {
         @Override
@@ -170,6 +188,7 @@ public final class LogCanvas {
     antialias = settings.antialias();
     colors = new PaletteColors(canvas.getDisplay(), palette);
     painter = new RowPainter(canvas.getDisplay(), font);
+    timers = new SwtUiDispatcher(canvas.getDisplay());
     measure();
     canvas.setBackground(colors.background);
     listen();
@@ -528,8 +547,15 @@ public final class LogCanvas {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            dragging = false;
-            dragBlock = false;
+            endDrag();
+          }
+        });
+    canvas.addListener(
+        SWT.FocusOut,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            endDrag();
           }
         });
     canvas.addListener(
@@ -575,6 +601,7 @@ public final class LogCanvas {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
+            endDrag();
             document.removeListener(viewListener);
             painter.dispose();
             font.dispose();
@@ -644,14 +671,53 @@ public final class LogCanvas {
   }
 
   private void drag(Event event) {
-    Rectangle area = canvas.getClientArea();
-    if (event.y < 0) {
-      document.scrollLines(-1);
-    } else if (event.y >= area.height) {
-      document.scrollLines(1);
+    dragX = event.x;
+    dragY = event.y;
+    if (autoscrolling) {
+      extendDrag();
+    } else {
+      autoscrollStep();
     }
-    TextPosition position = hit(event.x, Math.max(0, Math.min(event.y, area.height - 1)));
+  }
+
+  /** Scrolls one line toward a pointer held above or below the view and rearms the timer. */
+  private void autoscrollStep() {
+    autoscrolling = false;
+    if (!dragging || canvas.isDisposed()) {
+      return;
+    }
+    int direction = dragY < 0 ? -1 : dragY >= canvas.getClientArea().height ? 1 : 0;
+    if (direction != 0) {
+      document.scrollLines(direction);
+      autoscrolling = true;
+      timers.timerExec(AUTOSCROLL_MILLIS, autoscroll);
+    }
+    extendDrag();
+  }
+
+  /** Moves the drag's caret to the pointer, clamped to the view's rows. */
+  private void extendDrag() {
+    Rectangle area = canvas.getClientArea();
+    TextPosition position = hit(dragX, Math.max(0, Math.min(dragY, area.height - 1)));
     select(new Selection(document.selection().anchor(), position));
+  }
+
+  private void endDrag() {
+    dragging = false;
+    dragBlock = false;
+    if (autoscrolling) {
+      autoscrolling = false;
+      timers.cancelTimer(autoscroll);
+    }
+  }
+
+  /**
+   * Returns whether the drag autoscroll timer is armed.
+   *
+   * @return true while a drag holds the pointer above or below the view
+   */
+  boolean autoscrolling() {
+    return autoscrolling;
   }
 
   /**

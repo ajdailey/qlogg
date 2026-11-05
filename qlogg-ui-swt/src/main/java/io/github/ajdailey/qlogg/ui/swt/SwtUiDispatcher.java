@@ -40,6 +40,19 @@ public final class SwtUiDispatcher implements UiDispatcher {
     }
   }
 
+  // Timer cancel.
+  /**
+   * Cancels a task scheduled with {@link #timerExec} that has not run yet; does nothing when none
+   * is scheduled or the Display is disposed. Call on the UI thread.
+   *
+   * @param task the task given to {@code timerExec}
+   */
+  public void cancelTimer(Runnable task) {
+    if (!display.isDisposed()) {
+      display.timerExec(-1, task);
+    }
+  }
+
   @Override
   public boolean isUiThread() {
     return !display.isDisposed() && display.getThread() == Thread.currentThread();

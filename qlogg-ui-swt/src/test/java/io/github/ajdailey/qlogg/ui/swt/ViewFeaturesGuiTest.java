@@ -40,6 +40,9 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.ImageLoader;
+import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -222,6 +225,114 @@ class ViewFeaturesGuiTest {
     mouse(SWT.MouseMove, x1, 1, 0);
     mouse(SWT.MouseUp, x1, 1, 0);
     assertTrue(!document().blockSelection());
+  }
+
+  /** Dispatches events for the given time, measured by a display timer. */
+  private void dispatchFor(int millis) {
+    final boolean[] done = new boolean[1];
+    display.timerExec(
+        millis,
+        new Runnable() {
+          @Override
+          public void run() {
+            done[0] = true;
+          }
+        });
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return done[0];
+              }
+            }));
+  }
+
+  /** Writes a PNG of the window when {@code qlogg.shots} names a directory. */
+  private void shoot(String name) {
+    String dir = System.getProperty("qlogg.shots");
+    if (dir == null) {
+      return;
+    }
+    while (display.readAndDispatch()) {
+      // Flush pending paints.
+    }
+    Point size = window.shell().getSize();
+    Image image = new Image(display, size.x, size.y);
+    GC gc = new GC(image);
+    try {
+      window.shell().print(gc);
+      ImageLoader loader = new ImageLoader();
+      loader.data = new ImageData[] {image.getImageData()};
+      loader.save(Path.of(dir, name).toString(), SWT.IMAGE_PNG);
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  /** Presses on the first row and moves the pointer below the view, then holds it still. */
+  private void dragBelow() {
+    LogCanvas view = window.canvas();
+    int x = view.gutterWidth() + view.columnOffset(2);
+    int below = canvas().getClientArea().height + 10;
+    final long top = document().viewport().topLine();
+    mouse(SWT.MouseDown, x, 1, 0);
+    mouse(SWT.MouseMove, x, below, 0);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().viewport().topLine() >= top + 3;
+              }
+            }));
+    assertTrue(view.autoscrolling());
+    assertTrue(document().selection().caret().line() > document().viewport().topLine());
+  }
+
+  @Test
+  void aDragHeldBelowTheViewScrollsUntilReleaseFocusLossOrDispose() {
+    final int rows = document().viewport().rows();
+    window.shell().setSize(1100, 700);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().viewport().rows() > rows;
+              }
+            }));
+    final LogCanvas view = window.canvas();
+    dragBelow();
+    shoot("drag-autoscroll.png");
+    mouse(SWT.MouseUp, 0, 0, 0);
+    assertFalse(view.autoscrolling());
+    long top = document().viewport().topLine();
+    dispatchFor(4 * LogCanvas.AUTOSCROLL_MILLIS);
+    assertEquals(top, document().viewport().topLine());
+
+    document().scrollLines(-top);
+    dragBelow();
+    canvas().notifyListeners(SWT.FocusOut, new Event());
+    assertFalse(view.autoscrolling());
+    top = document().viewport().topLine();
+    dispatchFor(4 * LogCanvas.AUTOSCROLL_MILLIS);
+    assertEquals(top, document().viewport().topLine());
+
+    document().scrollLines(-top);
+    dragBelow();
+    controller.execute(CommandId.CLOSE);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return view.control().isDisposed();
+              }
+            }));
+    assertFalse(view.autoscrolling());
+    dispatchFor(4 * LogCanvas.AUTOSCROLL_MILLIS);
   }
 
   /** Turns text wrap on for the shown document and waits for the wrapped read. */
