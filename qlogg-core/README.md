@@ -61,7 +61,7 @@ shares that all open documents draw from:
 | Share | Percent | Holder |
 |---|---|---|
 | `LINE_INDEX` | 40 | `GrowableLineIndex` |
-| `RESULTS` | 20 | Search results, marks |
+| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows |
 | `BLOCK_CACHE` | 10 | `BlockCache` |
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `FOLDS` | 3 | Fold maps |
@@ -253,6 +253,36 @@ without a double quote is one term. A syntax error throws
 `ExpressionException` with a `Reason` and a 1-based column; nesting deeper
 than 256 is an error.
 
+### Range search
+
+A query with `SearchQuery.rangeEnd` set is a range search: a line matching
+`expression` opens a range, and the first later line matching `rangeEnd`
+closes it. The results are every line from the opening line through the
+closing line; a range still open at the end of the scope runs to it.
+
+- Workers match each line against both expressions (each with the query's
+  case, whole-word and ANSI rules, not inverted) and return both hit lists.
+  The coordinator walks them in chunk order and carries the open state across
+  chunks, so the partition cannot change the result (`RangeSearchTest`
+  compares every chunk size with a sequential scan).
+- The opening line is not tested against the end, and a start line inside an
+  open range neither opens nor closes anything.
+- `inverse` returns the lines outside every range.
+- `scope` limits the scan; `rangeOpen` states whether a range is open before
+  the scope's first line. A skipped line inside an open range is in it.
+- When a range search completes with no limit,
+  `SearchListener.rangeOpenBeforeLast` reports whether a range was open before
+  the scope's last line; a search from that line on (an auto-refresh) starts
+  from it.
+
+`RangeFinder.around` finds the range around one line: the nearest line at or
+above it matching the start, through the first later line matching the end, or
+the last line. It returns null when no start precedes the line or that range
+closed above it. It reads blocks of whole lines (4,096 lines, 1 MiB) through
+one heap buffer and matches the first 1 MiB of a longer line. It looks back
+only to the nearest start, so where start lines repeat before an end, its range
+begins later than the range search's.
+
 ### Result sets
 
 `MutableLineSet` holds line numbers in buckets of 65,536 lines: a sorted
@@ -348,7 +378,8 @@ and creates the line index; it blocks, so it runs on a worker.
 read published state without I/O. `DocumentServices` carries the shared
 `Workers`, `Indexer`, `SearchEngine`, `BlockCache`, `MemoryBudget` and
 fallback charset. `marks()` is the document's `MutableLineSet` of marked
-lines, charged to `RESULTS`; `close` empties it. `path()` is the path as
+lines and `markComments()` its `MarkComments`, both charged to `RESULTS`;
+`close` empties them. `path()` is the path as
 given, absolute and normalized; `realPath()` is the file opened; `name()` is
 the file name of `path()`. A symbolic link stays a link: the watch follows it,
 a retarget reads as `REPLACED`, and the owner's reopen opens the new target.
@@ -505,7 +536,20 @@ rows' lines unless all are marked, then unmarks them, in batches of 4,096
 under one write lock each (`MutableLineSet.addSorted`, `removeSorted`). A
 contiguous range checks "all marked" with two `rank` calls. Marking reserves
 from `RESULTS` and stops at the first batch the share refuses; cancel stops
-between batches. Lines changed before either stay changed.
+between batches. Lines changed before either stay changed. The overload with a
+`MarkComments` removes the comments of the lines it unmarks.
+
+### Mark comments
+
+`MarkComments` maps a marked line to one single-line comment; every method
+holds its monitor, so the gutter reads it on the UI thread while a toggle
+removes comments on a worker. `clean` replaces control chars (C0, DEL, C1,
+U+2028, U+2029) with spaces, strips the ends and cuts to `MAX_LENGTH` (200)
+chars. `put` with text that cleans to empty removes the comment. Each comment
+reserves 96 bytes plus 2 per char from `RESULTS`; `put` refuses a comment the
+share cannot hold or one past `MAX_COMMENTS` (1,000 per document) and changes
+nothing. The class does not check marks: the owner removes a comment with its
+mark, and `addAll` skips comments on unmarked lines.
 
 ### Filtered view
 
@@ -523,11 +567,33 @@ the order `next()` cycles). It copies nothing per row:
   Until the next snapshot is installed, marks toggled meanwhile are not
   listed and a mark the matches gained meanwhile counts twice. A row's line
   is a binary search over line values on the sum of the two ranks.
+- `setContext(before, after, lineCount)` lists each match with the lines
+  around it, through `ContextRows` (below); `rows()` is the set the
+  `MATCHES` and `MARKS_AND_MATCHES` modes list in place of the matches.
+  `MARKS` lists no context. `isContext(line)` and `startsGroup(line)` tell
+  the painter which rows to shade and where a gap lies above a row.
 - `rowOf(line)` returns the row of a line or of the next listed line.
 - The class is confined to one thread. `cursor()` returns a thread-safe
   `RowCursor` (`next`, `previous` over the sets the mode lists) for a worker; copy and
   quick find walk rows through it. `RowCursor.all(lineCount)` walks every
   line.
+
+`ContextRows` is a `LineSet` over the matches widened by `before` and `after`
+lines, windows merged and cut to the live line count, so the last match's
+context extends as the file grows. It stores no row: match `j` adds
+`min(before + after + 1, m(j) - m(j - 1))` lines, and a checkpoint of that sum
+every 64 matches (8 B, charged to `RESULTS`) lets `rank` and `select` walk at
+most 64 matches. `contains`, `ceiling` and `floor` take one match lookup.
+
+- An instance covers the matches its build saw. `extend` builds the next one
+  on a worker from where the last stopped, sharing and growing the checkpoint
+  array, and starts over when the set changed below the last covered
+  match (`stale()` compares the count and the last covered line). The view
+  shows the installed instance until `installContext` replaces it.
+- A refused checkpoint stops the build at the matches covered so far
+  (`complete()` false); the view lists those and does not retry.
+- `FilteredView` releases the reservation when it replaces or drops an
+  instance; `reservedBeyond` is what a dropped build charged itself.
 
 ### Quick find
 

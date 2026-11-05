@@ -223,6 +223,7 @@ public final class CommandStates {
       case TOGGLE_COMBINING -> options.combining();
       case TOGGLE_AUTO_REFRESH -> options.autoRefresh();
       case TOGGLE_KEEP_RESULTS -> options.keepResults();
+      case TOGGLE_RANGE -> options.range();
       case TOGGLE_WRAP -> document.wrap();
       default -> false;
     };

@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.config;
 
 import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
+import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.nio.file.Path;
@@ -43,6 +44,11 @@ final class OptionsFile {
   static final String SEARCH_COMBINING = "searchOption.combining";
   static final String SEARCH_REFRESH = "searchOption.autoRefresh";
   static final String SEARCH_KEEP = "searchOption.keepResults";
+  // Context lines and range filter.
+  static final String SEARCH_RANGE = "searchOption.range";
+  static final String SEARCH_RANGE_END = "searchOption.rangeEnd";
+  static final String SEARCH_BEFORE = "searchOption.contextBefore";
+  static final String SEARCH_AFTER = "searchOption.contextAfter";
   static final String LINE_NUMBERS = "view.lineNumbers";
   static final String FILTERED_LINE_NUMBERS = "view.filteredLineNumbers";
   static final String OPEN_DIRECTORY = "open.directory";
@@ -138,7 +144,11 @@ final class OptionsFile {
             flag(p, SEARCH_INVERSE, s.inverse(), file),
             flag(p, SEARCH_COMBINING, s.combining(), file),
             flag(p, SEARCH_REFRESH, s.autoRefresh(), file),
-            flag(p, SEARCH_KEEP, s.keepResults(), file));
+            flag(p, SEARCH_KEEP, s.keepResults(), file),
+            flag(p, SEARCH_RANGE, s.range(), file),
+            rangeEnd(p, file),
+            (int) number(p, SEARCH_BEFORE, 0, SearchToggles.MAX_CONTEXT, 0, file),
+            (int) number(p, SEARCH_AFTER, 0, SearchToggles.MAX_CONTEXT, 0, file));
     Map<String, UiState.Size> dialogs = new LinkedHashMap<String, UiState.Size>();
     for (String key : p.stringPropertyNames()) {
       if (!key.startsWith(DIALOG) || !key.endsWith(".width")) {
@@ -204,6 +214,10 @@ final class OptionsFile {
     p.setProperty(SEARCH_COMBINING, Boolean.toString(search.combining()));
     p.setProperty(SEARCH_REFRESH, Boolean.toString(search.autoRefresh()));
     p.setProperty(SEARCH_KEEP, Boolean.toString(search.keepResults()));
+    p.setProperty(SEARCH_RANGE, Boolean.toString(search.range()));
+    p.setProperty(SEARCH_RANGE_END, search.rangeEnd());
+    p.setProperty(SEARCH_BEFORE, Integer.toString(search.contextBefore()));
+    p.setProperty(SEARCH_AFTER, Integer.toString(search.contextAfter()));
     p.setProperty(LINE_NUMBERS, Boolean.toString(state.lineNumbers()));
     p.setProperty(FILTERED_LINE_NUMBERS, Boolean.toString(state.filteredLineNumbers()));
     p.setProperty(OPEN_DIRECTORY, state.openDirectory());
@@ -266,6 +280,16 @@ final class OptionsFile {
     }
     invalid(key, file);
     return null;
+  }
+
+  /** Returns the range end expression; empty when absent or longer than a history entry. */
+  private static String rangeEnd(Properties p, Path file) {
+    String text = p.getProperty(SEARCH_RANGE_END, "");
+    if (text.length() > SearchHistory.MAX_ENTRY_CHARS) {
+      invalid(SEARCH_RANGE_END, file);
+      return "";
+    }
+    return text;
   }
 
   private static boolean flag(Properties p, String key, boolean fallback, Path file) {

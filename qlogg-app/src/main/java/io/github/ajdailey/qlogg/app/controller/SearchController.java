@@ -9,9 +9,11 @@ import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.UiUpdateQueue;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.Visibility;
@@ -22,15 +24,19 @@ import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
+import io.github.ajdailey.qlogg.core.search.RangeFinder;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchExpression;
 import io.github.ajdailey.qlogg.core.search.SearchLimit;
 import io.github.ajdailey.qlogg.core.search.SearchListener;
 import io.github.ajdailey.qlogg.core.search.SearchQuery;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,6 +67,12 @@ import org.slf4j.LoggerFactory;
  * may have grown, into the same set and generation. The refresh shows no progress and holds no
  * activity; the state stays {@code DONE} with the growing match count. A search that stopped at a
  * limit, or whose range ends before the end of the file, is not refreshed.
+ *
+ * <p>With {@code range} on, the field's text starts a range and {@code rangeEnd} ends it ({@link
+ * SearchQuery#rangeEnd}). A refresh of a range search starts in the state the engine reported
+ * before the last searched line, so a range still open at the end of the file extends over appended
+ * lines. {@link #selectRange} selects the range around the main view's caret on a worker ({@link
+ * RangeFinder}).
  */
 public final class SearchController {
   /** Least interval between search state flushes. */
@@ -170,6 +182,8 @@ public final class SearchController {
   private SearchQuery lastQuery;
   private long searchedEnd;
   private long searchedBytes;
+  private boolean searchedRangeOpen;
+  private CancellationToken findingRange;
 
   /**
    * One search's progress or end, as the search thread reports it. {@code end} and {@code bytes}
@@ -188,7 +202,8 @@ public final class SearchController {
       Exception failure,
       long end,
       long bytes,
-      boolean refresh) {}
+      boolean refresh,
+      boolean rangeOpen) {}
 
   /**
    * The search in progress: its activity, which ends once, the flag that makes its own {@code
@@ -268,6 +283,15 @@ public final class SearchController {
    */
   public LineSet shownResults() {
     return shown < 0 ? results : kept.get(shown).lines();
+  }
+
+  /**
+   * Returns the toggles of the shown set's search: the current search's as it ran, or a kept set's.
+   *
+   * @return the toggles; the context counts apply to the filtered view
+   */
+  public SearchOptions shownOptions() {
+    return shown < 0 ? state.options() : kept.get(shown).options();
   }
 
   /**
@@ -371,6 +395,7 @@ public final class SearchController {
           case TOGGLE_COMBINING -> options.withCombining(!options.combining());
           case TOGGLE_AUTO_REFRESH -> options.withAutoRefresh(!options.autoRefresh());
           case TOGGLE_KEEP_RESULTS -> options.withKeepResults(!options.keepResults());
+          case TOGGLE_RANGE -> options.withRange(!options.range());
           default -> options;
         };
     options = next;
@@ -440,6 +465,15 @@ public final class SearchController {
           failed(text, toggles, 0, UiText.SEARCH_EXPRESSION_ERROR.format(e.column(), reason(e))));
       return;
     }
+    SearchExpression end = null;
+    if (toggles.range()) {
+      try {
+        end = rangeEnd(toggles);
+      } catch (ExpressionException e) {
+        publish(failed(text, toggles, 0, rangeEndError(e)));
+        return;
+      }
+    }
     SearchQuery query =
         new SearchQuery(
             expression,
@@ -447,7 +481,9 @@ public final class SearchController {
             toggles.wholeWord(),
             toggles.inverse(),
             scope(toggles.inSelection()),
-            document.document().hideAnsi());
+            document.document().hideAnsi(),
+            end,
+            false);
     document.filtered().setVisibility(Visibility.MARKS_AND_MATCHES);
     lastQuery = query.scope() == null || query.scope().end() == Long.MAX_VALUE ? query : null;
     AtomicBoolean active = new AtomicBoolean(true);
@@ -527,7 +563,9 @@ public final class SearchController {
             lastQuery.wholeWord(),
             lastQuery.inverse(),
             new LineRange(from, Long.MAX_VALUE),
-            lastQuery.hideAnsi());
+            lastQuery.hideAnsi(),
+            lastQuery.rangeEnd(),
+            from == searchedEnd - 1 && searchedRangeOpen);
     start(query, new AtomicBoolean(false), true);
   }
 
@@ -624,10 +662,159 @@ public final class SearchController {
     return running != null && running.refresh();
   }
 
-  /** Cancels the running search; its results so far stay. */
+  /** Cancels the running search and a range selection; the search's results so far stay. */
   public void cancel() {
     if (running != null) {
       running.handle().cancel();
+    }
+    if (findingRange != null) {
+      findingRange.cancel();
+    }
+  }
+
+  // Range filter.
+
+  /**
+   * Parses the end expression of a range search.
+   *
+   * @throws ExpressionException for an empty or malformed end expression
+   */
+  private static SearchExpression rangeEnd(SearchOptions toggles) throws ExpressionException {
+    if (toggles.rangeEnd().isEmpty()) {
+      throw new ExpressionException(ExpressionException.Reason.EXPECTED_TERM, 1);
+    }
+    return ExpressionParser.parse(toggles.rangeEnd(), toggles.mode(), toggles.combining());
+  }
+
+  private static String rangeEndError(ExpressionException e) {
+    return UiText.SEARCH_RANGE_END_ERROR.format(e.column(), reason(e));
+  }
+
+  /**
+   * Selects the range around the main view's caret: the nearest line at or above it matching the
+   * search text through the first later line matching the range end, with the current toggles. The
+   * lines are matched on a {@code qlogg-search-} worker inside a document entry; a newer request or
+   * {@link #cancel} stops an older one. With no range there, a notice shows and the selection
+   * stays.
+   */
+  public void selectRange() {
+    if (closed) {
+      return;
+    }
+    final SearchOptions toggles = options;
+    SearchExpression start;
+    SearchExpression end;
+    try {
+      if (fieldText.isEmpty()) {
+        throw new ExpressionException(ExpressionException.Reason.EXPECTED_TERM, 1);
+      }
+      start = ExpressionParser.parse(fieldText, toggles.mode(), toggles.combining());
+    } catch (ExpressionException e) {
+      document
+          .notifications()
+          .showNotice(UiText.SEARCH_EXPRESSION_ERROR.format(e.column(), reason(e)));
+      return;
+    }
+    try {
+      end = rangeEnd(toggles);
+    } catch (ExpressionException e) {
+      document.notifications().showNotice(rangeEndError(e));
+      return;
+    }
+    final SearchQuery query =
+        new SearchQuery(
+            start,
+            toggles.caseSensitive(),
+            toggles.wholeWord(),
+            false,
+            null,
+            document.document().hideAnsi(),
+            end,
+            false);
+    final long line = document.sourceLine(document.selection().caret().line());
+    if (line < 0) {
+      return;
+    }
+    if (findingRange != null) {
+      findingRange.cancel();
+    }
+    final CancellationToken token = new CancellationToken();
+    findingRange = token;
+    activity.setActive();
+    boolean started =
+        document
+            .workers()
+            .tryStart(
+                Workers.Kind.SEARCH,
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    findRange(query, line, token);
+                  }
+                });
+    if (!started) {
+      findingRange = null;
+      activity.setIdle();
+    }
+  }
+
+  /** Runs on a worker; posts back on every outcome, which ends the activity. */
+  @WorkerThread
+  private void findRange(SearchQuery query, long line, final CancellationToken token) {
+    RangeFinder.Range found = null;
+    String failure = null;
+    boolean admitted = document.document().enter();
+    try {
+      if (admitted) {
+        found =
+            RangeFinder.around(
+                document.document(),
+                document.document().index(),
+                query,
+                engine.matchers(),
+                line,
+                token);
+      }
+    } catch (CancellationException e) {
+      token.cancel();
+    } catch (UncheckedIOException e) {
+      failure = UiText.SEARCH_FAILED.format(LogText.oneLine(e.getCause().getMessage()));
+    } catch (IOException e) {
+      failure = UiText.SEARCH_FAILED.format(LogText.oneLine(e.getMessage()));
+    } catch (PatternSyntaxException | PatternTooComplexException e) {
+      failure = failureText(e);
+    } finally {
+      if (admitted) {
+        document.document().exit();
+      }
+      final RangeFinder.Range range = found;
+      final String message = failure;
+      document
+          .ui()
+          .asyncExec(
+              new Runnable() {
+                @Override
+                public void run() {
+                  rangeFound(range, message, token);
+                }
+              });
+    }
+  }
+
+  private void rangeFound(RangeFinder.Range range, String failure, CancellationToken token) {
+    activity.setIdle();
+    if (findingRange == token) {
+      findingRange = null;
+    }
+    if (closed || token.isCanceled()) {
+      return;
+    }
+    if (failure != null) {
+      document.notifications().showNotice(failure);
+    } else if (range == null) {
+      document.notifications().showNotice(UiText.NOTICE_NO_RANGE.text());
+    } else {
+      document.selectLines(range.first(), range.last());
     }
   }
 
@@ -681,6 +868,9 @@ public final class SearchController {
     closed = true;
     updates.close();
     discard();
+    if (findingRange != null) {
+      findingRange.cancel();
+    }
     if (running != null) {
       end(running.active());
       running = null;
@@ -768,6 +958,7 @@ public final class SearchController {
     private volatile long total;
     private volatile long matches;
     private volatile long skipped;
+    private volatile boolean rangeOpen;
 
     Events(
         long searchGeneration,
@@ -797,6 +988,11 @@ public final class SearchController {
       total = totalLines;
       matches = baseMatches + matchCount;
       report(build(false, null, SearchLimit.NONE, null));
+    }
+
+    @Override
+    public void rangeOpenBeforeLast(boolean open) {
+      rangeOpen = open;
     }
 
     @Override
@@ -838,7 +1034,8 @@ public final class SearchController {
           failure,
           first + total,
           bytes,
-          refresh);
+          refresh,
+          rangeOpen);
     }
   }
 
@@ -878,6 +1075,7 @@ public final class SearchController {
       if (report.outcome() == OperationOutcome.COMPLETED && report.limit() == SearchLimit.NONE) {
         searchedEnd = report.end();
         searchedBytes = report.bytes();
+        searchedRangeOpen = report.rangeOpen();
       }
       next = finishedState(text, toggles, report.refresh() ? 100 : percent, report);
     }

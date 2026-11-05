@@ -17,6 +17,15 @@ public interface SearchListener {
   void progressed(long searchedLines, long totalLines, long matchCount);
 
   /**
+   * Called before {@link #finished} when a range search ends {@code COMPLETED} with no limit and a
+   * non-empty range: whether a range was open before the range's last line. A search of the lines
+   * from that line on continues from this state ({@link SearchQuery#rangeOpen}).
+   *
+   * @param open true when the last line continues an open range
+   */
+  default void rangeOpenBeforeLast(boolean open) {}
+
+  /**
    * Called once, last.
    *
    * @param outcome how the search ended; {@code COMPLETED} also when a limit stopped it

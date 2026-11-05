@@ -123,6 +123,20 @@ public interface MainView
   /** Shows the open files with a filter field; choosing one shows its tab. */
   void showOpenedFiles();
 
+  // Mark comments and marks list.
+
+  /**
+   * Asks for a mark comment.
+   *
+   * @param line the 0-based line
+   * @param current the comment the field starts with
+   * @param listener called when the user confirms; not called on cancel
+   */
+  void askMarkComment(long line, String current, NameListener listener);
+
+  /** Shows the marks list window, creating it on first use. */
+  void showMarks();
+
   /**
    * Asks for a tab's name.
    *

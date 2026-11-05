@@ -270,6 +270,16 @@ public abstract class LineViewController {
   }
 
   /**
+   * Returns a line's mark comment, for the gutter's bullet and tooltip.
+   *
+   * @param line a 0-based line
+   * @return the comment, or null when the line has none
+   */
+  public String markComment(long line) {
+    return document.markComments().get(line);
+  }
+
+  /**
    * Reports whether a line is in the shown search results, for the gutter's bullet.
    *
    * @param line a 0-based line
@@ -689,6 +699,49 @@ public abstract class LineViewController {
    */
   public long selectionStart() {
     return rangeAnchor;
+  }
+
+  // Context lines.
+
+  /**
+   * Reports whether a line shows as context of a search result, for the row's shading.
+   *
+   * @param line a 0-based line
+   * @return true for a context line; the main view lists none
+   */
+  public boolean contextRow(long line) {
+    return false;
+  }
+
+  /**
+   * Reports whether a gap in the listed lines lies above a line's row, for the group rule.
+   *
+   * @param line a listed 0-based line
+   * @return true when the row starts a group of results with context; the main view has none
+   */
+  public boolean startsGroup(long line) {
+    return false;
+  }
+
+  // Range selection.
+
+  /**
+   * Selects whole rows, the caret on the first, and scrolls the first into view when it is off
+   * screen.
+   *
+   * @param first the first row
+   * @param last the last row, at least {@code first}
+   */
+  void selectRows(long first, long last) {
+    selection = new Selection(new TextPosition(last, Long.MAX_VALUE), new TextPosition(first, 0));
+    blockSelected = false;
+    if (first < viewport.topLine() || first >= viewport.topLine() + viewport.rows()) {
+      viewport.scrollToLine(first - viewport.rows() / 2);
+    }
+    viewport.setFirstColumn(0);
+    caretMoved();
+    userMoved();
+    changed();
   }
 
   /**

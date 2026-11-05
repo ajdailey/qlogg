@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.SearchController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import java.util.List;
@@ -132,16 +133,23 @@ final class ResultsPane {
     String current =
         state.text().isEmpty()
             ? UiText.RESULTS_CURRENT_EMPTY.text()
-            : UiText.RESULTS_TAB.format(shorten(state.text()), search.resultCount());
+            : UiText.RESULTS_TAB.format(
+                shorten(label(state.text(), state.options())), search.resultCount());
     sets.getItem(0).setText(current);
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);
-      item.setText(UiText.RESULTS_TAB.format(shorten(set.text()), set.lineCount()));
-      item.setToolTipText(set.text());
+      item.setText(
+          UiText.RESULTS_TAB.format(shorten(label(set.text(), set.options())), set.lineCount()));
+      item.setToolTipText(label(set.text(), set.options()));
     }
-    sets.getItem(0).setToolTipText(state.text());
+    sets.getItem(0).setToolTipText(label(state.text(), state.options()));
     sets.setSelection(search.shown() + 1);
+  }
+
+  /** A search's text, with a range search's end after it. */
+  private static String label(String text, SearchOptions options) {
+    return options.range() ? UiText.RESULTS_RANGE.format(text, options.rangeEnd()) : text;
   }
 
   private static String shorten(String text) {

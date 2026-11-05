@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
@@ -142,6 +143,7 @@ class RememberedStateTest {
               return b.marks().contains(3) && !b.markingRunning();
             }
           });
+      b.setMarkComment(9, "mock note");
       b.goToLine(21);
       run.application.activate(a);
       run.application.execute(CommandId.ADD_FAVORITE);
@@ -196,7 +198,9 @@ class RememberedStateTest {
           });
       assertTrue(a.following());
       assertTrue(b.marks().contains(3));
-      assertEquals(1, b.marks().size());
+      assertEquals(2, b.marks().size());
+      assertEquals("mock note", b.markComment(9));
+      assertNull(b.markComment(3));
       assertEquals(20, b.selection().caret().line());
       assertFalse(b.lineNumbers());
     }

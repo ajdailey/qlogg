@@ -12,6 +12,8 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationListener;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
+import io.github.ajdailey.qlogg.app.controller.TabDataListener;
+import io.github.ajdailey.qlogg.app.controller.TabDataState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.PaletteListener;
@@ -22,6 +24,7 @@ import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.PositionText;
 import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.ZoneId;
@@ -171,12 +174,17 @@ public final class MainWindow implements MainView, ApplicationListener {
   // Scratchpad and the search across open files.
   private ScratchpadWindow scratchpad;
   private MultiSearchWindow multiSearch;
+  // Mark comments and marks list.
+  private MarksWindow marks;
   // Multiple windows, logging and support items.
   private final Link warnings;
   private TextWindow logWindow;
   // User guide.
   private GuideWindow guide;
   private PaletteListener paletteListener;
+  // Tab data dot.
+  private TabDots tabDots;
+  private TabDataListener tabDataListener;
   private long noticeGeneration;
   private final LogCanvas.PrefixListener prefixListener =
       new LogCanvas.PrefixListener() {
@@ -568,6 +576,8 @@ public final class MainWindow implements MainView, ApplicationListener {
         };
     application.theme().addListener(paletteListener);
     applyPalette(application.theme().palette());
+    // Tab data dot.
+    listenToTabData(application);
     // Multiple windows and the warning marker.
     shell.addListener(
         SWT.Activate,
@@ -903,10 +913,83 @@ public final class MainWindow implements MainView, ApplicationListener {
   private CTabItem newTab(DocumentController document, int index) {
     CTabItem item = new CTabItem(tabs, SWT.CLOSE, Math.min(index, tabs.getItemCount()));
     item.setData(document);
-    String path = document.state().path();
-    item.setToolTipText(path.isEmpty() ? null : path);
     item.setText(controller.tabTitle(document));
+    showTabData(item);
     return item;
+  }
+
+  // Tab data dot.
+
+  /**
+   * Shows each tab's {@link TabDataState} as a dot from {@link TabDots}; the dots and the listener
+   * go with the shell.
+   */
+  private void listenToTabData(final ApplicationController application) {
+    tabs.setUnselectedImageVisible(true);
+    tabDataListener =
+        new TabDataListener() {
+          @Override
+          public void tabDataChanged(DocumentController document, TabDataState state) {
+            CTabItem item = tabOf(document);
+            if (item != null) {
+              showTabData(item);
+            }
+          }
+        };
+    application.tabData().addListener(tabDataListener);
+    shell.addListener(
+        SWT.Dispose,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            application.tabData().removeListener(tabDataListener);
+            if (tabDots != null) {
+              tabDots.dispose();
+              tabDots = null;
+            }
+          }
+        });
+    for (CTabItem item : tabs.getItems()) {
+      showTabData(item);
+    }
+  }
+
+  /** Sets a tab's dot and adds the state to its tooltip under the path. */
+  private void showTabData(CTabItem item) {
+    DocumentController document = (DocumentController) item.getData();
+    TabDataState state =
+        controller == null ? TabDataState.NONE : controller.tabData().state(document);
+    String path = document.state().path();
+    String line =
+        switch (state) {
+          case NONE -> "";
+          case NEW_LINES -> UiText.TAB_DATA_NEW_LINES.text();
+          case NEW_MATCHES -> UiText.TAB_DATA_NEW_MATCHES.text();
+        };
+    String tip = path.isEmpty() || line.isEmpty() ? path + line : path + "\n" + line;
+    item.setToolTipText(tip.isEmpty() ? null : tip);
+    item.setImage(tabDots == null ? null : tabDots.image(state));
+  }
+
+  /** Creates the palette's dots, moves every tab to them, then disposes the old ones. */
+  private void recolorTabDots(Palette next) {
+    TabDots old = tabDots;
+    tabDots = new TabDots(shell.getDisplay(), next);
+    for (CTabItem item : tabs.getItems()) {
+      showTabData(item);
+    }
+    if (old != null) {
+      old.dispose();
+    }
+  }
+
+  /**
+   * Returns the dots the tabs show.
+   *
+   * @return the current palette's images, or null before {@link #attach}
+   */
+  TabDots tabDots() {
+    return tabDots;
   }
 
   @Override
@@ -1021,6 +1104,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   /** Recolors the log views and the overview bar. */
   private void applyPalette(Palette next) {
     palette = next;
+    // Tab data dot.
+    recolorTabDots(next);
     if (canvas != null) {
       canvas.setPalette(next);
     }
@@ -1327,6 +1412,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     CTabItem item = tabOf(closed);
     if (item != null) {
       item.setData(replacement);
+      // Tab data dot.
+      showTabData(item);
     }
     if (canvas != null && canvas.document() == closed) {
       showViews(replacement);
@@ -1646,6 +1733,37 @@ public final class MainWindow implements MainView, ApplicationListener {
   @Override
   public void showSelectorsDialog() {
     new SelectorsDialog(shell, controller).open();
+  }
+
+  // Mark comments and marks list.
+
+  @Override
+  public void askMarkComment(long line, String current, NameListener listener) {
+    new NameDialog(
+            shell,
+            UiText.MARK_COMMENT_TITLE.text(),
+            UiText.MARK_COMMENT_PROMPT.format(line + 1),
+            current,
+            MarkComments.MAX_LENGTH,
+            listener)
+        .open();
+  }
+
+  @Override
+  public void showMarks() {
+    if (marks == null || marks.isDisposed()) {
+      marks = new MarksWindow(shell, controller);
+    }
+    marks.open();
+  }
+
+  /**
+   * Returns the marks list window.
+   *
+   * @return the window, or null before the first use
+   */
+  MarksWindow marks() {
+    return marks;
   }
 
   @Override

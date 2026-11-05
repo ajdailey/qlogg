@@ -12,6 +12,10 @@ package io.github.ajdailey.qlogg.core.search;
  * @param scope the lines searched, or null for every indexed line
  * @param hideAnsi lines are matched with ANSI SGR color sequences removed, as {@link
  *     io.github.ajdailey.qlogg.core.text.AnsiCodes} strips them; no byte search runs
+ * @param rangeEnd null for a line search; otherwise a range search: {@code expression} opens a
+ *     range and the first later line matching this closes it, and the results are every line from
+ *     the opening line through the closing line ({@code inverse}: every other line)
+ * @param rangeOpen for a range search, whether a range is open before the scope's first line
  */
 public record SearchQuery(
     SearchExpression expression,
@@ -19,12 +23,34 @@ public record SearchQuery(
     boolean wholeWord,
     boolean inverse,
     LineRange scope,
-    boolean hideAnsi) {
+    boolean hideAnsi,
+    SearchExpression rangeEnd,
+    boolean rangeOpen) {
   /** Checks the components. */
   public SearchQuery {
     if (expression == null) {
       throw new IllegalArgumentException("expression is required");
     }
+  }
+
+  /**
+   * Creates a line search.
+   *
+   * @param expression the pattern or combined patterns
+   * @param caseSensitive see the record
+   * @param wholeWord see the record
+   * @param inverse see the record
+   * @param scope see the record
+   * @param hideAnsi see the record
+   */
+  public SearchQuery(
+      SearchExpression expression,
+      boolean caseSensitive,
+      boolean wholeWord,
+      boolean inverse,
+      LineRange scope,
+      boolean hideAnsi) {
+    this(expression, caseSensitive, wholeWord, inverse, scope, hideAnsi, null, false);
   }
 
   /**
@@ -43,6 +69,26 @@ public record SearchQuery(
       boolean inverse,
       LineRange scope) {
     this(expression, caseSensitive, wholeWord, inverse, scope, false);
+  }
+
+  /**
+   * Reports whether this is a range search.
+   *
+   * @return true when {@code rangeEnd} is set
+   */
+  public boolean range() {
+    return rangeEnd != null;
+  }
+
+  /**
+   * Returns this query's matching for one expression: the same case, whole-word and ANSI rules, not
+   * inverted, as a line search.
+   *
+   * @param term the expression
+   * @return the line search
+   */
+  public SearchQuery lineSearch(SearchExpression term) {
+    return new SearchQuery(term, caseSensitive, wholeWord, false, scope, hideAnsi);
   }
 
   /**

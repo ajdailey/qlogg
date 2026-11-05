@@ -49,6 +49,7 @@ import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.search.RangeFinder;
 import java.beans.XMLDecoder;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -653,6 +654,7 @@ class ArchitectureTest {
           new Blocking(LineReader.class, "read|readRows|decodedLine|appendText|appendColumns"),
           new Blocking(ByteSource.class, "read|size"),
           new Blocking(LineFinder.class, "find"),
+          new Blocking(RangeFinder.class, "around"),
           new Blocking(FoldClassifier.class, "entries"),
           new Blocking(Files.class, ".*"),
           new Blocking(FileChannel.class, ".*"),

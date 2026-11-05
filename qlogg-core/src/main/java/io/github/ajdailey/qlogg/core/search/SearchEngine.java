@@ -42,6 +42,13 @@ import java.util.regex.PatternSyntaxException;
  * refuses a chunk's matches, the search keeps its results and ends {@code COMPLETED} with {@link
  * SearchLimit#MEMORY}; reaching {@code maxResults} ends it with {@link SearchLimit#MAX_RESULTS}.
  *
+ * <p>A range search ({@link SearchQuery#range}) matches each line against the start and the end
+ * expression in the workers; the coordinator walks the chunks in line order, keeping whether a
+ * range is open across chunk boundaries, and adds the lines of each range (with {@code inverse},
+ * every other line). A line that opens a range is not tested against the end, so a range spans at
+ * least two lines unless it is cut by the end of the scope. A skipped line inside an open range is
+ * part of it. Partitioning cannot change the result: the state passes from chunk to chunk.
+ *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
  * {@link PatternTooComplexException} naming that line; the pool thread survives.
  *
@@ -99,6 +106,15 @@ public final class SearchEngine {
     this.buffers =
         new ReadBuffers(settings.chunkBytes(), settings.maxChunksInFlight(), settings.budget());
     this.trimAtEnd = trimAtEnd;
+  }
+
+  /**
+   * Returns the matcher factory.
+   *
+   * @return the factory
+   */
+  public MatcherFactory matchers() {
+    return matchers;
   }
 
   /**
@@ -175,8 +191,12 @@ public final class SearchEngine {
     }
   }
 
-  /** A worker's result: the matching lines in ascending order, or the exception it ended with. */
-  private record Matched(long[] hits, int count, RuntimeException failure) {}
+  /**
+   * A worker's result: the matching lines in ascending order and, for a range search, the lines
+   * matching the end, or the exception it ended with.
+   */
+  private record Matched(
+      long[] hits, int count, long[] ends, int endCount, RuntimeException failure) {}
 
   /** A worker ended with an exception the workers' failure handler received. */
   private static final class WorkerFailure extends Exception {
@@ -187,8 +207,11 @@ public final class SearchEngine {
     }
   }
 
-  /** A matcher and its line view, reused by whichever worker thread takes them. */
-  private record Worker(LineMatcher matcher, LineText text) {}
+  /**
+   * A matcher, the range end's matcher or null, and their line view, reused by whichever worker
+   * thread takes them.
+   */
+  private record Worker(LineMatcher matcher, LineMatcher end, LineText text) {}
 
   private final class Operation implements OperationHandle, Runnable {
     private final ByteSource source;
@@ -209,6 +232,8 @@ public final class SearchEngine {
     private long matched;
     private long skipped;
     private SearchLimit limit = SearchLimit.NONE;
+    private boolean open;
+    private boolean openBeforeLast;
 
     Operation(
         LineSource lines,
@@ -228,6 +253,7 @@ public final class SearchEngine {
       this.listener = listener;
       this.lineFeed = encoding.lineFeed();
       this.carriageReturn = encoding.carriageReturn();
+      this.open = query.rangeOpen();
     }
 
     @Override
@@ -273,6 +299,12 @@ public final class SearchEngine {
         drain();
         try {
           listener.progressed(searched, end - first, matched);
+          if (outcome == OperationOutcome.COMPLETED
+              && limit == SearchLimit.NONE
+              && query.range()
+              && end > first) {
+            listener.rangeOpenBeforeLast(openBeforeLast);
+          }
           listener.finished(
               outcome,
               outcome == OperationOutcome.COMPLETED ? limit : SearchLimit.NONE,
@@ -285,8 +317,14 @@ public final class SearchEngine {
     }
 
     private Worker newWorker() {
+      LineText text = new LineText(encoding, token, query.hideAnsi());
+      if (!query.range()) {
+        return new Worker(matchers.create(query, encoding, token), null, text);
+      }
       return new Worker(
-          matchers.create(query, encoding, token), new LineText(encoding, token, query.hideAnsi()));
+          matchers.create(query.lineSearch(query.expression()), encoding, token),
+          matchers.create(query.lineSearch(query.rangeEnd()), encoding, token),
+          text);
     }
 
     private void searchAll() throws IOException, InterruptedException, WorkerFailure {
@@ -303,6 +341,9 @@ public final class SearchEngine {
           }
           if (inFlight.isEmpty()) {
             skipped++;
+            if (query.range() && !skippedInRange(next)) {
+              return;
+            }
             next++;
             searched = next - first;
             continue;
@@ -432,7 +473,7 @@ public final class SearchEngine {
         }
         chunk.matched = scan(chunk, worker);
       } catch (CancellationException | UncheckedIOException | PatternTooComplexException e) {
-        chunk.matched = new Matched(null, 0, e);
+        chunk.matched = new Matched(null, 0, null, 0, e);
       } finally {
         recycle(chunk);
         if (worker != null) {
@@ -457,8 +498,11 @@ public final class SearchEngine {
       int unit = lineFeed.length;
       LineText text = worker.text();
       LineMatcher matcher = worker.matcher();
+      LineMatcher closer = worker.end();
       long[] hits = new long[16];
       int count = 0;
+      long[] ends = closer == null ? null : new long[16];
+      int endCount = 0;
       int position = 0;
       for (int i = 0; i < chunk.lines; i++) {
         if (i % CHECK_LINES == 0) {
@@ -479,8 +523,12 @@ public final class SearchEngine {
         }
         text.set(bytes, position, textEnd);
         boolean hit;
+        boolean closes = false;
         try {
           hit = matcher.matches(text);
+          if (closer != null) {
+            closes = closer.matches(text);
+          }
         } catch (StackOverflowError e) {
           throw new PatternTooComplexException(chunk.firstLine + i);
         }
@@ -490,9 +538,15 @@ public final class SearchEngine {
           }
           hits[count++] = chunk.firstLine + i;
         }
+        if (closes) {
+          if (endCount == ends.length) {
+            ends = Arrays.copyOf(ends, endCount * 2);
+          }
+          ends[endCount++] = chunk.firstLine + i;
+        }
         position = next;
       }
-      return new Matched(hits, count, null);
+      return new Matched(hits, count, ends, endCount, null);
     }
 
     private void awaitChunk(Chunk chunk) throws InterruptedException {
@@ -519,6 +573,9 @@ public final class SearchEngine {
       if (result.failure() instanceof PatternTooComplexException complex) {
         throw complex;
       }
+      if (query.range()) {
+        result = ranged(chunk, result);
+      }
       int take = result.count();
       long max = settings.maxResults();
       boolean capped = max > 0 && matched + take > max;
@@ -537,6 +594,82 @@ public final class SearchEngine {
         return false;
       }
       searched = chunk.firstLine + chunk.lines - first;
+      return true;
+    }
+
+    /**
+     * Turns a chunk's start and end lines into the lines of its ranges, or with {@code inverse} the
+     * lines outside them, carrying {@link #open} across chunks.
+     */
+    private Matched ranged(Chunk chunk, Matched found) {
+      long[] starts = found.hits();
+      long[] ends = found.ends();
+      boolean inverse = query.inverse();
+      long last = end - 1;
+      long stop = chunk.firstLine + chunk.lines;
+      long[] lines = new long[chunk.lines];
+      int n = 0;
+      int s = 0;
+      int e = 0;
+      long line = chunk.firstLine;
+      while (line < stop) {
+        if (open) {
+          while (e < found.endCount() && ends[e] < line) {
+            e++;
+          }
+          boolean closes = e < found.endCount();
+          long close = closes ? ends[e] : stop - 1;
+          if (last >= line && last <= close) {
+            openBeforeLast = true;
+          }
+          if (!inverse) {
+            n = addLines(lines, n, line, close + 1);
+          }
+          line = close + 1;
+          open = !closes;
+        } else {
+          while (s < found.count() && starts[s] < line) {
+            s++;
+          }
+          long opening = s < found.count() ? starts[s] : stop;
+          if (last >= line && last <= Math.min(opening, stop - 1)) {
+            openBeforeLast = false;
+          }
+          if (inverse) {
+            n = addLines(lines, n, line, opening);
+          } else if (opening < stop) {
+            lines[n++] = opening;
+          }
+          open = opening < stop;
+          line = opening + 1;
+        }
+      }
+      return new Matched(lines, n, null, 0, null);
+    }
+
+    /**
+     * Adds a skipped line of a range search: inside an open range it belongs to the range, and it
+     * neither opens nor closes one.
+     *
+     * @return false when a limit stops the search
+     */
+    private boolean skippedInRange(long line) {
+      if (line == end - 1) {
+        openBeforeLast = open;
+      }
+      if (open == query.inverse()) {
+        return true;
+      }
+      long max = settings.maxResults();
+      if (max > 0 && matched >= max) {
+        limit = SearchLimit.MAX_RESULTS;
+        return false;
+      }
+      if (!results.addSorted(new long[] {line}, 1)) {
+        limit = SearchLimit.MEMORY;
+        return false;
+      }
+      matched++;
       return true;
     }
 
@@ -563,6 +696,17 @@ public final class SearchEngine {
         Thread.currentThread().interrupt();
       }
     }
+  }
+
+  /**
+   * Puts the lines {@code [from, to)} into {@code out} at {@code n}; returns the next free slot.
+   */
+  private static int addLines(long[] out, int n, long from, long to) {
+    int at = n;
+    for (long line = from; line < to; line++) {
+      out[at++] = line;
+    }
+    return at;
   }
 
   /** Returns the offset of the first unit equal to {@code unit} at an aligned offset, or -1. */

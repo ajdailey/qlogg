@@ -55,6 +55,7 @@ class CommandStatesTest {
     row(CommandId.TOGGLE_COMBINING, "-- -e -e");
     row(CommandId.TOGGLE_AUTO_REFRESH, "-- -e -e");
     row(CommandId.TOGGLE_KEEP_RESULTS, "-- -e -e");
+    row(CommandId.TOGGLE_RANGE, "-- -e -e");
     row(CommandId.RUN_SEARCH_ON_ADD, "ce ce ce");
     row(CommandId.FOLLOW, "-- -e -e");
     row(CommandId.FOLLOW_ON_LOAD, "-e -e -e");

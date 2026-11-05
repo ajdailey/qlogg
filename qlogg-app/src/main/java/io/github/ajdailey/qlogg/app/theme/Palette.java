@@ -21,6 +21,9 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
  * @param markMarker mark bullets in the gutter and mark lines in the overview bar
  * @param overview overview bar background
  * @param overviewFrame the overview bar's left edge and its first and last visible line
+ * @param newLinesDot the tab dot for new lines
+ * @param newMatchesDot the tab dot for new matching lines
+ * @param contextRow filtered-view background of a context line around a search result
  */
 public record Palette(
     boolean dark,
@@ -37,7 +40,12 @@ public record Palette(
     Rgb matchMarker,
     Rgb markMarker,
     Rgb overview,
-    Rgb overviewFrame) {
+    Rgb overviewFrame,
+    // Tab data dot.
+    Rgb newLinesDot,
+    Rgb newMatchesDot,
+    // Context lines.
+    Rgb contextRow) {
   /** The default palette. */
   public static final Palette LIGHT =
       new Palette(
@@ -55,7 +63,12 @@ public record Palette(
           Rgb.of(0xe0301e),
           Rgb.of(0x1e8ae0),
           Rgb.of(0xf3f3f3),
-          Rgb.of(0x8a8a8a));
+          Rgb.of(0x8a8a8a),
+          // Tab data dot.
+          Rgb.of(0x2e9e44),
+          Rgb.of(0xe8590c),
+          // Context lines.
+          Rgb.of(0xebebeb));
 
   /** The dark palette. */
   public static final Palette DARK =
@@ -74,5 +87,10 @@ public record Palette(
           Rgb.of(0xf14c4c),
           Rgb.of(0x3794ff),
           Rgb.of(0x252526),
-          Rgb.of(0x858585));
+          Rgb.of(0x858585),
+          // Tab data dot.
+          Rgb.of(0x4ec26a),
+          Rgb.of(0xff7b3a),
+          // Context lines.
+          Rgb.of(0x2f2f30));
 }

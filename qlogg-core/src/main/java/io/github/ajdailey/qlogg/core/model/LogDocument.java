@@ -92,6 +92,7 @@ public final class LogDocument implements LineSource, Closeable {
   private final AtomicBoolean watchStarted = new AtomicBoolean();
   private final AtomicBoolean closed = new AtomicBoolean();
   private final MutableLineSet marks;
+  private final MarkComments markComments;
   private volatile OperationHandle indexing;
   private volatile OperationHandle watching;
   private volatile IndexProgress progress = new IndexProgress(0, 0, 0);
@@ -117,6 +118,7 @@ public final class LogDocument implements LineSource, Closeable {
     this.index = index;
     this.services = services;
     this.marks = new MutableLineSet(services.budget());
+    this.markComments = new MarkComments(services.budget());
     this.fileBytes = source.identity().size();
     this.modifiedMillis = source.identity().modifiedMillis();
     FileIdentity identity = source.identity();
@@ -351,6 +353,16 @@ public final class LogDocument implements LineSource, Closeable {
    */
   public MutableLineSet marks() {
     return marks;
+  }
+
+  /**
+   * Returns the comments of the marks, charged to the {@code RESULTS} share; {@link #close} empties
+   * them.
+   *
+   * @return the comments
+   */
+  public MarkComments markComments() {
+    return markComments;
   }
 
   /**
@@ -697,6 +709,7 @@ public final class LogDocument implements LineSource, Closeable {
       index.close();
     }
     marks.clear();
+    markComments.clear();
     try {
       source.close();
     } catch (IOException e) {

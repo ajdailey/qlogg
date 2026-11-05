@@ -27,6 +27,7 @@ import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.model.MarkToggle;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
@@ -38,6 +39,7 @@ import io.github.ajdailey.qlogg.core.text.DetectionReason;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
@@ -207,6 +209,7 @@ public final class DocumentController extends LineViewController {
       }
       if (outcome == OperationOutcome.COMPLETED && trimMarks.compareAndSet(true, false)) {
         document.marks().removeFrom(document.index().lineCount());
+        document.markComments().removeFrom(document.index().lineCount());
         ui().asyncExec(
                 new Runnable() {
                   @Override
@@ -597,6 +600,18 @@ public final class DocumentController extends LineViewController {
   }
 
   /**
+   * Selects the lines {@code [first, last]}, expanding a collapsed entry that hides either end.
+   *
+   * @param first the 0-based first line
+   * @param last the 0-based last line
+   */
+  void selectLines(long first, long last) {
+    revealRow(last);
+    long firstRow = revealRow(first);
+    selectRows(firstRow, revealRow(last));
+  }
+
+  /**
    * Lines the viewport holds as of the last flush. The live index runs ahead of it until the next
    * flush, and {@link #moveTo} clamps to the viewport, so a move decided on the live index lands on
    * the viewport's last row.
@@ -775,6 +790,7 @@ public final class DocumentController extends LineViewController {
       result =
           MarkToggle.run(
               marks,
+              document.markComments(),
               rows,
               firstLine,
               count,
@@ -844,6 +860,46 @@ public final class DocumentController extends LineViewController {
     if (marking != null) {
       marking.cancel();
     }
+  }
+
+  // Mark comments and marks list.
+
+  /**
+   * Sets a line's mark comment, marking the line first when it is unmarked; an empty comment keeps
+   * the mark without a comment. A mark or comment the {@code RESULTS} share refuses shows a notice.
+   *
+   * @param line a 0-based indexed line
+   * @param text the comment, cleaned by {@link MarkComments#clean}
+   */
+  public void setMarkComment(long line, String text) {
+    if (isClosed() || line < 0 || line >= document.index().lineCount()) {
+      return;
+    }
+    MutableLineSet marks = document.marks();
+    if (!marks.contains(line) && !marks.addSorted(new long[] {line}, 1)) {
+      notifications().showNotice(UiText.NOTICE_MARKS_NOT_KEPT.text());
+      return;
+    }
+    if (!document.markComments().put(line, text)) {
+      notifications().showNotice(UiText.NOTICE_COMMENT_NOT_KEPT.format(MarkComments.MAX_COMMENTS));
+    }
+    marksChanged();
+  }
+
+  /**
+   * Removes the marks of lines and their comments.
+   *
+   * @param lines 0-based lines, in any order
+   */
+  public void removeMarks(long[] lines) {
+    if (isClosed() || lines.length == 0) {
+      return;
+    }
+    long[] sorted = lines.clone();
+    Arrays.sort(sorted);
+    document.marks().removeSorted(sorted, sorted.length);
+    document.markComments().removeAll(sorted, sorted.length);
+    marksChanged();
   }
 
   /**
@@ -1014,6 +1070,7 @@ public final class DocumentController extends LineViewController {
     refreshRows(rows);
     overview.refresh();
     search.appended();
+    filtered.grew(index.lineCount());
   }
 
   private long estimatedColumns(LineIndex index) {

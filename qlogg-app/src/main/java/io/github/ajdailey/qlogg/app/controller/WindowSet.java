@@ -18,6 +18,7 @@ import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import java.nio.file.Path;
@@ -556,21 +557,26 @@ public final class WindowSet {
     sessionWritten = snapshot.sequence();
     List<Session> sessions = new ArrayList<Session>();
     int ranges = 0;
+    int comments = 0;
     for (WindowDraft window : snapshot.windows()) {
       List<Session.Tab> tabs = new ArrayList<Session.Tab>();
       for (DraftTab draft : window.tabs()) {
         long[] marks = new long[0];
+        List<MarkComments.Comment> tabComments = List.of();
         if (draft.document().enter()) {
           try {
             marks =
                 SessionStore.ranges(
                     draft.document().marks(), SessionStore.MAX_MARK_RANGES - ranges);
+            tabComments =
+                draft.document().markComments().list(0, SessionStore.MAX_COMMENTS - comments);
           } finally {
             draft.document().exit();
           }
         }
         ranges += marks.length / 2;
-        tabs.add(new Session.Tab(draft.path(), draft.name(), draft.follow(), marks));
+        comments += tabComments.size();
+        tabs.add(new Session.Tab(draft.path(), draft.name(), draft.follow(), marks, tabComments));
       }
       sessions.add(new Session(tabs, window.active()));
     }

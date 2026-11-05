@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.command.Binding;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.nio.charset.StandardCharsets;
@@ -129,7 +130,31 @@ class StateStoresTest {
     assertEquals("Alpha", tab.name());
     assertTrue(tab.follow());
     assertArrayEquals(new long[] {0, 0, 3, 7}, tab.marks());
+    assertTrue(tab.comments().isEmpty());
     assertEquals("", loaded.tabs().get(1).name());
+  }
+
+  @Test
+  void sessionRoundTripsMarkCommentsAndSkipsMalformedOnes() throws Exception {
+    SessionStore store = new SessionStore(location());
+    List<MarkComments.Comment> comments =
+        List.of(new MarkComments.Comment(3, "flagword seen"), new MarkComments.Comment(7, "b=c"));
+    Session.Tab tab = new Session.Tab("/mock/a.log", "", false, new long[] {3, 7}, comments);
+    assertTrue(store.save(new Session(List.of(tab), 0)));
+    assertEquals(comments, new SessionStore(location()).load().tabs().get(0).comments());
+    Files.writeString(
+        temp.resolve(SessionStore.FILE),
+        "window.0.active=0\n"
+            + "window.0.tab.0.path=/mock/a.log\n"
+            + "window.0.tab.0.marks=1-2\n"
+            + "window.0.tab.0.comment.0=x y\n"
+            + "window.0.tab.0.comment.1=nospace\n"
+            + "window.0.tab.0.comment.2=2 kept\\tnote\n"
+            + "window.0.tab.0.comment.4=1 after a gap\n",
+        StandardCharsets.ISO_8859_1);
+    assertEquals(
+        List.of(new MarkComments.Comment(2, "kept note")),
+        new SessionStore(location()).load().tabs().get(0).comments());
   }
 
   @Test

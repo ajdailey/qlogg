@@ -81,6 +81,10 @@ final class ToolIcons {
   /** Moves a row down. */
   static final String DOWN = "down";
 
+  // Context lines and range filter.
+  /** Range search. */
+  static final String RANGE = "range";
+
   /** A checked box. */
   static final String CHECKED = "checked";
 

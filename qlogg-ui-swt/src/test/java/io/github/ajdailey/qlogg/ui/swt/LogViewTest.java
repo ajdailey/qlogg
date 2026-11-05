@@ -450,6 +450,7 @@ class LogViewTest {
             "Mark or Unmark",
             "Next Mark",
             "Previous Mark",
+            "Edit Mark Comment",
             "-",
             "Copy Full Path",
             "Copy File Name",
@@ -463,7 +464,7 @@ class LogViewTest {
             "Block Selection",
             "Search All Open Files"),
         labels(bar.getItem(1).getMenu()));
-    MenuItem search = bar.getItem(1).getMenu().getItem(25);
+    MenuItem search = bar.getItem(1).getMenu().getItem(26);
     assertEquals(SWT.CASCADE, search.getStyle() & SWT.CASCADE);
     assertEquals("Search Field", labels(search.getMenu()).get(0));
     assertEquals(
@@ -521,7 +522,15 @@ class LogViewTest {
         labels(bar.getItem(2).getMenu().getItem(37).getMenu()));
     assertEquals(
         onThisPlatform(
-            List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Options")),
+            List.of(
+                "Predefined Filters",
+                "Save as Filter",
+                "-",
+                "Marks List",
+                "-",
+                "Scratchpad",
+                "-",
+                "Options")),
         labels(bar.getItem(3).getMenu()));
     assertEquals(
         onThisPlatform(

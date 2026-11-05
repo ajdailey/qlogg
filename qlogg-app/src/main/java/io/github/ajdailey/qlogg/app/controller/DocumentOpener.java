@@ -11,6 +11,7 @@ import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
@@ -131,7 +132,7 @@ final class DocumentOpener {
                   if (closed) {
                     break;
                   }
-                  load(request.path(), request.line(), follow, null, services, handed);
+                  load(request.path(), request.line(), follow, null, null, services, handed);
                 }
               }
             });
@@ -170,7 +171,7 @@ final class DocumentOpener {
 
   /**
    * Reopens a tab's file on a worker. A reload ({@code change} null) copies the old document's
-   * marks into the new one on the worker.
+   * marks and their comments into the new one on the worker.
    *
    * @param old the tab's controller
    * @param change the change on disk, or null for a reload
@@ -194,7 +195,7 @@ final class DocumentOpener {
                 return;
               }
               final boolean marksComplete =
-                  change != null || copyMarks(old.document().marks(), document.marks());
+                  change != null || copyMarksAndComments(old.document(), document);
               deliver(
                   document,
                   new Runnable() {
@@ -251,7 +252,7 @@ final class DocumentOpener {
                   Session.Tab tab = tabs.get(i);
                   long[] marks = tab.marks().length > 0 ? tab.marks() : null;
                   LogDocument document =
-                      load(paths.get(i), 0, tab.follow(), marks, services, false);
+                      load(paths.get(i), 0, tab.follow(), marks, tab.comments(), services, false);
                   if (document != null && !tab.name().isEmpty()) {
                     final Path opened = document.path();
                     final String name = tab.name();
@@ -320,9 +321,10 @@ final class DocumentOpener {
   }
 
   /**
-   * Opens a file and adds session marks; runs on a worker.
+   * Opens a file and adds session marks and their comments; runs on a worker.
    *
    * @param marks session mark ranges, or null
+   * @param comments the marks' comments, or null
    * @return the document, or null when it did not open or the window closed
    */
   @WorkerThread
@@ -331,6 +333,7 @@ final class DocumentOpener {
       long line,
       boolean follow,
       long[] marks,
+      List<MarkComments.Comment> comments,
       DocumentServices services,
       boolean handed) {
     try {
@@ -339,6 +342,9 @@ final class DocumentOpener {
         return null;
       }
       boolean marksComplete = marks == null || SessionStore.addRanges(marks, document.marks());
+      if (marks != null && comments != null) {
+        marksComplete &= document.markComments().addAll(comments, document.marks());
+      }
       final Opening opening = new Opening(line, follow, marks != null, marksComplete, handed);
       deliver(
           document,
@@ -460,6 +466,15 @@ final class DocumentOpener {
           LogText.oneLine(path));
     }
     return charset;
+  }
+
+  /**
+   * Copies the marks, then the comments of the marks copied; false when the budget refused part.
+   */
+  static boolean copyMarksAndComments(LogDocument from, LogDocument to) {
+    boolean marks = copyMarks(from.marks(), to.marks());
+    List<MarkComments.Comment> comments = from.markComments().list(0, MarkComments.MAX_COMMENTS);
+    return to.markComments().addAll(comments, to.marks()) && marks;
   }
 
   /**

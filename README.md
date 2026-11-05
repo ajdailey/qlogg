@@ -29,7 +29,8 @@ plugins.
   memory up to 16 MiB and never written to disk.
 - Handles files of any size and line count: content stays on disk, and the
   scroll bar maps any line count onto its range.
-- Reload (`F5`) keeps marks and color labels; `Esc` stops loading.
+- Reload (`F5`) keeps marks, mark comments and color labels; `Esc` stops
+  loading.
 - Follows the end of a file (`F`, `F10`, `-f`, or every file through View >
   Follow New Files). Scrolling up releases follow and scrolling down past the
   last line engages it. Growth is indexed as it arrives. A truncated, replaced
@@ -50,6 +51,8 @@ plugins.
   `Ctrl+PageUp`, and close by middle click or from the tab menu (this,
   others, left, right, all) or File > Close All. View > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the open files.
+- A tab not shown gets a colored dot when its file grows: one color for new
+  lines, another when its search gained matches; showing the tab clears it.
 - Several main windows (File > New Window). A tab moves to another window
   with its document as it is (drag it onto that window, or out of every
   window for a new one, or View > Move to New Window).
@@ -80,6 +83,11 @@ plugins.
 - The filtered view under the main view shows matches, marks or both (`1`,
   `2`, `3`, `V`) with source line numbers; a click goes to the line. Kept
   result sets show as tabs (`9`).
+- Context lines: the filtered view lists a chosen number of lines above and
+  below each result, shaded, with a rule between groups.
+- Range filter: every line from a line matching the search through the next
+  line matching an end expression; `Ctrl+R` selects the range around the
+  current line.
 - Search all open files (`Ctrl+Shift+S`): one result group per file, each in
   its tab's filtered view.
 - Quick find (`Ctrl+F`, `'`, `"`, `*`, `/`), search history with completion,
@@ -98,11 +106,15 @@ plugins.
   search match highlight.
 - Marks (`M`, `]`, `[`, or a click in the bullet column), with match and mark
   bullets in the gutter.
+- Mark comments (`Shift+M`, Edit > Edit Mark Comment): a commented mark has a
+  square bullet whose tooltip shows the comment. Tools > Marks List lists the
+  shown tab's marks with comments and line text; go to, edit and remove from
+  the list.
 
 ### Sessions and settings
 
-- Sessions restore the open tabs, the shown tab, tab names, follow and marks
-  at start (`-s`, `-n`, Tools > Options). A run given files or `-m` leaves the
+- Sessions restore the open tabs, the shown tab, tab names, follow, marks
+  and mark comments at start (`-s`, `-n`, Tools > Options). A run given files or `-m` leaves the
   saved session alone; the session keeps each window's tabs.
 - Remembered per file: position (`+line:N` wins) and a forced encoding.
   Remembered UI state: window size, position and maximized state, split,
@@ -346,7 +358,7 @@ every launch opens its own window.
 | `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Options, Shortcuts |
 | `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit; `--window-*` options win for that run | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
-| `searchOption.*` | The search toggles a new tab starts with | regex, match case | The search toggles |
+| `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers |
 | `open.directory` | Where File > Open starts with no file shown | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |

@@ -8,7 +8,8 @@ import io.github.ajdailey.qlogg.core.search.MutableLineSet;
  * unmarked, otherwise all are marked. Runs on a worker in batches of {@link #BATCH} lines, each
  * under one write lock of the marks, so readers on other threads see the marks grow or shrink batch
  * by batch. Marking reserves its storage from the marks' budget and stops at the first batch the
- * share refuses; lines marked before stay marked.
+ * share refuses; lines marked before stay marked. Unmarking also removes the lines' {@link
+ * MarkComments}.
  */
 public final class MarkToggle {
   /** Lines per batch. */
@@ -50,6 +51,30 @@ public final class MarkToggle {
    */
   public static Result run(
       MutableLineSet marks,
+      RowCursor rows,
+      long firstLine,
+      long count,
+      CancellationToken token,
+      Progress progress) {
+    return run(marks, null, rows, firstLine, count, token, progress);
+  }
+
+  /**
+   * Toggles marks as {@link #run(MutableLineSet, RowCursor, long, long, CancellationToken,
+   * Progress)} does and removes the comments of the lines it unmarks.
+   *
+   * @param marks the document's marks
+   * @param comments the marks' comments, or null
+   * @param rows walks the view's lines
+   * @param firstLine the first row's line
+   * @param count rows, at least 0
+   * @param token checked per batch
+   * @param progress receives progress per batch, or null
+   * @return how it ended
+   */
+  public static Result run(
+      MutableLineSet marks,
+      MarkComments comments,
       RowCursor rows,
       long firstLine,
       long count,
@@ -103,6 +128,9 @@ public final class MarkToggle {
         changed += marks.size() - before;
       } else {
         changed += marks.removeSorted(batch, n);
+        if (comments != null) {
+          comments.removeAll(batch, n);
+        }
       }
       seen += n;
       report(progress, done + seen, total);

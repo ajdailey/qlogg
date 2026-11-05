@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.config;
 
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +13,9 @@ import java.util.Properties;
  * .marks}, windows numbered from 0 without gaps. Marks are ranges {@code first-last} or single
  * lines, comma-separated, 0-based. A session keeps at most {@link #MAX_WINDOWS} windows, {@link
  * #MAX_TABS} tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks
- * past that are not saved. Blocking; workers call it.
+ * past that are not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line,
+ * a space and the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs
+ * are kept. Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -27,10 +30,14 @@ public final class SessionStore {
   /** Most mark ranges kept over all tabs. */
   public static final int MAX_MARK_RANGES = 100_000;
 
+  /** Most mark comments kept over all tabs. */
+  public static final int MAX_COMMENTS = MarkComments.MAX_COMMENTS;
+
   /** Largest file read. */
   static final int MAX_BYTES = 4 << 20;
 
   private static final String WINDOW = "window.";
+  private static final String COMMENT = "comment.";
   private static final int BATCH = 4096;
 
   private final SettingsFile file;
@@ -64,6 +71,7 @@ public final class SessionStore {
     List<Session> windows = new ArrayList<Session>();
     int count = 0;
     int ranges = 0;
+    int comments = 0;
     for (int w = 0; w < MAX_WINDOWS; w++) {
       String prefix = WINDOW + w + ".";
       if (p.getProperty(prefix + "active") == null) {
@@ -78,13 +86,16 @@ public final class SessionStore {
         }
         long[] marks = parseMarks(p.getProperty(key + "marks", ""), MAX_MARK_RANGES - ranges);
         ranges += marks.length / 2;
+        List<MarkComments.Comment> tabComments = parseComments(p, key, MAX_COMMENTS - comments);
+        comments += tabComments.size();
         count++;
         tabs.add(
             new Session.Tab(
                 path,
                 p.getProperty(key + "name", ""),
                 "true".equals(p.getProperty(key + "follow", "false").strip()),
-                marks));
+                marks,
+                tabComments));
       }
       int active = -1;
       try {
@@ -116,6 +127,7 @@ public final class SessionStore {
   public boolean saveWindows(List<Session> windows) {
     Properties p = new Properties();
     int count = 0;
+    int comments = 0;
     for (int w = 0; w < Math.min(MAX_WINDOWS, windows.size()); w++) {
       Session session = windows.get(w);
       String prefix = WINDOW + w + ".";
@@ -132,6 +144,11 @@ public final class SessionStore {
         p.setProperty(key + "follow", Boolean.toString(tab.follow()));
         if (tab.marks().length > 0) {
           p.setProperty(key + "marks", formatMarks(tab.marks()));
+        }
+        for (int k = 0; k < tab.comments().size() && comments < MAX_COMMENTS; k++) {
+          MarkComments.Comment comment = tab.comments().get(k);
+          p.setProperty(key + COMMENT + k, comment.line() + " " + comment.text());
+          comments++;
         }
       }
       count += tabs;
@@ -195,6 +212,38 @@ public final class SessionStore {
       }
     }
     return count == 0 || into.addSorted(batch, count);
+  }
+
+  /**
+   * Reads a tab's mark comments; an entry without a line number and text is skipped.
+   *
+   * @param p the file
+   * @param key the tab's key prefix
+   * @param max most comments read
+   * @return the comments
+   */
+  static List<MarkComments.Comment> parseComments(Properties p, String key, int max) {
+    List<MarkComments.Comment> out = new ArrayList<MarkComments.Comment>();
+    for (int k = 0; out.size() < max; k++) {
+      String value = p.getProperty(key + COMMENT + k);
+      if (value == null) {
+        break;
+      }
+      int space = value.indexOf(' ');
+      if (space <= 0) {
+        continue;
+      }
+      String text = MarkComments.clean(value.substring(space + 1));
+      try {
+        long line = Long.parseLong(value.substring(0, space));
+        if (line >= 0 && !text.isEmpty()) {
+          out.add(new MarkComments.Comment(line, text));
+        }
+      } catch (NumberFormatException e) {
+        // Skipped.
+      }
+    }
+    return out;
   }
 
   static String formatMarks(long[] ranges) {

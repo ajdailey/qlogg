@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.core.search;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import java.io.IOException;
@@ -21,7 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
  * Searches sparse files past 2^31 bytes; holes read as zero bytes. The first file has 2,100 lines
  * of 1 MiB ended by LF, with text at the start of line 0, inside line 2,048 just past 2^31, and in
  * the partial last line. The second has one line longer than {@link SearchEngine#MAX_LINE_BYTES}
- * between short lines.
+ * between short lines. A range search runs across the 2^31 offset, and the range finder reads lines
+ * past it.
  */
 class LargeFileSearchTest {
   private static final long MIB = 1L << 20;
@@ -40,6 +42,21 @@ class LargeFileSearchTest {
         SearchEngine engine = fixture.services.search();
         assertEquals(List.of(0L, 2048L, 2100L), run(fixture, engine, document, "flagword", true));
         assertEquals(List.of(2048L), run(fixture, engine, document, "BETA FLAG", false));
+        MutableLineSet range = new MutableLineSet();
+        SearchFixture.Recording ranged =
+            fixture.search(engine, document, range("alpha", "beta", 2040), range);
+        assertEquals(OperationOutcome.COMPLETED, ranged.outcome);
+        assertEquals(9, range.size(), "open from line 2040 through line 2048");
+        assertEquals(2048, range.select(8));
+        assertEquals(
+            new RangeFinder.Range(2048, 2100),
+            RangeFinder.around(
+                document,
+                document.index(),
+                range("beta", "gamma", 0),
+                StandardMatchers.INSTANCE,
+                2100,
+                new CancellationToken()));
       }
     }
     Files.delete(file);
@@ -82,6 +99,19 @@ class LargeFileSearchTest {
       }
     }
     Files.delete(file);
+  }
+
+  /** A range query; from a first line past 0, the range is open there. */
+  private static SearchQuery range(String start, String end, long first) {
+    return new SearchQuery(
+        new SearchExpression.Term(start, MatchMode.LITERAL),
+        true,
+        false,
+        false,
+        first == 0 ? null : new LineRange(first, Long.MAX_VALUE),
+        false,
+        new SearchExpression.Term(end, MatchMode.LITERAL),
+        first > 0);
   }
 
   private static List<Long> run(

@@ -447,6 +447,37 @@ public enum UiText {
   MARK_DONE,
   /** Unmark of many rows ended: lines unmarked. */
   UNMARK_DONE,
+  // Mark comments and marks list.
+  /** Command label. */
+  COMMAND_EDIT_MARK_COMMENT,
+  /** Command label. */
+  COMMAND_MARKS_LIST,
+  /** Mark comment dialog title. */
+  MARK_COMMENT_TITLE,
+  /** Mark comment dialog prompt: the 1-based line. */
+  MARK_COMMENT_PROMPT,
+  /** Notice: a mark comment was refused; the most comments per file. */
+  NOTICE_COMMENT_NOT_KEPT,
+  /** Marks list window title. */
+  MARKS_TITLE,
+  /** Marks list column. */
+  MARKS_COLUMN_LINE,
+  /** Marks list column. */
+  MARKS_COLUMN_COMMENT,
+  /** Marks list column. */
+  MARKS_COLUMN_TEXT,
+  /** Marks list summary: file title, marks. */
+  MARKS_SUMMARY,
+  /** Marks list summary when rows are left out: file title, rows listed, marks. */
+  MARKS_SUMMARY_PARTIAL,
+  /** Marks list summary without a shown file. */
+  MARKS_NO_FILE,
+  /** Marks list button. */
+  MARKS_GO_TO,
+  /** Marks list button. */
+  MARKS_EDIT_COMMENT,
+  /** Marks list button. */
+  MARKS_REMOVE,
   /** Color label refused: the limit. */
   LABEL_TOO_MANY,
   /** Color label refused by the memory limit. */
@@ -949,7 +980,34 @@ public enum UiText {
   /** Tab context menu item. */
   TAB_MOVE_TO_NEW_WINDOW,
   /** Notice: the target window shows the moved tab's file already; the tab title. */
-  NOTICE_MOVE_SHOWN;
+  NOTICE_MOVE_SHOWN,
+
+  // Tab data dot.
+  /** Tab tooltip line for a tab whose document gained lines. */
+  TAB_DATA_NEW_LINES,
+  /** Tab tooltip line for a tab whose search gained matches. */
+  TAB_DATA_NEW_MATCHES,
+  // Context lines and range filter.
+  /** Command label. */
+  COMMAND_TOGGLE_RANGE,
+  /** Command label. */
+  COMMAND_SELECT_RANGE,
+  /** Search row tooltip of the range toggle. */
+  SEARCH_RANGE,
+  /** Search row tooltip of the range end field. */
+  SEARCH_RANGE_END_HINT,
+  /** Search row tooltip of the context lines above each result. */
+  SEARCH_CONTEXT_BEFORE,
+  /** Search row tooltip of the context lines below each result. */
+  SEARCH_CONTEXT_AFTER,
+  /** Search failure in the range end: the 1-based column and the reason. */
+  SEARCH_RANGE_END_ERROR,
+  /** Notice: no range around the caret's line. */
+  NOTICE_NO_RANGE,
+  /** Notice: context lines stop at the memory limit. */
+  FILTERED_CONTEXT_LIMIT,
+  /** Results tab text of a range search: the start and end expressions. */
+  RESULTS_RANGE;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

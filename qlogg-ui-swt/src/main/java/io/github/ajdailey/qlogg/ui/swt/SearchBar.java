@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
@@ -32,17 +33,18 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 
 /**
  * The search row at the top of the bottom pane, in this order: the filtered view's visibility
  * combo, the option toggles (match case, regex, whole word, inverse, combining, in selection,
- * auto-refresh), the Predefined filters menu, the pattern field with the search history, then
- * Clear, Search, Keep results, Stop and the search status. Toggles and buttons are icon tool items
- * whose tooltips name the option and its key. The row drives the shown document's {@link
- * SearchController} and filtered view; with no document it is disabled. Enter in the field searches
- * and Escape stops.
+ * auto-refresh, range), the Predefined filters menu, the pattern field with the search history, the
+ * range end field (shown while range is on), the context line counts, then Clear, Search, Keep
+ * results, Stop and the search status. Toggles and buttons are icon tool items whose tooltips name
+ * the option and its key. The row drives the shown document's {@link SearchController} and filtered
+ * view; with no document it is disabled. Enter in the field searches and Escape stops.
  *
  * <p>The field's list holds the history, most recent first. Typing completes inline with the most
  * recent entry that starts with the text, compared with the Match case toggle's rule; Backspace and
@@ -53,6 +55,9 @@ import org.eclipse.swt.widgets.ToolItem;
 public final class SearchBar {
   /** Narrowest the pattern field gets, in pixels. */
   static final int MIN_PATTERN_WIDTH = 160;
+
+  /** Narrowest the pattern and range end fields get while both show, in pixels. */
+  static final int MIN_RANGE_WIDTH = 100;
 
   /** Widget data key of an icon item's tooltip text. */
   private static final String TIP = "qlogg.tip";
@@ -80,6 +85,10 @@ public final class SearchBar {
   private final ToolItem inSelection;
   private final ToolItem autoRefresh;
   private final ToolItem keepResults;
+  private final ToolItem range;
+  private final Combo rangeEnd;
+  private final Text contextBefore;
+  private final Text contextAfter;
   private final ToolItem search;
   private final ToolItem stop;
   private final ToolItem clear;
@@ -129,7 +138,7 @@ public final class SearchBar {
   public SearchBar(Composite parent, Keymap keymap) {
     this.keymap = keymap;
     bar = new Composite(parent, SWT.NONE);
-    GridLayout layout = new GridLayout(6, false);
+    GridLayout layout = new GridLayout(8, false);
     layout.marginHeight = 2;
     layout.marginWidth = 2;
     layout.horizontalSpacing = 4;
@@ -165,6 +174,7 @@ public final class SearchBar {
             ToolIcons.REFRESH,
             UiText.SEARCH_AUTO_REFRESH,
             CommandId.TOGGLE_AUTO_REFRESH);
+    range = item(toggles, SWT.CHECK, ToolIcons.RANGE, UiText.SEARCH_RANGE, null);
     filterBar = new ToolBar(bar, SWT.FLAT);
     filterBar.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     filters = new ToolItem(filterBar, SWT.DROP_DOWN);
@@ -177,6 +187,21 @@ public final class SearchBar {
     patternData.minimumWidth = MIN_PATTERN_WIDTH;
     pattern.setLayoutData(patternData);
     pattern.setToolTipText(UiText.SEARCH_HINT.text());
+    rangeEnd = new Combo(bar, SWT.DROP_DOWN);
+    GridData endData = new GridData(SWT.FILL, SWT.CENTER, true, false);
+    endData.widthHint = MIN_RANGE_WIDTH;
+    endData.minimumWidth = MIN_RANGE_WIDTH;
+    rangeEnd.setLayoutData(endData);
+    rangeEnd.setToolTipText(UiText.SEARCH_RANGE_END_HINT.text());
+    Composite context = new Composite(bar, SWT.NONE);
+    GridLayout contextLayout = new GridLayout(2, true);
+    contextLayout.marginHeight = 0;
+    contextLayout.marginWidth = 0;
+    contextLayout.horizontalSpacing = 2;
+    context.setLayout(contextLayout);
+    context.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
+    contextBefore = countField(context, UiText.SEARCH_CONTEXT_BEFORE);
+    contextAfter = countField(context, UiText.SEARCH_CONTEXT_AFTER);
     ToolBar actions = new ToolBar(bar, SWT.FLAT);
     actions.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     clear = item(actions, SWT.PUSH, ToolIcons.CLEAR, UiText.BUTTON_CLEAR, null);
@@ -201,6 +226,65 @@ public final class SearchBar {
   /** Re-inks the row's icons after a theme change ({@link ToolIcons#reink}). */
   void reinkIcons() {
     icons.reink();
+  }
+
+  /**
+   * Adds a field for a context line count: digits only, up to {@link SearchOptions#MAX_CONTEXT}.
+   */
+  private static Text countField(Composite parent, UiText tip) {
+    final Text field = new Text(parent, SWT.SINGLE | SWT.BORDER | SWT.RIGHT);
+    field.setTextLimit(Integer.toString(SearchOptions.MAX_CONTEXT).length());
+    field.setText("0");
+    field.setToolTipText(tip.text());
+    field.addListener(
+        SWT.Verify,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            for (int i = 0; i < event.text.length(); i++) {
+              if (!Character.isDigit(event.text.charAt(i))) {
+                event.doit = false;
+                return;
+              }
+            }
+          }
+        });
+    GridData data = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+    GC gc = new GC(field);
+    try {
+      data.widthHint = gc.stringExtent("0000").x;
+    } finally {
+      gc.dispose();
+    }
+    field.setLayoutData(data);
+    return field;
+  }
+
+  /** Parses a context count field; empty is 0, a larger value is capped. */
+  private static int count(Text field) {
+    String text = field.getText();
+    if (text.isEmpty()) {
+      return 0;
+    }
+    try {
+      return Math.min(SearchOptions.MAX_CONTEXT, Integer.parseInt(text));
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
+  /** Shows the range end field while the range toggle is on; the two fields share the width. */
+  private void showRangeEnd(boolean shown) {
+    GridData data = (GridData) rangeEnd.getLayoutData();
+    if (data.exclude == !shown) {
+      return;
+    }
+    data.exclude = !shown;
+    rangeEnd.setVisible(shown);
+    GridData patternData = (GridData) pattern.getLayoutData();
+    patternData.widthHint = shown ? MIN_RANGE_WIDTH : MIN_PATTERN_WIDTH;
+    patternData.minimumWidth = patternData.widthHint;
+    bar.layout(true);
   }
 
   /** Adds an icon tool item; its tooltip names the option and, when bound, its key. */
@@ -296,6 +380,7 @@ public final class SearchBar {
           }
         };
     pattern.addListener(SWT.DefaultSelection, run);
+    rangeEnd.addListener(SWT.DefaultSelection, run);
     search.addListener(SWT.Selection, run);
     stop.addListener(
         SWT.Selection,
@@ -352,6 +437,18 @@ public final class SearchBar {
         }) {
       item.addListener(SWT.Selection, toggled);
     }
+    range.addListener(SWT.Selection, toggled);
+    range.addListener(
+        SWT.Selection,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            showRangeEnd(range.getSelection());
+          }
+        });
+    rangeEnd.addListener(SWT.Modify, toggled);
+    contextBefore.addListener(SWT.Modify, toggled);
+    contextAfter.addListener(SWT.Modify, toggled);
     filters.addListener(
         SWT.Selection,
         new Listener() {
@@ -428,12 +525,17 @@ public final class SearchBar {
     }
     String text = pattern.getText();
     Point selection = pattern.getSelection();
+    String end = rangeEnd.getText();
     syncing = true;
     try {
       pattern.setItems(items);
       if (!pattern.getText().equals(text)) {
         pattern.setText(text);
         pattern.setSelection(selection);
+      }
+      rangeEnd.setItems(items);
+      if (!rangeEnd.getText().equals(end)) {
+        rangeEnd.setText(end);
       }
     } finally {
       syncing = false;
@@ -571,6 +673,33 @@ public final class SearchBar {
   }
 
   /**
+   * Returns the range toggle.
+   *
+   * @return the tool item
+   */
+  ToolItem rangeToggle() {
+    return range;
+  }
+
+  /**
+   * Returns the range end field.
+   *
+   * @return the field
+   */
+  Combo rangeEnd() {
+    return rangeEnd;
+  }
+
+  /**
+   * Returns the context line count fields.
+   *
+   * @return the lines above and the lines below each result
+   */
+  Text[] contextFields() {
+    return new Text[] {contextBefore, contextAfter};
+  }
+
+  /**
    * Returns the filters menu.
    *
    * @return the menu, filled when shown
@@ -652,7 +781,11 @@ public final class SearchBar {
         combine.getSelection(),
         inSelection.getSelection(),
         autoRefresh.getSelection(),
-        keepResults.getSelection());
+        keepResults.getSelection(),
+        range.getSelection(),
+        rangeEnd.getText(),
+        count(contextBefore),
+        count(contextAfter));
   }
 
   private void runSearch() {
@@ -678,8 +811,21 @@ public final class SearchBar {
       inSelection.setSelection(options.inSelection());
       autoRefresh.setSelection(options.autoRefresh());
       keepResults.setSelection(options.keepResults());
+      range.setSelection(options.range());
+      if (!rangeEnd.getText().equals(options.rangeEnd())) {
+        rangeEnd.setText(options.rangeEnd());
+      }
+      setCount(contextBefore, options.contextBefore());
+      setCount(contextAfter, options.contextAfter());
     } finally {
       syncing = false;
+    }
+    showRangeEnd(options.range());
+  }
+
+  private static void setCount(Text field, int value) {
+    if (count(field) != value || field.getText().isEmpty()) {
+      field.setText(Integer.toString(value));
     }
   }
 

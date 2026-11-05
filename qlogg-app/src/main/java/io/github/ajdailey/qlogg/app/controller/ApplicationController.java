@@ -142,6 +142,8 @@ public final class ApplicationController implements DocumentHost {
   private final HelpController help;
   // Wrap, folding, block selection, save, scratchpad, search across files, selectors.
   private final ViewFeatures features;
+  // Tab data dot.
+  private final TabDataModel tabData = new TabDataModel();
 
   /**
    * Creates the only window of a new {@link WindowSet} with a system setting that is always light.
@@ -206,6 +208,8 @@ public final class ApplicationController implements DocumentHost {
     this.monitor = set.monitor();
     this.opener = new DocumentOpener(workers, ui, config, new Claims());
     this.help = new HelpController(set, view, this::isShuttingDown);
+    // Tab data dot.
+    addListener(tabData);
     set.register(this);
   }
 
@@ -423,6 +427,15 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
+   * Returns each tab's data state.
+   *
+   * @return this window's model
+   */
+  public TabDataModel tabData() {
+    return tabData;
+  }
+
+  /**
    * Returns the shown document.
    *
    * @return its controller, or null
@@ -473,7 +486,11 @@ public final class ApplicationController implements DocumentHost {
   public void searchRan(String text, SearchOptions options) {
     rememberSearchOptions(options);
     Preferences current = preferences.get();
-    List<String> history = SearchHistory.add(current.searchHistory(), text, current.historySize());
+    List<String> history = current.searchHistory();
+    if (options.range()) {
+      history = SearchHistory.add(history, options.rangeEnd(), current.historySize());
+    }
+    history = SearchHistory.add(history, text, current.historySize());
     if (!history.equals(current.searchHistory())) {
       setPreferences(current.withSearchHistory(history));
     }
@@ -1011,6 +1028,7 @@ public final class ApplicationController implements DocumentHost {
 
   /** Starts indexing and the watch. */
   private void start(DocumentController document) {
+    tabData.started(document);
     document.start();
     document.document().startWatching(monitor);
   }
@@ -1387,12 +1405,52 @@ public final class ApplicationController implements DocumentHost {
       case OPEN_LOG_FOLDER -> help.openFolder(set.logFiles().directory());
       case OPEN_SETTINGS_FOLDER -> help.openFolder(config.location().directory());
       case REPORT_ISSUE -> help.reportIssue();
+      // Mark comments and marks list.
+      case MARKS_LIST -> view.showMarks();
+      case EDIT_MARK_COMMENT -> editMarkComment();
       default -> {
         if (!features.execute(command)) {
           documentCommand(command);
         }
       }
     }
+  }
+
+  // Mark comments and marks list.
+
+  /**
+   * Asks for the comment of the focused view's caret line and sets it; the line's mark is created
+   * when it has none.
+   */
+  private void editMarkComment() {
+    LineViewController target = focusedView();
+    if (target == null) {
+      return;
+    }
+    final DocumentController document = target.owner();
+    final long line = target.sourceLine(target.selection().caret().line());
+    if (line < 0 || line >= document.document().index().lineCount()) {
+      return;
+    }
+    String current = document.markComment(line);
+    view.askMarkComment(
+        line,
+        current == null ? "" : current,
+        new MainView.NameListener() {
+          @Override
+          public void nameChosen(String text) {
+            document.setMarkComment(line, text);
+          }
+        });
+  }
+
+  /**
+   * Removes a listener added earlier.
+   *
+   * @param listener the listener
+   */
+  public void removeListener(ApplicationListener listener) {
+    listeners.remove(listener);
   }
 
   // Wrap, folding, block selection, save, scratchpad, search across files, selectors.
@@ -1455,10 +1513,12 @@ public final class ApplicationController implements DocumentHost {
           TOGGLE_INVERSE,
           TOGGLE_COMBINING,
           TOGGLE_AUTO_REFRESH,
-          TOGGLE_KEEP_RESULTS -> {
+          TOGGLE_KEEP_RESULTS,
+          TOGGLE_RANGE -> {
         search.toggle(command);
         rememberSearchOptions(search.options());
       }
+      case SELECT_RANGE -> search.selectRange();
       case SHOW_MARKS_AND_MATCHES ->
           document.filtered().setVisibility(Visibility.MARKS_AND_MATCHES);
       case SHOW_MARKS -> document.filtered().setVisibility(Visibility.MARKS);
@@ -1847,7 +1907,11 @@ public final class ApplicationController implements DocumentHost {
             options.inverse(),
             options.combining(),
             options.autoRefresh(),
-            options.keepResults());
+            options.keepResults(),
+            options.range(),
+            options.rangeEnd(),
+            options.contextBefore(),
+            options.contextAfter());
     if (!toggles.equals(state.search())) {
       setPreferences(preferences.get().withState(state.withSearch(toggles)));
     }
@@ -1862,7 +1926,11 @@ public final class ApplicationController implements DocumentHost {
         toggles.combining(),
         false,
         toggles.autoRefresh(),
-        toggles.keepResults());
+        toggles.keepResults(),
+        toggles.range(),
+        toggles.rangeEnd(),
+        toggles.contextBefore(),
+        toggles.contextAfter());
   }
 
   private void rememberLineNumbers(DocumentController document) {

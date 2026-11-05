@@ -32,7 +32,8 @@ the background; `Esc` or the Stop button stops it. File > Open from Clipboard
 (`Ctrl+V` in a log view) opens the clipboard's text, up to 16 MiB, held in
 memory only.
 
-Reload (`F5`) reopens the shown file and keeps its marks and color labels.
+Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
+color labels.
 QLogg detects the encoding from the byte order mark and the content; the
 Encoding menu forces another one, and the choice is remembered for the file.
 
@@ -47,6 +48,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
   copies the path, opens the folder, renames the tab or moves it to a new
   window; a middle click closes it. View > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the tabs.
+- A tab that is not shown gets a dot when its file grows: green for new lines,
+  orange when the tab's search, with Auto-refresh on, found new matches. A
+  reload or truncation counts as new lines. Showing the tab clears the dot.
 - The overview bar beside the main view marks matches and marks across the
   whole file; a click goes there.
 - Below the splitter: the search row, the result tabs and the filtered view.
@@ -88,6 +92,7 @@ The icon toggles beside the field, also on keys `4` to `9` in a log view:
 | In selection | Only the selected lines |
 | Auto-refresh | Search lines appended to a followed file |
 | Keep results | The next search adds a result tab instead of replacing the results |
+| Range | Every line from a line matching the pattern through the next line matching the range end; no key |
 
 Edit > Search > Set Search Start and Set Search End limit every search to the
 lines between; Clear Search Limits removes the limit. The filtered view lists
@@ -97,6 +102,24 @@ filters stores named patterns (Tools > Predefined Filters, import and export).
 `Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
 exclude it, or replace the search with it.
 
+The two number fields after the pattern set the context lines: the filtered
+view lists that many lines above and below each result, on a shaded
+background, with a rule above each group. Counts, `n` and `N`, the overview
+bar and the bullets in the margin use the results only. A kept result tab
+keeps the counts its search ran with; a changed count applies to the next
+search. The context lines after the last result fill in as the file grows,
+with or without Auto-refresh.
+
+With Range on, a field for the end pattern appears beside the pattern. The
+results are every line from a line matching the pattern through the next line
+matching the end, both lines included; a range that is still open at the end
+of the file runs to the end and, with Auto-refresh, extends as the file grows.
+Inverse lists the lines outside the ranges, and the search start, end and In
+selection limits apply as for any search. Edit > Search > Select Range Around
+Line (`Ctrl+R` in a log view) selects the range around the current line of the
+main view: the nearest line above that matches the pattern, through the next
+line matching the end.
+
 Edit > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
 each tab's filtered view gets the results for its file.
 
@@ -105,6 +128,17 @@ each tab's filtered view gets the results for its file.
 `m` marks or unmarks the selected lines; a click in the bullet column marks
 one line. `]` and `[` go to the next and previous mark. Marks show in the
 gutter, the overview bar and the filtered view.
+
+`M` (Edit > Edit Mark Comment) asks for a comment on the current line and
+marks the line when it has no mark; an empty comment keeps the mark without
+one. A commented mark has a square bullet, and the pointer over it shows the
+comment. Unmarking a line drops its comment. A comment is one line of at most
+200 characters; a file keeps at most 1,000.
+
+Tools > Marks List lists the shown tab's marks with line number, comment and
+the start of the line, and follows the tab you show. `Enter` or a double
+click goes to the line, `Delete` removes the selected marks and `F2` edits a
+comment in the list. It lists the first 10,000 marks.
 
 Quick find (`Ctrl+F`, `'` forward, `"` backward) searches the shown view from
 the current line without changing the filtered view. `*` and `/` find the
@@ -196,8 +230,8 @@ epoch time.
 
 QLogg restores the last session at start when no file is given (Tools >
 Options, General; `-s` and `-n` decide for one run): the tabs of each window,
-the shown tab, tab names, follow and marks. Each file's position and forced
-encoding are remembered; `+line:N` wins over the position.
+the shown tab, tab names, follow, marks and mark comments. Each file's
+position and forced encoding are remembered; `+line:N` wins over the position.
 
 File > Open Recent lists recent files (Clean Up drops missing ones). The
 Favorites menu adds, removes and opens favorite files.

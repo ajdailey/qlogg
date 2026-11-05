@@ -18,6 +18,7 @@ import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Viewport;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.swt.SWT;
@@ -95,6 +96,7 @@ public final class LogCanvas {
   /** Commands of the right-click menu, in order; null is a separator. */
   static final CommandId[] CONTEXT_MENU = {
     CommandId.TOGGLE_MARK,
+    CommandId.EDIT_MARK_COMMENT,
     null,
     CommandId.COPY,
     CommandId.COPY_LINE,
@@ -590,6 +592,16 @@ public final class LogCanvas {
             }
           }
         });
+    // Mark comment tooltip.
+    Listener tooltip =
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            commentTooltip(event.type == SWT.MouseMove ? event.x : -1, event.y);
+          }
+        };
+    canvas.addListener(SWT.MouseMove, tooltip);
+    canvas.addListener(SWT.MouseExit, tooltip);
     canvas.addListener(
         SWT.MouseUp,
         new Listener() {
@@ -708,6 +720,28 @@ public final class LogCanvas {
       select(Selection.caretAt(position));
     }
     dragging = true;
+  }
+
+  /**
+   * Shows the comment of the mark under the pointer as the canvas tooltip while the pointer is in
+   * the bullet column, and no tooltip elsewhere.
+   *
+   * @param x the pointer's x, or -1 when it left the canvas
+   * @param y the pointer's y
+   */
+  void commentTooltip(int x, int y) {
+    String comment = null;
+    Viewport viewport = document.viewport();
+    boolean below =
+        !document.wrap() && viewport.topLine() + y / grid.lineHeight() >= viewport.lineCount();
+    if (x >= 0 && x < bulletWidth() && !dragging && !below) {
+      long source = document.sourceLine(hit(x, y).line());
+      comment = source >= 0 && document.marked(source) ? document.markComment(source) : null;
+    }
+    String shown = canvas.getToolTipText();
+    if (comment == null ? shown != null : !comment.equals(shown)) {
+      canvas.setToolTipText(comment);
+    }
   }
 
   /** Selects a stream, or a block during a block drag. */
@@ -946,6 +980,11 @@ public final class LogCanvas {
     for (long line = viewport.topLine(); line < viewport.lineCount() && y < area.height; line++) {
       long[] selected = selectedColumns(selection, line);
       int segments = wrap ? wrappedRows(block, line) : 1;
+      long source = block.contains(line) ? block.sourceLine(line) : -1;
+      boolean context = source >= 0 && document.contextRow(source);
+      if (source >= 0 && document.startsGroup(source)) {
+        groupRules.add(y);
+      }
       for (int k = 0; k < segments && y < area.height; k++) {
         long from = wrap ? (long) k * columns : viewport.firstColumn();
         painter.paint(
@@ -963,10 +1002,12 @@ public final class LogCanvas {
                 area.width,
                 line == caretLine,
                 selected[0],
-                selected[1]));
+                selected[1],
+                context));
         y += lineHeight;
       }
     }
+    paintGroupRules(gc, gutter, area.width);
     paintGutter(gc, viewport, block, wrap, gutter, area);
     if (!TEXT_PAINTED.get()
         && y > 0
@@ -974,6 +1015,20 @@ public final class LogCanvas {
         && TEXT_PAINTED.compareAndSet(false, true)) {
       LOG.debug(FIRST_TEXT_PAINT);
     }
+  }
+
+  // Context lines.
+
+  /** Tops of the rows that start a group of results with context, collected per paint. */
+  private final List<Integer> groupRules = new ArrayList<Integer>();
+
+  /** Draws a rule across the text area on top of each row that starts a group. */
+  private void paintGroupRules(GC gc, int gutter, int width) {
+    gc.setForeground(colors.lineNumbers);
+    for (int top : groupRules) {
+      gc.drawLine(gutter, top, width, top);
+    }
+    groupRules.clear();
   }
 
   /** The selected columns {@code [from, to)} of a line, from -1 for none. */
@@ -1026,7 +1081,12 @@ public final class LogCanvas {
             document.marked(source)
                 ? colors.markMarker
                 : document.matched(source) ? colors.matchMarker : null;
-        if (marker != null) {
+        if (marker != null && marker == colors.markMarker && document.markComment(source) != null) {
+          // A commented mark is a square.
+          gc.setBackground(marker);
+          gc.fillRectangle(
+              (bullet - diameter) / 2, y + (lineHeight - diameter) / 2, diameter, diameter);
+        } else if (marker != null) {
           gc.setBackground(marker);
           gc.fillOval((bullet - diameter) / 2, y + (lineHeight - diameter) / 2, diameter, diameter);
         }

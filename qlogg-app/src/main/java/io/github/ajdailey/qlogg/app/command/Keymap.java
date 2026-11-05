@@ -80,6 +80,8 @@ public final class Keymap {
     sequence(b, CommandId.NEXT_MARK, '.');
     view(b, CommandId.PREVIOUS_MARK, 0, '[');
     sequence(b, CommandId.PREVIOUS_MARK, ',');
+    // Mark comments.
+    view(b, CommandId.EDIT_MARK_COMMENT, 0, 'M');
     b.add(
         new Binding(
             CommandId.KEYBOARD_SHORTCUTS,
@@ -136,6 +138,8 @@ public final class Keymap {
     window(b, CommandId.ZOOM_OUT, P, '-');
     window(b, CommandId.ZOOM_OUT, P, KeyStroke.KEYPAD_SUBTRACT);
     window(b, CommandId.ZOOM_RESET, P, '0');
+    // Context lines and range filter.
+    view(b, CommandId.SELECT_RANGE, P, 'r');
     return new Keymap(b);
   }
 

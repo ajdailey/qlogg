@@ -56,6 +56,9 @@ public enum CommandId {
   NEXT_MARK(CommandGroup.EDIT, UiText.COMMAND_NEXT_MARK, false, false),
   /** Go to the previous mark. */
   PREVIOUS_MARK(CommandGroup.EDIT, UiText.COMMAND_PREVIOUS_MARK, false, false),
+  // Mark comments.
+  /** Edit the comment of the current line's mark, marking the line when it is unmarked. */
+  EDIT_MARK_COMMENT(CommandGroup.EDIT, UiText.COMMAND_EDIT_MARK_COMMENT, false, false),
   /** Copy the active file's full path. */
   COPY_PATH(CommandGroup.EDIT, UiText.COMMAND_COPY_PATH, true, false),
   /** Copy the active file's name. */
@@ -81,6 +84,11 @@ public enum CommandId {
   /** Toggle keeping the current results when the next search runs. */
   TOGGLE_KEEP_RESULTS(
       CommandGroup.EDIT, UiText.COMMAND_TOGGLE_KEEP_RESULTS, false, true, UiText.MENU_SEARCH),
+  // Context lines and range filter.
+  /** Toggle range search: from a line matching the search to the next line matching the end. */
+  TOGGLE_RANGE(CommandGroup.EDIT, UiText.COMMAND_TOGGLE_RANGE, false, true, UiText.MENU_SEARCH),
+  /** Select the range around the main view's caret. */
+  SELECT_RANGE(CommandGroup.EDIT, UiText.COMMAND_SELECT_RANGE, false, false, UiText.MENU_SEARCH),
   /** Add the selected text to the search as an alternative. */
   ADD_TO_SEARCH(CommandGroup.EDIT, UiText.COMMAND_ADD_TO_SEARCH, true, false, UiText.MENU_SEARCH),
   /** Exclude lines holding the selected text from the search. */
@@ -279,6 +287,9 @@ public enum CommandId {
   BLOCK_SELECTION(CommandGroup.EDIT, UiText.COMMAND_BLOCK_SELECTION, false, true),
   /** Run the search in every open file. */
   SEARCH_ALL_FILES(CommandGroup.EDIT, UiText.COMMAND_SEARCH_ALL_FILES, false, false),
+  // Marks list.
+  /** Show the window listing the shown file's marks. */
+  MARKS_LIST(CommandGroup.TOOLS, UiText.COMMAND_MARKS_LIST, true, false),
   // Scratchpad, Options dialog and automatic highlighter sets.
   /** Open the scratchpad window. */
   SCRATCHPAD(CommandGroup.TOOLS, UiText.COMMAND_SCRATCHPAD, true, false),

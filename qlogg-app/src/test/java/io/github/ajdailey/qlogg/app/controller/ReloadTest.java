@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
@@ -15,7 +16,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** What a reload keeps: marks and color labels on {@code F5}, nothing after a change on disk. */
+/**
+ * What a reload keeps: marks, their comments and color labels on {@code F5}, nothing after a change
+ * on disk.
+ */
 class ReloadTest {
   @TempDir Path temp;
 
@@ -65,6 +69,29 @@ class ReloadTest {
         });
     assertEquals(List.of(5L, 59L), ControllerFixture.toList(reloaded.marks()));
     assertEquals(1, reloaded.labels().size());
+  }
+
+  @Test
+  void reloadKeepsMarkCommentsAndDropsThosePastTheEnd() throws Exception {
+    DocumentController document = open(60);
+    document.setMarkComment(5, "mock note");
+    document.document().marks().add(100);
+    document.document().markComments().put(100, "past the end");
+    fixture.application.execute(CommandId.RELOAD);
+    final DocumentController reloaded = replacement(document);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return reloaded.marks().size() == 1;
+          }
+        });
+    assertEquals("mock note", reloaded.markComment(5));
+    assertNull(reloaded.markComment(100));
+    assertEquals(1, reloaded.document().markComments().size());
+    Files.writeString(temp.resolve("reload.log"), "short\n", StandardOpenOption.TRUNCATE_EXISTING);
+    DocumentController reopened = replacement(reloaded);
+    assertNull(reopened.markComment(5));
   }
 
   @Test

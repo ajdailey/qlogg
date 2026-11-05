@@ -221,6 +221,24 @@ final class FakeView implements MainView {
     openedFilesShown++;
   }
 
+  // Mark comments and marks list.
+  long commentLine = -1;
+  int marksShown;
+
+  @Override
+  public void askMarkComment(long line, String current, NameListener listener) {
+    ui.check("askMarkComment");
+    commentLine = line;
+    suggestedName = current;
+    nameListener = listener;
+  }
+
+  @Override
+  public void showMarks() {
+    ui.check("showMarks");
+    marksShown++;
+  }
+
   @Override
   public void askTabName(String current, NameListener listener) {
     ui.check("askTabName");

@@ -18,6 +18,8 @@ import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.FilteredController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
+import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -25,6 +27,7 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Visibility;
@@ -43,7 +46,11 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
@@ -440,6 +447,82 @@ class FilteredPaneTest {
     assertTrue(setsAt.y >= rowAt.y + bar.control().getSize().y, "result tabs under the row");
     Point canvasAt = filteredCanvas().toDisplay(0, 0);
     assertTrue(canvasAt.y >= setsAt.y + sets.height, "filtered view under the tabs");
+  }
+
+  // Context lines and range filter.
+
+  /** Paints a canvas into an image and returns the pixel at a point. */
+  private RGB pixel(Canvas canvas, int x, int y) {
+    Image image = new Image(display, canvas.getSize().x, canvas.getSize().y);
+    GC gc = new GC(image);
+    try {
+      Gtk4.assertPrinted(canvas.print(gc));
+      ImageData data = image.getImageData();
+      return data.palette.getRGB(data.getPixel(x, y));
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  private static RGB rgb(Rgb color) {
+    return new RGB(color.red(), color.green(), color.blue());
+  }
+
+  @Test
+  void contextRowsAreShadedAndGroupsRuled() {
+    SearchBar bar = window.searchBar();
+    bar.contextFields()[0].setText("1");
+    bar.contextFields()[1].setText("1");
+    assertEquals(1, document().search().options().contextBefore());
+    searchFor("event");
+    final FilteredController filtered = document().filtered();
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return filtered.viewport().lineCount() == 59 && filtered.lines().contains(3);
+              }
+            }),
+        "rows: " + filtered.viewport().lineCount());
+    assertEquals(20, document().search().resultCount(), "the count is of matches");
+    assertEquals(10, filtered.lines().sourceLine(2));
+    Canvas canvas = filteredCanvas();
+    Palette palette = window.results().canvas().palette();
+    int height = window.results().canvas().lineHeight();
+    int x = canvas.getSize().x / 2;
+    assertEquals(rgb(palette.contextRow()), pixel(canvas, x, 2 * height + height / 2), "context");
+    assertEquals(rgb(palette.background()), pixel(canvas, x, height + height / 2), "match");
+    assertEquals(rgb(palette.lineNumbers()), pixel(canvas, x, 3 * height), "group rule");
+  }
+
+  @Test
+  void theRangeEndFieldShowsWhileRangeIsOn() {
+    SearchBar bar = window.searchBar();
+    assertFalse(bar.rangeEnd().isVisible());
+    assertNotNull(bar.rangeToggle().getImage());
+    bar.rangeToggle().setSelection(true);
+    bar.rangeToggle().notifyListeners(SWT.Selection, new Event());
+    assertTrue(bar.rangeEnd().isVisible());
+    assertTrue(document().search().options().range());
+    bar.rangeEnd().setText("id_50 ");
+    bar.pattern().setText("id_20 ");
+    bar.searchButton().notifyListeners(SWT.Selection, new Event());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().search().state().phase() == SearchViewState.Phase.DONE
+                    && window.busy().active() == 0;
+              }
+            }),
+        bar.statusText());
+    assertEquals(31, document().search().resultCount(), "lines 20 through 50");
+    controller.execute(CommandId.TOGGLE_RANGE);
+    assertFalse(bar.rangeEnd().isVisible());
+    assertFalse(bar.rangeToggle().getSelection());
   }
 
   @Test

@@ -5,12 +5,14 @@ import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
 import io.github.ajdailey.qlogg.app.view.ClipboardService;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.NotificationService;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.model.ContextRows;
 import io.github.ajdailey.qlogg.core.model.FilteredView;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Visibility;
@@ -30,23 +32,38 @@ import java.util.concurrent.CancellationException;
  * changed, at most one at a time and not while a mark toggle runs. Until the snapshot arrives the
  * rows stay on the previous one, so the view never walks the marks on the UI thread. A snapshot the
  * results share cannot hold shows a notice.
+ *
+ * <p>Context lines come from the shown set's toggles ({@link SearchController#shownOptions}), so a
+ * kept set keeps the counts it ran with. The {@link ContextRows} are extended on a {@code
+ * qlogg-search-} worker after the matches change, before the marks snapshot, at most one build at a
+ * time; the rows stay on the installed build until the next one arrives. The last result's context
+ * extends as the file grows ({@link #grew}). A build the results share cannot hold shows a notice.
  */
 public final class FilteredController extends LineViewController {
   private final DocumentController owner;
   private final SearchController search;
   private final FilteredView view;
   private CancellationToken building;
+  private CancellationToken extending;
   private boolean noticeShown;
+  private boolean contextNoticeShown;
+  private long seenLines;
   private final SearchViewListener results =
       new SearchViewListener() {
         @Override
         public void stateChanged(SearchViewState state) {
-          // Rows change with the results only.
+          SearchOptions shown = search.shownOptions();
+          if (shown.contextBefore() != view.contextBefore()
+              || shown.contextAfter() != view.contextAfter()) {
+            applyContext();
+            refresh();
+          }
         }
 
         @Override
         public void resultsChanged() {
           view.setMatches(search.shownResults());
+          applyContext();
           refresh();
         }
       };
@@ -64,6 +81,7 @@ public final class FilteredController extends LineViewController {
     this.owner = owner;
     this.search = search;
     this.view = new FilteredView(search.shownResults(), owner.document().marks(), budget);
+    applyContext();
     search.addListener(results);
   }
 
@@ -135,7 +153,120 @@ public final class FilteredController extends LineViewController {
       return;
     }
     refreshRows(view.size());
-    buildExtras();
+    if (!buildContext()) {
+      buildExtras();
+    }
+  }
+
+  // Context lines.
+
+  /** Sets the shown set's context counts on the view. */
+  private void applyContext() {
+    SearchOptions shown = search.shownOptions();
+    view.setContext(
+        shown.contextBefore(),
+        shown.contextAfter(),
+        new ContextRows.LineCount() {
+          @Override
+          public long get() {
+            return document().index().lineCount();
+          }
+        });
+  }
+
+  /**
+   * Re-reads the rows after the line count changed, when the last result's context may extend.
+   *
+   * @param lineCount the document's line count
+   */
+  void grew(long lineCount) {
+    if (lineCount != seenLines) {
+      seenLines = lineCount;
+      if (view.context() != null) {
+        refresh();
+      }
+    }
+  }
+
+  @Override
+  public boolean contextRow(long line) {
+    return view.isContext(line);
+  }
+
+  @Override
+  public boolean startsGroup(long line) {
+    return view.startsGroup(line);
+  }
+
+  /**
+   * Starts extending the context rows when they are stale and no build runs.
+   *
+   * @return true while a build runs or is due, so the marks snapshot waits for it
+   */
+  private boolean buildContext() {
+    if (extending != null) {
+      return true;
+    }
+    if (!view.contextStale()) {
+      return false;
+    }
+    final ContextRows from = view.context();
+    final MemoryBudget budget = view.budget();
+    final CancellationToken token = new CancellationToken();
+    extending = token;
+    boolean started =
+        workers()
+            .tryStart(
+                Workers.Kind.SEARCH,
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    extend(from, budget, token);
+                  }
+                });
+    if (!started) {
+      extending = null;
+      return false;
+    }
+    return true;
+  }
+
+  /** Runs on a worker; posts back on every outcome so {@code extending} always clears. */
+  private void extend(final ContextRows from, MemoryBudget budget, final CancellationToken token) {
+    ContextRows rows = null;
+    try {
+      rows = from.extend(budget, token);
+    } catch (CancellationException e) {
+      rows = null;
+    } finally {
+      final ContextRows built = rows;
+      ui().asyncExec(
+              new Runnable() {
+                @Override
+                public void run() {
+                  extended(from, built, token);
+                }
+              });
+    }
+  }
+
+  private void extended(ContextRows from, ContextRows built, CancellationToken token) {
+    if (extending == token) {
+      extending = null;
+    }
+    if (built == null) {
+      return;
+    }
+    boolean installed = view.installContext(built, from);
+    if (isClosed()) {
+      view.close();
+      return;
+    }
+    if (installed && !built.complete() && !contextNoticeShown) {
+      contextNoticeShown = true;
+      notifications().showNotice(UiText.FILTERED_CONTEXT_LIMIT.text());
+    }
+    refresh();
   }
 
   /** Starts a marks snapshot when the installed one is stale and none is being built. */
@@ -143,7 +274,7 @@ public final class FilteredController extends LineViewController {
     if (building != null || owner.markingRunning() || !view.extrasStale()) {
       return;
     }
-    final LineSet matches = view.matches();
+    final LineSet matches = view.rows();
     final MutableLineSet marks = view.marks();
     final CancellationToken token = new CancellationToken();
     building = token;
@@ -214,7 +345,7 @@ public final class FilteredController extends LineViewController {
    * @return true when settled
    */
   boolean settled() {
-    return building == null && !view.extrasStale();
+    return building == null && extending == null && !view.contextStale() && !view.extrasStale();
   }
 
   /** Detaches from the search and returns the view's reservation. */
@@ -222,6 +353,9 @@ public final class FilteredController extends LineViewController {
     search.removeListener(results);
     if (building != null) {
       building.cancel();
+    }
+    if (extending != null) {
+      extending.cancel();
     }
     view.close();
     detachView();

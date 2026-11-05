@@ -118,6 +118,14 @@ Compiled and tested against the build host's SWT fragment.
   release does nothing, and a release on another tab of the same strip still
   reorders. `documentMovedOut` removes the tab and views as a close does;
   `documentMovedIn` inserts the tab at its index. No `DragSource` is used.
+- A tab whose `TabDataModel` state is not `NONE` shows a `TabDots` image, a
+  dot in the palette's `newLinesDot` or `newMatchesDot` color with a darker
+  rim, and its tooltip adds "New lines" or "New matching lines" under the
+  path. `TabDots` renders each image per zoom through an
+  `ImageDataProvider`; a palette change creates the next palette's dots,
+  sets them on every tab, then disposes the old ones. A tab with no state has
+  no image, so a dot widens its tab. The folder shows images on unselected
+  tabs (`setUnselectedImageVisible`).
 - The window body is a vertical `SashForm`: the main log view with the
   `OverviewBar` between its text and its vertical scroll bar over the bottom
   pane, split by `view.splitPercent`. The sash is 7 px and paints a dotted
@@ -130,9 +138,11 @@ Compiled and tested against the build host's SWT fragment.
   (`showNotice`) and the pending key prefix (`Ctrl+E -`).
 - `SearchBar` is one full-width row: the filtered view's visibility combo;
   icon toggles for Match case, Regex, Whole word, Inverse, Combine, In
-  selection and Auto-refresh; the Predefined filters drop-down; the pattern
-  field (a `Combo` whose list is the search history, at least 160 px); Clear,
-  Search, the Keep results toggle and Stop; and the search status. Each
+  selection, Auto-refresh and Range; the Predefined filters drop-down; the
+  pattern field (a `Combo` whose list is the search history, at least 160 px);
+  the range end field, shown only while Range is on; two digit fields for the
+  context lines above and below each result (0 to 1,000); Clear, Search, the
+  Keep results toggle and Stop; and the search status. Each
   tooltip names the option and its key. Enter searches and Escape stops.
   Typing completes inline with the most recent history entry that extends the
   text, compared under the Match case rule; Backspace and Delete do not
@@ -146,7 +156,7 @@ Compiled and tested against the build host's SWT fragment.
   the current search and one closable tab per kept set (label: text and
   count), aligned with the search row's left edge, over a `LogCanvas` on the
   `FilteredController`. Selecting a tab shows that set; closing one removes
-  it.
+  it. A range search's label shows the start and end expressions.
 - `QuickFindBar` is the row above the status bar while quick find is open:
   the field, Ignore case, Incremental and Regex (the `quickFind.*`
   preferences), Previous, Next, the last notice and Close. Enter finds in the
@@ -218,8 +228,8 @@ event loop:
 `LogCanvas` (`SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND`) paints a
 `LineViewController` snapshot, the main view's or the filtered view's: the
 visible rows of its `LineBlock` with their highlight spans, a bullet column
-(a mark bullet for a marked line, else a match bullet for a line in the shown
-results), each row's source line number in a gutter sized to the document's
+(a mark bullet for a marked line, square when the mark has a comment, else a
+match bullet for a line in the shown results), each row's source line number in a gutter sized to the document's
 line count, the current line and the selection. Rows
 the block does not hold yet stay blank, numbers included, until the next read
 arrives, so painting never touches the file. One implementation serves both
@@ -229,7 +239,7 @@ command waits for that line.
 
 - Focus, a click, a key and the context menu set it as the view that
   commands go to (`ApplicationController.setFocusedView`).
-- The right-click menu lists Mark or Unmark, Copy, Copy This Line, find the
+- The right-click menu lists Mark or Unmark, Edit Mark Comment, Copy, Copy This Line, find the
   selection forward and backward, add, exclude and replace search, search
   start, end and clear, selection start and end, Save Splitter Position, Copy
   with Line Numbers, Save Selection to File, Send Selection to Scratchpad,
@@ -242,7 +252,12 @@ command waits for that line.
   within the decoded column window of a printable-ASCII row
   (`LineViewController.selectWordAt`).
 - A left click in the bullet column toggles the mark of the clicked row's
-  line. `Ctrl`+wheel (`Cmd` on macOS) calls `zoomFont`.
+  line. With the pointer over a commented mark's bullet the canvas tooltip
+  shows the comment; elsewhere it shows none. `Ctrl`+wheel (`Cmd` on macOS) calls `zoomFont`.
+- With context lines on, a row whose line is context
+  (`LineViewController.contextRow`) is shaded, and a rule in the line-number
+  color is drawn across the text area on top of each row that starts a group
+  (`startsGroup`). Context rows carry no match bullet.
 
 - Text sits on a grid of the `FontSettings` font (empty family: Monospace,
   Consolas or Menlo; bold when set; forced text anti-aliasing when set).
@@ -254,8 +269,8 @@ command waits for that line.
   advances, so an advance rounded to whole pixels drifts off the glyphs by
   the fraction per column (macOS Menlo, GTK 4, fractional Windows scaling).
 - `RowPainter` paints each screen row, in the plain and the wrapped paint
-  alike: the background (base, current line, then the whole-line
-  highlight), the span backgrounds, the selection, the text in the line's
+  alike: the background (base or the palette's `contextRow` for a context
+  line, current line, then the whole-line highlight), the span backgrounds, the selection, the text in the line's
   color, the text again clipped to each span with a text color and to the
   selection, then the whitespace markers. A translucent color is blended
   over the color under it. Measured on Xvfb at 900x600: a full repaint of 22
@@ -331,6 +346,12 @@ nothing while the bar is hidden.
   per file group with its match count and state under a summary line;
   choosing a row shows that tab with its search's results. Stop cancels every
   search of the group.
+- `MarksWindow` (Tools > Marks List, modeless) shows a
+  `MarksListController`'s rows in a virtual table of line, comment and text
+  under a summary line, following the shown tab. `Enter` or a double click goes
+  to the row's line, `Delete` removes the selected marks, and `F2` opens a
+  field over the row's comment (`TableEditor`); `Enter` or leaving the field
+  saves it, `Esc` drops the edit. Edit Mark Comment uses `NameDialog`.
 - `SelectorsDialog` (Highlighters > Automatic Highlighters) edits the
   ordered selectors: a table of match kind, pattern and set over an editor
   row, with Add, Update, Remove and Move Up and Down; OK saves them.
@@ -397,7 +418,9 @@ it, both views carry the context menu and build it on the first right
 click, a double click selects a word and `*`
 finds it through the quick find bar to an end-of-file notice, kept sets show
 as tabs, the filters menu and history list work, and the Predefined Filters
-table edits a row in place, toggles Regex and applies. `TabsTest` opens
+table edits a row in place, toggles Regex and applies. Context rows paint the
+context shade and a group rule, and the range end field shows while Range is
+on. `TabsTest` opens
 two files: the top row holds toolbar, path field and its menu, Stop and file
 fields; the tab row shows with two files, hides when one is left and shows
 again for a second; the last one shows, selecting a tab shows its document
@@ -410,6 +433,10 @@ items are enabled after an open with no menu shown since, File > Close empties a
 disables the path field, a rename shows in the tab,
 the toolbar's Follow tracks the document, View > Opened Files and Switch to
 File list and show tabs, and dropped files open.
+`TabDotTest` appends to a background tab's file: the tab gets the
+`NEW_LINES` dot and tooltip line, a theme change recolors it and disposes the
+old image, and showing the tab clears both; the rendered dot is opaque at its
+center and transparent at the corners.
 `TabMoveGuiTest` opens two windows over one `WindowSet`: View > Move to New
 Window and the tab menu item each move the shown tab to a new window, the
 emptied window stays open without views and its menu item is disabled; a
@@ -463,7 +490,12 @@ reported fit, a double click past a wrapped row's end selecting the word
 there, whitespace and fold painting, scratchpad transforms inline and
 on a worker (the tab read-only until the result) with the epoch value and
 `Ctrl+N`, the search across two files with its row selecting
-a tab, and the selectors editor row. `SwtUiDispatcherTest` checks that a
+a tab, and the selectors editor row. `MarkCommentsGuiTest` reads the
+painted bullets (a commented mark's corner pixel is filled, a plain mark's is
+not), checks the gutter tooltip, confirms the Edit Mark Comment dialog, and
+drives the marks list through go to, `F2` edit, `Delete` and a tab switch;
+with `-Dqlogg.shots=<dir>` it writes `gutter.png`, `mark-comment.png` and
+`marks-list.png`. `SwtUiDispatcherTest` checks that a
 canceled timer does not run and that cancel after dispose does nothing.
 
 `ResourceLeakTest` starts its Display with `DeviceData.tracking`, runs a

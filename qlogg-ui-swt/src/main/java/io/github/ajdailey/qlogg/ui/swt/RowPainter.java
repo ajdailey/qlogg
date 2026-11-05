@@ -13,10 +13,10 @@ import org.eclipse.swt.graphics.TextLayout;
 
 /**
  * Paints one screen row of a log view: the plain paint passes each line once, the wrapped paint
- * each segment of a line. A row paints its background (base, current line, then the whole-line
- * highlight), the span backgrounds and the selection, the text in the line's color, then the text
- * again clipped to each span with a text color and to the selection, then the whitespace markers. A
- * translucent color is blended over the color under it.
+ * each segment of a line. A row paints its background (base or context shade, current line, then
+ * the whole-line highlight), the span backgrounds and the selection, the text in the line's color,
+ * then the text again clipped to each span with a text color and to the selection, then the
+ * whitespace markers. A translucent color is blended over the color under it.
  *
  * <p>Column {@code c} of a printable-ASCII row sits on the {@link TextGrid}, and the row is drawn
  * with {@code GC.drawString}. Any other row is laid out once in a {@link TextLayout}, which also
@@ -47,6 +47,7 @@ final class RowPainter {
    * @param current whether the line holds the caret
    * @param selectionFrom the first selected column, negative for none
    * @param selectionTo the column after the selection; {@code Long.MAX_VALUE} past the line end
+   * @param context whether the line shows as context of a search result
    */
   record Row(
       LineBlock block,
@@ -59,7 +60,38 @@ final class RowPainter {
       int right,
       boolean current,
       long selectionFrom,
-      long selectionTo) {}
+      long selectionTo,
+      boolean context) {
+    /**
+     * Creates a row that is not a context line.
+     *
+     * @param block see the record
+     * @param line see the record
+     * @param from see the record
+     * @param to see the record
+     * @param last see the record
+     * @param x see the record
+     * @param y see the record
+     * @param right see the record
+     * @param current see the record
+     * @param selectionFrom see the record
+     * @param selectionTo see the record
+     */
+    Row(
+        LineBlock block,
+        long line,
+        long from,
+        long to,
+        boolean last,
+        int x,
+        int y,
+        int right,
+        boolean current,
+        long selectionFrom,
+        long selectionTo) {
+      this(block, line, from, to, last, x, y, right, current, selectionFrom, selectionTo, false);
+    }
+  }
 
   /** Chars a {@code TextLayout} breaks a line at; laid out as spaces so the row stays one line. */
   private static final String BREAKS = "\n\r\u000b\u000c\u001c\u001d\u001e\u0085  ";
@@ -123,7 +155,12 @@ final class RowPainter {
     HighlightSpans spans = text == null ? HighlightSpans.NONE : block.spans(row.line());
     prepare(text, text == null ? 0 : block.firstColumn());
     int base = PaletteColors.packed(colors.palette.background());
-    int under = row.current() ? PaletteColors.packed(colors.palette.currentLine()) : base;
+    int under = base;
+    if (row.current()) {
+      under = PaletteColors.packed(colors.palette.currentLine());
+    } else if (row.context()) {
+      under = PaletteColors.packed(colors.palette.contextRow());
+    }
     if (spans.lineBackground() != 0) {
       under = PaletteColors.blend(spans.lineBackground(), under);
     }

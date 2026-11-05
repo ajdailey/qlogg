@@ -205,10 +205,10 @@ dropped.
   (`reopenChanged`) reopen the path on a `qlogg-index-` worker. The new
   controller takes the tab, the follow state and the search text, and results
   start empty. A change on disk also empties marks and color labels and shows
-  a notice. A reload keeps the caret's line, the color labels and the marks:
-  the worker copies the marks into the new document, and its first completed
-  indexing drops marks past the last line. A reopen that fails shows a notice
-  and keeps the old tab.
+  a notice. A reload keeps the caret's line, the color labels, the marks and
+  their comments: the worker copies them into the new document, and its first
+  completed indexing drops marks and comments past the last line. A reopen
+  that fails shows a notice and keeps the old tab.
 - `execute(command)` runs File, Help, Go to Line, the search field, quick find,
   the split and the history and filter dialogs itself. Search toggles,
   visibility modes, edits with selection and search limits go to the shown
@@ -218,8 +218,10 @@ dropped.
 - `FIND_NEXT` and `FIND_PREVIOUS` (`F3`, `N`, `Ctrl+G` and the shifted keys)
   walk quick find while its bar is open, otherwise the search's matches.
 - It implements `DocumentHost`: each search puts its text first in
-  `search.history.N` (bounded by `search.historySize`) and saves its toggles,
-  less In selection, as `searchOption.*`. A new document in any window starts
+  `search.history.N` (bounded by `search.historySize`), after a range
+  search's end expression, and saves its toggles, less In selection, as
+  `searchOption.*`: the range toggle, end expression and context counts
+  included (a malformed value or an end over 4,096 chars loads the default). A new document in any window starts
   with the saved toggles. `followOnOverscroll` reads
   `follow.onOverscroll`.
 - `importFilters` and `exportFilters` read or write a user-chosen file on a
@@ -253,12 +255,13 @@ dropped.
   settings and each window's tab list on the UI thread, and a
   `qlogg-lifecycle-` worker writes `qlogg.conf` (when changed),
   `positions.conf` (when changed) and `qlogg_session.conf` (`window.N` per
-  window), reading each tab's marks inside `LogDocument.enter`. Each capture
-  takes a sequence number, and a writer skips a part a later capture has
-  written.
+  window), reading each tab's marks and mark comments inside
+  `LogDocument.enter`. Each capture takes a sequence number, and a writer
+  skips a part a later capture has written.
 - `restoreSession` opens a `Session`'s tabs on one `qlogg-index-` worker with
-  their names, follow state and marks (added before indexing starts, as a
-  reload adds them), then shows its active tab, and makes this instance the
+  their names, follow state, marks and mark comments (added before indexing
+  starts, as a reload adds them; a comment on an unmarked line is dropped),
+  then shows its active tab, and makes this instance the
   session's owner. Only the owner writes the tab list; the launcher makes an
   instance the owner when it restored the session and has no `-m`.
 - `setOptions` (Tools > Options) applies the key bindings (listeners get
@@ -391,14 +394,27 @@ document's `SearchController` and `FilteredController`.
   the viewport, which lags the index until the next flush. `showLine` moves the caret to a line,
   centering it only when it is off screen.
 - `]` and `[` go to the next and previous mark; with none, a notice shows.
-  Marks are in memory only.
 - `toggleMarks` runs `MarkToggle` on a `qlogg-search-` worker with the
   `ActivityIndicator` active: one toggle at a time (a second `M` shows a
   notice), progress notices at most every 250 ms, `Esc` (`STOP`) cancels and
   keeps what changed. `STOP` also stops loading: indexing ends and growth
   stays unindexed until a reload. Marking reserves from `RESULTS` and stops with a notice
   at the share's limit. A toggle over more than 4,096 rows reports the count
-  when it ends.
+  when it ends. Unmarking removes the lines' comments.
+- Edit Mark Comment (`Shift+M`, `EDIT_MARK_COMMENT`) asks for the focused
+  view's caret line's comment (`MainView.askMarkComment`), then
+  `setMarkComment` marks the line when it is unmarked and sets the comment;
+  an empty comment keeps the mark without one. A mark or comment the
+  `RESULTS` share refuses, or a comment past 1,000 per document, shows a
+  notice. `removeMarks(lines)` removes marks and their comments.
+- `MarksListController` backs Tools > Marks List: the shown tab's first
+  10,000 marks as rows of line, comment and the line's first 160 chars,
+  read on a `qlogg-read-` worker under `LogDocument.enter`, one read at a
+  time. It follows `activeDocumentChanged`, `documentReplaced` and
+  `documentClosed`, and reads again when a content event finds the marks' or
+  comments' `version()` changed. Each row reserves 96 bytes plus 2 per char
+  from `RESULTS` while listed; rows past a refusal are left out. `close`
+  releases the rows and removes its listeners.
 - `refreshHighlights` builds one `Highlighter` for both views from the rules
   `HighlightComposer` returns. The color labels (`LabelState`) are charged to
   `HIGHLIGHT`; a state the share refuses is not applied. It runs when a search
@@ -428,6 +444,16 @@ toggle runs; until it arrives the rows keep the previous snapshot, so the
 marks are never walked on the UI thread. Moving the caret to a row shows its
 line in the main view. Its line numbers are the source lines' and toggle
 apart from the main view's.
+
+Context lines come from the shown set's toggles (`SearchController.shownOptions`:
+the current search's as it ran, or a kept set's), so a kept set keeps its
+counts. After the matches change, `ContextRows.extend` runs on a
+`qlogg-search-` worker before the marks snapshot, one build at a time; the
+rows stay on the installed build until the next arrives. `grew(lineCount)`
+re-reads the rows when the line count changes, so the last result's context
+extends with the file without a search. `contextRow` and `startsGroup` feed
+the row shading and the group rule; navigation, counts, the overview bar and
+the gutter bullets read the matches only.
 
 `SearchController` (from `DocumentController.search()`) runs one document's
 search and holds its field text, toggles and result sets.
@@ -463,6 +489,17 @@ search and holds its field text, toggles and result sets.
   the new match count, and a refresh that ends with more growth starts
   another. A search stopped at a limit, or whose range ends before the end of
   the file (search end line, in selection), is not refreshed.
+- With `range` on (`TOGGLE_RANGE`, no key), the field text starts a range and
+  `rangeEnd` ends it (`SearchQuery.rangeEnd`); an empty or malformed end fails
+  at once. The search start and end lines and the selection scope limit the
+  scan as for any search, and a range open at the scope's end runs to it. An
+  auto-refresh starts in the state the engine reported before the last
+  searched line, so an open range extends over appended lines.
+- `selectRange()` (`Ctrl+R`) selects the range around the main view's caret
+  with the field text, the range end and the current toggles, through
+  `RangeFinder` on a `qlogg-search-` worker inside a document entry, holding
+  the `ActivityIndicator`. A newer request or `cancel()` stops an older one;
+  with no range there, a notice shows and the selection stays.
 - `edit(ADD | EXCLUDE | REPLACE, selection)` rewrites the field text with
   `SearchEdits` and runs it when `search.runOnAdd` is on.
 - `findNext()` and `findPrevious()` move the caret to the nearest match of
@@ -543,6 +580,21 @@ regex reads at most `8 * length + 65,536` chars through the core
 (`DocumentController.setAutoHighlightSet`). Choosing sets in the Highlighters
 menu while that document shows drops its automatic set.
 
+### Tab data dot
+
+`TabDataModel` (`ApplicationController.tabData()`) keeps a `TabDataState` per
+tab of one window: `NONE`, `NEW_LINES` or `NEW_MATCHES`. It listens to each
+document's `DocumentViewListener` and `SearchViewListener` from
+`ApplicationController.start`, before indexing begins, and to the
+`ApplicationListener` events. A tab that is not shown takes `NEW_LINES` when
+its line count grows after the first indexing pass ends, and `NEW_MATCHES`
+when its search's match count grows from `DONE` to `DONE` within one
+generation, which only the auto-refresh of appended lines does; a new search
+run never sets a state. A state replaces only a lower-ranked one
+(`outranks`). Showing the tab sets `NONE`. A reload or reopen keeps the
+tab's state, and a replacement indexed in the background with at least one
+line takes `NEW_LINES`. A close or move out detaches the listeners.
+
 ### Menu state
 
 `CommandStates` maps each `CommandId` to its menu item's checked and enabled
@@ -613,7 +665,7 @@ write through `SettingsFile`, which applies the table above to their own file
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based) | 32 windows, 256 tabs over all windows, 100,000 mark ranges over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and `setEncoding` touch memory under a lock held
 for no I/O, so the UI thread calls them; `load` and `save` block. A session's
@@ -759,17 +811,26 @@ release, overscroll, follow on load and `-f`, auto-refresh over a grown last
 line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
 delete-then-recreate reopening the tab,
 reload and stop loading. `RememberedStateTest` runs the application twice over
-one settings directory: tabs, names, follow, marks, the active tab, the
-caret, the zoom, favorites, recent files, line numbers and the window state
+one settings directory: tabs, names, follow, marks, a mark comment, the
+active tab, the caret, the zoom, favorites, recent files, line numbers and the window state
 come back; `+line:N` wins over the remembered position; an encoding override
 reindexes and returns on the next open, and Auto clears it; a remembered name
 the runtime does not support logs one WARN naming it and opens with detection,
 and a supported one logs none; an instance that
-did not load the session writes none. `ReloadTest` checks that `F5` keeps marks and labels
-and drops marks past the end, and that a change on disk clears them.
+did not load the session writes none. `ReloadTest` checks that `F5` keeps
+marks, their comments and labels and drops marks and comments past the end,
+and that a change on disk clears them. `MarkCommentsTest` covers Edit Mark
+Comment on the caret line, an empty comment, unmarking and removing, a
+refused comment's notice, and the marks list following edits, removals and
+the shown tab and releasing its charge on close.
 `TabCommandsTest` covers the tab menu's close and rename commands, the path
 commands and the executable check, dropped files and open from clipboard
 (no file commands, the `PASTED` charge returned on close).
+`TabDataModelTest` checks that initial indexing and growth of the shown tab
+set no state, background growth sets `NEW_LINES` and showing clears it,
+matching growth wins over new lines and survives a reload, a search run in a
+background tab sets nothing, a background reload or truncation sets
+`NEW_LINES`, and a closed tab reports no further change.
 `ViewFeaturesTest` covers the fold mapping, expansion by go to line, mark
 jumps, find next and `showLine`, collapse all and expand all with the `FOLDS`
 charge returned, copy skipping hidden lines, block copy and block extension,
