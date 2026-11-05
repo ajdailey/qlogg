@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -78,6 +79,39 @@ class FileMonitorTest {
     assertTrue(handle.await(BOUND.toMillis()));
     assertTrue(handle.isDone());
     assertEquals(0, monitor.watchedDirectories());
+  }
+
+  /** A listener that throws is reported once per run of failures and keeps being called. */
+  @Test
+  void aThrowingListenerKeepsTheWatchRunning() throws Exception {
+    Path file = Files.writeString(dir.resolve("throws.log"), "x\n");
+    FileMonitor monitor = new FileMonitor(workers, new MonitorSettings(20, false));
+    final AtomicInteger calls = new AtomicInteger();
+    OperationHandle handle =
+        monitor.watch(
+            file,
+            new MonitorListener() {
+              @Override
+              public void possiblyChanged(Path path) {
+                int call = calls.incrementAndGet();
+                if (call <= 2 || call == 4) {
+                  throw new SecurityException("check " + call);
+                }
+              }
+            });
+    assertTrue(Poll.until(atLeast(calls, 6), BOUND));
+    handle.cancel();
+    assertTrue(handle.await(BOUND.toMillis()));
+    assertEquals("[check 1, check 4]", messages(failures));
+    failures.clear();
+  }
+
+  private static String messages(List<Throwable> errors) {
+    List<String> messages = new ArrayList<String>();
+    for (Throwable error : errors) {
+      messages.add(error.getMessage());
+    }
+    return messages.toString();
   }
 
   /** A directory event wakes the watch long before its poll interval. */

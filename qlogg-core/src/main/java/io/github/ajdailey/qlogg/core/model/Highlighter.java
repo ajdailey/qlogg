@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.text.BoundedChars;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,8 +34,6 @@ public final class Highlighter {
 
   /** Chars a line matcher reads before it stops coloring further lines. */
   public static final long BLOCK_STEPS = 1L << 26;
-
-  private static final int BASE_STEPS = 1 << 16;
 
   private final List<HighlightRule> rules;
   private volatile List<Pattern> compiled;
@@ -165,51 +164,6 @@ public final class Highlighter {
     return alpha << 24 | rgb.red() << 16 | rgb.green() << 8 | rgb.blue();
   }
 
-  /** Thrown when a rule reads more chars of a line than its bound. */
-  private static final class StepLimit extends RuntimeException {
-    private static final long serialVersionUID = 1L;
-
-    StepLimit() {
-      super(null, null, false, false);
-    }
-  }
-
-  /** A line's chars, counting reads against a bound. */
-  private static final class CountedChars implements CharSequence {
-    private CharSequence text = "";
-    private long remaining;
-    private long used;
-
-    void set(CharSequence line, long limit) {
-      text = line;
-      remaining = limit;
-    }
-
-    @Override
-    public int length() {
-      return text.length();
-    }
-
-    @Override
-    public char charAt(int index) {
-      if (--remaining < 0) {
-        throw new StepLimit();
-      }
-      used++;
-      return text.charAt(index);
-    }
-
-    @Override
-    public CharSequence subSequence(int from, int to) {
-      return text.subSequence(from, to).toString();
-    }
-
-    @Override
-    public String toString() {
-      return text.toString();
-    }
-  }
-
   /** Spans of one line under construction, sorted, without overlap. */
   private static final class Spans {
     private int[] data = new int[4 * 16];
@@ -278,7 +232,7 @@ public final class Highlighter {
   public static final class LineMatcher {
     private final List<HighlightRule> rules;
     private final Matcher[] matchers;
-    private final CountedChars chars = new CountedChars();
+    private final BoundedChars chars = new BoundedChars();
     private final Spans spans = new Spans();
     private int[] columns = new int[256];
     private long budget = BLOCK_STEPS;
@@ -310,16 +264,14 @@ public final class Highlighter {
       spans.clear();
       int lineForeground = 0;
       int lineBackground = 0;
-      long limit = 8L * text.length() + BASE_STEPS;
+      long limit = BoundedChars.lineLimit(text);
       for (int r = 0; r < rules.size() && budget > 0; r++) {
         Matcher matcher = matchers[r];
         if (matcher == null) {
           continue;
         }
         HighlightRule rule = rules.get(r);
-        chars.set(text, Math.min(limit, budget));
-        chars.used = 0;
-        matcher.reset(chars);
+        matcher.reset(chars.reset(text, Math.min(limit, budget)));
         try {
           if (rule.wholeLine()) {
             if (matcher.find()) {
@@ -334,11 +286,11 @@ public final class Highlighter {
           } else {
             matchOnly(rule, matcher, text, from, to);
           }
-        } catch (StepLimit | StackOverflowError e) {
+        } catch (BoundedChars.LimitReached | StackOverflowError e) {
           // This rule is abandoned for this line; spans it added so far stay. A deeply
           // recursive pattern on a long line overflows the regex engine's stack instead.
         }
-        budget -= chars.used;
+        budget -= chars.used();
       }
       return spans.freeze(lineForeground, lineBackground);
     }

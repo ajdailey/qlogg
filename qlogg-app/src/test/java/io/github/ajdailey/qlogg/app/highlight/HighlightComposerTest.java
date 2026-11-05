@@ -88,6 +88,9 @@ class HighlightComposerTest {
     HighlightRule regex = match(new LastSearch("l.ne", MatchMode.REGEX, false, true, false, false));
     assertEquals("(?<!\\w)(?:l.ne)(?!\\w)", regex.pattern());
     assertFalse(regex.caseSensitive());
+    HighlightRule quoted =
+        match(new LastSearch("\\Qa.b", MatchMode.REGEX, true, true, false, false));
+    assertEquals("(?<!\\w)(?:\\Qa.b\\E)(?!\\w)", quoted.pattern());
   }
 
   @Test

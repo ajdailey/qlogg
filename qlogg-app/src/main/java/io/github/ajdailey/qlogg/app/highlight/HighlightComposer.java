@@ -4,9 +4,11 @@ import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Composes the rules one document's views color their rows with, lowest priority first: the active
@@ -97,7 +99,12 @@ public final class HighlightComposer {
     MatchMode mode = search.mode();
     if (search.wholeWord()) {
       String inner = mode == MatchMode.REGEX ? pattern : Pattern.quote(pattern);
-      pattern = "(?<!\\w)(?:" + inner + ")(?!\\w)";
+      try {
+        pattern = StandardMatchers.wholeWord(inner);
+      } catch (PatternSyntaxException e) {
+        // The highlighter skips a rule that does not compile.
+        pattern = inner;
+      }
       mode = MatchMode.REGEX;
       if (pattern.length() > HighlightRule.MAX_PATTERN_CHARS) {
         return null;

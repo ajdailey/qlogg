@@ -46,7 +46,9 @@
   folds only in a regex, a malformed UTF-8 byte is U+FFFD only to a regex, and
   an unaligned UTF-16 byte match does not count. A case-sensitive regex without
   metacharacters runs as bytes and matches what `Pattern` finds, with and
-  without whole word.
+  without whole word. Whole word on a regex ending inside `\Q`, inside a
+  `(?x)` comment, and inside a `\Q` in such a comment must match as the
+  pattern alone does; the plain wrapper failed these with "Unclosed group".
 - Catastrophic backtracking uses `(.*a){25}x` on 60 `a`s. Java's regex
   memoizes simpler forms such as `(a|aa)+b`, which then return at once and
   test nothing. A gated `MatcherFactory` signals once matching has started,
@@ -68,7 +70,10 @@
   `contains` and `rank` around every member and bucket edge, over 4 buckets
   and over 2^40 lines. It checks the array-to-bitmap switch at 4,097 entries,
   the return at 2,048, `retainedBytes()` against the formula, and that it
-  equals the `RESULTS` reservation.
+  equals the `RESULTS` reservation. One match in each of 100,000 buckets must
+  be charged at least 99% of the heap the set holds after a full collection
+  and at most 125%; the 24 B per-bucket charge covered 3.2 MB of 7.4 MB
+  measured.
 - `LargeFileSearchTest` searches a 2.2 GB sparse file of 1 MiB lines, with
   matches at the first line, just past 2^31 bytes and in the partial last
   line, and a sparse file whose second line is longer than `MAX_LINE_BYTES`:
@@ -119,7 +124,11 @@
   groups including an unmatched group, case folding and literal mode,
   opacity, disabled and empty rules, variance stable per string, tab columns
   and window clipping, the 256-span cap and its cost, a backtracking pattern
-  abandoned within the step bound, and a pattern that does not compile.
+  abandoned within the step bound, and a pattern that does not compile. The
+  backtracking case uses `(.*a){12}$` on 32 `a`s and `!`: JDK 21 returns
+  `(a+)+$` at once and leaves the bound untested. With the line bound
+  removed, the matcher's 2^26-char budget runs out and the next rule's span
+  is missing. `BoundedCharsTest` checks the limit, `used()` and `reset`.
 - `OverviewBinsTest` compares `lineAt` with `BigInteger` arithmetic up to
   `Long.MAX_VALUE` lines, inverts it with `rowOf` past 2^31 lines, and counts
   bins for dense, sparse and fewer-lines-than-pixels cases.
@@ -161,7 +170,9 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
   head.
 - `FileMonitorTest` checks the poll and the cancel, and that a directory event
   wakes a watch long before its poll interval; that case skips on macOS,
-  whose `WatchService` polls.
+  whose `WatchService` polls. A listener that throws on checks 1, 2 and 4 must
+  still be called a sixth time, and the handler must receive checks 1 and 4
+  only: an exception ended the watch thread silently, and with it following.
 
 ## Platform assumptions
 

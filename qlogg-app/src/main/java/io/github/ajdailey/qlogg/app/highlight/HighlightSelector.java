@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.highlight;
 
+import io.github.ajdailey.qlogg.core.text.BoundedChars;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
@@ -19,8 +20,6 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
 
   /** Most selectors kept. */
   public static final int MAX_SELECTORS = 256;
-
-  private static final int BASE_READS = 1 << 16;
 
   /** Checks the components: exactly one pattern, each within {@link #MAX_PATTERN_CHARS}. */
   public HighlightSelector {
@@ -77,8 +76,9 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
       return false;
     }
     try {
-      return pattern.matcher(new BoundedChars(line, 8L * line.length() + BASE_READS)).find();
-    } catch (ReadLimit | StackOverflowError e) {
+      BoundedChars chars = new BoundedChars().reset(line, BoundedChars.lineLimit(line));
+      return pattern.matcher(chars).find();
+    } catch (BoundedChars.LimitReached | StackOverflowError e) {
       return false;
     }
   }
@@ -96,49 +96,6 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
       return Pattern.compile(firstLinePattern);
     } catch (IllegalArgumentException e) {
       return null;
-    }
-  }
-
-  /** Thrown when a match reads more chars than its bound. */
-  private static final class ReadLimit extends RuntimeException {
-    private static final long serialVersionUID = 1L;
-
-    ReadLimit() {
-      super(null, null, false, false);
-    }
-  }
-
-  /** A line's chars, counting reads against a bound. */
-  private static final class BoundedChars implements CharSequence {
-    private final CharSequence text;
-    private long remaining;
-
-    BoundedChars(CharSequence text, long limit) {
-      this.text = text;
-      this.remaining = limit;
-    }
-
-    @Override
-    public int length() {
-      return text.length();
-    }
-
-    @Override
-    public char charAt(int index) {
-      if (--remaining < 0) {
-        throw new ReadLimit();
-      }
-      return text.charAt(index);
-    }
-
-    @Override
-    public CharSequence subSequence(int from, int to) {
-      return text.subSequence(from, to).toString();
-    }
-
-    @Override
-    public String toString() {
-      return text.toString();
     }
   }
 }

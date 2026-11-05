@@ -538,8 +538,8 @@ group. A group is a snapshot of its file at run time.
 `ViewFeatures` applies the view settings to each new document and tries the
 `HighlightSelector`s in order: a file-name glob on the UI thread, a first-line
 regex on a `qlogg-read-` worker over the first 4 KiB, decoded. A first-line
-regex reads at most `8 * length + 65,536` chars, the highlighter's bound, and
-counts as no match past it. The first match colors that document with the chosen set instead of the active sets
+regex reads at most `8 * length + 65,536` chars through the core
+`BoundedChars`, the highlighter's bound, and counts as no match past it. The first match colors that document with the chosen set instead of the active sets
 (`DocumentController.setAutoHighlightSet`). Choosing sets in the Highlighters
 menu while that document shows drops its automatic set.
 
@@ -637,7 +637,7 @@ Pure functions, tested without a document.
 |---|---|
 | `HighlightSettings` | The sets (at most 256, distinct ids), the active ids (unknown ids dropped), 9 `ColorLabel`s and the `MatchHighlight`. `rulesInApplyOrder` lists the active sets' rules so the top rule of the first active set applies last and wins; `withImported` appends only sets with new ids |
 | `HighlightFile` | The keys in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. `read` takes the user's path through `SafePaths.logFile`, refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `write` replaces the file through `AtomicFiles` |
-| `HighlightComposer` | `compose` returns one document's rules, lowest priority first: the active sets (`rulesInApplyOrder`), or only the automatic set while a set has its id; the match rule of the last search; the color labels in the palette's colors. `LastSearch` carries the search toggles the match rule reads, so `app.highlight` does not depend on `app.view` (that dependency forms a package cycle). `matchRule` returns null when the match highlight is off, for empty text, for a combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`, counting the whole-word wrap `(?<!\w)(?:...)(?!\w)` around the quoted or regex text |
+| `HighlightComposer` | `compose` returns one document's rules, lowest priority first: the active sets (`rulesInApplyOrder`), or only the automatic set while a set has its id; the match rule of the last search; the color labels in the palette's colors. `LastSearch` carries the search toggles the match rule reads, so `app.highlight` does not depend on `app.view` (that dependency forms a package cycle). `matchRule` returns null when the match highlight is off, for empty text, for a combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`, counting the whole-word wrap `(?<!\w)(?:...)(?!\w)` that `StandardMatchers.wholeWord` puts around the quoted or regex text |
 | `HighlightSetsEditor` | The Configure Highlighters list model over a copy of the sets: add, remove, move and rename sets, add, remove and move rules, at most `MAX_SETS` sets and `MAX_RULES` rules per set. Each edit returns the index to select next; an index out of range changes nothing; removing a set drops its active id. `setRule` keeps a rule that does not compile and returns `validate`'s message; `importSets` appends the sets with new ids |
 | `LabelState` | One document's labeled texts. `apply(n, text)` moves a text to label n, or removes it when it has n; `next` steps the cycle (labels with `cycle`) and removes a labeled text's label, still advancing; `EMPTY` clears and restarts the cycle. At most 256 texts; cost 56 bytes per text plus 2 per char |
 

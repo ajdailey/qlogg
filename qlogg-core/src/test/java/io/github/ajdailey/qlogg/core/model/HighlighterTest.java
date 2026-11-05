@@ -137,17 +137,21 @@ class HighlighterTest {
         spans.retainedBytes());
   }
 
+  /**
+   * {@code (.*a){12}$} backtracks on JDK 21 (30 chars took 10 s unbounded on the development host);
+   * {@code (a+)+$} does not. The line's read bound abandons the rule and the next rule still runs.
+   */
   @Test
   void aBacktrackingPatternIsAbandonedOnTheLine() {
     StringBuilder line = new StringBuilder();
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 32; i++) {
       line.append('a');
     }
     line.append('!');
     long started = System.nanoTime();
-    HighlightSpans spans = spans(line.toString(), word("(a+)+$", RED), word("!", BLUE));
+    HighlightSpans spans = spans(line.toString(), word("(.*a){12}$", RED), word("!", BLUE));
     assertTrue(System.nanoTime() - started < 5_000_000_000L);
-    assertEquals("[40,41 ff0000ff]", describe(spans));
+    assertEquals("[32,33 ff0000ff]", describe(spans));
   }
 
   @Test

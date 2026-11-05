@@ -249,6 +249,27 @@ class StandardMatchersTest {
     }
   }
 
+  /** An open {@code \Q} or a trailing {@code (?x)} comment would swallow the wrapper's group. */
+  @Test
+  void wholeWordClosesAnOpenQuoteOrComment() {
+    String[] patterns = {
+      "\\Qa.b",
+      "(?x) a \\. b  # the dot is literal",
+      "(?x) a\\.b # \\Q quoted in the comment",
+      "a\\.b"
+    };
+    for (String pattern : patterns) {
+      SearchQuery word = query(pattern, MatchMode.REGEX, true, true);
+      assertTrue(matches(word, StandardCharsets.UTF_8, "x a.b y"), pattern);
+      assertTrue(matches(word, StandardCharsets.UTF_8, "a.b"), pattern);
+      assertFalse(matches(word, StandardCharsets.UTF_8, "xa.b"), pattern);
+      assertFalse(matches(word, StandardCharsets.UTF_8, "a.bc"), pattern);
+      assertFalse(matches(word, StandardCharsets.UTF_8, "axb"), pattern);
+    }
+    assertEquals("(?<!\\w)(?:a|ab)(?!\\w)", StandardMatchers.wholeWord("a|ab"));
+    assertTrue(matches(query("a|ab", MatchMode.REGEX, true, true), StandardCharsets.UTF_8, "ab"));
+  }
+
   @Test
   void regexAnchorsAtTheLineEdges() {
     assertTrue(

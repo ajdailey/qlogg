@@ -235,7 +235,10 @@ term takes one of these forms:
   `UNIX_LINES` makes no other char a line terminator.
 - Whole word: a term matches only where the chars before and after it are not
   `[A-Za-z0-9_]`. A byte search checks the bytes around the match (ASCII-compatible
-  encodings only); otherwise the regex is wrapped in `(?<!\w)(?:...)(?!\w)`.
+  encodings only); otherwise `StandardMatchers.wholeWord` wraps the regex in
+  `(?<!\w)(?:...)(?!\w)`. A pattern that ends inside `\Q`, a `(?x)` comment,
+  or a `\Q` inside such a comment (`Pattern` reads it as a quote) gets `\E`, a
+  line feed or both before the closing parenthesis.
 - Inverse negates the whole expression.
 - With `SearchQuery.hideAnsi`, `LineText` removes ANSI SGR sequences from the
   decoded chars and every literal runs as a quoted regex, because the file's
@@ -257,8 +260,11 @@ than 256 is an error.
 bitmap returns to an array at 2,048 entries or fewer. Counts of the entries
 before each bucket make `rank` and `select` a binary search over buckets.
 
-- Cost (`retainedBytes()`): 24 B per bucket, plus 2 B per array slot or 8 KiB
-  per bitmap.
+- Cost (`retainedBytes()`): 40 B per bucket (object and array header), plus
+  2 B per array slot padded to 8 B or 8 KiB per bitmap, plus 20 B per slot of
+  the bucket directory, which doubles as it grows. These are HotSpot sizes with
+  compressed references (heaps under 32 GiB). For one match per bucket that
+  is 74 B; `MutableLineSetTest` measures it against the heap.
 - With a budget, the set holds exactly that much of `RESULTS`. `addSorted`
   reserves an upper bound of the batch's growth first and adds nothing when
   the share refuses; `add` and `toggle` charge without the limit check;
@@ -277,6 +283,12 @@ C0 controls, DEL, NEL, U+2028 and U+2029 become `_`, and the result is cut at
 1,024 chars. `config/findsecbugs-taint.txt` registers it with find-sec-bugs as
 removing CR and LF.
 
+`BoundedChars` is the `CharSequence` a user regex runs over outside a search:
+`charAt` throws `BoundedChars.LimitReached` past the limit given to `reset`,
+and `used()` counts the reads. `lineLimit(line)` is `8 * length + 65,536`.
+`Highlighter` and the app's `HighlightSelector` use it, so a backtracking
+pattern ends at the bound instead of stalling the reading thread.
+
 ## File monitoring (`core.watch`)
 
 `FileMonitor.watch(path, listener)` starts a `qlogg-follow-` thread that calls
@@ -287,7 +299,9 @@ a `WatchService` misses events on network mounts and polls on macOS. One
 `WatchService` serves every directory; its dispatcher thread ends when no
 directory is registered or the workers close. Registration runs on the watch's
 own thread; a directory that cannot be registered is polled only. `cancel`
-ends the watch within one check. `setSettings` replaces the settings: the
+ends the watch within one check. An exception from the listener goes to the
+thread's uncaught-exception handler, once per run of failing checks, and the
+watch continues. `setSettings` replaces the settings: the
 interval applies from each watch's next wait, directory events to watches
 started afterwards.
 
@@ -471,7 +485,8 @@ so it wins.
   none). A line keeps at most 256 spans. Cost: 16 bytes per span plus 32.
 - Patterns compile on first use, on the reading thread; one that does not
   compile is skipped. A rule that reads more than `8 * length + 65,536`
-  chars of a line, or overflows the regex stack, is abandoned for that line,
+  chars of a line (`BoundedChars`), or overflows the regex stack, is abandoned
+  for that line,
   and a `LineMatcher` stops coloring after 2^26 chars, so a backtracking
   pattern bounds a read instead of stalling it.
 - Measured once on this host, one thread: four rules over a 1 MiB line take

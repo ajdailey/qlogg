@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.ref.Reference;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.SplittableRandom;
@@ -16,6 +19,10 @@ import org.junit.jupiter.api.function.Executable;
 
 class MutableLineSetTest {
   private static final long B = MutableLineSet.BUCKET_LINES;
+
+  /** Directory bytes once the first bucket exists. */
+  private static final long DIRECTORY =
+      MutableLineSet.FIRST_DIRECTORY * MutableLineSet.DIRECTORY_SLOT_BYTES;
 
   /** Checks every query against the reference at probes around each member and bucket edge. */
   private static void assertSame(TreeSet<Long> reference, LineSet set) {
@@ -114,11 +121,13 @@ class MutableLineSetTest {
       reference.add(base + 2L * i);
     }
     long sparse = set.retainedBytes();
-    assertEquals(MutableLineSet.BUCKET_OVERHEAD + 2L * MutableLineSet.SPARSE_MAX, sparse);
+    assertEquals(
+        DIRECTORY + MutableLineSet.BUCKET_OVERHEAD + 2L * MutableLineSet.SPARSE_MAX, sparse);
     set.add(base + 1);
     reference.add(base + 1);
     assertEquals(
-        MutableLineSet.BUCKET_OVERHEAD + 8L * MutableLineSet.BITMAP_WORDS, set.retainedBytes());
+        DIRECTORY + MutableLineSet.BUCKET_OVERHEAD + 8L * MutableLineSet.BITMAP_WORDS,
+        set.retainedBytes());
     assertSame(reference, set);
     Iterator<Long> values = reference.iterator();
     while (reference.size() > MutableLineSet.SPARSE_RETURN) {
@@ -127,7 +136,8 @@ class MutableLineSetTest {
       assertFalse(set.toggle(line));
     }
     assertEquals(
-        MutableLineSet.BUCKET_OVERHEAD + 2L * MutableLineSet.SPARSE_RETURN, set.retainedBytes());
+        DIRECTORY + MutableLineSet.BUCKET_OVERHEAD + 2L * MutableLineSet.SPARSE_RETURN,
+        set.retainedBytes());
     assertSame(reference, set);
   }
 
@@ -142,7 +152,7 @@ class MutableLineSetTest {
     }
     assertTrue(set.addSorted(all, all.length));
     assertEquals(
-        2 * (MutableLineSet.BUCKET_OVERHEAD + 8L * MutableLineSet.BITMAP_WORDS),
+        DIRECTORY + 2 * (MutableLineSet.BUCKET_OVERHEAD + 8L * MutableLineSet.BITMAP_WORDS),
         set.retainedBytes());
     assertEquals(B + B / 2, set.select(B / 2));
     set.removeFrom(B + B + 100);
@@ -163,12 +173,17 @@ class MutableLineSetTest {
     MutableLineSet set = new MutableLineSet();
     long[] lines = {1, 2, 3, 4, 5};
     assertTrue(set.addSorted(lines, 5));
-    int capacity = MutableLineSet.capacityFor(0, 5);
-    assertEquals(MutableLineSet.BUCKET_OVERHEAD + 2L * capacity, set.retainedBytes());
+    assertEquals(5, MutableLineSet.capacityFor(0, 5));
+    assertEquals(4, MutableLineSet.capacityFor(0, 1));
+    // 5 chars pad to 16 bytes, 4 chars fill 8.
+    assertEquals(DIRECTORY + MutableLineSet.BUCKET_OVERHEAD + 16, set.retainedBytes());
     set.add(B * 7);
+    assertEquals(DIRECTORY + 2 * MutableLineSet.BUCKET_OVERHEAD + 16 + 8, set.retainedBytes());
+    for (int i = 2; i <= MutableLineSet.FIRST_DIRECTORY; i++) {
+      set.add(B * 7 * i);
+    }
     assertEquals(
-        2 * MutableLineSet.BUCKET_OVERHEAD + 2L * capacity + 2L * MutableLineSet.capacityFor(0, 1),
-        set.retainedBytes());
+        2 * DIRECTORY + 9 * MutableLineSet.BUCKET_OVERHEAD + 16 + 8 * 8, set.retainedBytes());
     assertEquals(6, MutableLineSet.capacityFor(4, 5));
     assertEquals(MutableLineSet.SPARSE_MAX, MutableLineSet.capacityFor(4000, 4001));
   }
@@ -292,5 +307,45 @@ class MutableLineSetTest {
     assertTrue(set.version() > version);
     assertEquals(0, set.retainedBytes());
     assertEquals(0, budget.reserved(MemoryShare.RESULTS));
+  }
+
+  /** Heap in use after a full collection, the least of three readings. */
+  private static long heapAfterGc() {
+    MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
+    long used = Long.MAX_VALUE;
+    for (int i = 0; i < 3; i++) {
+      System.gc();
+      used = Math.min(used, memory.getHeapMemoryUsage().getUsed());
+    }
+    return used;
+  }
+
+  /**
+   * One match per bucket is the costliest shape per entry: the bucket object, the array header and
+   * the directory slots outweigh the entry. The charge must cover the heap the set holds, measured
+   * after a full collection, within 5%: the reading exceeds the layout by 3 KB when the test runs
+   * alone and by 41 KB after other tests in the same JVM (Linux, G1), and other lanes run other
+   * collectors and heap sizes. The undercharge this pins was 57%.
+   */
+  @Test
+  void retainedBytesCoverTheMeasuredHeapOfSparseBuckets() {
+    int buckets = 100_000;
+    long[] lines = new long[buckets];
+    for (int i = 0; i < buckets; i++) {
+      lines[i] = i * B + 17;
+    }
+    long before = heapAfterGc();
+    MutableLineSet set = new MutableLineSet();
+    for (int i = 0; i < buckets; i += MutableLineSet.SPARSE_MAX) {
+      int n = Math.min(MutableLineSet.SPARSE_MAX, buckets - i);
+      assertTrue(set.addSorted(Arrays.copyOfRange(lines, i, i + n), n));
+    }
+    long measured = heapAfterGc() - before;
+    long retained = set.retainedBytes();
+    Reference.reachabilityFence(set);
+    Reference.reachabilityFence(lines);
+    String report = "retained " + retained + " B, measured " + measured + " B";
+    assertTrue(retained >= measured - measured / 20, report);
+    assertTrue(retained <= measured + measured / 4, report);
   }
 }

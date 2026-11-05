@@ -29,6 +29,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * dispatches its events and ends when the last watch ends or the workers close. Registration runs
  * on the watch's own thread, so {@link #watch} does no I/O. A directory that cannot be registered
  * is polled only. Lock order: {@code lock} alone; it is never held during a listener call.
+ *
+ * <p>An exception from the listener does not end the watch: it goes to the thread's
+ * uncaught-exception handler, once until a check completes, and the next check runs as usual.
  */
 public final class FileMonitor {
   /** Least interval between two listener calls of one watch. */
@@ -274,11 +277,21 @@ public final class FileMonitor {
 
     @Override
     public void run() {
+      boolean failing = false;
       try {
         register(this);
         while (!canceled) {
           long started = System.nanoTime();
-          listener.possiblyChanged(path);
+          try {
+            listener.possiblyChanged(path);
+            failing = false;
+          } catch (Exception e) {
+            if (!failing) {
+              Thread self = Thread.currentThread();
+              self.getUncaughtExceptionHandler().uncaughtException(self, e);
+            }
+            failing = true;
+          }
           long spent = (System.nanoTime() - started) / 1_000_000L;
           if (spent < MIN_GAP_MILLIS && pause(MIN_GAP_MILLIS - spent)) {
             break;

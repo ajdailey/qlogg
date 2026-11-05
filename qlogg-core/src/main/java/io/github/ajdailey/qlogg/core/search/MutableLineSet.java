@@ -13,7 +13,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * select} a binary search over buckets.
  *
  * <p>Cost ({@link #retainedBytes}): {@link #BUCKET_OVERHEAD} bytes per bucket, plus 2 bytes per
- * array slot or {@code 8 * BITMAP_WORDS} bytes per bitmap. With a budget, the set holds exactly
+ * array slot padded to 8 bytes or {@code 8 * BITMAP_WORDS} bytes per bitmap, plus {@link
+ * #DIRECTORY_SLOT_BYTES} per slot of the bucket directory, which grows by doubling. The sizes are
+ * HotSpot's with compressed references (heaps under 32 GiB). With a budget, the set holds exactly
  * that much of {@link MemoryShare#RESULTS}: {@link #addSorted} reserves first and adds nothing when
  * the share refuses; {@link #add} and {@link #toggle} charge without the limit check; removals
  * release. {@link #clear} returns everything.
@@ -34,8 +36,14 @@ public final class MutableLineSet implements LineSet {
   /** Words of a bitmap bucket. */
   public static final int BITMAP_WORDS = BUCKET_LINES / 64;
 
-  /** Bytes charged per bucket for its key, count and reference. */
-  public static final long BUCKET_OVERHEAD = 24;
+  /** Bytes charged per bucket for the bucket object and its array header. */
+  public static final long BUCKET_OVERHEAD = 40;
+
+  /** Bytes charged per directory slot: a key, a bucket reference and a count before. */
+  public static final long DIRECTORY_SLOT_BYTES = 20;
+
+  /** Directory slots allocated by the first bucket. */
+  static final int FIRST_DIRECTORY = 8;
 
   private static final int BUCKET_SHIFT = 16;
   private static final int LOW_MASK = BUCKET_LINES - 1;
@@ -43,9 +51,9 @@ public final class MutableLineSet implements LineSet {
 
   private final MemoryBudget budget;
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private long[] keys = new long[8];
-  private Bucket[] buckets = new Bucket[8];
-  private long[] before = new long[8];
+  private long[] keys = new long[0];
+  private Bucket[] buckets = new Bucket[0];
+  private long[] before = new long[0];
   private int bucketCount;
   private long size;
   private long retained;
@@ -73,7 +81,7 @@ public final class MutableLineSet implements LineSet {
     int count;
 
     long cost() {
-      return bits != null ? 8L * BITMAP_WORDS : 2L * values.length;
+      return bits != null ? 8L * BITMAP_WORDS : arrayBytes(values.length);
     }
 
     boolean contains(int low) {
@@ -286,6 +294,20 @@ public final class MutableLineSet implements LineSet {
     }
     int grown = current + (current >> 1);
     return Math.min(SPARSE_MAX, Math.max(MIN_CAPACITY, Math.max(needed, grown)));
+  }
+
+  /** Bytes of a char array's elements, padded to the 8-byte object alignment. */
+  static long arrayBytes(int capacity) {
+    return (2L * capacity + 7) & ~7L;
+  }
+
+  /** Directory capacity after growing by doubling to hold the buckets. */
+  private static int directoryFor(int current, int needed) {
+    int capacity = current;
+    while (capacity < needed) {
+      capacity = capacity == 0 ? FIRST_DIRECTORY : capacity * 2;
+    }
+    return capacity;
   }
 
   private static int lowerBound(char[] values, int count, int low) {
@@ -713,6 +735,7 @@ public final class MutableLineSet implements LineSet {
   /** Upper bound of the cost the batch adds; the merge never grows a bucket past it. */
   private long plannedGrowth(long[] lines, int count) {
     long growth = 0;
+    int added = 0;
     int i = 0;
     while (i < count) {
       long key = lines[i] >>> BUCKET_SHIFT;
@@ -724,6 +747,7 @@ public final class MutableLineSet implements LineSet {
       int at = find(key);
       if (at < 0) {
         growth += BUCKET_OVERHEAD + bucketCost(0, n);
+        added++;
       } else {
         Bucket bucket = buckets[at];
         if (bucket.bits == null) {
@@ -731,11 +755,12 @@ public final class MutableLineSet implements LineSet {
         }
       }
     }
-    return growth;
+    int directory = directoryFor(keys.length, bucketCount + added);
+    return growth + DIRECTORY_SLOT_BYTES * (directory - keys.length);
   }
 
   private static long bucketCost(int capacity, int entries) {
-    return entries > SPARSE_MAX ? 8L * BITMAP_WORDS : 2L * capacityFor(capacity, entries);
+    return entries > SPARSE_MAX ? 8L * BITMAP_WORDS : arrayBytes(capacityFor(capacity, entries));
   }
 
   private void addLocked(long line) {
@@ -753,7 +778,8 @@ public final class MutableLineSet implements LineSet {
       return i;
     }
     if (bucketCount == keys.length) {
-      int capacity = keys.length * 2;
+      int capacity = directoryFor(keys.length, bucketCount + 1);
+      retained += DIRECTORY_SLOT_BYTES * (capacity - keys.length);
       keys = Arrays.copyOf(keys, capacity);
       buckets = Arrays.copyOf(buckets, capacity);
       before = Arrays.copyOf(before, capacity);
@@ -782,9 +808,18 @@ public final class MutableLineSet implements LineSet {
     buckets[bucketCount] = null;
   }
 
-  /** Recomputes the counts before each bucket from one bucket on, then the reservation. */
+  /**
+   * Recomputes the counts before each bucket from one bucket on, drops the directory of an empty
+   * set, then settles the reservation.
+   */
   private void settle(int from) {
     version++;
+    if (bucketCount == 0 && keys.length > 0) {
+      retained -= DIRECTORY_SLOT_BYTES * keys.length;
+      keys = new long[0];
+      buckets = new Bucket[0];
+      before = new long[0];
+    }
     long n = from > 0 && from <= bucketCount ? before[from - 1] + buckets[from - 1].count : 0;
     int start = from > 0 && from <= bucketCount ? from : 0;
     for (int i = start; i < bucketCount; i++) {

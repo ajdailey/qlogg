@@ -11,6 +11,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * The matchers QLogg searches with. Each term compiles to one of two forms:
@@ -32,8 +33,8 @@ import java.util.regex.Pattern;
  * charsets, and UTF-16 or UTF-32 at unit-aligned offsets. Whole word on bytes needs an
  * ASCII-compatible encoding, else the term runs as a regex. Regexes compile with {@code
  * UNIX_LINES}, so {@code ^}, {@code $} and {@code .} treat the line as one line, plus {@code
- * CASE_INSENSITIVE | UNICODE_CASE} when case folds; whole word wraps the pattern in {@code
- * (?<!\w)(?:...)(?!\w)}. Thread-safe; each matcher it creates is not.
+ * CASE_INSENSITIVE | UNICODE_CASE} when case folds; whole word wraps the pattern with {@link
+ * #wholeWord}. Thread-safe; each matcher it creates is not.
  */
 public final class StandardMatchers implements MatcherFactory {
   /** The shared instance. */
@@ -42,7 +43,38 @@ public final class StandardMatchers implements MatcherFactory {
   /** Characters with a meaning in a {@link Pattern} outside a character class. */
   private static final String REGEX_META = "\\^$.|?*+()[]{}";
 
+  /** Text tried after a pattern so the wrapper's closing group stays outside it. */
+  private static final String[] CLOSERS = {"", "\\E", "\n", "\\E\n"};
+
   private StandardMatchers() {}
+
+  /**
+   * Wraps a regex in {@code (?<!\w)(?:...)(?!\w)}, so a match needs a non-word char or the line
+   * edge on each side. The pattern is closed first with {@code \E} when it ends inside {@code \Q},
+   * with a line feed when it ends inside a {@code (?x)} comment, or with both for a {@code \Q}
+   * inside such a comment, which {@link Pattern} still reads as a quote. Each would otherwise
+   * swallow the closing parenthesis.
+   *
+   * @param pattern a regex that compiles alone
+   * @return the wrapped regex
+   * @throws PatternSyntaxException when the pattern does not compile
+   */
+  public static String wholeWord(String pattern) {
+    int groups = Pattern.compile(pattern, Pattern.UNIX_LINES).matcher("").groupCount();
+    for (String closer : CLOSERS) {
+      String closed = pattern + closer;
+      try {
+        // A group appended after the closer counts only when the closer ends quoting or a comment.
+        if (Pattern.compile(closed + "()", Pattern.UNIX_LINES).matcher("").groupCount()
+            == groups + 1) {
+          return "(?<!\\w)(?:" + closed + ")(?!\\w)";
+        }
+      } catch (PatternSyntaxException e) {
+        // A stray \E outside \Q; the next closer applies.
+      }
+    }
+    throw new PatternSyntaxException("Whole word cannot close the pattern", pattern, -1);
+  }
 
   @Override
   public LineMatcher create(SearchQuery query, TextEncoding encoding, CancellationToken token) {
@@ -219,7 +251,7 @@ public final class StandardMatchers implements MatcherFactory {
     if (!query.caseSensitive()) {
       flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
     }
-    String source = query.wholeWord() ? "(?<!\\w)(?:" + pattern + ")(?!\\w)" : pattern;
+    String source = query.wholeWord() ? wholeWord(pattern) : pattern;
     final Matcher matcher = Pattern.compile(source, flags).matcher("");
     return new Node() {
       @Override
