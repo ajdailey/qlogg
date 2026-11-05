@@ -18,10 +18,12 @@ import io.github.ajdailey.qlogg.app.log.RecentLog;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -263,6 +265,25 @@ class WindowSetTest {
     assertEquals(2, saved.size());
     assertTrue(saved.get(0).tabs().get(0).path().endsWith("a.log"));
     assertTrue(saved.get(1).tabs().get(0).path().endsWith("b.log"));
+  }
+
+  @Test
+  void searchTogglesSetInOneWindowSeedADocumentOpenedInAnother() throws Exception {
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    openIn(first, log("a.log"));
+    SearchOptions used =
+        SearchOptions.DEFAULTS
+            .withMode(MatchMode.LITERAL)
+            .withCaseSensitive(false)
+            .withWholeWord(true)
+            .withKeepResults(true);
+    first.documents().get(0).search().run("two", used.withInSelection(true));
+
+    openIn(second, log("b.log"));
+    assertEquals(used, second.documents().get(0).search().options());
+    openIn(first, log("c.log"));
+    assertEquals(used, first.documents().get(1).search().options());
   }
 
   /** A log that is not valid UTF-8, so its open falls back to the gated charset. */

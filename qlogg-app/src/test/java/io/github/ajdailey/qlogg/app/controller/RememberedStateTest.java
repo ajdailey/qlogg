@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -26,11 +30,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 /** Settings, the session, positions and UI state written by one run and read by the next. */
 class RememberedStateTest {
@@ -256,6 +262,76 @@ class RememberedStateTest {
             }
           });
       assertEquals("UTF-16LE", run.application.activeDocument().state().encodingName());
+    }
+  }
+
+  /** Records the WARN events {@code DocumentOpener} logs while open. */
+  private static final class OpenerWarnings implements AutoCloseable {
+    final ListAppender<ILoggingEvent> events = new ListAppender<ILoggingEvent>();
+    final Logger logger = (Logger) LoggerFactory.getLogger(DocumentOpener.class);
+
+    OpenerWarnings() {
+      events.setContext(logger.getLoggerContext());
+      events.start();
+      logger.addAppender(events);
+      logger.setLevel(Level.WARN);
+    }
+
+    List<String> messages() {
+      List<String> out = new ArrayList<String>();
+      for (ILoggingEvent event : events.list) {
+        out.add(event.getFormattedMessage());
+      }
+      return out;
+    }
+
+    @Override
+    public void close() {
+      logger.detachAppender(events);
+      logger.setLevel(null);
+      events.stop();
+    }
+  }
+
+  @Test
+  void anUnsupportedRememberedEncodingWarnsAndFallsBackToDetection() throws Exception {
+    Path file = temp.resolve("wide.log");
+    Files.write(file, "one\ntwo\nthree\n".getBytes(StandardCharsets.UTF_16LE));
+    try (OpenerWarnings warnings = new OpenerWarnings()) {
+      try (Run run = new Run()) {
+        run.application.open(List.of(new FileRequest(file, 0)));
+        run.untilOpen(1);
+        final DocumentController detected = run.application.activeDocument();
+        run.application.setEncoding(detected, StandardCharsets.ISO_8859_1);
+        run.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController now = run.application.activeDocument();
+                return now != detected && now.state().encodingForced() && !now.state().indexing();
+              }
+            });
+      }
+      try (Run run = new Run()) {
+        run.application.open(List.of(new FileRequest(file, 0)));
+        run.untilOpen(1);
+        assertEquals("ISO-8859-1", run.application.activeDocument().state().encodingName());
+      }
+      assertEquals(List.of(), warnings.messages());
+
+      Path positions = temp.resolve("settings").resolve(PositionStore.FILE);
+      Files.writeString(
+          positions, Files.readString(positions).replace("ISO-8859-1", "x-mock-unsupported"));
+      try (Run run = new Run()) {
+        run.application.open(List.of(new FileRequest(file, 0)));
+        run.untilOpen(1);
+        DocumentController reopened = run.application.activeDocument();
+        assertFalse(reopened.state().encodingForced());
+        assertEquals("UTF-16LE", reopened.state().encodingName());
+      }
+      List<String> logged = warnings.messages();
+      assertEquals(1, logged.size(), logged.toString());
+      assertTrue(logged.get(0).contains("x-mock-unsupported"), logged.get(0));
     }
   }
 

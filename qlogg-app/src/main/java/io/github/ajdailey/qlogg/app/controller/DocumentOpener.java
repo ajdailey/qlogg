@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
+import io.github.ajdailey.qlogg.app.config.PositionStore;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
@@ -439,14 +440,26 @@ final class DocumentOpener {
         });
   }
 
-  /** Returns a file's remembered encoding override. */
+  /**
+   * Returns a file's remembered encoding override, or null for detection. A remembered name this
+   * runtime does not support logs a WARN naming it and gives null.
+   */
   @WorkerThread
   private Charset forcedEncoding(Path path) {
+    PositionStore.Entry entry;
     try {
-      return config.positions().get(SafePaths.logPath(path).given()).charset();
+      entry = config.positions().get(SafePaths.logPath(path).given());
     } catch (IOException e) {
       return null;
     }
+    Charset charset = entry.charset();
+    if (charset == null && !entry.encoding().isEmpty()) {
+      LOG.warn(
+          "Remembered encoding {} of {} is not supported; detecting the encoding",
+          LogText.oneLine(entry.encoding()),
+          LogText.oneLine(path));
+    }
+    return charset;
   }
 
   /**

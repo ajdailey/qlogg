@@ -8,15 +8,16 @@ import io.github.ajdailey.qlogg.core.watch.FileChange;
 /** What a document's controllers need from the application. Called on the UI thread. */
 public interface DocumentHost {
   /**
-   * Returns the toggles a new document's search starts with.
+   * Returns the toggles a new document's search starts with: the saved {@code search} toggles,
+   * shared by every window.
    *
-   * @return the toggles last used
+   * @return the toggles last saved by any window
    */
   SearchOptions initialOptions();
 
   /**
-   * Records a search that ran: its text goes first in the history and its toggles are kept for the
-   * next document.
+   * Records a search that ran: its text goes first in the history and its toggles, without {@code
+   * inSelection}, are saved for the next document in any window.
    *
    * @param text the non-empty search text
    * @param options the toggles

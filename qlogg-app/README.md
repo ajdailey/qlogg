@@ -3,7 +3,9 @@
 The command line, the key bindings, the controllers and the view contracts.
 It depends on
 `qlogg-core` and slf4j-api, never on SWT, so every class here is tested
-without a display.
+without a display. Tests bind logback through `QuietLogging`, which turns the
+root logger off; a test that checks a log statement attaches a `ListAppender`
+to that logger.
 
 ## Command line (`app.cli`)
 
@@ -216,8 +218,9 @@ dropped.
 - `FIND_NEXT` and `FIND_PREVIOUS` (`F3`, `N`, `Ctrl+G` and the shifted keys)
   walk quick find while its bar is open, otherwise the search's matches.
 - It implements `DocumentHost`: each search puts its text first in
-  `search.history.N` (bounded by `search.historySize`) and its toggles, less
-  In selection, become the next document's. `followOnOverscroll` reads
+  `search.history.N` (bounded by `search.historySize`) and saves its toggles,
+  less In selection, as `searchOption.*`. A new document in any window starts
+  with the saved toggles. `followOnOverscroll` reads
   `follow.onOverscroll`.
 - `importFilters` and `exportFilters` read or write a user-chosen file on a
   `qlogg-lifecycle-` worker (`FilterFile`) and report to a
@@ -269,7 +272,9 @@ dropped.
   Options size.
 - The Encoding menu calls `setEncoding(document, charset)`: the choice goes
   into the file's `PositionStore` entry (null for Auto) and the tab reopens
-  as a reload does, so it is indexed again with the forced charset.
+  as a reload does, so it is indexed again with the forced charset. An open
+  whose remembered charset name this runtime does not support logs a WARN
+  naming it and detects the encoding.
   Favorites add and remove the shown file's path; `openListed` opens a recent
   or favorite path; File > Open Recent > Clean Up checks the paths on a
   `qlogg-lifecycle-` worker and drops those that are not regular files.
@@ -757,7 +762,9 @@ reload and stop loading. `RememberedStateTest` runs the application twice over
 one settings directory: tabs, names, follow, marks, the active tab, the
 caret, the zoom, favorites, recent files, line numbers and the window state
 come back; `+line:N` wins over the remembered position; an encoding override
-reindexes and returns on the next open, and Auto clears it; an instance that
+reindexes and returns on the next open, and Auto clears it; a remembered name
+the runtime does not support logs one WARN naming it and opens with detection,
+and a supported one logs none; an instance that
 did not load the session writes none. `ReloadTest` checks that `F5` keeps marks and labels
 and drops marks past the end, and that a change on disk clears them.
 `TabCommandsTest` covers the tab menu's close and rename commands, the path
@@ -792,6 +799,7 @@ window activated last, which is raised; a handed file another window shows
 activates that tab at its line and then follows it, with no second tab; quit runs the quit listeners before
 the finish listeners and saves each window's tabs as its own `window.N`;
 closing one window keeps the other and drops its tabs from the session;
+search toggles used in one window seed the next document in either window;
 closing a window while it opens files, reloads or restores a session closes
 the document whose open finishes afterwards and skips the rest, with
 `GatedCharset` holding the open inside `LogDocument.open`; and

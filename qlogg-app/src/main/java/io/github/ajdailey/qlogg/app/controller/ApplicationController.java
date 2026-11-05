@@ -134,7 +134,6 @@ public final class ApplicationController implements DocumentHost {
   private DocumentController active;
   private LineViewController focused;
   private final Map<Path, String> tabNames = new HashMap<Path, String>();
-  private SearchOptions searchOptions = SearchOptions.DEFAULTS;
   private int pastes;
   private boolean shuttingDown;
   // Open, paste, reload and session restore workers, and the claim of what they open.
@@ -205,7 +204,6 @@ public final class ApplicationController implements DocumentHost {
     this.theme = set.theme();
     this.features = new ViewFeatures(this, workers, ui, view);
     this.monitor = set.monitor();
-    this.searchOptions = options(current.state().search());
     this.opener = new DocumentOpener(workers, ui, config, new Claims());
     this.help = new HelpController(set, view, this::isShuttingDown);
     set.register(this);
@@ -468,7 +466,7 @@ public final class ApplicationController implements DocumentHost {
 
   @Override
   public SearchOptions initialOptions() {
-    return searchOptions;
+    return options(preferences.get().state().search());
   }
 
   @Override
@@ -1840,17 +1838,16 @@ public final class ApplicationController implements DocumentHost {
   }
 
   private void rememberSearchOptions(SearchOptions options) {
-    searchOptions = options.withInSelection(false);
     UiState state = preferences.get().state();
     SearchToggles toggles =
         new SearchToggles(
-            searchOptions.mode() == MatchMode.REGEX,
-            searchOptions.caseSensitive(),
-            searchOptions.wholeWord(),
-            searchOptions.inverse(),
-            searchOptions.combining(),
-            searchOptions.autoRefresh(),
-            searchOptions.keepResults());
+            options.mode() == MatchMode.REGEX,
+            options.caseSensitive(),
+            options.wholeWord(),
+            options.inverse(),
+            options.combining(),
+            options.autoRefresh(),
+            options.keepResults());
     if (!toggles.equals(state.search())) {
       setPreferences(preferences.get().withState(state.withSearch(toggles)));
     }
