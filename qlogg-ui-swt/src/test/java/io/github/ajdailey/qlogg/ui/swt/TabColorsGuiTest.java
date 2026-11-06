@@ -35,6 +35,7 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
@@ -42,6 +43,8 @@ import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -51,7 +54,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The tab strip's screen pixels across theme changes, under Xvfb, with focus outside and inside the
  * folder: each tab is readable and the strip follows the theme. With {@code -Dqlogg.qc.shots=<dir>}
- * each step also writes the window as a PNG. Skipped on GTK 4.
+ * each step also writes the window as a PNG. Skipped on GTK 4. Where a screen read does not show
+ * the windows, win32 reads through {@code Control.print} and other platforms fail.
  */
 @Tag("swt")
 class TabColorsGuiTest {
@@ -59,6 +63,11 @@ class TabColorsGuiTest {
   private static final double READABLE = 4.5;
   private static final double DARK_LUMINANCE = 0.2;
   private static final double LIGHT_LUMINANCE = 0.5;
+  private static final boolean WIN32 = "win32".equals(SWT.getPlatform());
+  private static final RGB PROBE = new RGB(0x12, 0x9a, 0x56);
+  private static final int PROBE_TOLERANCE = 8;
+  private static final int PROBE_READS = 6;
+  private static final String NO_SCREEN = "A screen read does not show the main window";
 
   @TempDir Path temp;
 
@@ -68,6 +77,7 @@ class TabColorsGuiTest {
   private Workers workers;
   private MainWindow window;
   private ApplicationController controller;
+  private boolean screenShowsWindows;
 
   private void open(ThemeMode mode) throws Exception {
     assumeFalse(Gtk4.active(), Gtk4.NO_SCREEN_READ);
@@ -140,6 +150,43 @@ class TabColorsGuiTest {
                     && !controller.documents().get(1).state().indexing();
               }
             }));
+    screenShowsWindows = screenShowsWindows();
+    assertTrue(screenShowsWindows || WIN32, NO_SCREEN);
+  }
+
+  /**
+   * Reports whether a screen read shows the main window, from a child of a known color above its
+   * other children, so that no window stacking decides the answer. The windows-11-arm runner's
+   * desktop lies under a full-screen first-run page, so a read there returns that page.
+   */
+  private boolean screenShowsWindows() {
+    Composite probe = new Composite(window.shell(), SWT.NONE);
+    GridData excluded = new GridData();
+    excluded.exclude = true;
+    probe.setLayoutData(excluded);
+    try {
+      probe.setBackground(new Color(PROBE));
+      probe.setBounds(100, 100, 64, 64);
+      probe.moveAbove(null);
+      window.shell().forceActive();
+      Point center = probe.toDisplay(32, 32);
+      for (int i = 0; i < PROBE_READS; i++) {
+        settle();
+        ImageData data = capture(new Rectangle(center.x, center.y, 4, 4));
+        if (near(data.palette.getRGB(data.getPixel(2, 2)))) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      probe.dispose();
+    }
+  }
+
+  private static boolean near(RGB seen) {
+    return Math.abs(seen.red - PROBE.red) <= PROBE_TOLERANCE
+        && Math.abs(seen.green - PROBE.green) <= PROBE_TOLERANCE
+        && Math.abs(seen.blue - PROBE.blue) <= PROBE_TOLERANCE;
   }
 
   @AfterEach
@@ -235,15 +282,23 @@ class TabColorsGuiTest {
     tabs.redraw();
     tabs.update();
     settle();
-    Rectangle shellArea = tabs.getShell().getBounds();
-    ImageData data = capture(shellArea);
+    ImageData data;
+    int dx = 0;
+    int dy = 0;
+    if (screenShowsWindows) {
+      Rectangle shellArea = tabs.getShell().getBounds();
+      data = capture(shellArea);
+      Point origin = tabs.toDisplay(0, 0);
+      dx = origin.x - shellArea.x;
+      dy = origin.y - shellArea.y;
+    } else {
+      data = print(tabs);
+    }
     String shots = System.getProperty("qlogg.qc.shots");
     if (shots != null) {
+      System.out.println("QC " + step + " read " + (screenShowsWindows ? "screen" : "print"));
       save(data, shots, step);
     }
-    Point origin = tabs.toDisplay(0, 0);
-    int dx = origin.x - shellArea.x;
-    int dy = origin.y - shellArea.y;
     CTabItem selected = tabs.getSelection();
     for (CTabItem item : tabs.getItems()) {
       Rectangle bounds = item.getBounds();
@@ -259,7 +314,21 @@ class TabColorsGuiTest {
     loader.save(Path.of(shots, name + ".png").toString(), SWT.IMAGE_PNG);
   }
 
-  /** Reads pixels from the screen: {@code Control.print} draws what the screen does not. */
+  /** Reads a covered folder's pixels on win32, where they equal the screen's (measured). */
+  private ImageData print(CTabFolder tabs) {
+    Rectangle size = tabs.getBounds();
+    Image image = new Image(display, size.width, size.height);
+    GC gc = new GC(image);
+    try {
+      assertTrue(tabs.print(gc), "print");
+      return image.getImageData();
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  /** Reads pixels from the screen: on GTK {@code Control.print} draws what the screen does not. */
   private ImageData capture(Rectangle area) {
     Image image = new Image(display, area.width, area.height);
     GC gc = new GC(display);

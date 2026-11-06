@@ -579,10 +579,14 @@ canceled timer does not run and that cancel after dispose does nothing.
 `TabColorsGuiTest` reads the tab strips' screen pixels through
 `GC.copyArea` in light, dark, light and dark, light, dark order, with focus
 outside and inside the folder, and requires contrast of at least 4.5 and a
-strip of the theme's lightness; `Control.print` draws a strip the screen does
-not show. With `-Dqlogg.qc.shots=<dir>` it writes each step as a PNG. Its theme
+strip of the theme's lightness; on GTK `Control.print` draws a strip the screen
+does not show. With `-Dqlogg.qc.shots=<dir>` it writes each step as a PNG. Its theme
 service reports every change as shown, so win32 opens no modal restart notice.
-It skips on GTK 4, where `GC.copyArea` from the Display reads white.
+It skips on GTK 4, where `GC.copyArea` from the Display reads white. A probe
+child of a known color checks that a screen read shows the main window: the
+`windows-11-arm` runner's desktop lies under a full-screen first-run page. When
+it does not, win32 reads through `Control.print`, which equals the screen there
+(measured on `windows-2025`), and other platforms fail.
 
 `ResourceLeakTest` starts its Display with `DeviceData.tracking`, runs a
 warm-up round of tab open and close, light and dark theme, zoom in and out and

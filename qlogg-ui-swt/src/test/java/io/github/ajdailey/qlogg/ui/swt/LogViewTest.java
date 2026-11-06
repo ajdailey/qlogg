@@ -726,14 +726,29 @@ class LogViewTest {
     assertTrue(
         gutter + view.columnOffset(161) < width,
         "column 160 at " + (gutter + view.columnOffset(160)) + " px of " + width);
-    int height = view.lineHeight();
-    ImageData plain = capture();
+    final int height = view.lineHeight();
+    final int inkFrom = gutter + view.columnOffset(140);
+    final int inkTo = gutter + view.columnOffset(170);
+    final int backgroundX = gutter + 2;
+    // The row's text can reach the canvas after the line is indexed.
+    final ImageData[] painted = new ImageData[1];
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                painted[0] = capture();
+                return hasInk(painted[0], inkFrom, inkTo, height, backgroundX);
+              }
+            }),
+        "no text painted");
+    ImageData plain = painted[0];
     document().select(new Selection(new TextPosition(0, 150), new TextPosition(0, 160)));
     ImageData selected = capture();
-    RGB background = rgbAt(plain, gutter + 2, height / 2);
+    RGB background = rgbAt(plain, backgroundX, height / 2);
     int inkLeft = -1;
     int inkRight = -1;
-    for (int x = gutter + view.columnOffset(140); x < gutter + view.columnOffset(170); x++) {
+    for (int x = inkFrom; x < inkTo; x++) {
       for (int y = 0; y < height; y++) {
         if (!rgbAt(plain, x, y).equals(background)) {
           inkLeft = inkLeft < 0 ? x : inkLeft;
@@ -766,6 +781,19 @@ class LogViewTest {
     assertTrue(inkLeft >= 0 && selectedLeft >= 0, found);
     assertTrue(inkLeft >= selectedLeft - 1 && inkLeft - selectedLeft <= slack, found);
     assertTrue(inkRight < selectedRight + 1 && selectedRight - 1 - inkRight <= slack, found);
+  }
+
+  /** True when a pixel of the first row in {@code [from, to)} differs from the row background. */
+  private static boolean hasInk(ImageData data, int from, int to, int height, int backgroundX) {
+    RGB background = rgbAt(data, backgroundX, height / 2);
+    for (int x = from; x < to; x++) {
+      for (int y = 0; y < height; y++) {
+        if (!rgbAt(data, x, y).equals(background)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private ImageData capture() {
