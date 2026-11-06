@@ -18,6 +18,7 @@ import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
+import io.github.ajdailey.qlogg.core.testkit.Renames;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
@@ -29,7 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -337,7 +337,7 @@ class LogDocumentFollowTest {
       assertEquals(first.toRealPath(), document.realPath());
       assertEquals("app.log", document.name());
       Path next = linkTo(second, "app.log.next");
-      Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+      Renames.replace(next, link);
       assertTrue(
           Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
       assertEquals(
@@ -367,7 +367,7 @@ class LogDocumentFollowTest {
     Events events = new Events();
     try (LogDocument document = watched(link, events)) {
       Path next = linkTo(second, "current.log.next");
-      Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+      Renames.replace(next, link);
       assertTrue(
           Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
       assertFalse(events.changes.contains(FileChange.APPENDED), events.changes.toString());

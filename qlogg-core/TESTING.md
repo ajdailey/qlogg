@@ -106,6 +106,8 @@
   a reopen of `path()` must read the new target. The same holds for a new target
   with the old creation time that starts with the old bytes, which on Windows
   only the real path tells apart, and growth of a link's target stays `APPENDED`.
+  These tests rename through `Renames.replace`, a bounded retry: Windows refuses
+  the rename while a check has the link open.
   A check during the first indexing, held before its first progress event by
   CPU workers blocked on a latch, must classify the file as `UNCHANGED`: it
   reported `APPENDED`, which started a second indexing pass at once and left a
