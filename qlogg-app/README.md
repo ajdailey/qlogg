@@ -710,6 +710,8 @@ run never sets a state. A state replaces only a lower-ranked one
 (`outranks`). Showing the tab sets `NONE`. A reload or reopen keeps the
 tab's state, and a replacement indexed in the background with at least one
 line takes `NEW_LINES`. A close or move out detaches the listeners.
+`TabTips.text` builds a document tab's tooltip from its path, state and sync
+group.
 
 While a quiet rule acts on a document (`TriggerController.defersDot`), its
 growth waits for the trigger scan: `NEW_LINES` needs a scanned line no quiet
@@ -990,6 +992,8 @@ set no state, background growth sets `NEW_LINES` and showing clears it,
 matching growth wins over new lines and survives a reload, a search run in a
 background tab sets nothing, a background reload or truncation sets
 `NEW_LINES`, and a closed tab reports no further change.
+`TabTipsTest` covers the tooltip over an empty path, each state, a sync group
+and a `&`.
 `TriggerControllerTest` covers stop follow on the shown tab (notice) and a
 background tab (`FOLLOW_STOPPED` above `NEW_MATCHES`), a templated mark on
 appended lines only, no firing on the first index, a reload or a truncation

@@ -133,10 +133,10 @@ Compiled and tested against the build host's SWT fragment.
   `documentMovedIn` inserts the tab at its index. No `DragSource` is used.
 - A tab whose `TabDataModel` state is not `NONE` shows a `TabDots` image, a
   dot in the palette's `newLinesDot`, `newMatchesDot` or `followStoppedDot`
-  color with a darker rim, and its tooltip adds "New lines", "New matching
-  lines" or "Follow stopped by a highlighter" under the path, then "Time
-  synced, group N" for a time sync member (`timeSyncChanged` rebuilds every
-  tab's). `TabDots` renders each image per zoom through an
+  color with a darker rim, and its tooltip (`TabTips`) adds "New lines", "New
+  matching lines" or "Follow stopped by a highlighter" under the path, then
+  "Time synced, group N" for a time sync member (`timeSyncChanged` rebuilds
+  every tab's). `TabDots` renders each image per zoom through an
   `ImageDataProvider`; a palette change creates the next palette's dots,
   sets them on every tab, then disposes the old ones. A tab with no state has
   no image, so a dot widens its tab. The folder shows images on unselected

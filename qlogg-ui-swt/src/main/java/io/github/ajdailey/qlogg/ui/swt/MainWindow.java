@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.controller.LineViewController;
 import io.github.ajdailey.qlogg.app.controller.TabDataListener;
 import io.github.ajdailey.qlogg.app.controller.TabDataState;
+import io.github.ajdailey.qlogg.app.controller.TabTips;
 import io.github.ajdailey.qlogg.app.controller.TimeController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
@@ -1015,23 +1016,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     DocumentController document = (DocumentController) item.getData();
     TabDataState state =
         controller == null ? TabDataState.NONE : controller.tabData().state(document);
-    String path = document.state().path();
-    String line =
-        switch (state) {
-          case NONE -> "";
-          case NEW_LINES -> UiText.TAB_DATA_NEW_LINES.text();
-          case NEW_MATCHES -> UiText.TAB_DATA_NEW_MATCHES.text();
-          case FOLLOW_STOPPED -> UiText.TAB_DATA_FOLLOW_STOPPED.text();
-        };
-    String tip = path.isEmpty() || line.isEmpty() ? path + line : path + "\n" + line;
-    // Time sync.
     int group = controller == null ? 0 : controller.windowSet().timeSync().number(document);
-    if (group > 0) {
-      String synced = UiText.TAB_TIME_SYNCED.format(group);
-      tip = tip.isEmpty() ? synced : tip + "\n" + synced;
-    }
-    // SWT drops a single & from a tool tip.
-    item.setToolTipText(tip.isEmpty() ? null : tip.replace("&", "&&"));
+    item.setToolTipText(TabTips.text(document.state().path(), state, group));
     item.setImage(tabDots == null ? null : tabDots.image(state));
   }
 
