@@ -887,6 +887,13 @@ public enum UiText {
   OPTIONS_POLL,
   /** Options field label. */
   OPTIONS_MAX_RESULTS,
+  // Keep file closed.
+  /** Options check box. */
+  OPTIONS_KEEP_CLOSED,
+  /** Options note under the keep file closed check box. */
+  OPTIONS_KEEP_CLOSED_NOTE,
+  /** Notice: a file opened only for each read is gone; the argument is its name. */
+  NOTICE_FILE_MISSING_CLOSED,
   /** Options note under fields read at startup. */
   OPTIONS_NEXT_START,
   /** Shortcut scope. */

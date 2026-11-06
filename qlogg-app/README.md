@@ -466,9 +466,15 @@ document's `SearchController` and `FilteredController`.
   to line, scroll bar) releases it. With `follow.onOverscroll`, scrolling down
   5 rows past the bottom engages it. Growth the document indexes needs no
   action here beyond the flush, which also calls `SearchController.appended`.
-- A `MISSING` file shows a notice and the status note; its content stays. The
-  notice is left out while a failed reopen waits, because that run showed one.
+- A `MISSING` file shows a notice and the status note; its content stays, or,
+  with `follow.keepClosed`, the notice says it cannot be read until it returns.
+  The notice is left out while a failed reopen waits, because that run showed
+  one.
   `TRUNCATED`, `REPLACED` and `MODIFIED` go to `DocumentHost.reopenChanged`.
+- `DocumentOpener` reads `follow.keepClosed` at each open, so a change applies
+  to files opened or reloaded afterwards. An indexing pass ended by
+  `FileChangedException` shows no failure: the check that follows reloads the
+  tab.
 - `detach()` drops every later result and detaches the search and the
   filtered view; `close()` also closes the document on a worker.
 
@@ -994,7 +1000,8 @@ Controller tests run over `FakeView` and `ManualUiDispatcher`, with real
 workers, files and file monitor. `FakeView` records any `MainView` call
 other than `setActive` and `setIdle` made off the test thread, and the
 teardown throws it, so a worker path that touches the view fails the test.
-`FollowControllerTest` covers follow and its
+`FollowControllerTest` covers `follow.keepClosed` (a rename over the name, a
+delete's notice, a change applying at the next reload), follow and its
 release, overscroll, follow on load and `-f`, auto-refresh over a grown last
 line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
 delete-then-recreate reopening the tab,

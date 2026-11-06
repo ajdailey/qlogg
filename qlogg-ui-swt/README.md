@@ -537,7 +537,8 @@ and refuses a pattern that does not compile.
 modes, the disorder color, a match line over the shading, the dark palette,
 Off clearing the layer; and the Time Spread cascade choosing a mode as a
 radio group.
-`OptionsAndMenusTest` checks a bullet-column click marking and unmarking,
+`OptionsAndMenusTest` checks the Advanced tab's Keep file closed box, a
+bullet-column click marking and unmarking,
 `Ctrl`+wheel zoom over the focused filtered view applying in place (same
 views, menu bar and focus, fewer rows, the height restored by Reset Zoom),
 the Encoding, Favorites and Open Recent menus, and the shortcut editor

@@ -209,6 +209,14 @@ reads Waiting to reopen in the status bar in place of Following. QLogg tries
 again at each check of the file, once a second by default, and following
 resumes when the file opens.
 
+QLogg holds a file open while its tab is open, and Windows refuses a rename over
+an open file, so a program that rotates its log that way fails. Tools > Options,
+Advanced, Keep file closed opens the file only for each read. It applies to
+files opened or reloaded afterwards. With it on, the content of a moved or
+deleted file cannot be read: a deleted file shows a notice and only lines
+already read stay on screen. A rename that lands during a read is still refused,
+and a retry succeeds.
+
 ## Timestamps
 
 ![Time of the current line and the time across a selection](images/guide/timestamps.png)
@@ -381,7 +389,7 @@ Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 | View | Font family and size, bold, anti-aliasing |
 | File | Default encoding, change notifications and the check interval |
 | Shortcuts | Rebind any command; keys another command holds are refused; restore defaults |
-| Advanced | Stop a search after a number of matches |
+| Advanced | Stop a search after a number of matches; Keep file closed ([Following a growing file](#following-a-growing-file)) |
 | Folding | The fold rules ([Folding multi-line entries](#folding-multi-line-entries)) |
 
 ![Keyboard Shortcuts](images/guide/shortcuts.png)

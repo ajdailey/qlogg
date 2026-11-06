@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.testkit.Renames;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -128,7 +129,7 @@ class FollowControllerTest {
   @Test
   void followOnLoadAndTheCommandLineFollowEveryFile() throws Exception {
     DocumentController document =
-        open(Preferences.DEFAULTS.withFollow(new FollowSettings(true, true)), 30);
+        open(Preferences.DEFAULTS.withFollow(new FollowSettings(true, true, false)), 30);
     assertTrue(document.following());
     Path other = fixture.lines("other.log", 5);
     fixture.application.setFollowSettings(FollowSettings.DEFAULTS);
@@ -244,6 +245,55 @@ class FollowControllerTest {
     DocumentController reopened = replacement(document);
     fixture.runUntil(lineCount(reopened, 3));
     assertTrue(reopened.following());
+  }
+
+  private static Preferences keptClosed() {
+    return Preferences.DEFAULTS.withFollow(new FollowSettings(false, true, true));
+  }
+
+  /** A rename over the name is what Windows refuses while the default holds the file. */
+  @Test
+  void aRenameOverAKeptClosedFileReopensTheTab() throws Exception {
+    DocumentController document = open(keptClosed(), 40);
+    assertTrue(document.document().keepsFileClosed());
+    document.setFollowing(true);
+    Path next = Files.writeString(temp.resolve("follow.log.next"), lines(0, 3));
+    Renames.replace(next, temp.resolve("follow.log"));
+    DocumentController reopened = replacement(document);
+    fixture.runUntil(lineCount(reopened, 3));
+    assertTrue(reopened.document().keepsFileClosed());
+    assertTrue(reopened.following());
+  }
+
+  @Test
+  void aDeletedKeptClosedFileSaysItCannotBeReadAndReopensWhenRecreated() throws Exception {
+    final DocumentController document = open(keptClosed(), 10);
+    Files.delete(temp.resolve("follow.log"));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return document.state().missing()
+                && fixture.view.notices.contains(
+                    "File missing on disk: follow.log cannot be read until it returns.");
+          }
+        });
+    Files.writeString(temp.resolve("follow.log"), lines(0, 2));
+    DocumentController reopened = replacement(document);
+    fixture.runUntil(lineCount(reopened, 2));
+  }
+
+  @Test
+  void keepFileClosedAppliesAtTheNextReloadAndSurvivesTheFollowMenuItems() throws Exception {
+    DocumentController document = open(Preferences.DEFAULTS, 10);
+    assertFalse(document.document().keepsFileClosed());
+    fixture.application.setFollowSettings(new FollowSettings(false, true, true));
+    assertFalse(document.document().keepsFileClosed());
+    fixture.application.execute(CommandId.FOLLOW_ON_LOAD);
+    fixture.application.execute(CommandId.FOLLOW_ON_OVERSCROLL);
+    assertTrue(fixture.application.preferences().follow().keepClosed());
+    fixture.application.execute(CommandId.RELOAD);
+    assertTrue(replacement(document).document().keepsFileClosed());
   }
 
   @Test

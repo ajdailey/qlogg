@@ -46,7 +46,16 @@ class DocumentOpenerTest {
     services = ApplicationControllerTest.services(fixture.workers, budget, gate);
     opener =
         new DocumentOpener(
-            fixture.workers, fixture.ui, ApplicationControllerTest.config(temp), recorder);
+            fixture.workers,
+            fixture.ui,
+            ApplicationControllerTest.config(temp),
+            recorder,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return false;
+              }
+            });
   }
 
   @AfterEach

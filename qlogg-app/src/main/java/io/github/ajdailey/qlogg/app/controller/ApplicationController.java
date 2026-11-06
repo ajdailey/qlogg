@@ -60,6 +60,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -216,7 +217,18 @@ public final class ApplicationController implements DocumentHost {
     this.features = new ViewFeatures(this, workers, ui, view);
     this.time = new TimeFeatures(this, workers, ui, view, config);
     this.monitor = set.monitor();
-    this.opener = new DocumentOpener(workers, ui, config, new Claims());
+    this.opener =
+        new DocumentOpener(
+            workers,
+            ui,
+            config,
+            new Claims(),
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return preferences.get().follow().keepClosed();
+              }
+            });
     this.help = new HelpController(set, view, this::isShuttingDown);
     // Tab data dot.
     addListener(tabData);
@@ -1365,11 +1377,13 @@ public final class ApplicationController implements DocumentHost {
       case PREVIOUS_TAB -> showNeighbor(-1);
       case FOLLOW_ON_LOAD -> {
         FollowSettings follow = preferences.get().follow();
-        setFollowSettings(new FollowSettings(!follow.onLoad(), follow.onOverscroll()));
+        setFollowSettings(
+            new FollowSettings(!follow.onLoad(), follow.onOverscroll(), follow.keepClosed()));
       }
       case FOLLOW_ON_OVERSCROLL -> {
         FollowSettings follow = preferences.get().follow();
-        setFollowSettings(new FollowSettings(follow.onLoad(), !follow.onOverscroll()));
+        setFollowSettings(
+            new FollowSettings(follow.onLoad(), !follow.onOverscroll(), follow.keepClosed()));
       }
       case QUIT -> shutdown();
       case GO_TO_LINE -> askLine();

@@ -20,6 +20,7 @@ import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.io.FileChangedException;
 import io.github.ajdailey.qlogg.core.model.DocumentListener;
 import io.github.ajdailey.qlogg.core.model.DocumentStatus;
 import io.github.ajdailey.qlogg.core.model.FoldMap;
@@ -208,7 +209,8 @@ public final class DocumentController extends LineViewController {
 
     @Override
     public void indexFinished(OperationOutcome outcome, IOException cause) {
-      if (outcome == OperationOutcome.FAILED) {
+      // A file replaced under a keep-closed read: the check that follows reloads the tab.
+      if (outcome == OperationOutcome.FAILED && !(cause instanceof FileChangedException)) {
         String message =
             cause == null ? UiText.INDEXING_FAILED.text() : LogText.oneLine(cause.getMessage());
         failure = message;
@@ -269,7 +271,11 @@ public final class DocumentController extends LineViewController {
     }
     if (change == FileChange.MISSING) {
       if (!document.reopenWaiting()) {
-        notifications().showNotice(UiText.NOTICE_FILE_MISSING.format(state.title()));
+        UiText notice =
+            document.keepsFileClosed()
+                ? UiText.NOTICE_FILE_MISSING_CLOSED
+                : UiText.NOTICE_FILE_MISSING;
+        notifications().showNotice(notice.format(state.title()));
       }
       refresh();
     } else {

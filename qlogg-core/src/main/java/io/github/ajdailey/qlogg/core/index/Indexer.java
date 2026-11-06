@@ -180,7 +180,16 @@ public final class Indexer {
         if (position < limit && inFlight.size() < settings.maxBlocksInFlight()) {
           ByteBuffer buffer = inFlight.isEmpty() ? buffers.acquire(token) : buffers.tryAcquire();
           if (buffer != null) {
-            int length = fill(buffer, position, limit);
+            int length = 0;
+            boolean filled = false;
+            try {
+              length = fill(buffer, position, limit);
+              filled = true;
+            } finally {
+              if (!filled) {
+                buffers.release(buffer);
+              }
+            }
             if (length == 0) {
               buffers.release(buffer);
               limit = position;

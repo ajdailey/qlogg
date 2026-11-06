@@ -539,7 +539,7 @@ class IndexerTest {
   }
 
   /** Delegates reads, blocking the read numbered {@code gateAt} until {@link #open} counts down. */
-  private static final class GatedSource implements ByteSource {
+  private static class GatedSource implements ByteSource {
     final CountDownLatch reached = new CountDownLatch(1);
     final CountDownLatch open = new CountDownLatch(1);
     final AtomicInteger reads = new AtomicInteger();
@@ -585,6 +585,38 @@ class IndexerTest {
     @Override
     public void close() throws IOException {
       delegate.close();
+    }
+  }
+
+  /**
+   * Regression: a failed read kept its pooled buffer, so once failures had taken every buffer the
+   * next pass waited for one forever. Under Keep file closed each rotation can fail a read.
+   */
+  @Test
+  void aFailedReadReturnsItsBuffer() throws Exception {
+    Path file = write(ascii("a\nb\n"));
+    Indexer indexer = new Indexer(workers, new IndexSettings(8, 2, LARGE));
+    TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
+    try (FileByteSource good = FileByteSource.open(file)) {
+      ByteSource failing =
+          new GatedSource(good, 0) {
+            @Override
+            public int read(long position, ByteBuffer dst) throws IOException {
+              throw new IOException("mock read failure");
+            }
+          };
+      for (int i = 0; i < 5; i++) {
+        try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, failing, cache())) {
+          RecordingListener listener = new RecordingListener();
+          assertTrue(indexer.index(failing, index, 0, listener).await(WAIT_MILLIS));
+          assertEquals(OperationOutcome.FAILED, listener.outcome);
+        }
+      }
+      try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, good, cache())) {
+        RecordingListener listener = new RecordingListener();
+        assertTrue(indexer.index(good, index, 0, listener).await(5000));
+        assertEquals(OperationOutcome.COMPLETED, listener.outcome);
+      }
     }
   }
 

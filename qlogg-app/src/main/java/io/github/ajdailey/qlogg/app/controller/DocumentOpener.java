@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +98,7 @@ final class DocumentOpener {
   private final UiDispatcher ui;
   private final ConfigStore config;
   private final OpenListener listener;
+  private final BooleanSupplier keepClosed;
   private final Set<LogDocument> unclaimed = ConcurrentHashMap.newKeySet();
   // Set on the UI thread before the close sweep; read by workers after adding to unclaimed.
   private volatile boolean closed;
@@ -108,8 +110,15 @@ final class DocumentOpener {
    * @param ui the UI-thread dispatcher
    * @param config the settings store; its {@code PositionStore} holds forced encodings
    * @param listener receives the opened documents
+   * @param keepClosed read at each open: true opens the file only for each read
    */
-  DocumentOpener(Workers workers, UiDispatcher ui, ConfigStore config, OpenListener listener) {
+  DocumentOpener(
+      Workers workers,
+      UiDispatcher ui,
+      ConfigStore config,
+      OpenListener listener,
+      BooleanSupplier keepClosed) {
+    this.keepClosed = keepClosed;
     this.workers = workers;
     this.ui = ui;
     this.config = config;
@@ -496,7 +505,11 @@ final class DocumentOpener {
       entry = PositionStore.Entry.NONE;
     }
     return LogDocument.open(
-        path, forcedEncoding(path, entry), services, entry.timeFormat().isEmpty());
+        path,
+        forcedEncoding(path, entry),
+        services,
+        entry.timeFormat().isEmpty(),
+        keepClosed.getAsBoolean());
   }
 
   /**

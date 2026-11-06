@@ -102,7 +102,7 @@ class ConfigStoreTest {
             .withRunSearchOnAdd(false)
             .withQuickFind(false, true)
             .withSplitPercent(40)
-            .withFollow(new FollowSettings(true, false));
+            .withFollow(new FollowSettings(true, false, true));
     assertEquals(List.of("newest", "caf\u00e9 = x", "old"), saved.searchHistory());
     ConfigStore store = store(temp);
     assertTrue(store.save(saved));
@@ -111,6 +111,7 @@ class ConfigStoreTest {
     assertTrue(text.contains("search.history.2=old"));
     assertTrue(text.contains("follow.onLoad=true"));
     assertTrue(text.contains("follow.onOverscroll=false"));
+    assertTrue(text.contains("follow.keepClosed=true"));
   }
 
   @Test

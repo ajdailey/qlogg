@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
+import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
 import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
@@ -70,6 +71,11 @@ import java.util.function.BooleanSupplier;
  * finds at the path and the owner reopens again. {@code MISSING} is reported once; a file that
  * reappears is reported as {@code REPLACED}. {@link #stopIndexing} cancels indexing and leaves
  * later growth unindexed.
+ *
+ * <p>Keep file closed: a document opened with {@code keepClosed} reads through a {@link
+ * ReopeningByteSource}. Nothing holds the file between reads, so a read after a rotation or a
+ * delete fails instead of returning the old content. A read that finds another file makes the next
+ * check report {@code REPLACED}.
  *
  * <p>In memory: {@link #ofText} holds pasted text as UTF-8 in the heap, charged to {@link
  * MemoryShare#PASTED} until {@link #close}. Such a document has no path, is never watched and never
@@ -173,10 +179,35 @@ public final class LogDocument implements LineSource, Closeable {
   public static LogDocument open(
       Path path, Charset forcedEncoding, DocumentServices services, boolean detectTimeFormat)
       throws IOException {
-    FileByteSource source = FileByteSource.open(path);
+    return open(path, forcedEncoding, services, detectTimeFormat, false);
+  }
+
+  /**
+   * Opens a file as {@link #open(Path, Charset, DocumentServices, boolean)} does, and holds it for
+   * as long as the document is open or only for each read.
+   *
+   * @param path the path as given
+   * @param forcedEncoding the charset to use, or null to detect it
+   * @param services shared services
+   * @param detectTimeFormat false when the owner has a remembered format
+   * @param keepClosed true to open the file only for each read ({@link ReopeningByteSource})
+   * @return the open document; the caller closes it
+   * @throws IOException when the path is rejected, the file cannot be read, or the line index share
+   *     cannot hold an empty index
+   */
+  public static LogDocument open(
+      Path path,
+      Charset forcedEncoding,
+      DocumentServices services,
+      boolean detectTimeFormat,
+      boolean keepClosed)
+      throws IOException {
+    FileByteSource held = FileByteSource.open(path);
     boolean opened = false;
     try {
-      ByteBuffer head = readHead(source);
+      // Read through the held channel: a rotation here must not fail the open.
+      ByteBuffer head = readHead(held);
+      ByteSource source = keepClosed ? ReopeningByteSource.of(held) : held;
       EncodingDetection detection =
           forcedEncoding == null
               ? EncodingDetector.detect(head, services.fallbackCharset())
@@ -192,8 +223,8 @@ public final class LogDocument implements LineSource, Closeable {
       opened = true;
       return document;
     } finally {
-      if (!opened) {
-        source.close();
+      if (!opened || keepClosed) {
+        held.close();
       }
     }
   }
@@ -321,7 +352,16 @@ public final class LogDocument implements LineSource, Closeable {
    * @return the real path at open, or null for a document {@link #inMemory}
    */
   public Path realPath() {
-    return source instanceof FileByteSource file ? file.realPath() : null;
+    return source.identity().realPath();
+  }
+
+  /**
+   * Reports whether the file is open only for each read.
+   *
+   * @return true for a document opened with {@code keepClosed}
+   */
+  public boolean keepsFileClosed() {
+    return source instanceof ReopeningByteSource;
   }
 
   /**
@@ -698,6 +738,14 @@ public final class LogDocument implements LineSource, Closeable {
         head = new Head(bytes, ChangeDetector.headDigest(source, bytes));
       }
       tail = new Tail(end, modified, ChangeDetector.tailDigest(source, end));
+      if (source instanceof ReopeningByteSource reopening) {
+        reopening.expect(
+            head.bytes(),
+            head.digest(),
+            end,
+            (int) Math.min(end, ChangeDetector.TAIL_BYTES),
+            tail.digest());
+      }
     } catch (IOException e) {
       tail = Tail.NONE;
     }
@@ -709,7 +757,7 @@ public final class LogDocument implements LineSource, Closeable {
       return;
     }
     try {
-      changed(ChangeDetector.classify(baseline(), path));
+      changed(withReadsSeen(ChangeDetector.classify(baseline(), path)));
     } catch (IOException e) {
       // Unreadable for now, for example while a writer replaces it; the next check retries.
     } finally {
@@ -741,6 +789,16 @@ public final class LogDocument implements LineSource, Closeable {
         start.digest(),
         recorded.modified(),
         recorded.digest());
+  }
+
+  /** A read that found another file outweighs a check that found no difference. */
+  private ChangeDetector.Observation withReadsSeen(ChangeDetector.Observation seen) {
+    boolean quiet = seen.change() == FileChange.UNCHANGED || seen.change() == FileChange.APPENDED;
+    if (quiet && source instanceof ReopeningByteSource reopening && reopening.changed()) {
+      return new ChangeDetector.Observation(
+          FileChange.REPLACED, seen.size(), seen.modifiedMillis());
+    }
+    return seen;
   }
 
   private void changed(ChangeDetector.Observation seen) {

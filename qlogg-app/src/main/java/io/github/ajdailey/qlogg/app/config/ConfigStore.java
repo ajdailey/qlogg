@@ -56,6 +56,8 @@ public final class ConfigStore {
   static final String OVERVIEW_KEY = "view.overview";
   static final String FOLLOW_ON_LOAD_KEY = "follow.onLoad";
   static final String FOLLOW_ON_OVERSCROLL_KEY = "follow.onOverscroll";
+  // Keep file closed.
+  static final String FOLLOW_KEEP_CLOSED_KEY = "follow.keepClosed";
   static final String INVALID_SUFFIX = ".invalid";
 
   private static final Logger LOG = LoggerFactory.getLogger(ConfigStore.class);
@@ -267,7 +269,8 @@ public final class ConfigStore {
                     properties,
                     FOLLOW_ON_OVERSCROLL_KEY,
                     preferences.follow().onOverscroll(),
-                    file)))
+                    file),
+                flag(properties, FOLLOW_KEEP_CLOSED_KEY, preferences.follow().keepClosed(), file)))
         .withSearchHistory(history)
         .withFilters(FilterFile.load(properties))
         .withHighlights(HighlightFile.load(properties))
@@ -333,6 +336,8 @@ public final class ConfigStore {
     properties.setProperty(FOLLOW_ON_LOAD_KEY, Boolean.toString(preferences.follow().onLoad()));
     properties.setProperty(
         FOLLOW_ON_OVERSCROLL_KEY, Boolean.toString(preferences.follow().onOverscroll()));
+    properties.setProperty(
+        FOLLOW_KEEP_CLOSED_KEY, Boolean.toString(preferences.follow().keepClosed()));
     FilterFile.store(preferences.filters(), properties);
     HighlightFile.store(preferences.highlights(), properties);
     ViewFile.store(preferences.view(), properties);

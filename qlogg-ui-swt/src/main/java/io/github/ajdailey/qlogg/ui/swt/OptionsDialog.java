@@ -73,6 +73,8 @@ final class OptionsDialog {
   private Button watch;
   private Spinner poll;
   private Spinner maxResults;
+  // Keep file closed.
+  private Button keepClosed;
   private Text filter;
   private Table commands;
   private org.eclipse.swt.widgets.List keys;
@@ -240,6 +242,9 @@ final class OptionsDialog {
             Integer.MAX_VALUE,
             (int) Math.min(Integer.MAX_VALUE, preferences.maxResults()));
     note(page, UiText.OPTIONS_NEXT_START);
+    // Keep file closed.
+    keepClosed = check(page, UiText.OPTIONS_KEEP_CLOSED, preferences.follow().keepClosed());
+    note(page, UiText.OPTIONS_KEEP_CLOSED_NOTE);
   }
 
   private void shortcuts(Composite page) {
@@ -586,7 +591,10 @@ final class OptionsDialog {
         controller.preferences().searchHistory(), historySize.getSelection());
     controller.setQuickFindOptions(quickIncremental.getSelection(), quickRegex.getSelection());
     controller.setFollowSettings(
-        new FollowSettings(followOnLoad.getSelection(), followOnOverscroll.getSelection()));
+        new FollowSettings(
+            followOnLoad.getSelection(),
+            followOnOverscroll.getSelection(),
+            keepClosed.getSelection()));
     controller.setPreferences(
         controller
             .preferences()
@@ -604,6 +612,10 @@ final class OptionsDialog {
 
   TabFolder folder() {
     return folder;
+  }
+
+  Button keepClosed() {
+    return keepClosed;
   }
 
   Table commands() {

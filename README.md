@@ -38,6 +38,9 @@ plugins.
   name with its results cleared, and a search with Auto-refresh on runs again;
   a deleted file keeps its content until it reappears. A reopen that fails runs
   again at each check of the file.
+- Keep file closed (Tools > Options, Advanced, off by default) opens a log only
+  for each read, so a writer on Windows can rename over a followed file. Old
+  content is then unreadable after a rotation or delete.
 - Detects the encoding (BOM, UTF-16, UTF-8, ISO-8859-1 fallback); the Encoding
   menu forces a charset and indexes the file again.
 
@@ -368,6 +371,7 @@ every launch opens its own window.
 | `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
 | `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files |
 | `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll |
+| `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Options, Advanced |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |
 | `label.N.name`, `.fore`, `.back`, `.cycle` | Color label N, 0 to 8 | 9 labels, all in the cycle | Configure Highlighters, Color Labels tab |
 | `matchHighlight.enabled`, `.color`, `.variance` | Match highlight; an empty color is the theme's | `true`, theme, 0 | View > Highlight Search Matches; Configure Highlighters |

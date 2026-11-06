@@ -112,6 +112,18 @@
   only the real path tells apart, and growth of a link's target stays `APPENDED`.
   These tests rename through `Renames.replace`, a bounded retry: Windows refuses
   the rename while a check has the link open.
+  With `keepClosed`, a rename-rotation and a rename over the name read as
+  `REPLACED` with the old content unreadable, a delete fails reads until the
+  file returns, and growth stays `APPENDED`. A tail rewritten under the same
+  size and modification time, which the check alone cannot see, is reported
+  through the failed read.
+- `IndexerTest.aFailedReadReturnsItsBuffer`: failed reads past the pool size
+  leave the next pass a buffer. Before this, the pass waited forever at 0%.
+- `ReopeningByteSourceTest`: appended bytes read, a rename over the path lands
+  (Windows refuses it if a handle stays open) and the next read fails; a
+  rewritten head, a rewritten or truncated tail, a replaced file and a link at
+  the real path throw `FileChangedException`; a deleted file throws
+  `NoSuchFileException`; a retargeted link keeps reading the file opened.
   A check during the first indexing, held before its first progress event by
   CPU workers blocked on a latch, must classify the file as `UNCHANGED`: it
   reported `APPENDED`, which started a second indexing pass at once and left a

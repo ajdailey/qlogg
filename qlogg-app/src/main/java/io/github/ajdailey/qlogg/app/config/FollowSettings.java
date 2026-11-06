@@ -5,8 +5,10 @@ package io.github.ajdailey.qlogg.app.config;
  *
  * @param onLoad {@code follow.onLoad}: every file opens following
  * @param onOverscroll {@code follow.onOverscroll}: scrolling down past the last line engages follow
+ * @param keepClosed {@code follow.keepClosed}: files opened or reloaded afterwards stay open only
+ *     for each read
  */
-public record FollowSettings(boolean onLoad, boolean onOverscroll) {
+public record FollowSettings(boolean onLoad, boolean onOverscroll, boolean keepClosed) {
   /** Files open without following; overscroll engages follow. */
-  public static final FollowSettings DEFAULTS = new FollowSettings(false, true);
+  public static final FollowSettings DEFAULTS = new FollowSettings(false, true, false);
 }

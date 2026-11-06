@@ -96,6 +96,7 @@ on every open and opens the real path; `path()` is the path as given and
 | Class | Contract |
 |---|---|
 | `FileByteSource` | `open` validates through `SafePaths.logFile`, then opens a `FileChannel` for reading. Positional reads only, thread-safe. A read after `close` throws `ClosedChannelException`. `identity()` holds the file key (null on Windows), creation and modified times, size, the CRC32C of the first 4 KiB and the real path opened. On Windows the JDK opens the file with delete sharing, so a writer can rename, truncate or delete it while it is open |
+| `ReopeningByteSource` | A `ByteSource` that holds no file between reads ([Keep file closed](#keep-file-closed)). `size()` reads the attributes of the real path. A read after `close` throws `ClosedChannelException` |
 | `MemoryByteSource` | A `ByteSource` over a byte array in the heap, for pasted text. `path()` is null; the size never changes. A read after `close` throws `ClosedChannelException` |
 | `BlockCache` | LRU of fixed-size blocks for random reads, keyed by source and block number; the lock is never held during I/O. A block read short at end of file is read again when a request reaches past it. `invalidateFrom` drops a block and everything after it; `invalidate(source)` drops a source's blocks, which `LogDocument.close` calls |
 | `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, reused while operations run. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits. `trim` drops free buffers past the first two and releases their reservation; the indexer and the search engine call it when an operation ends |
@@ -525,14 +526,40 @@ close cleanly.
   It returns true for the first failure of a run, for one notice per run.
   `status().reopenWaiting()` holds until a reopen replaces the document or a
   check classifies the file as `UNCHANGED` or `APPENDED`.
-- `MISSING` is reported once; the open file stays readable. A file that
-  reappears is reported as `REPLACED`.
+- `MISSING` is reported once; the open file stays readable unless the document
+  keeps its file closed. A file that reappears is reported as `REPLACED`.
 - `UNCHANGED` is reported when only the size or modification time moved, for
   the file fields. `status()` carries the file size, modification time and the
   missing flag.
 - After each completed indexing operation the document records the
   modification time, then the CRC32C of the indexed tail, and extends the
   head digest over the indexed bytes until it covers 4 KiB.
+
+### Keep file closed
+
+`LogDocument.open(..., keepClosed)` reads through a `ReopeningByteSource`, so
+nothing holds the file between reads and a writer on Windows can rename over
+the path. Pasted text ignores the setting. The document keeps the source it
+opened with. `open` reads the head through a held channel, so a rotation during
+an open fails the first indexing pass, which the next check reports, and not
+the open.
+
+Each `read` validates the real path captured at open through
+`SafePaths.logFile`, opens it, and compares, with the channel open, the file key
+(without one, the creation time), the head digest, and the tail digest
+`recordTail` passes to `expect`. The read then runs on that verified channel, so
+it returns that file's bytes or fails, and old offsets never read a new file. A
+mismatch throws `FileChangedException` and sets `changed()`; a missing file
+throws `NoSuchFileException`. A symbolic link is not followed again: the source
+stays on the real path until the watch reports the retarget.
+
+The next check reports `REPLACED` when `changed()` is set and `ChangeDetector`
+saw `UNCHANGED` or `APPENDED`. Until the owner reopens, reads fail and blocks
+already in `BlockCache` stay readable. A failed read takes the normal error
+path of its caller.
+
+A read or a check holds a handle for its length, so a rename that lands inside
+one is refused and succeeds on a retry.
 
 `stopIndexing()` cancels indexing and leaves later growth unindexed while the
 document is open.

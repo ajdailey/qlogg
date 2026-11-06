@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -15,6 +16,7 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
+import io.github.ajdailey.qlogg.core.io.FileChangedException;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -46,6 +48,7 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -314,6 +317,134 @@ class LogDocumentFollowTest {
       boolean keyless = document.bytes().identity().fileKey() == null;
       assertTrue(Poll.until(reopens(events, keyless), BOUND), events.changes.toString());
       assertEquals("first", document.newReader().read(document.index(), 0, 1, 0, 80).text(0));
+    }
+  }
+
+  private LogDocument watchedClosed(Path file, Events events) throws Exception {
+    LogDocument document = LogDocument.open(file, null, services, true, true);
+    document.addListener(events);
+    document.startIndexing();
+    assertTrue(events.firstIndex.await(BOUND.toMillis(), TimeUnit.MILLISECONDS));
+    document.startWatching(monitor);
+    return document;
+  }
+
+  private static Executable reading(final LogDocument document) {
+    return new Executable() {
+      @Override
+      public void execute() throws Throwable {
+        document.newReader().read(document.index(), 0, 1, 0, 80);
+      }
+    };
+  }
+
+  /** The keep-closed side of {@link #renameRotationReopensByName}: the old content is gone. */
+  @Test
+  void renameRotationReopensByNameWithTheFileKeptClosed() throws Exception {
+    Path file = Files.writeString(dir.resolve("app.log"), "first\nsecond\n");
+    Events events = new Events();
+    try (LogDocument document = watchedClosed(file, events)) {
+      assertTrue(document.keepsFileClosed());
+      Files.move(file, dir.resolve("app.log.1"));
+      Files.writeString(file, "rotated after the move\n");
+      boolean keyless = document.bytes().identity().fileKey() == null;
+      assertTrue(Poll.until(reopens(events, keyless), BOUND), events.changes.toString());
+      services.cache().invalidate(document.bytes());
+      assertThrows(IOException.class, reading(document));
+    }
+  }
+
+  /** Off the option, the rename over a followed file is the case Windows refuses. */
+  @Test
+  void aRenameOverAKeptClosedFileLandsAndReportsReplaced() throws Exception {
+    Path file = Files.writeString(dir.resolve("app.log"), "first\nsecond\n");
+    Path next = Files.writeString(dir.resolve("app.log.next"), "rotated\n");
+    Events events = new Events();
+    try (LogDocument document = watchedClosed(file, events)) {
+      Renames.replace(next, file);
+      boolean keyless = document.bytes().identity().fileKey() == null;
+      assertTrue(Poll.until(reopens(events, keyless), BOUND), events.changes.toString());
+      Events reopenedEvents = new Events();
+      try (LogDocument reopened = watchedClosed(document.path(), reopenedEvents)) {
+        assertEquals("rotated", reopened.newReader().read(reopened.index(), 0, 1, 0, 80).text(0));
+      }
+    }
+  }
+
+  /** {@code MISSING} leaves only cached blocks; the file's return reads as {@code REPLACED}. */
+  @Test
+  void aDeletedKeptClosedFileFailsReadsUntilItReturns() throws Exception {
+    Path file = Files.writeString(dir.resolve("app.log"), "first\nsecond\n");
+    Events events = new Events();
+    try (LogDocument document = watchedClosed(file, events)) {
+      Files.delete(file);
+      assertTrue(
+          Poll.until(reported(events, FileChange.MISSING), BOUND), events.changes.toString());
+      assertTrue(document.status().missing());
+      services.cache().invalidate(document.bytes());
+      assertThrows(IOException.class, reading(document));
+      Files.writeString(file, "back again\n");
+      assertTrue(
+          Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
+    }
+  }
+
+  /**
+   * A tail rewritten under the same size and modification time: the check alone finds no change, so
+   * only the read's comparison reports it.
+   */
+  @Test
+  void aReadThatFindsAnotherFileMakesTheCheckReportReplaced() throws Exception {
+    Path file = dir.resolve("app.log");
+    byte[] bytes = "0123456789\n".repeat(1000).getBytes(StandardCharsets.US_ASCII);
+    Files.write(file, bytes);
+    Events events = new Events();
+    try (LogDocument document = LogDocument.open(file, null, services, true, true)) {
+      document.addListener(events);
+      document.startIndexing();
+      assertTrue(events.firstIndex.await(BOUND.toMillis(), TimeUnit.MILLISECONDS));
+      FileTime modified = Files.getLastModifiedTime(file);
+      bytes[bytes.length - 2] = 'X';
+      Files.write(file, bytes);
+      Files.setLastModifiedTime(file, modified);
+      services.cache().invalidate(document.bytes());
+      assertThrows(FileChangedException.class, reading(document));
+      document.startWatching(monitor);
+      assertTrue(
+          Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
+    }
+  }
+
+  /**
+   * A file replaced right after the open fails the first indexing pass, not the open, so the check
+   * still reports it and the owner reopens.
+   */
+  @Test
+  void aFileReplacedBeforeIndexingStartsReportsReplaced() throws Exception {
+    Path file = Files.writeString(dir.resolve("app.log"), "first\nsecond\n");
+    Path next = Files.writeString(dir.resolve("app.log.next"), "rotated\n");
+    Events events = new Events();
+    try (LogDocument document = LogDocument.open(file, null, services, true, true)) {
+      document.addListener(events);
+      Renames.replace(next, file);
+      document.startIndexing();
+      assertTrue(events.firstIndex.await(BOUND.toMillis(), TimeUnit.MILLISECONDS));
+      document.startWatching(monitor);
+      boolean keyless = document.bytes().identity().fileKey() == null;
+      assertTrue(Poll.until(reopens(events, keyless), BOUND), events.changes.toString());
+    }
+  }
+
+  /** Growth under the option indexes through reopened reads, and the reader sees the new line. */
+  @Test
+  void aKeptClosedFileGrows() throws Exception {
+    Path file = Files.writeString(dir.resolve("app.log"), "first\n");
+    Events events = new Events();
+    try (LogDocument document = watchedClosed(file, events)) {
+      Files.writeString(file, "second\n", StandardOpenOption.APPEND);
+      assertTrue(Poll.until(lines(document, 2), BOUND), events.changes.toString());
+      assertEquals("second", document.newReader().read(document.index(), 1, 1, 0, 80).text(1));
+      assertFalse(events.changes.contains(FileChange.REPLACED), events.changes.toString());
     }
   }
 

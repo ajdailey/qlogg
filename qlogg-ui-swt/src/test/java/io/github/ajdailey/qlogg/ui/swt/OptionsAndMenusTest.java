@@ -360,6 +360,19 @@ class OptionsAndMenusTest {
     dialog.shell().dispose();
   }
 
+  @Test
+  void theAdvancedTabSetsKeepFileClosed() {
+    final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    dialog.open();
+    assertFalse(dialog.keepClosed().getSelection());
+    dialog.folder().setSelection(4);
+    dialog.keepClosed().setSelection(true);
+    shoot(dialog.shell(), "options-advanced.png");
+    assertTrue(dialog.apply());
+    assertTrue(controller.preferences().follow().keepClosed());
+    dialog.shell().dispose();
+  }
+
   private String menuText(CommandId command) {
     for (MenuItem header : window.shell().getMenuBar().getItems()) {
       for (MenuItem item : header.getMenu().getItems()) {
