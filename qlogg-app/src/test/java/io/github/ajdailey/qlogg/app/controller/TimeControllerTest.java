@@ -10,7 +10,9 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.TimeSettings;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.view.TimeStatus;
 import io.github.ajdailey.qlogg.app.view.TimeText;
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
@@ -29,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -556,5 +559,78 @@ class TimeControllerTest {
           }
         });
     assertEquals(nanos(BASE.plusSeconds(19)), filtered.timeStatus().caret());
+    assertEquals(nanos(BASE.plusSeconds(1)), filtered.timeStatus().first());
+    assertEquals(nanos(BASE.plusSeconds(19)), filtered.timeStatus().last());
+  }
+
+  @Test
+  void aCloseDuringATimeReadDropsTheReadAndTheQueuedOne() throws Exception {
+    final DocumentController document = fixture.open(timed("m.log", 30, BASE));
+    document.select(Selection.caretAt(new TextPosition(entryLines.get(5), 0)));
+    caretTimeRead(document, nanos(BASE.plusSeconds(5)));
+    TimeStatus shown = document.timeStatus();
+    // This thread drains the UI queue, so the first read's post-back runs after the close.
+    document.select(Selection.caretAt(new TextPosition(entryLines.get(7), 0)));
+    document.select(Selection.caretAt(new TextPosition(entryLines.get(9), 0)));
+    fixture.application.closeDocument(document);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            boolean open = document.document().enter();
+            if (open) {
+              document.document().exit();
+            }
+            return !open;
+          }
+        });
+    fixture.runUntilIdle();
+    assertSame(shown, document.timeStatus());
+  }
+
+  /** Holds a read's post-back until the test runs it. */
+  private static final class HeldPost implements UiDispatcher {
+    private final CountDownLatch arrived = new CountDownLatch(1);
+    private volatile Runnable task;
+
+    @Override
+    public void asyncExec(Runnable posted) {
+      task = posted;
+      arrived.countDown();
+    }
+
+    @Override
+    public void timerExec(int delayMillis, Runnable posted) {
+      asyncExec(posted);
+    }
+
+    @Override
+    public boolean isUiThread() {
+      return true;
+    }
+
+    void await() throws InterruptedException {
+      assertTrue(arrived.await(20, TimeUnit.SECONDS));
+    }
+  }
+
+  @Test
+  void aReadThatPostedBackBeforeTheCloseIsNotApplied() throws Exception {
+    DocumentController document = fixture.open(timed("n.log", 30, BASE));
+    HeldPost open = new HeldPost();
+    CaretTimes applied = new CaretTimes(document, fixture.workers, open);
+    applied.request();
+    open.await();
+    open.task.run();
+    assertEquals(nanos(BASE), applied.status().caret());
+
+    HeldPost closing = new HeldPost();
+    CaretTimes dropped = new CaretTimes(document, fixture.workers, closing);
+    dropped.request();
+    closing.await();
+    fixture.application.closeDocument(document);
+    assertTrue(document.isClosed());
+    closing.task.run();
+    assertSame(TimeStatus.NONE, dropped.status());
   }
 }

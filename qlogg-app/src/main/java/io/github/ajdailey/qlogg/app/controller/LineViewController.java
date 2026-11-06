@@ -25,18 +25,12 @@ import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.text.LogText;
-import io.github.ajdailey.qlogg.core.time.Stamp;
-import io.github.ajdailey.qlogg.core.time.TimeContext;
-import io.github.ajdailey.qlogg.core.time.TimeReader;
-import io.github.ajdailey.qlogg.core.time.TimestampFormat;
-import io.github.ajdailey.qlogg.core.time.TimestampParser;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,9 +63,8 @@ import org.slf4j.LoggerFactory;
  * through {@link io.github.ajdailey.qlogg.core.io.AtomicFiles} on the worker.
  *
  * <p>With a timestamp format ({@link DocumentController#time}), the caret line's time and, for a
- * selection over more than one row, the times of its first and last rows' lines are read on a
- * {@code qlogg-read-} worker through {@link TimeReader#at}, one read at a time with one more queued
- * ({@link #timeStatus}); listeners hear {@code timeChanged} when they change.
+ * selection over more than one row, the times of its first and last rows' lines are read by a
+ * {@link CaretTimes} ({@link #timeStatus}); listeners hear {@code timeChanged} when they change.
  */
 public abstract class LineViewController {
   /** Columns read past the right edge, so a small horizontal scroll repaints at once. */
@@ -111,11 +104,7 @@ public abstract class LineViewController {
   private int screenRows = 1;
   private int wrapFit = 1;
   // Caret time and selection difference.
-  private final CancellationToken timeReads = new CancellationToken();
-  private TimeStatus timeStatus = TimeStatus.NONE;
-  private TimeKey timeKey;
-  private boolean timeInFlight;
-  private boolean timeWanted;
+  private final CaretTimes caretTimes;
 
   /**
    * Creates the view controller.
@@ -144,6 +133,7 @@ public abstract class LineViewController {
     this.activity = activity;
     this.budget = budget;
     this.reader = document.newReader();
+    this.caretTimes = new CaretTimes(this, workers, ui);
   }
 
   /**
@@ -1014,7 +1004,7 @@ public abstract class LineViewController {
   void detachView() {
     closed = true;
     exports.cancel();
-    timeReads.cancel();
+    caretTimes.cancel();
     listeners.clear();
     budget.release(MemoryShare.HIGHLIGHT, spanCharge);
     spanCharge = 0;
@@ -1034,7 +1024,7 @@ public abstract class LineViewController {
   /** Re-reads and repaints. */
   void changed() {
     requestLines();
-    requestTime();
+    caretTimes.request();
     fireContent();
   }
 
@@ -1085,7 +1075,7 @@ public abstract class LineViewController {
    * @return the times before the offset; {@link TimeStatus#NONE} without a format
    */
   public TimeStatus timeStatus() {
-    return timeStatus;
+    return caretTimes.status();
   }
 
   /**
@@ -1094,141 +1084,15 @@ public abstract class LineViewController {
    */
   void timeSettingsChanged(boolean reread) {
     if (reread) {
-      timeKey = null;
-      requestTime();
+      caretTimes.reread();
     }
     fireTime();
   }
 
-  private void fireTime() {
+  /** Tells the views the times changed. */
+  void fireTime() {
     for (DocumentViewListener listener : new ArrayList<DocumentViewListener>(listeners)) {
       listener.timeChanged();
-    }
-  }
-
-  /** The lines a time read covers and the format generation it parsed with. */
-  private record TimeKey(long caret, long first, long last, int format) {}
-
-  /**
-   * Reads the caret line's time and, for a selection over more than one row, the times of its first
-   * and last rows' lines, unless the last read covered the same lines. One read runs at a time; a
-   * change during it starts one more when it returns.
-   */
-  private void requestTime() {
-    if (closed) {
-      return;
-    }
-    TimeController time = owner().time();
-    if (time == null) {
-      return;
-    }
-    if (time.format() == null) {
-      if (timeKey != null || timeStatus != TimeStatus.NONE) {
-        timeKey = null;
-        timeStatus = TimeStatus.NONE;
-        fireTime();
-      }
-      return;
-    }
-    LineIndex index = document.index();
-    long count = index.lineCount();
-    long caret = sourceLine(selection.caret().line());
-    if (caret < 0 || caret >= count) {
-      return;
-    }
-    long first = -1;
-    long last = -1;
-    if (!selection.isEmpty() && selection.start().line() != selection.end().line()) {
-      first = sourceLine(selection.start().line());
-      last = sourceLine(selection.end().line());
-      if (first < 0 || last < 0 || last >= count) {
-        first = -1;
-        last = -1;
-      }
-    }
-    final TimeKey key = new TimeKey(caret, first, last, time.formatGeneration());
-    if (key.equals(timeKey)) {
-      return;
-    }
-    if (timeInFlight) {
-      timeWanted = true;
-      return;
-    }
-    timeKey = key;
-    final LineIndex snapshot = index;
-    final TimestampFormat format = time.format();
-    final TimeContext context = time.context();
-    timeInFlight =
-        workers.tryStart(
-            Workers.Kind.READ,
-            new Runnable() {
-              @Override
-              public void run() {
-                readTime(snapshot, key, format, context);
-              }
-            });
-  }
-
-  /** Runs on a worker; posts back on every outcome, so {@code timeInFlight} always clears. */
-  @WorkerThread
-  private void readTime(LineIndex index, TimeKey key, TimestampFormat format, TimeContext context) {
-    TimeStatus status = null;
-    boolean admitted = document.enter();
-    try {
-      if (admitted) {
-        TimeReader reader = document.newTimeReader(format.parser(context));
-        Stamp caret = reader.at(index.lineStart(key.caret()), timeReads);
-        Stamp first = null;
-        Stamp last = null;
-        if (key.first() >= 0) {
-          first = reader.at(index.lineStart(key.first()), timeReads);
-          last = reader.at(index.lineStart(key.last()), timeReads);
-        }
-        status =
-            new TimeStatus(
-                caret == null ? TimestampParser.NONE : caret.nanos(),
-                caret == null ? 0 : caret.fractionDigits(),
-                first == null ? TimestampParser.NONE : first.nanos(),
-                last == null ? TimestampParser.NONE : last.nanos(),
-                Math.max(
-                    first == null ? 0 : first.fractionDigits(),
-                    last == null ? 0 : last.fractionDigits()));
-      }
-    } catch (CancellationException e) {
-      status = null;
-    } catch (IOException | UncheckedIOException e) {
-      LOG.debug(
-          "Cannot read a time of {}: {}",
-          LogText.oneLine(document.path()),
-          LogText.oneLine(e.getMessage()));
-      status = TimeStatus.NONE;
-    } finally {
-      if (admitted) {
-        document.exit();
-      }
-      final TimeStatus read = status;
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              timeRead(key, read);
-            }
-          });
-    }
-  }
-
-  private void timeRead(TimeKey key, TimeStatus status) {
-    timeInFlight = false;
-    if (closed) {
-      return;
-    }
-    if (status != null && key.equals(timeKey) && !status.equals(timeStatus)) {
-      timeStatus = status;
-      fireTime();
-    }
-    if (timeWanted) {
-      timeWanted = false;
-      requestTime();
     }
   }
 

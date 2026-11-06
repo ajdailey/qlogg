@@ -631,11 +631,11 @@ again; an offset change only reformats them and schedules a session save.
   document's user format takes the edited format of its name, or none when
   it was removed. The editor's preview line is the caret line's first 256
   chars, read on a `qlogg-read-` worker before the editor opens.
-- Each view reads the caret line's time and, for a selection over more than
-  one row, its first and last rows' lines' times through `TimeReader.at` on
-  a `qlogg-read-` worker, one read at a time with one more queued, skipped
-  when the lines and the format are those of the last read. The filtered
-  view reads its rows' source lines.
+- Each view's `CaretTimes` reads the caret line's time and, for a selection
+  over more than one row, its first and last rows' lines' times through
+  `TimeReader.at` on a `qlogg-read-` worker, one read at a time with one more
+  queued, skipped when the lines and the format are those of the last read.
+  The filtered view reads its rows' source lines.
 - `goToTime(shown)` subtracts the offset and runs on a `qlogg-search-` worker
   inside `LogDocument.enter`, holding the `ActivityIndicator` until its result
   posts. It searches the index snapshot taken at the start. The order check
@@ -1026,7 +1026,7 @@ line by line without the out-of-order notice; a format or zone change dropping
 a running search; a newer request dropping the older result; `Esc` canceling with its notice and a held save,
 and over held indexing leaving it running until a second `Esc` stops loading; the notice for
 a target past the indexed part; progress notices of a linear scan held at a
-gated line; the filtered view's rows' times; a file without
+gated line; the filtered view's rows' times; a close during a time read or after its post-back; a file without
 timestamps disabling the commands; a remembered format, none or a user
 format, skipping detection on the next open; the Go to Time, Time Offset and
 Time Zone dialogs' results, the offset in the session draft; a reload keeping
