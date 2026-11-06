@@ -59,6 +59,15 @@ public final class ManualUiDispatcher implements UiDispatcher {
     return heldTimers.size();
   }
 
+  /**
+   * Counts the tasks waiting to run.
+   *
+   * @return the count
+   */
+  public int queued() {
+    return queue.size();
+  }
+
   /** Queues the held timer tasks, as if their delays had passed. */
   public void runHeldTimers() {
     for (Runnable task : heldTimers) {

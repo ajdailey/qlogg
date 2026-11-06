@@ -241,7 +241,7 @@ dropped.
   `follow.onOverscroll`.
 - `importFilters` and `exportFilters` read or write a user-chosen file on a
   `qlogg-lifecycle-` worker (`FilterFile`) and report to a
-  `FilterFileListener` on the UI thread. Save as Filter asks for a name
+  `SettingsFileListener` on the UI thread. Save as Filter asks for a name
   (`MainView.askFilterName`), prefilled with the pattern cut at 64 chars;
   `saveAsFilter` adds the filter once, named after the pattern when the name
   is blank.
@@ -250,7 +250,7 @@ dropped.
 - Highlight settings (`highlightSettings`, `setHighlightSettings`,
   `toggleHighlightSet`, None) save at once and recolor every tab.
   `importHighlights` and `exportHighlights` run `HighlightFile` on a
-  `qlogg-lifecycle-` worker and report to a `HighlightFileListener`. Color
+  `qlogg-lifecycle-` worker and report to a `SettingsFileListener`. Color
   label commands read the focused view's selected text on a worker, then
   change the document's labels.
 - `theme()` is the `ThemeController`; the View menu's theme items call
@@ -994,6 +994,8 @@ background tab sets nothing, a background reload or truncation sets
 `NEW_LINES`, and a closed tab reports no further change.
 `TabTipsTest` covers the tooltip over an empty path, each state, a sync group
 and a `&`.
+`HighlightControllerTest` covers a highlighter file's round trip, its read and
+write failures and a shutdown dropping an import's result.
 `TriggerControllerTest` covers stop follow on the shown tab (notice) and a
 background tab (`FOLLOW_STOPPED` above `NEW_MATCHES`), a templated mark on
 appended lines only, no firing on the first index, a reload or a truncation

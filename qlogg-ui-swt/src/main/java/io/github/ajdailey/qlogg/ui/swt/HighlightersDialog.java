@@ -2,7 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
-import io.github.ajdailey.qlogg.app.controller.HighlightFileListener;
+import io.github.ajdailey.qlogg.app.controller.SettingsFileListener;
 import io.github.ajdailey.qlogg.app.highlight.ColorLabel;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSetsEditor;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
@@ -448,7 +448,7 @@ final class HighlightersDialog {
     status.setText(UiText.FILTERS_WORKING.text());
     application.importHighlights(
         path,
-        new HighlightFileListener() {
+        new SettingsFileListener<HighlightSet>() {
           @Override
           public void done(List<HighlightSet> read) {
             if (shell.isDisposed()) {
@@ -476,7 +476,7 @@ final class HighlightersDialog {
     application.exportHighlights(
         path,
         editor.sets(),
-        new HighlightFileListener() {
+        new SettingsFileListener<HighlightSet>() {
           @Override
           public void done(List<HighlightSet> written) {
             if (!shell.isDisposed()) {

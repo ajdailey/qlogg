@@ -2,7 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
-import io.github.ajdailey.qlogg.app.controller.FilterFileListener;
+import io.github.ajdailey.qlogg.app.controller.SettingsFileListener;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
@@ -303,7 +303,7 @@ final class FiltersDialog {
     status.setText(UiText.FILTERS_WORKING.text());
     application.importFilters(
         path,
-        new FilterFileListener() {
+        new SettingsFileListener<PredefinedFilter>() {
           @Override
           public void done(List<PredefinedFilter> filters) {
             if (shell.isDisposed()) {
@@ -337,7 +337,7 @@ final class FiltersDialog {
     application.exportFilters(
         path,
         working,
-        new FilterFileListener() {
+        new SettingsFileListener<PredefinedFilter>() {
           @Override
           public void done(List<PredefinedFilter> filters) {
             if (!shell.isDisposed()) {

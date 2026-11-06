@@ -257,8 +257,8 @@ class SearchFeaturesTest {
     final Path file = temp.resolve("export.conf");
     final List<List<PredefinedFilter>> done = new ArrayList<List<PredefinedFilter>>();
     final List<String> failed = new ArrayList<String>();
-    FilterFileListener listener =
-        new FilterFileListener() {
+    SettingsFileListener<PredefinedFilter> listener =
+        new SettingsFileListener<PredefinedFilter>() {
           @Override
           public void done(List<PredefinedFilter> result) {
             done.add(result);

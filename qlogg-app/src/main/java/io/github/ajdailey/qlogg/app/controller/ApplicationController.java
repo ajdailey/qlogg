@@ -335,7 +335,7 @@ public final class ApplicationController implements DocumentHost {
    * @param path the file
    * @param listener receives the sets or the failure
    */
-  public void importHighlights(Path path, HighlightFileListener listener) {
+  public void importHighlights(Path path, SettingsFileListener<HighlightSet> listener) {
     runHighlightFile(path, null, listener);
   }
 
@@ -346,13 +346,16 @@ public final class ApplicationController implements DocumentHost {
    * @param sets the sets
    * @param listener receives the end or the failure
    */
-  public void exportHighlights(Path path, List<HighlightSet> sets, HighlightFileListener listener) {
+  public void exportHighlights(
+      Path path, List<HighlightSet> sets, SettingsFileListener<HighlightSet> listener) {
     runHighlightFile(path, List.copyOf(sets), listener);
   }
 
   /** Imports when {@code sets} is null, else exports them. */
   private void runHighlightFile(
-      final Path path, final List<HighlightSet> sets, final HighlightFileListener listener) {
+      final Path path,
+      final List<HighlightSet> sets,
+      final SettingsFileListener<HighlightSet> listener) {
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
@@ -375,27 +378,31 @@ public final class ApplicationController implements DocumentHost {
                       sets == null ? "read" : "written",
                       failure);
                 }
-                final List<HighlightSet> done = result;
-                final String message = failure;
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        if (message == null) {
-                          listener.done(done);
-                        } else {
-                          listener.failed(message);
-                        }
-                      }
-                    });
+                postFileResult(result, failure, listener);
               }
             });
     if (!started) {
       LOG.debug("Highlighter file not processed: workers are closed");
     }
+  }
+
+  /** Reports a settings file task's end on the UI thread; a shutdown drops it. */
+  private <T> void postFileResult(
+      final List<T> done, final String failure, final SettingsFileListener<T> listener) {
+    ui.asyncExec(
+        new Runnable() {
+          @Override
+          public void run() {
+            if (shuttingDown) {
+              return;
+            }
+            if (failure == null) {
+              listener.done(done);
+            } else {
+              listener.failed(failure);
+            }
+          }
+        });
   }
 
   /**
@@ -560,7 +567,8 @@ public final class ApplicationController implements DocumentHost {
    * @param path the file
    * @param listener receives the filters or the failure
    */
-  public void importFilters(final Path path, final FilterFileListener listener) {
+  public void importFilters(
+      final Path path, final SettingsFileListener<PredefinedFilter> listener) {
     runFilterFile(path, null, listener);
   }
 
@@ -572,13 +580,17 @@ public final class ApplicationController implements DocumentHost {
    * @param listener receives the end or the failure
    */
   public void exportFilters(
-      final Path path, final List<PredefinedFilter> filters, final FilterFileListener listener) {
+      final Path path,
+      final List<PredefinedFilter> filters,
+      final SettingsFileListener<PredefinedFilter> listener) {
     runFilterFile(path, List.copyOf(filters), listener);
   }
 
   /** Imports when {@code filters} is null, else exports them. */
   private void runFilterFile(
-      final Path path, final List<PredefinedFilter> filters, final FilterFileListener listener) {
+      final Path path,
+      final List<PredefinedFilter> filters,
+      final SettingsFileListener<PredefinedFilter> listener) {
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
@@ -601,22 +613,7 @@ public final class ApplicationController implements DocumentHost {
                       filters == null ? "read" : "written",
                       failure);
                 }
-                final List<PredefinedFilter> done = result;
-                final String message = failure;
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        if (message == null) {
-                          listener.done(done);
-                        } else {
-                          listener.failed(message);
-                        }
-                      }
-                    });
+                postFileResult(result, failure, listener);
               }
             });
     if (!started) {

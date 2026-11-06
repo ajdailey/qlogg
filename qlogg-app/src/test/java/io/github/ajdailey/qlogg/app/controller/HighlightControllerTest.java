@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.OverviewListener;
@@ -21,7 +22,11 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.testkit.Poll;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
@@ -168,5 +173,73 @@ class HighlightControllerTest {
     overview.setGeometry(40, false);
     overview.jumpTo(0);
     assertEquals(0, document.selection().caret().line());
+  }
+
+  /** Records the ends of a highlighter file task. */
+  private static final class FileOutcome implements SettingsFileListener<HighlightSet> {
+    private final List<List<HighlightSet>> done = new ArrayList<List<HighlightSet>>();
+    private final List<String> failed = new ArrayList<String>();
+
+    @Override
+    public void done(List<HighlightSet> sets) {
+      done.add(sets);
+    }
+
+    @Override
+    public void failed(String message) {
+      failed.add(message);
+    }
+
+    BooleanSupplier ended(final int count) {
+      return new BooleanSupplier() {
+        @Override
+        public boolean getAsBoolean() {
+          return done.size() + failed.size() == count;
+        }
+      };
+    }
+  }
+
+  @Test
+  void highlighterFilesRoundTripAndReportFailures() throws Exception {
+    Path file = temp.resolve("sets.conf");
+    FileOutcome outcome = new FileOutcome();
+    fixture.application.exportHighlights(file, List.of(SET), outcome);
+    fixture.runUntil(outcome.ended(1));
+    assertEquals(List.of(SET), outcome.done.get(0));
+    fixture.application.importHighlights(file, outcome);
+    fixture.runUntil(outcome.ended(2));
+    assertEquals(List.of(SET), outcome.done.get(1));
+
+    Files.writeString(file, "not a highlighter export\n");
+    fixture.application.importHighlights(file, outcome);
+    fixture.runUntil(outcome.ended(3));
+    assertEquals(UiText.HIGHLIGHT_FILE_NOT_EXPORT.text(), outcome.failed.get(0));
+
+    fixture.application.exportHighlights(temp, List.of(SET), outcome);
+    fixture.runUntil(outcome.ended(4));
+    assertEquals(2, outcome.failed.size());
+    assertEquals(2, outcome.done.size());
+  }
+
+  @Test
+  void aShutdownDropsAHighlighterImportThatPostedBack() throws Exception {
+    Path file = temp.resolve("held.conf");
+    FileOutcome outcome = new FileOutcome();
+    fixture.application.exportHighlights(file, List.of(SET), outcome);
+    fixture.runUntil(outcome.ended(1));
+    fixture.ui.runPending();
+    fixture.application.importHighlights(file, outcome);
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return fixture.ui.queued() > 0;
+              }
+            },
+            Duration.ofSeconds(20)));
+    fixture.close();
+    assertTrue(outcome.ended(1).getAsBoolean());
   }
 }
