@@ -1152,7 +1152,10 @@ public enum UiText {
   NOTICE_COMMENTS_DROPPED,
   // Reopen with auto-refresh.
   /** Notice: a file changed on disk and its auto-refresh search runs again; the tab title. */
-  NOTICE_FILE_SEARCH_RERUN;
+  NOTICE_FILE_SEARCH_RERUN,
+  // Failed reopen retries.
+  /** Status field: a failed reopen waits for the next check of the file. */
+  STATUS_REOPEN_WAITING;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

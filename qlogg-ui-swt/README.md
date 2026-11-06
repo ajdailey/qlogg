@@ -148,8 +148,8 @@ Compiled and tested against the build host's SWT fragment.
   by 5 points between 10% and 90%; View > Save Splitter Position stores it.
 - The bottom pane holds the `SearchBar`, then the `ResultsPane`. Showing a tab
   binds the `SearchBar` to its document. The status bar shows the document
-  notes from `StatusText.notes` (index percent, Following, File missing,
-  Loading stopped, the reduced-index notice, a failure), a notice for 5 s
+  notes from `StatusText.notes` (index percent, Following or Waiting to reopen,
+  File missing, Loading stopped, the reduced-index notice, a failure), a notice for 5 s
   (`showNotice`) and the pending key prefix (`Ctrl+E -`).
 - `SearchBar` is one full-width row: the filtered view's visibility combo;
   icon toggles for Match case, Regex, Whole word, Inverse, Combine, In

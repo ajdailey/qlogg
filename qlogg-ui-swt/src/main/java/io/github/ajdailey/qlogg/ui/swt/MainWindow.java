@@ -1965,6 +1965,8 @@ public final class MainWindow implements MainView, ApplicationListener {
           public void run() {
             if (shown == noticeGeneration && !notice.isDisposed()) {
               notice.setText("");
+              // A long notice left the notes no width.
+              statusBar.layout(true);
             }
           }
         });

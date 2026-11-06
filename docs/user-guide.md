@@ -203,6 +203,12 @@ A file that is truncated, replaced or rotated reopens by name with its results
 cleared; a search with Auto-refresh on runs again. A deleted file keeps its content on screen until a file with that name
 appears again.
 
+When the file cannot be opened at that moment, for example between a log
+rotator's rename and its create, the tab keeps its content, shows one notice and
+reads Waiting to reopen in the status bar in place of Following. QLogg tries
+again at each check of the file, once a second by default, and following
+resumes when the file opens.
+
 ## Timestamps
 
 ![Time of the current line and the time across a selection](images/guide/timestamps.png)

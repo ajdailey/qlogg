@@ -519,7 +519,12 @@ close cleanly.
   runs at a time; growth seen while one runs starts another when it ends.
 - `TRUNCATED`, `REPLACED` and `MODIFIED` reach `DocumentListener.fileChanged`
   once, and the document stops checking: its owner reopens the path, which is
-  how a renamed log is followed by name.
+  how a renamed log is followed by name. An owner whose reopen fails must call
+  `reopenFailed()`, or following ends with the status unchanged. That call
+  resumes the checks, and the next one reports the change again or `MISSING`.
+  It returns true for the first failure of a run, for one notice per run.
+  `status().reopenWaiting()` holds until a reopen replaces the document or a
+  check classifies the file as `UNCHANGED` or `APPENDED`.
 - `MISSING` is reported once; the open file stays readable. A file that
   reappears is reported as `REPLACED`.
 - `UNCHANGED` is reported when only the size or modification time moved, for

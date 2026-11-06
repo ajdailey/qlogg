@@ -222,8 +222,18 @@ dropped.
   were, and the notice says the search runs again instead of results cleared.
   `F5` does not rerun it. A reload keeps the caret's line, the color labels, the marks and
   their comments: the worker copies them into the new document, and its first
-  completed indexing drops marks and comments past the last line. A reopen
-  that fails shows a notice and keeps the old tab.
+  completed indexing drops marks and comments past the last line.
+- A reopen that fails keeps the tab and its content and calls
+  `DocumentController.reopenFailed`, which resumes the document's checks. The
+  next check that reports a change reopens again, so retries run at the check
+  interval and following resumes when the file opens. While no file is at the
+  path the check reports `MISSING` once and no reopen runs. A run of failures
+  shows one notice and logs one WARN; each failed `F5` shows its own notice. The
+  status note reads Waiting to reopen in place of Following until the run ends.
+  `Esc` leaves the retries running, as it leaves a first reopen. Closing the
+  tab ends them: the watch stops and `reopened` or `reopenFailed` drops the
+  result of a worker still running. A change reported during a reload is
+  dropped; if that reload fails, the next check reports the change again.
 - `execute(command)` runs File, Help, Go to Line, the search field, quick find,
   the split and the history and filter dialogs itself. Search toggles,
   visibility modes, edits with selection and search limits go to the shown
@@ -456,7 +466,8 @@ document's `SearchController` and `FilteredController`.
   to line, scroll bar) releases it. With `follow.onOverscroll`, scrolling down
   5 rows past the bottom engages it. Growth the document indexes needs no
   action here beyond the flush, which also calls `SearchController.appended`.
-- A `MISSING` file shows a notice and the status note; its content stays.
+- A `MISSING` file shows a notice and the status note; its content stays. The
+  notice is left out while a failed reopen waits, because that run showed one.
   `TRUNCATED`, `REPLACED` and `MODIFIED` go to `DocumentHost.reopenChanged`.
 - `detach()` drops every later result and detaches the search and the
   filtered view; `close()` also closes the document on a worker.
@@ -987,7 +998,13 @@ teardown throws it, so a worker path that touches the view fails the test.
 release, overscroll, follow on load and `-f`, auto-refresh over a grown last
 line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
 delete-then-recreate reopening the tab,
-reload and stop loading. `RememberedStateTest` runs the application twice over
+reload and stop loading. `ReopenRetryTest` holds the `LINE_INDEX` share so an open
+fails on every platform, or deletes the file between the check and the open: the
+reopen runs again and following resumes, retries keep the content, one notice
+and the Waiting to reopen note, a change dropped during a failing reload is
+reported again, and `F5`, `Esc` and closing the tab during the wait or a running
+retry. Regression: one failed reopen ended following until `F5` while the status
+read Following. `RememberedStateTest` runs the application twice over
 one settings directory: comments past the session cap show one notice at the
 next start and the next save clears their count; tabs, names, follow, marks, a mark comment, the
 active tab, the caret, the zoom, favorites, recent files, line numbers and the window state

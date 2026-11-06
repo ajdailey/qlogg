@@ -56,7 +56,9 @@ public final class StatusText {
     if (state.indexing()) {
       note(text, UiText.STATUS_INDEXING.format(state.indexPercent()));
     }
-    if (state.following()) {
+    if (state.reopenWaiting()) {
+      note(text, UiText.STATUS_REOPEN_WAITING.text());
+    } else if (state.following()) {
       note(text, UiText.STATUS_FOLLOWING.text());
     }
     if (state.missing()) {

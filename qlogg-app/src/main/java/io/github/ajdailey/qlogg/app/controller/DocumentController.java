@@ -68,7 +68,8 @@ import org.slf4j.LoggerFactory;
  * bottom releases follow; with {@code follow.onOverscroll}, scrolling down {@link #OVERSCROLL_ROWS}
  * rows past the bottom engages it. Growth the document indexes re-runs an auto-refresh search over
  * the new lines. A truncated, replaced or modified file goes to the {@link DocumentHost}, which
- * reopens it; a missing file shows a notice and keeps its content.
+ * reopens it; a missing file keeps its content and shows a notice, unless a failed reopen already
+ * showed one.
  *
  * <p>Folding ({@link FoldController}): a collapsed entry is one row, so rows map to lines through
  * the {@link FoldMap}. A fold change keeps the top line and the selection on their lines. Go to
@@ -267,11 +268,24 @@ public final class DocumentController extends LineViewController {
       return;
     }
     if (change == FileChange.MISSING) {
-      notifications().showNotice(UiText.NOTICE_FILE_MISSING.format(state.title()));
+      if (!document.reopenWaiting()) {
+        notifications().showNotice(UiText.NOTICE_FILE_MISSING.format(state.title()));
+      }
       refresh();
     } else {
       host.reopenChanged(this, change);
     }
+  }
+
+  /**
+   * Resumes the document's checks after its reopen failed and updates the status.
+   *
+   * @return true when this failure starts a run of failures
+   */
+  boolean reopenFailed() {
+    boolean first = document.reopenFailed();
+    updates.post();
+    return first;
   }
 
   /**
@@ -1184,6 +1198,7 @@ public final class DocumentController extends LineViewController {
         status.modifiedMillis(),
         status.missing(),
         status.loadingStopped(),
+        status.reopenWaiting(),
         failure);
   }
 }

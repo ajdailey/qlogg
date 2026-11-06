@@ -56,8 +56,8 @@ final class DocumentOpener {
     void reopened(
         DocumentController old, LogDocument document, FileChange change, boolean marksComplete);
 
-    /** A tab's file did not reopen. */
-    void reopenFailed(DocumentController old, String message);
+    /** A tab's file did not reopen; {@code change} is null for a reload. */
+    void reopenFailed(DocumentController old, FileChange change, String message);
 
     /** A restored tab carries a Rename Tab name. */
     void restoredName(Path path, String name);
@@ -217,12 +217,17 @@ final class DocumentOpener {
                   });
             } catch (IOException e) {
               final String message = LogText.oneLine(e.getMessage());
-              LOG.warn("Cannot reload {}: {}", LogText.oneLine(path), message);
+              // A failed reopen runs again at every check; the run logs one warning.
+              if (old.document().reopenWaiting()) {
+                LOG.debug("Cannot reload {}: {}", LogText.oneLine(path), message);
+              } else {
+                LOG.warn("Cannot reload {}: {}", LogText.oneLine(path), message);
+              }
               post(
                   new Runnable() {
                     @Override
                     public void run() {
-                      listener.reopenFailed(old, message);
+                      listener.reopenFailed(old, change, message);
                     }
                   });
             }

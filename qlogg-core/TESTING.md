@@ -102,6 +102,10 @@
   rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) while
   the document holds the file open, with the old content still readable; stop
   loading; and close keeping the file open until an admitted operation exits.
+  After `reopenFailed()` the next check reports the change again; with no file
+  at the path it reports `MISSING` once and nothing more over five checks of a
+  second watch, then `REPLACED`; and a check that finds the file unchanged or
+  grown ends the wait. Regression: one failed reopen stopped the checks for good.
   A symbolic link retargeted by an atomic rename must read as `REPLACED`, and
   a reopen of `path()` must read the new target. The same holds for a new target
   with the old creation time that starts with the old bytes, which on Windows

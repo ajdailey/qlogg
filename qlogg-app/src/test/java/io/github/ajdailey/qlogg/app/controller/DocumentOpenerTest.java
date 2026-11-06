@@ -295,7 +295,7 @@ class DocumentOpenerTest {
     }
 
     @Override
-    public void reopenFailed(DocumentController old, String message) {
+    public void reopenFailed(DocumentController old, FileChange change, String message) {
       events.add("failed");
       failures.add(message);
     }

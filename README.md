@@ -36,7 +36,8 @@ plugins.
   last line engages it. Growth is indexed as it arrives. A truncated, replaced
   or rotated file, or a symbolic link retargeted to another file, reopens by
   name with its results cleared, and a search with Auto-refresh on runs again;
-  a deleted file keeps its content until it reappears.
+  a deleted file keeps its content until it reappears. A reopen that fails runs
+  again at each check of the file.
 - Detects the encoding (BOM, UTF-16, UTF-8, ISO-8859-1 fallback); the Encoding
   menu forces a charset and indexes the file again.
 

@@ -16,6 +16,7 @@ package io.github.ajdailey.qlogg.app.view;
  * @param modifiedMillis the file's modification time at the last check
  * @param missing true while no file is at the path
  * @param loadingStopped true after stop loading, until the file is reloaded
+ * @param reopenWaiting true while a failed reopen waits for the next check of the file
  * @param error a one-line failure message, or null
  */
 public record DocumentViewState(
@@ -32,6 +33,7 @@ public record DocumentViewState(
     long modifiedMillis,
     boolean missing,
     boolean loadingStopped,
+    boolean reopenWaiting,
     String error) {
   /**
    * Reports whether a file backs the document, as opposed to pasted text.

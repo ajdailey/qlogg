@@ -180,9 +180,12 @@ class FollowControllerTest {
     assertEquals(0, reopened.search().results().size());
     assertEquals("hit", reopened.search().fieldText());
     assertEquals(1, fixture.application.documents().size());
+    // A check that straddles the write sees the old size and the new head, which reads replaced.
     assertTrue(
         fixture.view.notices.contains(
-            "File truncated on disk: follow.log reloaded, results cleared."),
+                "File truncated on disk: follow.log reloaded, results cleared.")
+            || fixture.view.notices.contains(
+                "File replaced on disk: follow.log reloaded, results cleared."),
         fixture.view.notices.toString());
   }
 

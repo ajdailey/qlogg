@@ -79,7 +79,9 @@ import org.slf4j.LoggerFactory;
  * worker; the new controller takes the old one's tab, follow state and search text, and the old one
  * closes. Results start empty. A reload keeps the caret's line, the color labels and the marks
  * (copied on the worker; the first completed indexing drops marks past the last line); a reopen
- * after a change on disk starts without marks and labels.
+ * after a change on disk starts without marks and labels. A reopen that fails keeps the tab and its
+ * content and resumes the document's checks, so it runs again at the next check that finds a file
+ * to reopen; a run of failures shows one notice, and each failed reload its own.
  *
  * <p>Open from clipboard reads the clipboard's text on the UI thread, then {@link
  * LogDocument#ofText} encodes and charges it on a worker, at most {@link #MAX_PASTED_BYTES}. A
@@ -724,8 +726,8 @@ public final class ApplicationController implements DocumentHost {
     }
 
     @Override
-    public void reopenFailed(DocumentController old, String message) {
-      ApplicationController.this.reopenFailed(old, message);
+    public void reopenFailed(DocumentController old, FileChange change, String message) {
+      ApplicationController.this.reopenFailed(old, change, message);
     }
 
     @Override
@@ -1258,9 +1260,9 @@ public final class ApplicationController implements DocumentHost {
     }
   }
 
-  private void reopenFailed(DocumentController old, String message) {
+  private void reopenFailed(DocumentController old, FileChange change, String message) {
     reopening.remove(old);
-    if (!old.isClosed()) {
+    if (!old.isClosed() && (old.reopenFailed() || change == null)) {
       view.showNotice(UiText.NOTICE_RELOAD_FAILED.format(old.state().title(), message));
     }
   }

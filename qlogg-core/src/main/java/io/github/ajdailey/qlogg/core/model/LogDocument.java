@@ -65,9 +65,11 @@ import java.util.function.BooleanSupplier;
  * a symbolic link, so a retargeted link reads as {@code REPLACED}. {@code APPENDED} indexes the new
  * bytes from {@link GrowableLineIndex#resumeOffset}, one operation at a time; growth seen while one
  * runs starts another when it ends. {@code TRUNCATED}, {@code REPLACED} and {@code MODIFIED} are
- * reported once and end the reports, because the owner reopens the path. {@code MISSING} is
- * reported once; a file that reappears is reported as {@code REPLACED}. {@link #stopIndexing}
- * cancels indexing and leaves later growth unindexed.
+ * reported once and stop the checks, because the owner reopens the path. An owner whose reopen
+ * fails calls {@link #reopenFailed}, which resumes the checks, so the next one reports what it
+ * finds at the path and the owner reopens again. {@code MISSING} is reported once; a file that
+ * reappears is reported as {@code REPLACED}. {@link #stopIndexing} cancels indexing and leaves
+ * later growth unindexed.
  *
  * <p>In memory: {@link #ofText} holds pasted text as UTF-8 in the heap, charged to {@link
  * MemoryShare#PASTED} until {@link #close}. Such a document has no path, is never watched and never
@@ -99,6 +101,7 @@ public final class LogDocument implements LineSource, Closeable {
   private final AtomicBoolean extendWanted = new AtomicBoolean();
   private final AtomicBoolean watchStarted = new AtomicBoolean();
   private final AtomicBoolean closed = new AtomicBoolean();
+  private final AtomicBoolean reopenWaiting = new AtomicBoolean();
   private final MutableLineSet marks;
   private final MarkComments markComments;
   private volatile OperationHandle indexing;
@@ -405,7 +408,8 @@ public final class LogDocument implements LineSource, Closeable {
         fileBytes,
         modifiedMillis,
         missing,
-        loadingStopped);
+        loadingStopped,
+        reopenWaiting.get());
   }
 
   /**
@@ -573,6 +577,29 @@ public final class LogDocument implements LineSource, Closeable {
     }
   }
 
+  /**
+   * Records that the owner's reopen of the path failed and resumes the checks. The next check
+   * reports the change again, or {@code MISSING} once while no file is at the path. {@link
+   * #reopenWaiting} holds until a reopen replaces this document or a check classifies the file as
+   * {@code UNCHANGED} or {@code APPENDED}.
+   *
+   * @return true when this failure starts a run of failures, false when one is running
+   */
+  public boolean reopenFailed() {
+    boolean first = !reopenWaiting.getAndSet(true);
+    stale = false;
+    return first;
+  }
+
+  /**
+   * Reports whether a failed reopen waits for the next check.
+   *
+   * @return true from {@link #reopenFailed} until the run of failures ends
+   */
+  public boolean reopenWaiting() {
+    return reopenWaiting.get();
+  }
+
   /** Indexes the bytes the file gained, now or when the running operation ends. */
   private void extendIndex() {
     extendWanted.set(true);
@@ -734,6 +761,7 @@ public final class LogDocument implements LineSource, Closeable {
     }
     switch (change) {
       case APPENDED -> {
+        reopenWaiting.set(false);
         extendIndex();
         fire(FileChange.APPENDED);
       }
@@ -742,7 +770,7 @@ public final class LogDocument implements LineSource, Closeable {
         fire(change);
       }
       default -> {
-        if (info) {
+        if (reopenWaiting.getAndSet(false) || info) {
           fire(FileChange.UNCHANGED);
         }
       }

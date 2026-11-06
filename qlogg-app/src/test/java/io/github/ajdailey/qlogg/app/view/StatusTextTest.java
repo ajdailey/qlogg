@@ -24,6 +24,7 @@ class StatusTextTest {
         NOON,
         missing,
         stopped,
+        false,
         null);
   }
 

@@ -13,6 +13,8 @@ package io.github.ajdailey.qlogg.core.model;
  * @param modifiedMillis the file's modification time at the last check
  * @param missing true while no file is at the path
  * @param loadingStopped true after {@link LogDocument#stopIndexing}
+ * @param reopenWaiting true while a failed reopen waits for the next check ({@link
+ *     LogDocument#reopenFailed})
  */
 public record DocumentStatus(
     long lineCount,
@@ -24,4 +26,5 @@ public record DocumentStatus(
     long fileBytes,
     long modifiedMillis,
     boolean missing,
-    boolean loadingStopped) {}
+    boolean loadingStopped,
+    boolean reopenWaiting) {}

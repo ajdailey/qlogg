@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
@@ -21,6 +22,7 @@ import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.testkit.Renames;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
+import io.github.ajdailey.qlogg.core.watch.MonitorListener;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -399,6 +402,101 @@ class LogDocumentFollowTest {
       Files.writeString(file, "again\n");
       assertTrue(Poll.until(reported(events, FileChange.REPLACED), BOUND));
       assertFalse(document.status().missing());
+    }
+  }
+
+  /** Regression: a reopen that failed left the checks stopped, which ended following for good. */
+  @Test
+  void aFailedReopenReportsTheChangeAgainAtTheNextCheck() throws Exception {
+    Path file = Files.writeString(dir.resolve("again.log"), "one\ntwo\nthree\n");
+    final Events events = new Events();
+    try (LogDocument document = watched(file, events)) {
+      Files.writeString(file, "x\n", StandardOpenOption.TRUNCATE_EXISTING);
+      assertTrue(Poll.until(reported(events, FileChange.TRUNCATED), BOUND));
+      assertFalse(document.status().reopenWaiting());
+      assertTrue(document.reopenFailed());
+      assertTrue(document.status().reopenWaiting());
+      assertTrue(Poll.until(reportCount(events, 2), BOUND));
+      assertFalse(document.reopenFailed());
+      assertTrue(Poll.until(reportCount(events, 3), BOUND));
+      assertTrue(document.status().reopenWaiting());
+    }
+  }
+
+  /** While no file is at the path nothing is reported, so the owner has nothing to retry. */
+  @Test
+  void aFailedReopenWithNoFileIsMissingOnceThenReplacedWhenTheFileReturns() throws Exception {
+    Path file = Files.writeString(dir.resolve("back.log"), "one\ntwo\nthree\n");
+    final Events events = new Events();
+    try (LogDocument document = watched(file, events)) {
+      Files.writeString(file, "x\n", StandardOpenOption.TRUNCATE_EXISTING);
+      assertTrue(Poll.until(reported(events, FileChange.TRUNCATED), BOUND));
+      Files.delete(file);
+      assertTrue(document.reopenFailed());
+      assertTrue(Poll.until(reported(events, FileChange.MISSING), BOUND));
+      awaitChecks(dir.resolve("other.log"), 5);
+      assertEquals(List.of(FileChange.TRUNCATED, FileChange.MISSING), events.changes);
+      assertTrue(document.status().missing());
+      assertTrue(document.status().reopenWaiting());
+      Files.writeString(file, "again\n");
+      assertTrue(Poll.until(reported(events, FileChange.REPLACED), BOUND));
+      assertEquals(
+          List.of(FileChange.TRUNCATED, FileChange.MISSING, FileChange.REPLACED), events.changes);
+    }
+  }
+
+  /**
+   * A failed reload of a file that did not change ends at the next check, which finds it intact.
+   */
+  @Test
+  void aCheckThatFindsNothingToReopenEndsTheWait() throws Exception {
+    Path file = Files.writeString(dir.resolve("same.log"), "one\n");
+    final Events events = new Events();
+    try (LogDocument document = watched(file, events)) {
+      assertTrue(document.reopenFailed());
+      assertTrue(Poll.until(reported(events, FileChange.UNCHANGED), BOUND));
+      assertFalse(document.status().reopenWaiting());
+      assertTrue(document.reopenFailed());
+      Files.writeString(file, "two\n", StandardOpenOption.APPEND);
+      assertTrue(Poll.until(lines(document, 2), BOUND));
+      assertFalse(document.status().reopenWaiting());
+    }
+  }
+
+  private static BooleanSupplier reportCount(final Events events, final int count) {
+    return new BooleanSupplier() {
+      @Override
+      public boolean getAsBoolean() {
+        return events.changes.size() >= count;
+      }
+    };
+  }
+
+  /** Waits for {@code count} checks of a second watch on the same monitor and interval. */
+  private void awaitChecks(Path file, final int count) throws Exception {
+    final AtomicInteger checks = new AtomicInteger();
+    OperationHandle watch =
+        monitor.watch(
+            file,
+            new MonitorListener() {
+              @Override
+              public void possiblyChanged(Path path) {
+                checks.incrementAndGet();
+              }
+            });
+    try {
+      assertTrue(
+          Poll.until(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return checks.get() >= count;
+                }
+              },
+              BOUND));
+    } finally {
+      watch.cancel();
+      assertTrue(watch.await(BOUND.toMillis()));
     }
   }
 
