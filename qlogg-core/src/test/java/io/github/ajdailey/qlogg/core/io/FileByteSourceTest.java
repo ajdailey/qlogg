@@ -38,6 +38,7 @@ class FileByteSourceTest {
       assertArrayEquals(Arrays.copyOfRange(content, 7000, 7005), middle.array());
       assertEquals(-1, source.read(10_000, ByteBuffer.allocate(1)));
       FileIdentity identity = source.identity();
+      assertEquals(file.toRealPath(), identity.realPath());
       CRC32C crc = new CRC32C();
       crc.update(content, 0, FileIdentity.HEAD_BYTES);
       assertEquals(crc.getValue(), identity.headDigest());

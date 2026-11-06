@@ -95,7 +95,7 @@ on every open and opens the real path; `path()` is the path as given and
 
 | Class | Contract |
 |---|---|
-| `FileByteSource` | `open` validates through `SafePaths.logFile`, then opens a `FileChannel` for reading. Positional reads only, thread-safe. A read after `close` throws `ClosedChannelException`. `identity()` holds the file key (null on Windows), creation and modified times, size and the CRC32C of the first 4 KiB. On Windows the JDK opens the file with delete sharing, so a writer can rename, truncate or delete it while it is open |
+| `FileByteSource` | `open` validates through `SafePaths.logFile`, then opens a `FileChannel` for reading. Positional reads only, thread-safe. A read after `close` throws `ClosedChannelException`. `identity()` holds the file key (null on Windows), creation and modified times, size, the CRC32C of the first 4 KiB and the real path opened. On Windows the JDK opens the file with delete sharing, so a writer can rename, truncate or delete it while it is open |
 | `MemoryByteSource` | A `ByteSource` over a byte array in the heap, for pasted text. `path()` is null; the size never changes. A read after `close` throws `ClosedChannelException` |
 | `BlockCache` | LRU of fixed-size blocks for random reads, keyed by source and block number; the lock is never held during I/O. A block read short at end of file is read again when a request reaches past it. `invalidateFrom` drops a block and everything after it; `invalidate(source)` drops a source's blocks, which `LogDocument.close` calls |
 | `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, reused while operations run. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits. `trim` drops free buffers past the first two and releases their reservation; the indexer and the search engine call it when an operation ends |
@@ -446,7 +446,7 @@ publishes its last snapshot before it records the new tail.
 | Observation | Result |
 |---|---|
 | No regular file | `MISSING` |
-| Another file key; where there is none (Windows), another creation time | `REPLACED` |
+| Another file key; where there is none (Windows), another creation time or real path | `REPLACED` |
 | Size below the covered bytes | `TRUNCATED` |
 | CRC32C of the head bytes differs: min(4 KiB, size at open), extended over indexed bytes up to 4 KiB | `REPLACED` |
 | Size above the covered bytes, CRC32C of the last 4 KiB before the covered end differs | `REPLACED` |
@@ -460,6 +460,11 @@ same name within 15 s can inherit the old creation time (NTFS tunneling,
 assumed from the Windows documentation), so the head digest decides there. A
 check that sees the new file before its first write lands reports `TRUNCATED`
 there, which reopens the path as `REPLACED` does.
+The real path is resolved only without a file key, on the watch's thread; a path
+that does not resolve reads as `MISSING`. The comparison reports a retargeted
+link even when the new target has the old creation time and starts with the old
+bytes. A plain file replaced in the same millisecond with the same starting
+bytes stays undetected and reads as `APPENDED`.
 The growth row with the tail digest catches a copy-truncate rotation that
 regrows past the covered bytes between two checks: the file key stays the same,
 and the head digest of a file opened short covers only the bytes recorded so

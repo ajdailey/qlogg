@@ -16,13 +16,11 @@ import java.util.zip.CRC32C;
  */
 public final class FileByteSource implements ByteSource {
   private final Path path;
-  private final Path realPath;
   private final FileChannel channel;
   private final FileIdentity identity;
 
-  private FileByteSource(Path path, Path realPath, FileChannel channel, FileIdentity identity) {
+  private FileByteSource(Path path, FileChannel channel, FileIdentity identity) {
     this.path = path;
-    this.realPath = realPath;
     this.channel = channel;
     this.identity = identity;
   }
@@ -40,7 +38,7 @@ public final class FileByteSource implements ByteSource {
     Path real = checked.real();
     FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
     try {
-      return new FileByteSource(checked.given(), real, channel, identify(real, channel));
+      return new FileByteSource(checked.given(), channel, identify(real, channel));
     } catch (IOException e) {
       channel.close();
       throw e;
@@ -64,7 +62,8 @@ public final class FileByteSource implements ByteSource {
         attributes.creationTime().toMillis(),
         size,
         attributes.lastModifiedTime().toMillis(),
-        crc.getValue());
+        crc.getValue(),
+        path);
   }
 
   @Override
@@ -78,7 +77,7 @@ public final class FileByteSource implements ByteSource {
    * @return the real path at open
    */
   public Path realPath() {
-    return realPath;
+    return identity.realPath();
   }
 
   @Override

@@ -80,7 +80,7 @@ final class GeneratedSource implements ByteSource {
 
   @Override
   public FileIdentity identity() {
-    return new FileIdentity(null, 0, size, 0, 0);
+    return new FileIdentity(null, 0, size, 0, 0, null);
   }
 
   @Override

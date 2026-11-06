@@ -103,7 +103,9 @@
   the document holds the file open, with the old content still readable; stop
   loading; and close keeping the file open until an admitted operation exits.
   A symbolic link retargeted by an atomic rename must read as `REPLACED`, and
-  a reopen of `path()` must read the new target (POSIX only).
+  a reopen of `path()` must read the new target. The same holds for a new target
+  with the old creation time that starts with the old bytes, which on Windows
+  only the real path tells apart, and growth of a link's target stays `APPENDED`.
   A check during the first indexing, held before its first progress event by
   CPU workers blocked on a latch, must classify the file as `UNCHANGED`: it
   reported `APPENDED`, which started a second indexing pass at once and left a
@@ -211,8 +213,9 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 
 `SafePathsTest` creates a FIFO with `mkfifo` and skips that case without POSIX
 attributes or `mkfifo`; the `/dev/null` case skips where the device is absent.
-The symbolic link cases in `SafePathsTest` and `LogDocumentFollowTest` skip on
-Windows, where creating a link needs a privilege. The held lock's link case
+The symbolic link cases in `SafePathsTest` skip on Windows. Those in
+`LogDocumentFollowTest` and `ChangeDetectorTest` skip there only without
+`SeCreateSymbolicLinkPrivilege`. The held lock's link case
 skips where the file system has no file key.
 `TestkitTest` makes a directory read-only to check that `TempTrees.delete`
 rethrows after its bound, and skips without POSIX attributes or when the user

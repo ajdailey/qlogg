@@ -26,10 +26,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.List;
@@ -311,19 +314,29 @@ class LogDocumentFollowTest {
     }
   }
 
+  private Path linkTo(Path target, String name) throws IOException {
+    try {
+      return Files.createSymbolicLink(dir.resolve(name), target);
+    } catch (FileSystemException e) {
+      assumeTrue(
+          File.separatorChar == '/',
+          "creating a symbolic link on Windows needs SeCreateSymbolicLinkPrivilege");
+      throw e;
+    }
+  }
+
   /** A rotation that retargets a symbolic link reads as REPLACED; a reopen reads the new target. */
   @Test
   void retargetedSymbolicLinkIsReplacedAndReopensTheNewTarget() throws Exception {
-    assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
     Path first = Files.writeString(dir.resolve("app-1.log"), "first target\n");
     Path second = Files.writeString(dir.resolve("app-2.log"), "second target\n");
-    Path link = Files.createSymbolicLink(dir.resolve("app.log"), first);
+    Path link = linkTo(first, "app.log");
     Events events = new Events();
     try (LogDocument document = watched(link, events)) {
       assertEquals(link.toAbsolutePath().normalize(), document.path());
       assertEquals(first.toRealPath(), document.realPath());
       assertEquals("app.log", document.name());
-      Path next = Files.createSymbolicLink(dir.resolve("app.log.next"), second);
+      Path next = linkTo(second, "app.log.next");
       Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
       assertTrue(
           Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
@@ -335,6 +348,42 @@ class LogDocumentFollowTest {
         assertEquals(
             "second target", reopened.newReader().read(reopened.index(), 0, 1, 0, 80).text(0));
       }
+    }
+  }
+
+  /**
+   * Regression on Windows, which has no file key: the new target has the old creation time and
+   * starts with the old bytes, so only the link's real path tells the files apart. The atomic move
+   * leaves no moment without a file, which a check would report as MISSING and then REPLACED.
+   */
+  @Test
+  void aRetargetToALongerCopyWithTheSameCreationTimeIsReplaced() throws Exception {
+    String lines = "mock line\n".repeat(10);
+    Path first = Files.writeString(dir.resolve("one.log"), lines);
+    Path second = Files.writeString(dir.resolve("two.log"), lines + "mock next line\n");
+    FileTime created = Files.readAttributes(first, BasicFileAttributes.class).creationTime();
+    Files.getFileAttributeView(second, BasicFileAttributeView.class).setTimes(null, null, created);
+    Path link = linkTo(first, "current.log");
+    Events events = new Events();
+    try (LogDocument document = watched(link, events)) {
+      Path next = linkTo(second, "current.log.next");
+      Files.move(next, link, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+      assertTrue(
+          Poll.until(reported(events, FileChange.REPLACED), BOUND), events.changes.toString());
+      assertFalse(events.changes.contains(FileChange.APPENDED), events.changes.toString());
+    }
+  }
+
+  @Test
+  void growthOfALinkTargetIsAppended() throws Exception {
+    Path target = Files.writeString(dir.resolve("target.log"), "one\n");
+    Path link = linkTo(target, "current.log");
+    Events events = new Events();
+    try (LogDocument document = watched(link, events)) {
+      Files.writeString(target, "two\n", StandardOpenOption.APPEND);
+      assertTrue(
+          Poll.until(reported(events, FileChange.APPENDED), BOUND), events.changes.toString());
+      assertFalse(events.changes.contains(FileChange.REPLACED), events.changes.toString());
     }
   }
 

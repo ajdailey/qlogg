@@ -1,14 +1,20 @@
 package io.github.ajdailey.qlogg.core.watch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,6 +43,46 @@ class ChangeDetectorTest {
 
   private static FileChange classify(Baseline baseline, Path file) throws IOException {
     return ChangeDetector.classify(baseline, file).change();
+  }
+
+  private Path linkTo(Path target, String name) throws IOException {
+    try {
+      return Files.createSymbolicLink(dir.resolve(name), target);
+    } catch (FileSystemException e) {
+      assumeTrue(
+          File.separatorChar == '/',
+          "creating a symbolic link on Windows needs SeCreateSymbolicLinkPrivilege");
+      throw e;
+    }
+  }
+
+  /** Gives the second file the first one's creation time where the platform can set it. */
+  private static void copyCreationTime(Path from, Path to) throws IOException {
+    FileTime created = Files.readAttributes(from, BasicFileAttributes.class).creationTime();
+    Files.getFileAttributeView(to, BasicFileAttributeView.class).setTimes(null, null, created);
+  }
+
+  /**
+   * Takes the file key away, the state of every baseline on Windows, and takes the creation time of
+   * the file now at the path, so that only the real path and the digests can differ.
+   */
+  private static Baseline withoutFileKey(Baseline baseline, Path file) throws IOException {
+    FileIdentity opened = baseline.identity();
+    FileIdentity identity =
+        new FileIdentity(
+            null,
+            Files.readAttributes(file, BasicFileAttributes.class).creationTime().toMillis(),
+            opened.size(),
+            opened.modifiedMillis(),
+            opened.headDigest(),
+            opened.realPath());
+    return new Baseline(
+        identity,
+        baseline.coveredBytes(),
+        baseline.headBytes(),
+        baseline.headDigest(),
+        baseline.tailModifiedMillis(),
+        baseline.tailDigest());
   }
 
   @Test
@@ -131,6 +177,78 @@ class ChangeDetectorTest {
     Baseline baseline = baseline(file);
     Files.setLastModifiedTime(file, FileTime.fromMillis(baseline.tailModifiedMillis() + 5000));
     assertEquals(FileChange.UNCHANGED, classify(baseline, file));
+  }
+
+  /**
+   * Regression: without a file key, a link retargeted to a file with the same creation millisecond
+   * that starts with the old bytes was APPENDED, and the tab kept the old file's lines.
+   */
+  @Test
+  void aRetargetWithoutAFileKeyIsReplaced() throws Exception {
+    String lines = "mock line\n".repeat(10);
+    Path first = write("one.log", lines);
+    Path second = write("two.log", lines + "mock next line\n".repeat(10));
+    Path link = linkTo(first, "current.log");
+    Baseline baseline = baseline(link);
+    Files.delete(link);
+    linkTo(second, "current.log");
+    copyCreationTime(first, second);
+    assertEquals(FileChange.REPLACED, classify(withoutFileKey(baseline, link), link));
+  }
+
+  @Test
+  void growthThroughALinkWithoutAFileKeyIsAppended() throws Exception {
+    Path target = write("target.log", "one\n");
+    Path link = linkTo(target, "current.log");
+    Baseline baseline = baseline(link);
+    Files.writeString(target, "two\n", StandardOpenOption.APPEND);
+    assertEquals(FileChange.APPENDED, classify(withoutFileKey(baseline, link), link));
+  }
+
+  /** The known gap: nothing tells these two files apart without a file key. */
+  @Test
+  void aPlainFileReplacedWithTheSameStartAndCreationTimeWithoutAFileKeyIsAppended()
+      throws Exception {
+    Path file = write("plain.log", "one\n");
+    Baseline baseline = baseline(file);
+    Files.delete(file);
+    write("plain.log", "one\ntwo\n");
+    assertEquals(FileChange.APPENDED, classify(withoutFileKey(baseline, file), file));
+  }
+
+  @Test
+  void aRealPathThatDoesNotResolveIsMissing() throws Exception {
+    Path file = write("denied.log", "one\n");
+    Baseline baseline = withoutFileKey(baseline(file), file);
+    ChangeDetector.Observation seen =
+        ChangeDetector.classify(
+            baseline,
+            file,
+            new ChangeDetector.Resolver() {
+              @Override
+              public Path realPath(Path path) throws IOException {
+                throw new AccessDeniedException(path.toString());
+              }
+            });
+    assertEquals(new ChangeDetector.Observation(FileChange.MISSING, -1, -1), seen);
+  }
+
+  @Test
+  void aFileKeyLeavesTheRealPathUnresolved() throws Exception {
+    Path file = write("keyed.log", "one\n");
+    Baseline baseline = baseline(file);
+    assumeTrue(baseline.identity().fileKey() != null, "the platform has no file key");
+    ChangeDetector.Observation seen =
+        ChangeDetector.classify(
+            baseline,
+            file,
+            new ChangeDetector.Resolver() {
+              @Override
+              public Path realPath(Path path) {
+                throw new AssertionError("resolved " + path);
+              }
+            });
+    assertEquals(FileChange.UNCHANGED, seen.change());
   }
 
   @Test

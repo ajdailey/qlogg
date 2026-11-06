@@ -25,7 +25,7 @@ public final class MemoryByteSource implements ByteSource {
     CRC32C crc = new CRC32C();
     crc.update(bytes, 0, Math.min(bytes.length, FileIdentity.HEAD_BYTES));
     this.identity =
-        new FileIdentity(null, createdMillis, bytes.length, createdMillis, crc.getValue());
+        new FileIdentity(null, createdMillis, bytes.length, createdMillis, crc.getValue(), null);
   }
 
   /**

@@ -44,7 +44,7 @@ class BlockCacheTest {
 
     @Override
     public FileIdentity identity() {
-      return new FileIdentity(null, 0, content.length, 0, 0);
+      return new FileIdentity(null, 0, content.length, 0, 0, null);
     }
 
     @Override
