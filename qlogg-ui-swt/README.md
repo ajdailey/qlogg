@@ -190,7 +190,7 @@ Compiled and tested against the build host's SWT fragment.
 - The palette comes from `ApplicationController.theme()`. A change recolors
   both log views and the overview bar at once: each disposes its
   `PaletteColors` and creates them from the new palette. Native widgets
-  (menus, scroll bars, fields, buttons, tabs) take the theme from
+  (menus, scroll bars, fields, buttons) take the theme from
   `Display.setDarkThemePreferred`. On GTK `SwtThemeService.preferDark` calls
   it and the theme's dark variant applies at once. win32 widgets read it only
   when created, so `SwtThemeService.open` sets it before the first Shell,
@@ -207,9 +207,20 @@ Compiled and tested against the build host's SWT fragment.
   at Display creation, so a change made while QLogg runs applies at the next
   start. cocoa SWT sends no `SWT.Settings` for an appearance change and keeps
   its startup colors (measured, macOS 15), so the service reads the setting
-  every second there and `CocoaChrome` sets each shell's, tab folder's, list's
-  and field's colors to the current appearance while it differs from the
-  startup one.
+  every second there and `CocoaChrome` sets each shell's, list's and field's
+  colors to the current appearance while it differs from the startup one.
+- `MainWindow.colorTabs` colors the main, results and scratchpad tab strips
+  from the palette on every platform, at creation and on each palette change.
+  `CTabFolder` copies the Display's list colors when created, and the Display
+  reads them once, so a strip otherwise keeps them through a theme change:
+  black on `#2c2c2c` under Dark on a light GTK desktop. The selection
+  background shows only while focus is inside the folder; elsewhere the selected
+  tab has the strip's background and keeps the selection foreground, so that
+  foreground is `text`, not `selectionText`. On cocoa and win32 the strips
+  follow `ui.theme` while native controls do not. `colorTabs` sets
+  `CocoaChrome.PALETTE_COLORED`, and `CocoaChrome` leaves such a folder alone:
+  an appearance change does not change the palette, so nothing would restore
+  the colors it wrote.
 - Only SWT's public API is used, so the views run unchanged on GTK3 and
   GTK4 (`ArchitectureTest` rejects `org.eclipse.swt.internal`). Platform
   differences go through `SWT.getPlatform()`. The one read of an internal
@@ -564,6 +575,14 @@ drives the marks list through go to, `F2` edit, `Delete` and a tab switch;
 with `-Dqlogg.shots=<dir>` it writes `gutter.png`, `mark-comment.png` and
 `marks-list.png`. `SwtUiDispatcherTest` checks that a
 canceled timer does not run and that cancel after dispose does nothing.
+
+`TabColorsGuiTest` reads the tab strips' screen pixels through
+`GC.copyArea` in light, dark, light and dark, light, dark order, with focus
+outside and inside the folder, and requires contrast of at least 4.5 and a
+strip of the theme's lightness; `Control.print` draws a strip the screen does
+not show. With `-Dqlogg.qc.shots=<dir>` it writes each step as a PNG. Its theme
+service reports every change as shown, so win32 opens no modal restart notice.
+It skips on GTK 4, where `GC.copyArea` from the Display reads white.
 
 `ResourceLeakTest` starts its Display with `DeviceData.tracking`, runs a
 warm-up round of tab open and close, light and dark theme, zoom in and out and

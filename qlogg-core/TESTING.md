@@ -212,7 +212,8 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 `SafePathsTest` creates a FIFO with `mkfifo` and skips that case without POSIX
 attributes or `mkfifo`; the `/dev/null` case skips where the device is absent.
 The symbolic link cases in `SafePathsTest` and `LogDocumentFollowTest` skip on
-Windows, where creating a link needs a privilege.
+Windows, where creating a link needs a privilege. The held lock's link case
+skips where the file system has no file key.
 `TestkitTest` makes a directory read-only to check that `TempTrees.delete`
 rethrows after its bound, and skips without POSIX attributes or when the user
 can write to it anyway (root).

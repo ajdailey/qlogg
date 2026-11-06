@@ -71,9 +71,9 @@ itself (its own extraction runs `chmod` through `Runtime.exec`).
 | macOS | `~/Library/Caches/io.github.ajdailey.qlogg/swt/<swt version>-<target>/` | Verify; extract |
 
 Every start checks the SHA-256 of every library against the jar's digest.
-Extraction creates the directory owner-only (POSIX `rwx------`), writes to a
-temp file in it, checks the digest, then moves it into place with
-`ATOMIC_MOVE`. When the move fails and the name already holds a matching
+Extraction creates the directory owner-only (POSIX `rwx------`) or sets an
+existing one owner-only, writes to a temp file in it, checks the digest, then
+moves it into place with `ATOMIC_MOVE`. When the move fails and the name already holds a matching
 library, extraction succeeds: on Windows, two first starts both extract, and
 the second's replace fails while the first has the library loaded. A library
 that still mismatches after one extraction, or any mismatch in a bundle, prints

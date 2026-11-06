@@ -29,6 +29,7 @@ import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
+import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.file.InvalidPathException;
@@ -53,6 +54,7 @@ import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.FileTransfer;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -1160,16 +1162,40 @@ public final class MainWindow implements MainView, ApplicationListener {
     return tabs;
   }
 
+  /**
+   * Colors a tab strip from the palette. {@code CTabFolder} copies the Display's list colors when
+   * created, and the Display reads them once, so they outlast a theme change. The selection
+   * background shows only while focus is inside the folder; elsewhere the selected tab has the
+   * strip's background and keeps the selection foreground, so that foreground must read on both.
+   * {@link CocoaChrome} leaves a folder colored here alone.
+   */
+  private static void colorTabs(CTabFolder folder, Palette next) {
+    folder.setData(CocoaChrome.PALETTE_COLORED, Boolean.TRUE);
+    folder.setBackground(color(next.gutter()));
+    folder.setForeground(color(next.text()));
+    folder.setSelectionBackground(color(next.background()));
+    folder.setSelectionForeground(color(next.text()));
+  }
+
+  private static Color color(Rgb rgb) {
+    return new Color(rgb.red(), rgb.green(), rgb.blue());
+  }
+
   /** Recolors the log views and the overview bar. */
   private void applyPalette(Palette next) {
     palette = next;
     // Tab data dot.
     recolorTabDots(next);
+    colorTabs(tabs, next);
     if (canvas != null) {
       canvas.setPalette(next);
     }
     if (results != null) {
       results.canvas().setPalette(next);
+      colorTabs(results.sets(), next);
+    }
+    if (scratchpad != null && !scratchpad.isDisposed()) {
+      colorTabs(scratchpad.tabs(), next);
     }
     if (overviewBar != null) {
       overviewBar.setPalette(next);
@@ -1498,6 +1524,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     canvas.addSide(overviewBar.control());
     showOverview(controller.preferences().overview());
     results = new ResultsPane(resultsHolder, document, controller, keymap, palette, prefixListener);
+    colorTabs(results.sets(), palette);
     document.addListener(statusListener);
     document.filtered().addListener(filteredListener);
     ((GridData) position.getLayoutData()).widthHint = POSITION_WIDTH;
@@ -1839,6 +1866,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   public void showScratchpad(String text, boolean replace) {
     if (scratchpad == null || scratchpad.isDisposed()) {
       scratchpad = new ScratchpadWindow(shell, controller);
+      colorTabs(scratchpad.tabs(), palette);
     }
     if (text != null) {
       scratchpad.add(text, replace);

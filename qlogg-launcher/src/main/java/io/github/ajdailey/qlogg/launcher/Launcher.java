@@ -128,7 +128,7 @@ public final class Launcher {
   }
 
   /** What the single-instance step decided. */
-  private enum Handoff {
+  enum Handoff {
     /** The files went to the running instance. */
     HANDED,
     /** This launch is the primary; {@link #primary} holds the listener. */
@@ -139,8 +139,17 @@ public final class Launcher {
 
   private InstanceServer primary;
 
+  /**
+   * Returns the listener of a launch that became the primary.
+   *
+   * @return the listener, or null
+   */
+  InstanceServer primary() {
+    return primary;
+  }
+
   /** Becomes the primary instance, or hands the files to it. */
-  private Handoff handOff(Path directory, StartupRequest request) {
+  Handoff handOff(Path directory, StartupRequest request) {
     try {
       SafePaths.settingsDirectory(directory);
     } catch (IOException e) {

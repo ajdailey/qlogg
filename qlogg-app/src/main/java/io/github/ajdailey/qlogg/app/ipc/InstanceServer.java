@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.ipc;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
@@ -38,7 +39,9 @@ import org.slf4j.LoggerFactory;
  * The primary instance's side of the single-instance handoff. {@link #claim} takes the OS lock on
  * {@code instance.lock}, which the OS releases when the process dies, so a stale {@code
  * instance.endpoint} never decides liveness: the holder deletes any endpoint file, binds an
- * ephemeral port on the loopback address and writes the new endpoint with a fresh token.
+ * ephemeral port on the loopback address and writes the new endpoint with a fresh token. The
+ * holder's {@link SafePaths#logPath} rejects the lock file until {@link #close}: on POSIX a close
+ * of any channel on it ends the lock.
  *
  * <p>{@link #start} accepts on a {@code qlogg-ipc-} thread and serves each connection on its own,
  * at most {@link #MAX_CONNECTIONS} at once; further launches wait in the socket backlog of {@link
@@ -168,6 +171,8 @@ public final class InstanceServer implements AutoCloseable {
         byte[] token = Protocol.secret();
         new Endpoint(port, token).write(directory);
         long windowDeadline = System.nanoTime() + windowBound.toNanos();
+        SafePaths.holdLock(
+            SafePaths.child(directory, Endpoint.LOCK), UiText.INSTANCE_LOCK_REFUSED.text());
         claimed = new InstanceServer(directory, channel, lock, server, token, windowDeadline);
         return claimed;
       } finally {
@@ -423,6 +428,7 @@ public final class InstanceServer implements AutoCloseable {
     } catch (IOException e) {
       LOG.warn("Cannot delete the handoff endpoint: {}", LogText.oneLine(e.getMessage()));
     }
+    SafePaths.releaseLock();
     try {
       lock.release();
     } catch (IOException e) {

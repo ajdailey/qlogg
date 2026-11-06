@@ -273,6 +273,29 @@ class ThemeAndHighlightTest {
   }
 
   @Test
+  void cocoaChromeLeavesAPaletteColoredFolderAlone() {
+    Shell shell = new Shell(display);
+    CTabFolder tabs = new CTabFolder(shell, SWT.NONE);
+    tabs.setData(CocoaChrome.PALETTE_COLORED, Boolean.TRUE);
+    RGB mock = new RGB(0x12, 0x34, 0x56);
+    tabs.setForeground(new Color(mock));
+    tabs.setSelectionForeground(new Color(mock));
+    tabs.setSelectionBackground(new Color(mock));
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    try {
+      chrome.apply(true);
+      assertEquals(mock, tabs.getForeground().getRGB());
+      assertEquals(mock, tabs.getSelectionForeground().getRGB());
+      assertEquals(mock, tabs.getSelectionBackground().getRGB());
+      chrome.apply(false);
+      assertEquals(mock, tabs.getForeground().getRGB());
+      assertEquals(mock, tabs.getSelectionBackground().getRGB());
+    } finally {
+      shell.dispose();
+    }
+  }
+
+  @Test
   void cocoaChromeFollowsAnAppearanceThatDiffersFromTheStartupOne() {
     RGB window = new RGB(0x32, 0x32, 0x32);
     Shell shell = new Shell(display);

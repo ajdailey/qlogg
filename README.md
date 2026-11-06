@@ -320,7 +320,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `-f`, `--follow` | Follow the files given |
 | `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; default 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows |
-| `--settings <dir>` | Settings directory, created owner-only; holds `qlogg.conf` and QLogg's SWT native cache |
+| `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
 | `--` | End of options |
 | `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f` and `+line:N` |

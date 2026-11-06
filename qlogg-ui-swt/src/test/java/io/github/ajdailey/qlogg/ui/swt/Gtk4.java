@@ -16,6 +16,9 @@ final class Gtk4 {
   /** GTK 4 has no API to move a toplevel window, so {@code Shell.getLocation} reads 0,0. */
   static final String NO_POSITION = "GTK 4: a shell cannot be positioned; getLocation reads 0,0";
 
+  /** {@code GC.copyArea} on a Display GC yields a white image (measured under Xvfb). */
+  static final String NO_SCREEN_READ = "SWT GTK 4: GC.copyArea from the Display reads white";
+
   private Gtk4() {}
 
   /**

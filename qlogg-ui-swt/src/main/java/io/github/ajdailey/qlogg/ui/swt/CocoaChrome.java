@@ -27,12 +27,15 @@ import org.eclipse.swt.widgets.Text;
  * appearance, forced onto its children. That inheritance stops at a {@link TabFolder}, so check
  * boxes turn transparent over its native panel, its titles get the text color, and lists and text
  * fields get the list colors. Menus stay native, and a {@link Canvas} that paints from the palette
- * keeps its colors.
+ * keeps its colors, as does a {@link CTabFolder} with {@link #PALETTE_COLORED} set.
  *
  * <p>Each control then receives {@link SWT#Settings}, since the Display sends none for an
  * appearance change. Confined to the UI thread.
  */
 final class CocoaChrome {
+  /** Control data key: the owner colors this {@link CTabFolder} from the palette. */
+  static final String PALETTE_COLORED = CocoaChrome.class.getName() + ".paletteColored";
+
   /** {@code COLOR_WIDGET_BACKGROUND} and {@code COLOR_LIST_BACKGROUND}, measured on macOS 15. */
   private static final Color DARK_WINDOW = new Color(0x32, 0x32, 0x32);
 
@@ -96,9 +99,9 @@ final class CocoaChrome {
     Color list = differs() ? (dark ? DARK_LIST : LIGHT_LIST) : null;
     Color text = differs() ? (dark ? DARK_TEXT : LIGHT_TEXT) : null;
     if (control instanceof CTabFolder tabs) {
-      tabs.setForeground(text);
-      tabs.setSelectionForeground(text);
-      tabs.setSelectionBackground(list);
+      if (tabs.getData(PALETTE_COLORED) == null) {
+        recolor(tabs, list, text);
+      }
     } else if (control instanceof Table
         || control instanceof List
         || control instanceof Combo
@@ -122,5 +125,11 @@ final class CocoaChrome {
       }
     }
     control.notifyListeners(SWT.Settings, new Event());
+  }
+
+  private static void recolor(CTabFolder tabs, Color list, Color text) {
+    tabs.setForeground(text);
+    tabs.setSelectionForeground(text);
+    tabs.setSelectionBackground(list);
   }
 }

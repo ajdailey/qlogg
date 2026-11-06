@@ -182,7 +182,10 @@ marks two lines, and writes `qlogg-light.png` and `qlogg-dark.png` through
 `Shell.print`. Surefire plants `java.util.logging.config.file`
 (`planted-logging.properties`); `LogConfiguratorTest` checks that its handlers,
 levels and properties are gone after `install`. `RetainingLogManagerTest`
-checks that `reset()` keeps the handlers once retained.
+checks that `reset()` keeps the handlers once retained. `LauncherProcessTest`
+runs launches as real processes through `LaunchMain`: a primary asked to open,
+import from or export over `instance.lock` keeps the lock, and the next launch
+hands its files over.
 `PortableRunTest` (tag `swt`) runs `Gui` twice over a portable bundle with
 `user.home` set as `PlatformSetup` sets it: the first run opens a log, zooms
 and adds a favorite, the second restores the session; afterwards every new or

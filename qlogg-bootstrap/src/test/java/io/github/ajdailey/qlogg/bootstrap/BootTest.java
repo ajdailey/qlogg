@@ -7,9 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 class BootTest {
@@ -34,6 +37,37 @@ class BootTest {
   void settingsDirectoryIsCreated() throws Exception {
     Path dir = Boot.settingsDirectory(temp.resolve("s").resolve("t").toString());
     assertTrue(Files.isDirectory(dir));
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void missingSettingsDirectoryIsOwnerOnly() throws Exception {
+    Path dir = Boot.settingsDirectory(temp.resolve("s").resolve("t").toString());
+    assertEquals("rwx------", mode(dir));
+    assertEquals("rwx------", mode(dir.getParent()));
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void existingSettingsDirectoryKeepsItsMode() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("shared"));
+    Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxrwxr-x"));
+    Boot.settingsDirectory(dir.toString());
+    assertEquals("rwxrwxr-x", mode(dir));
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void settingsDirectoryMayBeASymbolicLink() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("real"));
+    Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"));
+    Path link = Files.createSymbolicLink(temp.resolve("link"), dir);
+    assertEquals(dir.toRealPath(), Boot.settingsDirectory(link.toString()));
+    assertEquals("rwxr-xr-x", mode(dir));
+  }
+
+  private static String mode(Path dir) throws Exception {
+    return PosixFilePermissions.toString(Files.getPosixFilePermissions(dir));
   }
 
   @Test

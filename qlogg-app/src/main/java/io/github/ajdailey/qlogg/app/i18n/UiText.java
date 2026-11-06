@@ -99,6 +99,8 @@ public enum UiText {
   OPEN_FAILED_TITLE,
   /** A chosen name that is not a path: the reason. */
   OPEN_INVALID_PATH,
+  /** The file is the running instance's lock. */
+  INSTANCE_LOCK_REFUSED,
   /** Copy error title. */
   COPY_TITLE,
   /** Copy refused: selection MiB, limit MiB. */

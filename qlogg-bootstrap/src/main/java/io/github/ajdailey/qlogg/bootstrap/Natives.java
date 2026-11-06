@@ -22,11 +22,11 @@ import java.util.Set;
  * Places SWT's native libraries in a directory and verifies them against the SHA-256 digests the
  * build stored in the universal jar. Every start verifies every library before SWT loads one.
  *
- * <p>A writable directory is created owner-only and a missing or mismatched library is extracted
- * from the fragment: written to a temp file in the directory, checked, then moved over its name
- * with {@code ATOMIC_MOVE}. When that move fails and the name already holds a matching library,
- * placed by a concurrent start, extraction succeeds. A read-only directory (a bundle's {@code
- * lib/swt}) is verified only.
+ * <p>A writable directory is made owner-only and a missing or mismatched library is extracted from
+ * the fragment: written to a temp file in the directory, checked, then moved over its name with
+ * {@code ATOMIC_MOVE}. When that move fails and the name already holds a matching library, placed
+ * by a concurrent start, extraction succeeds. A read-only directory (a bundle's {@code lib/swt}) is
+ * verified only.
  */
 final class Natives {
   private static final int BUFFER = 64 * 1024;
@@ -164,23 +164,37 @@ final class Natives {
   }
 
   /**
-   * Creates a directory and its missing parents owner-only (POSIX {@code rwx------}). On Windows
-   * the directories inherit the ACL of the per-user parent.
+   * Creates a directory and its missing parents owner-only, and sets an existing directory
+   * owner-only, because SWT loads code from it. A symbolic link is refused.
    *
    * @param dir the directory
    * @throws IOException when it cannot be created or is not a directory
    */
   static void createOwnerOnly(Path dir) throws IOException {
+    createMissingOwnerOnly(dir);
+    if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
+      throw new IOException(dir + " is not a directory");
+    }
+    if (posix(dir)) {
+      Files.setPosixFilePermissions(dir, OWNER_DIR);
+    }
+  }
+
+  /**
+   * Creates a directory and its missing parents owner-only (POSIX {@code rwx------}), leaving an
+   * existing directory's permissions alone. On Windows the directories inherit the ACL of the
+   * per-user parent.
+   *
+   * @param dir the directory
+   * @throws IOException when it cannot be created
+   */
+  static void createMissingOwnerOnly(Path dir) throws IOException {
     if (posix(dir)) {
       FileAttribute<Set<PosixFilePermission>> attr =
           PosixFilePermissions.asFileAttribute(OWNER_DIR);
       Files.createDirectories(dir, attr);
-      Files.setPosixFilePermissions(dir, OWNER_DIR);
     } else {
       Files.createDirectories(dir);
-    }
-    if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
-      throw new IOException(dir + " is not a directory");
     }
   }
 

@@ -923,7 +923,12 @@ loopback port and writes the endpoint (`version=1`, `port`, `token` as 64
 hex) owner-only through `AtomicFiles.writeOwnerOnly`; it returns null while
 another live process holds the lock. The OS releases the lock when that
 process dies, SIGKILL included, so a stale endpoint file never decides
-liveness. `start` accepts on a `qlogg-ipc-` thread and serves each connection
+liveness. Until `close`, `SafePaths.logPath` rejects the lock file with
+`INSTANCE_LOCK_REFUSED`, which every open, import and export shows: the POSIX
+lock ends at the close of any channel on the file, the file watch's included,
+and a second primary's endpoint is deleted when the first quits. A restored
+session holding the file shows the error once and saves without that tab.
+`start` accepts on a `qlogg-ipc-` thread and serves each connection
 on its own, at most 4 at once; a launch past that waits in the socket backlog
 of 128. Authentication and the request are read within 5 s. `close` stops
 accepting, deletes the endpoint, then releases the lock; call it before

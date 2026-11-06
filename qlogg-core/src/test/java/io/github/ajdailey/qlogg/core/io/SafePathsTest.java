@@ -10,14 +10,65 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 class SafePathsTest {
   @TempDir Path temp;
+
+  @AfterEach
+  void release() {
+    SafePaths.releaseLock();
+  }
+
+  @Test
+  void rejectsTheHeldLockFileUntilItIsReleased() throws Exception {
+    final Path lock = Files.createFile(temp.resolve("instance.lock"));
+    SafePaths.holdLock(lock, "mock refusal");
+    IOException refused =
+        assertThrows(
+            IOException.class,
+            new Executable() {
+              @Override
+              public void execute() throws IOException {
+                SafePaths.logPath(lock);
+              }
+            });
+    assertEquals("mock refusal", refused.getMessage());
+    SafePaths.releaseLock();
+    assertEquals(lock.toRealPath(), SafePaths.logFile(lock));
+  }
+
+  @Test
+  void rejectsALinkToTheHeldLockFile() throws Exception {
+    Path lock = Files.createFile(temp.resolve("instance.lock"));
+    assumeTrue(Files.readAttributes(lock, BasicFileAttributes.class).fileKey() != null);
+    final Path hard = Files.createLink(temp.resolve("hard"), lock);
+    final Path soft = Files.createSymbolicLink(temp.resolve("soft"), lock);
+    SafePaths.holdLock(lock, "mock refusal");
+    for (final Path link : List.of(hard, soft)) {
+      assertThrows(
+          IOException.class,
+          new Executable() {
+            @Override
+            public void execute() throws IOException {
+              SafePaths.logFile(link);
+            }
+          });
+    }
+  }
+
+  @Test
+  void acceptsOtherFilesWhileALockIsHeld() throws Exception {
+    Path other = Files.createFile(temp.resolve("mock.log"));
+    SafePaths.holdLock(Files.createFile(temp.resolve("instance.lock")), "mock refusal");
+    assertEquals(other.toRealPath(), SafePaths.logFile(other));
+  }
 
   private static void rejects(final String path) {
     assertThrows(

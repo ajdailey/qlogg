@@ -65,6 +65,15 @@ class NativesTest {
   }
 
   @Test
+  void setsAnExistingCacheDirectoryOwnerOnly() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("swt"));
+    assumeTrue(dir.getFileSystem().supportedFileAttributeViews().contains("posix"));
+    Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxrwxr-x"));
+    prepare(dir, true);
+    assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(dir)));
+  }
+
+  @Test
   void reextractsTamperedLibrary() throws Exception {
     Path dir = temp.resolve("swt");
     prepare(dir, true);
