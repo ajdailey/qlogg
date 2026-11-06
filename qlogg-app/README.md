@@ -924,12 +924,24 @@ hex) owner-only through `AtomicFiles.writeOwnerOnly`; it returns null while
 another live process holds the lock. The OS releases the lock when that
 process dies, SIGKILL included, so a stale endpoint file never decides
 liveness. `start` accepts on a `qlogg-ipc-` thread and serves each connection
-on its own, at most 4 at once, each within 5 s. `close` stops accepting,
-deletes the endpoint, then releases the lock; call it before `Workers.close`,
-which waits for the accept thread.
+on its own, at most 4 at once; a launch past that waits in the socket backlog
+of 128. Authentication and the request are read within 5 s. `close` stops
+accepting, deletes the endpoint, then releases the lock; call it before
+`Workers.close`, which waits for the accept thread.
+
+Until `deliverTo` names the `Receiver`, an authenticated request stays on its
+open connection, unanswered. `deliverTo` does not block; the held requests go to
+the receiver in arrival order and each client then reads `OK`, so a client that
+exits 0 knows the receiver has its files. Held files are bounded by the
+connection cap: 4 requests of at most 256 files and 1 MiB. `close`, or 30 s
+after `claim` without `deliverTo`, answers the held requests `ERR`. A primary
+that dies closes the connections. Either way the client opens its own window,
+so a held file is not lost. Past the backlog a connect fails and the launch
+opens its own window.
 
 `InstanceClient.handOff` reads the endpoint, waiting up to 2 s while it is
-missing, connects within 1 s and runs the exchange within 5 s:
+missing, connects within 1 s and runs the exchange within 35 s, which outlasts
+the 30 s hold so the client reads the `ERR`:
 
 ```text
 C: QLOGG 1 HELLO nonceC
@@ -1140,8 +1152,11 @@ and `-f` arrive; a launch without files still hands off; a wrong token, a
 peer without the token and a listener without the token each move no file; a
 stale endpoint without the lock is replaced, and one behind a live lock, or a
 missing one past the 2 s wait, fails so the launch opens its own window;
-`MAX_CONNECTIONS` concurrent launches all arrive; close removes the endpoint
-and releases the lock; the endpoint is `rw-------`; `OPEN` lines need an
+16 concurrent launches all arrive at a running primary, and at one whose first
+window has not opened, with at most `MAX_CONNECTIONS` held; held files arrive in
+arrival order; a close or the expired hold refuses every held launch; a peer
+without the token is not held; a listener that never answers ends in the client
+bound; close removes the endpoint and releases the lock; the endpoint is `rw-------`; `OPEN` lines need an
 absolute path; a shared or foreign settings directory turns the handoff off.
 `aKilledPrimaryReleasesTheLock` starts a child JVM (`ClaimMain`) that claims
 the lock, kills it with `destroyForcibly`, and checks that the next launch

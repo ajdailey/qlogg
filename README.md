@@ -157,9 +157,10 @@ plugins.
 ### Platform integration
 
 - Single instance: a launch without `-m` hands its files to the running QLogg
-  over an authenticated loopback connection and exits. Handed files open in
-  the window used last; a file a window already shows activates its tab; any
-  failure opens a window of its own.
+  over an authenticated loopback connection and exits. Simultaneous launches
+  end as tabs of one window, including while the first one is still starting.
+  Handed files open in the window used last; a file a window already shows
+  activates its tab; any failure opens a window of its own.
 - Ending the process (SIGTERM, logoff) runs the quit, bounded at 3 s, so
   settings and the session are saved.
 - Copy Full Path, Copy File Name, Open Containing Folder (Edit menu, tab menu

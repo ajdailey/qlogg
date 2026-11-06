@@ -53,11 +53,13 @@ import org.slf4j.LoggerFactory;
  * block it: the command-line files open on workers once the first window is shown, each in a tab,
  * following with {@code -f}; each further window of a restored session opens with its tabs. At
  * {@code -d 2} and above an {@link EventLoopWatchdog} logs UI-thread stalls. A primary instance's
- * {@link InstanceServer} delivers handed files to {@link WindowSet#openHandoff}; quit closes it
- * before the workers. A JVM shutdown hook ({@link ShutdownHook}) runs the quit when the process is
- * ended without it. A primary with the debug log file attached deletes other processes' old log
- * files on a lifecycle worker ({@link FileLog#prune}). The loop ends when every window is disposed,
- * then the Display is disposed and {@link #run} returns.
+ * {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the command-line
+ * files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit closes it
+ * before the workers, and so does a run that ends before the first window. A JVM shutdown hook
+ * ({@link ShutdownHook}) runs the quit when the process is ended without it. A primary with the
+ * debug log file attached deletes other processes' old log files on a lifecycle worker ({@link
+ * FileLog#prune}). The loop ends when every window is disposed, then the Display is disposed and
+ * {@link #run} returns.
  */
 final class Gui {
   /** Bytes per block cache block. */
@@ -125,152 +127,170 @@ final class Gui {
    * @return 0, or {@link Launcher#EXIT_SWT} when the Display cannot be created
    */
   int run() {
-    Options options = preferences.options();
-    config.positions().load();
-    boolean restore =
-        request.session() == SessionMode.LOAD
-            || (request.session() == SessionMode.DEFAULT
-                && request.files().isEmpty()
-                && options.loadLastSession());
-    List<Session> sessions = restore ? config.sessions().loadWindows() : List.of();
-    Display.setAppName("QLogg");
-    final Display display;
+    Workers workers =
+        new Workers(Runtime.getRuntime().availableProcessors(), new Launcher.FailureLogger());
+    Display display = null;
     try {
-      display = new Display();
-    } catch (UnsatisfiedLinkError | SWTError e) {
-      err.println("qlogg: SWT failed to start: " + LogText.oneLine(e.getMessage()));
-      LOG.debug("SWT failed to start", e);
-      return Launcher.EXIT_SWT;
-    }
-    try (Workers workers =
-        new Workers(Runtime.getRuntime().availableProcessors(), new Launcher.FailureLogger())) {
-      MemoryBudget budget = MemoryBudget.fromRuntime();
-      long cacheBytes = budget.limit(MemoryShare.BLOCK_CACHE);
-      budget.charge(MemoryShare.BLOCK_CACHE, cacheBytes);
-      DocumentServices services =
-          new DocumentServices(
-              workers,
-              new Indexer(workers, IndexSettings.defaults(workers.cpuThreads(), budget)),
-              new SearchEngine(
-                  workers,
-                  StandardMatchers.INSTANCE,
-                  SearchSettings.defaults(workers.cpuThreads(), budget)
-                      .withMaxResults(preferences.maxResults())),
-              new BlockCache(CACHE_BLOCK_BYTES, cacheBytes),
-              budget,
-              options.defaultCharset());
-      final SwtThemeService system = SwtThemeService.open(display, preferences.theme());
-      final Palette palette = ThemeController.resolve(preferences.theme(), system.systemDark());
-      warmTimeZone(workers);
-      // Per-process log pruning.
-      if (server != null && logFiles instanceof FileLog fileLog && fileLog.attached()) {
-        pruneLogs(workers, fileLog);
+      if (server != null) {
+        server.start(workers);
       }
-      final SwtUiDispatcher ui = new SwtUiDispatcher(display);
-      final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
-      set.setLogging(LogConfigurator.RECENT, logFiles);
-      set.setFactory(
-          new WindowSet.Factory() {
-            @Override
-            public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
-              WindowState remembered = owner.settings().state().window();
-              return openWindow(
-                  display,
-                  owner,
-                  palette,
-                  at,
-                  new WindowGeometry.Request(null, null, remembered.width(), remembered.height()));
-            }
-          });
-      // macOS application menu.
-      AppMenu.hook(display, set);
-      WindowState remembered = preferences.state().window();
-      final MainWindow window = new MainWindow(display, set.keymap(), palette);
-      ApplicationController controller = new ApplicationController(set, window);
-      attach(window, controller);
-      window.place(
-          new WindowGeometry.Request(request.x(), request.y(), request.width(), request.height()),
-          new WindowGeometry.Request(
-              remembered.x(), remembered.y(), remembered.width(), remembered.height()));
-      boolean sized =
-          request.x() != null
-              || request.y() != null
-              || request.width() != null
-              || request.height() != null;
-      if (remembered.maximized() && !sized) {
-        window.shell().setMaximized(true);
-      }
-      window.open();
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              logGeometry(window.shell());
-            }
-          });
-      if (EventLoopWatchdog.enabled()) {
-        new EventLoopWatchdog(
-                workers,
-                ui,
-                display.getThread(),
-                EventLoopWatchdog.INTERVAL_MILLIS,
-                EventLoopWatchdog.BOUND_MILLIS,
-                EventLoopWatchdog.LOGGING)
-            .start();
-      }
-      Thread hook = registerHook(set, ui, workers);
+      Options options = preferences.options();
+      config.positions().load();
+      boolean restore =
+          request.session() == SessionMode.LOAD
+              || (request.session() == SessionMode.DEFAULT
+                  && request.files().isEmpty()
+                  && options.loadLastSession());
+      List<Session> sessions = restore ? config.sessions().loadWindows() : List.of();
+      Display.setAppName("QLogg");
       try {
-        if (server != null) {
-          set.addQuitListener(server::close);
-          server.start(
-              workers,
-              new InstanceServer.Receiver() {
-                @Override
-                public boolean deliver(final List<FileRequest> files, final boolean follow) {
-                  if (set.isQuitting()) {
-                    return false;
-                  }
-                  ui.asyncExec(
-                      new Runnable() {
-                        @Override
-                        public void run() {
-                          set.openHandoff(files, follow);
-                        }
-                      });
-                  return true;
-                }
-              });
-        }
-        if (!sessions.isEmpty()) {
-          controller.restoreSession(sessions.get(0));
-          for (int i = 1; i < sessions.size(); i++) {
-            ApplicationController more = set.openWindow();
-            if (more != null) {
-              more.restoreSession(sessions.get(i));
-            }
-          }
-          controller.windowActivated();
-        }
-        controller.setSessionOwner(restore && !request.multi());
-        controller.open(request.files(), request.follow());
-        if (observer != null) {
-          observer.opened(window, controller, workers);
-        }
-        while (anyOpen()) {
-          if (!display.readAndDispatch()) {
-            display.sleep();
-          }
-        }
-      } finally {
-        removeHook(hook);
+        display = new Display();
+      } catch (UnsatisfiedLinkError | SWTError e) {
+        err.println("qlogg: SWT failed to start: " + LogText.oneLine(e.getMessage()));
+        LOG.debug("SWT failed to start", e);
+        return Launcher.EXIT_SWT;
       }
+      runWindows(display, workers, options, restore, sessions);
+      return 0;
     } finally {
       if (server != null) {
         server.close();
       }
-      display.dispose();
+      workers.close();
+      if (display != null) {
+        display.dispose();
+      }
     }
-    return 0;
+  }
+
+  /** Composes the application on the Display and runs the event loop until every window closes. */
+  private void runWindows(
+      final Display display,
+      Workers workers,
+      Options options,
+      boolean restore,
+      List<Session> sessions) {
+    MemoryBudget budget = MemoryBudget.fromRuntime();
+    long cacheBytes = budget.limit(MemoryShare.BLOCK_CACHE);
+    budget.charge(MemoryShare.BLOCK_CACHE, cacheBytes);
+    DocumentServices services =
+        new DocumentServices(
+            workers,
+            new Indexer(workers, IndexSettings.defaults(workers.cpuThreads(), budget)),
+            new SearchEngine(
+                workers,
+                StandardMatchers.INSTANCE,
+                SearchSettings.defaults(workers.cpuThreads(), budget)
+                    .withMaxResults(preferences.maxResults())),
+            new BlockCache(CACHE_BLOCK_BYTES, cacheBytes),
+            budget,
+            options.defaultCharset());
+    final SwtThemeService system = SwtThemeService.open(display, preferences.theme());
+    final Palette palette = ThemeController.resolve(preferences.theme(), system.systemDark());
+    warmTimeZone(workers);
+    // Per-process log pruning.
+    if (server != null && logFiles instanceof FileLog fileLog && fileLog.attached()) {
+      pruneLogs(workers, fileLog);
+    }
+    final SwtUiDispatcher ui = new SwtUiDispatcher(display);
+    final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
+    set.setLogging(LogConfigurator.RECENT, logFiles);
+    set.setFactory(
+        new WindowSet.Factory() {
+          @Override
+          public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
+            WindowState remembered = owner.settings().state().window();
+            return openWindow(
+                display,
+                owner,
+                palette,
+                at,
+                new WindowGeometry.Request(null, null, remembered.width(), remembered.height()));
+          }
+        });
+    // macOS application menu.
+    AppMenu.hook(display, set);
+    WindowState remembered = preferences.state().window();
+    final MainWindow window = new MainWindow(display, set.keymap(), palette);
+    ApplicationController controller = new ApplicationController(set, window);
+    attach(window, controller);
+    window.place(
+        new WindowGeometry.Request(request.x(), request.y(), request.width(), request.height()),
+        new WindowGeometry.Request(
+            remembered.x(), remembered.y(), remembered.width(), remembered.height()));
+    boolean sized =
+        request.x() != null
+            || request.y() != null
+            || request.width() != null
+            || request.height() != null;
+    if (remembered.maximized() && !sized) {
+      window.shell().setMaximized(true);
+    }
+    window.open();
+    ui.asyncExec(
+        new Runnable() {
+          @Override
+          public void run() {
+            logGeometry(window.shell());
+          }
+        });
+    if (EventLoopWatchdog.enabled()) {
+      new EventLoopWatchdog(
+              workers,
+              ui,
+              display.getThread(),
+              EventLoopWatchdog.INTERVAL_MILLIS,
+              EventLoopWatchdog.BOUND_MILLIS,
+              EventLoopWatchdog.LOGGING)
+          .start();
+    }
+    Thread hook = registerHook(set, ui, workers);
+    try {
+      if (server != null) {
+        set.addQuitListener(server::close);
+      }
+      if (!sessions.isEmpty()) {
+        controller.restoreSession(sessions.get(0));
+        for (int i = 1; i < sessions.size(); i++) {
+          ApplicationController more = set.openWindow();
+          if (more != null) {
+            more.restoreSession(sessions.get(i));
+          }
+        }
+        controller.windowActivated();
+      }
+      controller.setSessionOwner(restore && !request.multi());
+      controller.open(request.files(), request.follow());
+      if (server != null) {
+        server.deliverTo(
+            new InstanceServer.Receiver() {
+              @Override
+              public boolean deliver(final List<FileRequest> files, final boolean follow) {
+                if (set.isQuitting()) {
+                  return false;
+                }
+                ui.asyncExec(
+                    new Runnable() {
+                      @Override
+                      public void run() {
+                        set.openHandoff(files, follow);
+                      }
+                    });
+                return true;
+              }
+            });
+      }
+      if (observer != null) {
+        observer.opened(window, controller, workers);
+      }
+      while (anyOpen()) {
+        if (!display.readAndDispatch()) {
+          display.sleep();
+        }
+      }
+    } finally {
+      removeHook(hook);
+    }
   }
 
   /** Creates, places and opens a window after the first one. */

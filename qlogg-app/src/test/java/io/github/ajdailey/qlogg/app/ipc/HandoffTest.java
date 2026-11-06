@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 /** The single-instance handoff over loopback, client and server in this JVM. */
 class HandoffTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
+  private static final int LAUNCHES = 16;
 
   @TempDir Path temp;
 
@@ -71,19 +72,69 @@ class HandoffTest {
   }
 
   private void startPrimary(InstanceServer claimed) throws IOException {
+    startWithoutWindow(claimed);
+    openWindow();
+  }
+
+  /** A primary accepting handoffs whose first window has not opened. */
+  private void startWithoutWindow(InstanceServer claimed) {
     server = claimed;
     assertNotNull(server);
+    assertTrue(server.start(workers));
+  }
+
+  private void openWindow() {
+    server.deliverTo(
+        new InstanceServer.Receiver() {
+          @Override
+          public boolean deliver(List<FileRequest> files, boolean follow) {
+            received.add(files);
+            follows.add(follow);
+            return true;
+          }
+        });
+  }
+
+  /** Runs one handoff of {@code name} on a worker; a failure lands in {@code errors}. */
+  private void launch(String name, final List<Throwable> errors) {
+    final List<FileRequest> sent = files(name);
+    workers.start(
+        Workers.Kind.IPC,
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              InstanceClient.handOff(temp, sent, false);
+            } catch (IOException e) {
+              errors.add(e);
+            }
+          }
+        });
+  }
+
+  private void awaitHeld(final int count) throws InterruptedException {
     assertTrue(
-        server.start(
-            workers,
-            new InstanceServer.Receiver() {
+        Poll.until(
+            new BooleanSupplier() {
               @Override
-              public boolean deliver(List<FileRequest> files, boolean follow) {
-                received.add(files);
-                follows.add(follow);
-                return true;
+              public boolean getAsBoolean() {
+                return server.heldRequests() == count;
               }
-            }));
+            },
+            BOUND));
+  }
+
+  private void awaitOutcomes(final int count, final List<Throwable> errors)
+      throws InterruptedException {
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return received.size() + errors.size() == count;
+              }
+            },
+            BOUND));
   }
 
   private List<FileRequest> files(String... names) {
@@ -251,36 +302,125 @@ class HandoffTest {
   }
 
   @Test
-  void concurrentLaunchesAllReachThePrimary() throws Exception {
+  void sixteenLaunchesAllReachARunningPrimary() throws Exception {
     startPrimary();
-    final int launches = InstanceServer.MAX_CONNECTIONS;
-    final List<Throwable> errors = new CopyOnWriteArrayList<Throwable>();
+    List<Throwable> errors = new CopyOnWriteArrayList<Throwable>();
+    for (int i = 0; i < LAUNCHES; i++) {
+      launch("launch" + i + ".log", errors);
+    }
+    awaitOutcomes(LAUNCHES, errors);
+    assertTrue(errors.isEmpty(), errors.toString());
+    assertEquals(LAUNCHES, received.size());
+  }
+
+  @Test
+  void sixteenLaunchesWaitForTheFirstWindowThenAllArrive() throws Exception {
+    startWithoutWindow(InstanceServer.claim(temp));
+    List<Throwable> errors = new CopyOnWriteArrayList<Throwable>();
+    for (int i = 0; i < LAUNCHES; i++) {
+      launch("launch" + i + ".log", errors);
+    }
+    awaitHeld(InstanceServer.MAX_CONNECTIONS);
+    assertTrue(received.isEmpty());
+    openWindow();
+    awaitOutcomes(LAUNCHES, errors);
+    assertTrue(errors.isEmpty(), errors.toString());
+    assertEquals(LAUNCHES, received.size());
+    assertEquals(0, server.heldRequests());
+  }
+
+  @Test
+  void heldFilesArriveInArrivalOrder() throws Exception {
+    startWithoutWindow(InstanceServer.claim(temp));
+    List<Throwable> errors = new CopyOnWriteArrayList<Throwable>();
+    List<List<FileRequest>> expected = new ArrayList<List<FileRequest>>();
+    for (int i = 0; i < InstanceServer.MAX_CONNECTIONS; i++) {
+      launch("launch" + i + ".log", errors);
+      expected.add(files("launch" + i + ".log"));
+      awaitHeld(i + 1);
+    }
+    openWindow();
+    awaitOutcomes(expected.size(), errors);
+    assertTrue(errors.isEmpty(), errors.toString());
+    assertEquals(expected, received);
+  }
+
+  @Test
+  void aPrimaryQuittingBeforeItsWindowRefusesEveryLaunch() throws Exception {
+    startWithoutWindow(InstanceServer.claim(temp));
+    List<Throwable> errors = new CopyOnWriteArrayList<Throwable>();
+    int launches = InstanceServer.MAX_CONNECTIONS + 2;
     for (int i = 0; i < launches; i++) {
-      final List<FileRequest> sent = files("launch" + i + ".log");
-      workers.start(
-          Workers.Kind.IPC,
-          new Runnable() {
+      launch("launch" + i + ".log", errors);
+    }
+    awaitHeld(InstanceServer.MAX_CONNECTIONS);
+    server.close();
+    awaitOutcomes(launches, errors);
+    assertEquals(launches, errors.size());
+    assertTrue(received.isEmpty());
+  }
+
+  @Test
+  void aWindowThatDoesNotOpenInTimeRefusesTheHeldFiles() throws Exception {
+    startWithoutWindow(InstanceServer.claim(temp, Duration.ofMillis(200)));
+    assertThrows(
+        IOException.class,
+        new Executable() {
+          @Override
+          public void execute() throws Throwable {
+            InstanceClient.handOff(temp, files("late.log"), false);
+          }
+        });
+    assertEquals(0, server.heldRequests());
+    openWindow();
+    assertTrue(received.isEmpty());
+    InstanceClient.handOff(temp, files("after.log"), false);
+    assertEquals(List.of(files("after.log")), received);
+  }
+
+  @Test
+  void aPrimaryThatNeverAnswersEndsTheHandoff() throws Exception {
+    try (ServerSocketChannel silent = ServerSocketChannel.open()) {
+      silent.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
+      int port = ((InetSocketAddress) silent.getLocalAddress()).getPort();
+      new Endpoint(port, Protocol.secret()).write(temp);
+      IOException failure =
+          assertThrows(
+              IOException.class,
+              new Executable() {
+                @Override
+                public void execute() throws Throwable {
+                  InstanceClient.handOff(temp, files("a.log"), false, Duration.ofMillis(200));
+                }
+              });
+      assertEquals("Timed out", failure.getMessage());
+    }
+  }
+
+  @Test
+  void aPeerWithoutTheTokenIsNotHeld() throws Exception {
+    startWithoutWindow(InstanceServer.claim(temp));
+    Endpoint endpoint = Endpoint.read(temp);
+    long deadline = System.nanoTime() + BOUND.toNanos();
+    try (LineChannel line = LineChannel.connect(endpoint.port(), Duration.ofSeconds(1), deadline)) {
+      line.writeLine(Protocol.HELLO + Protocol.encode(Protocol.secret()));
+      assertTrue(line.readLine().startsWith(Protocol.PROOF));
+      line.writeLine(Protocol.AUTH + Protocol.encode(Protocol.secret()));
+      assertThrows(
+          IOException.class,
+          new Executable() {
             @Override
-            public void run() {
-              try {
-                InstanceClient.handOff(temp, sent, false);
-              } catch (IOException e) {
-                errors.add(e);
-              }
+            public void execute() throws Throwable {
+              line.readLine();
             }
           });
     }
-    assertTrue(
-        Poll.until(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return received.size() + errors.size() == launches;
-              }
-            },
-            BOUND));
-    assertTrue(errors.isEmpty(), errors.toString());
-    assertEquals(launches, received.size());
+    assertEquals(0, server.heldRequests());
+  }
+
+  @Test
+  void theClientOutlastsTheHoldSoItReadsTheRefusal() {
+    assertTrue(InstanceClient.EXCHANGE_BOUND.compareTo(InstanceServer.WINDOW_BOUND) > 0);
   }
 
   @Test

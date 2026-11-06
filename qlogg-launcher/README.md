@@ -31,17 +31,18 @@ Without `-m`, `Launcher` then runs the single-instance handoff (`app.ipc`):
 it creates the settings directory owner-only if missing, and
 `InstanceServer.claim` either makes this launch the primary or
 `InstanceClient.handOff` sends the files, `-f` and `+line:N` to the primary
-and `run` returns 0. A failure at any step, or a settings directory another
+and `run` returns 0; the primary may still be starting, and the client then
+waits for its first window, up to 35 s. A failure at any step, or a settings directory another
 user owns or others can write (`InstanceClient.refusal`), logs one WARN and the
 launch opens its own window, as with `-m`. A launch that stays then opens the
 debug log file when `-l` or `log.file` asks for it.
 
-`Gui` runs on the calling thread, which becomes the UI thread. It resolves
-`ui.theme` before the first Shell; for light and dark,
+`Gui` runs on the calling thread, which becomes the UI thread. It creates
+`Workers` first and starts the primary's `InstanceServer` on them, so handoffs
+are accepted before the Display exists. It resolves `ui.theme` before the first Shell; for light and dark,
 `SwtThemeService.open` also sets the native widgets' theme (system leaves them
 to the OS), so on Windows a theme change reaches them at the next start; on
-macOS they always follow the OS. It creates
-`Workers` and loads the default time zone's rules on a `qlogg-lifecycle-`
+macOS they always follow the OS. It loads the default time zone's rules on a `qlogg-lifecycle-`
 worker, so the first open does not read the JDK time-zone data on the UI
 thread. It creates the `MemoryBudget` from `Runtime.maxMemory()`, the document
 services (an `Indexer` with default settings, a `BlockCache` of 64 KiB blocks
@@ -62,10 +63,13 @@ with `-f`. The instance saves the tab list only when it restored the session
 without `-m`. New Window goes through the set's `Factory` in `Gui`: a window
 at the remembered size, placed by the window system. A window's close button
 closes that window (`closeWindow`); the last one quits.
-A primary's `InstanceServer` starts accepting once the first window is open;
-its receiver answers `ERR` once quit has begun and otherwise posts
-`WindowSet.openHandoff`. Quit closes it first on its lifecycle worker, and
-`Gui` closes it again on exit.
+A primary's `InstanceServer` holds handed files until the first window is open
+and the command-line files are on their way, then `deliverTo` releases them in
+arrival order; its receiver answers `ERR` once quit has begun and otherwise
+posts `WindowSet.openHandoff`. Quit closes it first on its lifecycle worker, and
+`Gui` closes it on exit before `Workers.close`, including an exit before the
+first window (SWT failed to load), so held launches get `ERR` and open their own
+windows.
 `Gui` registers a JVM shutdown hook (`ShutdownHook`, thread `qlogg-shutdown`
 from `Workers.shutdownHook`) and removes it when the event loop ends. On
 SIGTERM, logoff or a parent ending the process, the hook posts
@@ -186,7 +190,7 @@ changed file lies inside the bundle and the home directory is empty.
 `WindowsGuiTest` (tag `swt`) runs `Gui` as a primary instance: New Window
 opens a second window, a handoff from a worker opens its file in the window
 activated last, and quit closes both windows, the workers and the endpoint
-file. `ShutdownHookTest` runs the hook's task directly: it requests the quit
+file; a handoff sent before `Gui` runs opens as a tab. `ShutdownHookTest` runs the hook's task directly: it requests the quit
 and releases once it finishes, only releases after an ordered quit, and
 returns after its bound when the quit never finishes, naming the surviving
 threads. `SigtermTest` (tag `swt`, Linux) starts `Main` as a

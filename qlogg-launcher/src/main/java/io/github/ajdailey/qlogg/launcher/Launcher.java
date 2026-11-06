@@ -25,10 +25,10 @@ import org.slf4j.LoggerFactory;
  * Display exists, so the UI thread never waits on it. Exit statuses: 0 normal or files handed to
  * the running instance, 1 bad command line or settings directory, 3 SWT failed to load.
  *
- * <p>Without {@code -m}, a launch that takes the instance lock becomes the primary and listens for
- * handoffs; otherwise it hands its files to the primary and exits 0. Any handoff failure, or a
- * settings directory another user owns or can write, logs one WARN and the launch opens its own
- * window, as with {@code -m}.
+ * <p>Without {@code -m}, a launch that takes the instance lock becomes the primary and {@link Gui}
+ * accepts handoffs; otherwise it hands its files to the primary, waiting for a primary still
+ * starting, and exits 0. Any handoff failure, or a settings directory another user owns or can
+ * write, logs one WARN and the launch opens its own window, as with {@code -m}.
  */
 public final class Launcher {
   static final int EXIT_USAGE = 1;

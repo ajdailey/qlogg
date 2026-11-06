@@ -28,8 +28,11 @@ public final class InstanceClient {
   /** Longest connect. */
   public static final Duration CONNECT_BOUND = Duration.ofSeconds(1);
 
-  /** Longest whole exchange. */
-  public static final Duration EXCHANGE_BOUND = Duration.ofSeconds(5);
+  /**
+   * Longest whole exchange. It covers a primary still starting, which holds the request up to
+   * {@link InstanceServer#WINDOW_BOUND}, and the wait in its socket backlog.
+   */
+  public static final Duration EXCHANGE_BOUND = Duration.ofSeconds(35);
 
   private static final long ENDPOINT_POLL_MILLIS = 50;
 
@@ -46,11 +49,26 @@ public final class InstanceClient {
    */
   public static void handOff(Path directory, List<FileRequest> files, boolean follow)
       throws IOException {
+    handOff(directory, files, follow, EXCHANGE_BOUND);
+  }
+
+  /**
+   * Hands files to the primary instance.
+   *
+   * @param directory the settings directory
+   * @param files absolute paths, at most {@link Protocol#MAX_OPEN}
+   * @param follow {@code -f}
+   * @param bound the longest exchange
+   * @throws IOException when any step fails or the primary answers ERR; the files are then not
+   *     known to have reached it
+   */
+  static void handOff(Path directory, List<FileRequest> files, boolean follow, Duration bound)
+      throws IOException {
     if (files.size() > Protocol.MAX_OPEN) {
       throw new IOException("More than " + Protocol.MAX_OPEN + " files");
     }
     Endpoint endpoint = awaitEndpoint(directory);
-    long deadline = System.nanoTime() + EXCHANGE_BOUND.toNanos();
+    long deadline = System.nanoTime() + bound.toNanos();
     try (LineChannel line = LineChannel.connect(endpoint.port(), CONNECT_BOUND, deadline)) {
       byte[] nonceC = Protocol.secret();
       line.writeLine(Protocol.HELLO + Protocol.encode(nonceC));
