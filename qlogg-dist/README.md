@@ -67,6 +67,9 @@ the version changes):
 - The `.tar.gz` bundles are written by GNU `tar` with entries sorted by name,
   one mtime, owner and group 0, and modes set by `chmod` beforehand, then
   compressed by Ant's `gzip`. Ant's `tar` has no `modificationtime`.
+- `qlogg.jar` is byte-identical across build hosts under one JDK: `dist.xml`
+  rewrites the native digests to LF and sorts the `index.properties` lists by
+  name, case-sensitive.
 - launch4j's `ld` stamps `qlogg.exe` with the link time. `PeTimestamp.java`
   rewrites the COFF time stamp and the PE checksum to the values `ld` writes
   with `SOURCE_DATE_EPOCH` set, which cannot reach `ld` inside the Maven JVM.

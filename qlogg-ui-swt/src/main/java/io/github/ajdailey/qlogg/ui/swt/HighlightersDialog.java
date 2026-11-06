@@ -162,7 +162,7 @@ final class HighlightersDialog {
       back.set(label.background());
       back.required();
       labelBackgrounds.add(back);
-      Button cycle = new Button(labelsTab, SWT.CHECK);
+      Button cycle = SwtThemeService.check(labelsTab);
       cycle.setText(UiText.LABEL_CYCLE.text());
       cycle.setSelection(label.cycle());
       labelCycles.add(cycle);
@@ -170,7 +170,7 @@ final class HighlightersDialog {
 
     Composite matchTab = tab(tabs, UiText.HIGHLIGHTERS_TAB_MATCH, 1);
     MatchHighlight match = settings.match();
-    matchEnabled = new Button(matchTab, SWT.CHECK);
+    matchEnabled = SwtThemeService.check(matchTab);
     matchEnabled.setText(UiText.MATCH_ENABLED.text());
     matchEnabled.setSelection(match.enabled());
     matchColor = new ColorField(matchTab, UiText.MATCH_THEME_COLOR.text(), true, nothing());
@@ -248,7 +248,7 @@ final class HighlightersDialog {
   }
 
   private static Button check(Composite parent, UiText label, final Runnable edited) {
-    Button button = new Button(parent, SWT.CHECK);
+    Button button = SwtThemeService.check(parent);
     button.setText(label.text());
     button.addListener(
         SWT.Selection,

@@ -162,8 +162,8 @@ Highlighters picks a set when a file opens, by file name or first line. Sets
 import and export from the Configure Highlighters dialog.
 
 Color labels color every occurrence of the selected text: `Ctrl+D` takes the
-next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0`
-clears them. View > Highlight Search Matches colors the last search's matches.
+next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0` or
+`Ctrl+Shift+D` clears them. View > Highlight Search Matches colors the last search's matches.
 
 ### Keyword triggers
 

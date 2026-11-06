@@ -36,7 +36,7 @@ final class ColorField {
     layout.marginHeight = 0;
     row.setLayout(layout);
     row.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    use = new Button(row, SWT.CHECK);
+    use = SwtThemeService.check(row);
     use.setText(label);
     value = new Label(row, SWT.NONE);
     GridData valueData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);

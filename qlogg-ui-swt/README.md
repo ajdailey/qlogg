@@ -195,13 +195,21 @@ Compiled and tested against the build host's SWT fragment.
   it and the theme's dark variant applies at once. win32 widgets read it only
   when created, so `SwtThemeService.open` sets it before the first Shell,
   `preferDark` does nothing, and `showsNow` reports whether the startup
-  setting matches a request. On cocoa native widgets always follow the system
+  setting matches a request. Under a dark startup setting win32 draws check
+  box labels near-white while dialog pages stay light, so every check box
+  comes from `SwtThemeService.check`, which creates it with the theme off. On
+  cocoa native widgets always follow the system
   appearance and nothing calls it: cocoa SWT caches its widget colors under
   the system appearance, and a different application appearance draws text
-  in that appearance over the cached backgrounds (white on light gray). `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
+  in that appearance over the cached backgrounds (white on light gray).
+  `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns
   `SWT.Settings` into a change event; on GTK SWT reads the system setting once
   at Display creation, so a change made while QLogg runs applies at the next
-  start.
+  start. cocoa SWT sends no `SWT.Settings` for an appearance change and keeps
+  its startup colors (measured, macOS 15), so the service reads the setting
+  every second there and `CocoaChrome` sets each shell's, tab folder's, list's
+  and field's colors to the current appearance while it differs from the
+  startup one.
 - Only SWT's public API is used, so the views run unchanged on GTK3 and
   GTK4 (`ArchitectureTest` rejects `org.eclipse.swt.internal`). Platform
   differences go through `SWT.getPlatform()`. The one read of an internal
@@ -410,8 +418,9 @@ computes nothing while the bar is hidden or after it is disposed.
   ink), with the 32 px PNG at 200% zoom. The ink follows the owning
   control's background, because toolbars are native: on Windows they stay
   light under the dark palette. `reink` reads the background again and swaps
-  the image of every item given to `apply`; it runs on `SWT.Settings` and on
-  the UI turn after a palette change, once native controls have restyled.
+  the image of every item given to `apply`; it runs on `SWT.Settings`, from
+  the Display or from `CocoaChrome` on the owner, and on the UI turn after a
+  palette change, once native controls have restyled.
   Images are created on first use and disposed with the owner.
 - `src/icons/*.svg` is the hand-authored icon set (16 px grid, strokes in
   `currentColor`). At `generate-resources` the build copies JSVG (MIT, build

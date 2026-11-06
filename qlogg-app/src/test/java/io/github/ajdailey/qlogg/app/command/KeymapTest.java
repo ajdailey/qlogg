@@ -64,6 +64,18 @@ class KeymapTest {
   }
 
   @Test
+  void clearColorLabelsHasASecondKey() {
+    int primaryShift = KeyStroke.PRIMARY | KeyStroke.SHIFT;
+    List<Binding> bindings = keymap.bindingsFor(CommandId.CLEAR_COLOR_LABELS);
+    assertEquals(2, bindings.size());
+    assertEquals(new KeyStroke(primaryShift, '0'), bindings.get(0).first());
+    assertEquals(new KeyStroke(primaryShift, 'd'), bindings.get(1).first());
+    assertEquals(List.of(), keymap.conflicts(bindings.get(1)));
+    assertEquals(
+        "Ctrl+Shift+0, Ctrl+Shift+D", keymap.keysText(CommandId.CLEAR_COLOR_LABELS, false));
+  }
+
+  @Test
   void kloggBindingsWinCollisions() {
     assertEquals(new KeyStroke(KeyStroke.PRIMARY, 'l'), keymap.accelerator(CommandId.GO_TO_LINE));
     assertEquals("Shift+G", keymap.bindingsFor(CommandId.GO_TO_BOTTOM).get(1).text(false));

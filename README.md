@@ -124,8 +124,8 @@ plugins.
   matched text, capture groups, opacity, color variance, import and export.
   Highlighters > Automatic Highlighters picks a set by file name or first
   line.
-- Color labels (`Ctrl+D`, `Ctrl+Shift+1` to `9`, `Ctrl+Shift+0`) and the
-  search match highlight.
+- Color labels (`Ctrl+D`, `Ctrl+Shift+1` to `9`, `Ctrl+Shift+0` or
+  `Ctrl+Shift+D`) and the search match highlight.
 - Marks (`M`, `]`, `[`, or a click in the bullet column), with match and mark
   bullets in the gutter.
 - Mark comments (`Shift+M`, Edit > Edit Mark Comment): a commented mark has a

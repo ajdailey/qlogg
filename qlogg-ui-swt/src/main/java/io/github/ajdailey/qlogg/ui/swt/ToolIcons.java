@@ -117,6 +117,7 @@ final class ToolIcons {
           }
         };
     display.addListener(SWT.Settings, settings);
+    owner.addListener(SWT.Settings, settings);
     owner.addListener(
         SWT.Dispose,
         new Listener() {

@@ -119,6 +119,8 @@ public final class Keymap {
     view(b, CommandId.STOP, 0, KeyStroke.ESCAPE);
     view(b, CommandId.NEXT_COLOR_LABEL, P, 'd');
     view(b, CommandId.CLEAR_COLOR_LABELS, P | S, '0');
+    // Windows can take Ctrl+Shift+0 as an input-language hotkey.
+    view(b, CommandId.CLEAR_COLOR_LABELS, P, 'D');
     for (int i = 0; i < 9; i++) {
       view(b, CommandId.values()[CommandId.COLOR_LABEL_1.ordinal() + i], P | S, (char) ('1' + i));
     }

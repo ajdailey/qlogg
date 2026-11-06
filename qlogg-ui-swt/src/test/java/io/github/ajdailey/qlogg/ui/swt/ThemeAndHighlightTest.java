@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
@@ -39,10 +40,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
@@ -51,12 +54,15 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.junit.jupiter.api.AfterEach;
@@ -220,6 +226,89 @@ class ThemeAndHighlightTest {
     } finally {
       display.setDarkThemePreferred(false);
     }
+  }
+
+  @Test
+  void checkBoxUnderTheDarkStartupSettingIsAnEnabledCheckBox() {
+    Shell shell = new Shell(display);
+    try {
+      SwtThemeService.open(display, ThemeMode.DARK);
+      Button check = SwtThemeService.check(shell);
+      assertTrue((check.getStyle() & SWT.CHECK) != 0);
+      assertTrue(check.getEnabled());
+    } finally {
+      SwtThemeService.open(display, ThemeMode.LIGHT);
+      shell.dispose();
+    }
+  }
+
+  @Test
+  void refreshReportsASystemChangeOnce() {
+    final boolean[] setting = {false};
+    SwtThemeService service =
+        new SwtThemeService(
+            display,
+            false,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return setting[0];
+              }
+            });
+    final List<Boolean> changes = new ArrayList<Boolean>();
+    service.addListener(
+        new ThemeListener() {
+          @Override
+          public void systemThemeChanged(boolean dark) {
+            changes.add(dark);
+          }
+        });
+    service.refresh();
+    assertEquals(List.of(), changes);
+    setting[0] = true;
+    service.refresh();
+    service.refresh();
+    assertEquals(List.of(true), changes);
+    assertTrue(service.systemDark());
+  }
+
+  @Test
+  void cocoaChromeFollowsAnAppearanceThatDiffersFromTheStartupOne() {
+    RGB window = new RGB(0x32, 0x32, 0x32);
+    Shell shell = new Shell(display);
+    Composite row = new Composite(shell, SWT.NONE);
+    CTabFolder tabs = new CTabFolder(shell, SWT.NONE);
+    Text field = new Text(shell, SWT.SINGLE);
+    RGB before = row.getBackground().getRGB();
+    RGB fieldBefore = field.getBackground().getRGB();
+    final int[] settings = {0};
+    row.addListener(
+        SWT.Settings,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            settings[0]++;
+          }
+        });
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    try {
+      chrome.apply(true);
+      assertEquals(window, row.getBackground().getRGB());
+      assertEquals(new RGB(0xff, 0xff, 0xff), tabs.getForeground().getRGB());
+      assertEquals(new RGB(0x1e, 0x1e, 0x1e), field.getBackground().getRGB());
+      assertEquals(1, settings[0]);
+      Shell shown = new Shell(display);
+      Composite shownRow = new Composite(shown, SWT.NONE);
+      shown.open();
+      assertEquals(window, shownRow.getBackground().getRGB());
+      shown.dispose();
+    } finally {
+      chrome.apply(false);
+    }
+    assertEquals(before, row.getBackground().getRGB());
+    assertEquals(fieldBefore, field.getBackground().getRGB());
+    assertEquals(2, settings[0]);
+    shell.dispose();
   }
 
   @Test

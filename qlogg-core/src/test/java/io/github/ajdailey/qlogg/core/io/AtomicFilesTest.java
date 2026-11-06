@@ -11,10 +11,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -80,5 +88,23 @@ class AtomicFilesTest {
         });
     assertEquals("page", Files.readString(file, StandardCharsets.US_ASCII));
     assertEquals(List.of("guide.html"), names());
+  }
+
+  /** The Windows CI account is elevated, so the file's owner there is not the user. */
+  @Test
+  @EnabledOnOs(OS.WINDOWS)
+  void aSecretHasOneAclEntryForTheCurrentUser() throws IOException {
+    Path file = temp.resolve("instance.endpoint");
+    AtomicFiles.writeOwnerOnly(file, "token".getBytes(StandardCharsets.US_ASCII));
+    AclFileAttributeView view = Files.getFileAttributeView(file, AclFileAttributeView.class);
+    List<AclEntry> acl = view.getAcl();
+    assertEquals(1, acl.size());
+    assertEquals(AclEntryType.ALLOW, acl.get(0).type());
+    assertEquals(EnumSet.allOf(AclEntryPermission.class), acl.get(0).permissions());
+    String expected = System.getenv("USERDOMAIN") + "\\" + System.getProperty("user.name");
+    assertEquals(
+        expected.toLowerCase(Locale.ROOT),
+        acl.get(0).principal().getName().toLowerCase(Locale.ROOT));
+    assertEquals("token", Files.readString(file, StandardCharsets.US_ASCII));
   }
 }
