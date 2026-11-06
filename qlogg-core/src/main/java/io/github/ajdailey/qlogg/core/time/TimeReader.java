@@ -49,6 +49,7 @@ public final class TimeReader {
   private boolean direct;
   private long nanos;
   private int digits;
+  private boolean bounded;
 
   /**
    * Creates a reader.
@@ -82,6 +83,7 @@ public final class TimeReader {
    */
   public Stamp next(long offset, long end, CancellationToken token) throws IOException {
     direct = false;
+    bounded = false;
     long limit = Math.min(end, saturatedAdd(Math.max(offset, 0), MAX_BYTES));
     long start = lineStartAtOrAfter(offset, limit);
     for (int lines = 0; start >= 0 && start < limit && lines < MAX_LINES; lines++) {
@@ -92,7 +94,18 @@ public final class TimeReader {
       }
       start = lineFeedAt < 0 ? -1 : lineFeedAt + unit;
     }
+    bounded = limit < end || start >= 0 && start < limit;
     return null;
+  }
+
+  /**
+   * Reports why the last {@link #next} found nothing.
+   *
+   * @return true when it stopped at the bound before the region's end, so a stamp can lie further
+   *     on
+   */
+  public boolean stoppedAtBound() {
+    return bounded;
   }
 
   /**

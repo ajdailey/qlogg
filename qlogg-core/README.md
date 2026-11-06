@@ -382,15 +382,22 @@ line that does not parse continues the stamped line above it.
 |---|---|---|
 | `next(offset, end, token)` | Forward through the `BlockCache`: the first stamp on a line that starts at or after `offset` and before `end` | 10,000 lines or 1 MiB from `offset`; past it, null |
 | `at(lineStart, token)` | The line's own stamp, else backward to the nearest stamped line | 10,000 lines or 1 MiB above the line; past it, null |
-| `TimeSearch.locate` | Bisection over byte offsets with `next`: about log2 of the size in probes | Each probe as `next` |
+| `TimeSearch.locate` | Bisection over byte offsets with `next`: about log2 of the size in probes, plus two for the first bracket | Each probe as `next` |
 | `TimeSearch.locateLinear` | Every line in file order, from the source directly so a full pass does not evict the cache; `ScanProgress` every 4 MiB and at the end | None; the token cancels between lines |
 
 - Both searches return the first stamp equal to the target, else the last
   stamp before it, else the first stamp, or null without stamps.
   `locateLinear` stops at the first stamp at or after the target.
-- `locate` is exact only when stamps do not decrease in file order. Local
-  jitter (stamps a few ms out of order) lands it within the jitter window. A
-  larger step back needs `locateLinear`.
+- `locate` is exact only when stamps do not decrease in file order, and
+  returns a `Bisection`. `consistent()` false means run `locateLinear`: a probe
+  lay more than `JITTER_NANOS` (1 s) outside its bracket, or stopped at the
+  `next` bound (`stoppedAtBound`) with a stamp read elsewhere. With no stamp
+  read, such a probe counts as at or after the target, so a region without
+  stamps reports none without a scan. The bracket starts as the first stamp
+  and a stamp in the last 8 KiB, and narrows to the nearest stamps read under
+  and at or over the target. A step back within 1 s counts as jitter and lands
+  `locate` within the jitter window. Disorder no probe touches goes unseen, so
+  run `TimeSamples` first.
 - `TimeSamples.sample(reader, index, lineCount, count, token)` reads the stamp
   at or after `LineIndex.nearestStart` of `count` evenly spaced lines, first
   and last included. `nearestStart` returns the line itself in a full index

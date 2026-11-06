@@ -203,6 +203,64 @@ class TimeControllerTest {
     assertEquals(UiText.NOTICE_TIME_OUT_OF_ORDER.text(), fixture.view.lastNotice());
   }
 
+  /** 1,000 lines a second apart whose 499th and 500th are a day early, between two samples. */
+  private Path blockAtTheFirstProbe() throws IOException {
+    Path file = temp.resolve("block.log");
+    try (BufferedWriter out = Files.newBufferedWriter(file, StandardCharsets.US_ASCII)) {
+      for (int i = 0; i < 1000; i++) {
+        LocalDateTime day = i == 499 || i == 500 ? BASE.minusDays(1) : BASE;
+        out.write(LAYOUT.format(day.plusSeconds(i)) + " INFO entry\n");
+      }
+    }
+    return file;
+  }
+
+  @Test
+  void aProbeOutsideItsBracketSearchesLineByLine() throws Exception {
+    DocumentController document = fixture.open(blockAtTheFirstProbe());
+    // Bisection alone would land on the block, the last stamp under the target it sees.
+    document.time().goToTime(nanos(BASE.plusSeconds(300)));
+    searched(document);
+    assertEquals(300, document.selection().caret().line());
+    assertEquals(UiText.NOTICE_TIME_OUT_OF_ORDER.text(), fixture.view.lastNotice());
+  }
+
+  @Test
+  void aRefusedOrderCheckSearchesLineByLineWithoutTheOrderNotice() throws Exception {
+    Path file = temp.resolve("d.log");
+    Path earlier = timed("earlier.log", 30, BASE.minusDays(1));
+    Path later = timed("later.log", 30, BASE);
+    Files.write(file, Files.readAllBytes(later));
+    Files.write(file, Files.readAllBytes(earlier), StandardOpenOption.APPEND);
+    DocumentController document = fixture.open(file);
+    long held = 0;
+    for (long size = 1L << 40; size > 0; size >>= 1) {
+      if (fixture.budget.reserve(MemoryShare.HIGHLIGHT, size)) {
+        held += size;
+      }
+    }
+    try {
+      document.time().goToTime(nanos(BASE.plusSeconds(12)));
+      searched(document);
+    } finally {
+      fixture.budget.release(MemoryShare.HIGHLIGHT, held);
+    }
+    assertEquals(entryLines.get(12).longValue(), document.selection().caret().line());
+    assertFalse(fixture.view.notices.contains(UiText.NOTICE_TIME_OUT_OF_ORDER.text()));
+  }
+
+  @Test
+  void aFormatOrZoneChangeDropsARunningGoToTime() throws Exception {
+    DocumentController document = fixture.open(timed("a.log", 30, BASE));
+    TimeController time = document.time();
+    // Its result can post but not apply: only this thread drains the queue.
+    time.goToTime(nanos(BASE.plusSeconds(12)));
+    time.configure(time.format(), ZoneOffset.ofHours(2), time.displayZone());
+    searched(document);
+    assertEquals(0, document.selection().caret().line());
+    assertFalse(fixture.view.notices.contains(UiText.NOTICE_TIME_CANCELED.text()));
+  }
+
   @Test
   void aNewerRequestDropsTheOlderResult() throws Exception {
     DocumentController document = fixture.open(timed("e.log", 200, BASE));

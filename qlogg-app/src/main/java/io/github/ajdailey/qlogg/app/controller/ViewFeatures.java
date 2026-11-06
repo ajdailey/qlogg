@@ -237,10 +237,12 @@ final class ViewFeatures {
       view.showError(UiText.SAVE_TITLE.text(), error);
       return;
     }
-    for (DocumentController open : application.documents()) {
-      if (!open.document().inMemory() && open.document().realPath().equals(file)) {
-        view.showError(UiText.SAVE_TITLE.text(), UiText.SAVE_OPEN_FILE.text());
-        return;
+    for (ApplicationController window : application.windowSet().windows()) {
+      for (DocumentController open : window.documents()) {
+        if (!open.document().inMemory() && open.document().realPath().equals(file)) {
+          view.showError(UiText.SAVE_TITLE.text(), UiText.SAVE_OPEN_FILE.text());
+          return;
+        }
       }
     }
     if (filtered) {

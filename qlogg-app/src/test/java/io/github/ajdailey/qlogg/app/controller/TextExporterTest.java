@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,9 +24,11 @@ import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -144,6 +147,23 @@ class TextExporterTest {
     assertEquals(
         (index.lineEnd(3) - index.lineStart(0)) * TextExporter.SAVE_BYTES_PER_FILE_BYTE,
         result.charged());
+    budget.release(MemoryShare.COPY, result.charged());
+  }
+
+  @Test
+  void aFileCutBelowItsSnapshotFailsTheSaveAndWritesNoFile() throws IOException {
+    Path target = dir.resolve("cut.log");
+    try (FileChannel file = FileChannel.open(document.path(), StandardOpenOption.WRITE)) {
+      file.truncate(8);
+    }
+    Result result =
+        export(
+            rows(0, 3),
+            new Request(lines(0, 3), false, Output.FILE, target),
+            new CancellationToken());
+    assertNull(result.text());
+    assertTrue(result.refusal() != null, "a short read must not save a partial file");
+    assertFalse(Files.exists(target));
     budget.release(MemoryShare.COPY, result.charged());
   }
 

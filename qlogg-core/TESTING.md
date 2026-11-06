@@ -57,6 +57,9 @@
   line: 100,000 bytes holds two dense result buckets, and 1,000,000 bytes
   refuses a 200,000-byte line's buffer. The search must match the lines on
   both sides of the refused line and report 1 skipped.
+- `RangeSearchTest` compares range searches with a sequential scan at chunk
+  sizes that cut ranges at every partition. A file cut below its index must
+  fail the search and `RangeFinder` with an `IOException`.
 - `aLongLineStillSearchesAfterThePoolGrew` searches a 100,000-byte line, then
   a 400,000-line file five times, then the line again, with a 600,000-byte
   `IO_BUFFERS` share. Each search must end with two buffers reserved; a pool
@@ -169,6 +172,10 @@ colors in reads and copy. `AnsiSearchTest` checks that a literal search with
 - Two concatenated days must give one descent in 256 samples; a +-5 ms jitter
   must land bisection within 11 ms of the target (two jitter widths plus one
   step).
+- The bracket tests place a block at a known probe: 34-byte entries put the
+  first probes on lines 500, 250 and 750, also past 2^31 with a shifted block
+  in `GeneratedSource`. `aBlockThatFitsItsBracketLandsThereAndStaysConsistent`
+  pins what the check leaves unseen; a change that closes the gap updates it.
 - `TimeSpreadTest` builds samples directly (`TimeSamples.of`), so each level
   boundary, the clamp at 16 and the rows left out of the averages have exact
   expected values.

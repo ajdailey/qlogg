@@ -9,18 +9,30 @@ import java.util.Arrays;
 
 /**
  * A log of any size that stores nothing: line {@code i} is {@link #WIDTH} bytes, a stack-trace line
- * when {@code i % 4 == 3}, else the stamp {@link TimeFixture#BASE} plus {@code 10 * i} ms.
+ * when {@code i % 4 == 3}, else the stamp {@link TimeFixture#BASE} plus {@code 10 * i} ms. Lines of
+ * an optional block carry a shifted stamp.
  */
 final class GeneratedSource implements ByteSource {
   static final int WIDTH = 40;
   static final long STEP_MILLIS = 10;
 
   private final long size;
+  private final long blockFirst;
+  private final long blockEnd;
+  private final long shiftMillis;
   private long cachedLine = -1;
   private final byte[] cached = new byte[WIDTH];
 
   GeneratedSource(long size) {
+    this(size, 0, 0, 0);
+  }
+
+  /** A source whose lines in {@code [blockFirst, blockEnd)} are stamped {@code shiftMillis} off. */
+  GeneratedSource(long size, long blockFirst, long blockEnd, long shiftMillis) {
     this.size = size;
+    this.blockFirst = blockFirst;
+    this.blockEnd = blockEnd;
+    this.shiftMillis = shiftMillis;
   }
 
   static boolean stamped(long line) {
@@ -52,8 +64,11 @@ final class GeneratedSource implements ByteSource {
 
   private byte[] line(long line) {
     if (line != cachedLine) {
+      long shift = line >= blockFirst && line < blockEnd ? shiftMillis : 0;
       String text =
-          stamped(line) ? TimeFixture.stampAt(line * STEP_MILLIS) + " mock" : "\tat mock.Frame.run";
+          stamped(line)
+              ? TimeFixture.stampAt(line * STEP_MILLIS + shift) + " mock"
+              : "\tat mock.Frame.run";
       Arrays.fill(cached, (byte) ' ');
       byte[] bytes = text.getBytes(StandardCharsets.US_ASCII);
       System.arraycopy(bytes, 0, cached, 0, bytes.length);

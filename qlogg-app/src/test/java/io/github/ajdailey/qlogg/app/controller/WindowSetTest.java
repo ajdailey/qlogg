@@ -201,6 +201,26 @@ class WindowSetTest {
   }
 
   @Test
+  void aSaveOverAFileOpenInAnotherWindowIsRefused() throws Exception {
+    openIn(first, log("source.log"));
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    Path other = log("other.log");
+    openIn(second, other);
+    firstView.saveTarget = other;
+    first.execute(CommandId.SAVE_SELECTION);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return !firstView.errors.isEmpty();
+          }
+        });
+    assertTrue(firstView.errors.get(0).contains(UiText.SAVE_OPEN_FILE.text()));
+    assertEquals("one\ntwo\n", Files.readString(other));
+  }
+
+  @Test
   void handedFilesGoToTheWindowActivatedLast() throws Exception {
     first.execute(CommandId.NEW_WINDOW);
     assertEquals(2, set.windows().size());

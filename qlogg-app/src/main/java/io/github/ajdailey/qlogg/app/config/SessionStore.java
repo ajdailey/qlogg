@@ -17,7 +17,9 @@ import java.util.Properties;
  * tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks past that are
  * not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line, a space and
  * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
- * Blocking; workers call it.
+ * {@code droppedComments}, written when not 0, sums the windows' {@link Session#droppedComments}
+ * and loads on the first window; a missing, malformed or negative value reads as 0. Blocking;
+ * workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -40,6 +42,7 @@ public final class SessionStore {
 
   private static final String WINDOW = "window.";
   private static final String COMMENT = "comment.";
+  private static final String DROPPED_COMMENTS = "droppedComments";
   private static final int BATCH = 4096;
 
   private final SettingsFile file;
@@ -107,7 +110,7 @@ public final class SessionStore {
       } catch (NumberFormatException e) {
         // The first tab shows.
       }
-      windows.add(new Session(tabs, active));
+      windows.add(new Session(tabs, active, windows.isEmpty() ? dropped(p) : 0));
     }
     return windows;
   }
@@ -132,8 +135,10 @@ public final class SessionStore {
     Properties p = new Properties();
     int count = 0;
     int comments = 0;
+    long dropped = 0;
     for (int w = 0; w < Math.min(MAX_WINDOWS, windows.size()); w++) {
       Session session = windows.get(w);
+      dropped += session.droppedComments();
       String prefix = WINDOW + w + ".";
       int tabs = Math.min(MAX_TABS - count, session.tabs().size());
       p.setProperty(
@@ -163,7 +168,18 @@ public final class SessionStore {
       }
       count += tabs;
     }
+    if (dropped > 0) {
+      p.setProperty(DROPPED_COMMENTS, Long.toString(dropped));
+    }
     return file.save(p);
+  }
+
+  private static long dropped(Properties p) {
+    try {
+      return Math.max(0, Long.parseLong(p.getProperty(DROPPED_COMMENTS, "0").strip()));
+    } catch (NumberFormatException e) {
+      return 0;
+    }
   }
 
   /** Reads a time offset; a malformed value reads as none. */

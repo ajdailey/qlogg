@@ -588,6 +588,7 @@ public final class WindowSet {
     int ranges = 0;
     int comments = 0;
     for (WindowDraft window : snapshot.windows()) {
+      long dropped = 0;
       List<Session.Tab> tabs = new ArrayList<Session.Tab>();
       for (DraftTab draft : window.tabs()) {
         long[] marks = new long[0];
@@ -599,6 +600,7 @@ public final class WindowSet {
                     draft.document().marks(), SessionStore.MAX_MARK_RANGES - ranges);
             tabComments =
                 draft.document().markComments().list(0, SessionStore.MAX_COMMENTS - comments);
+            dropped += draft.document().markComments().size() - tabComments.size();
           } finally {
             draft.document().exit();
           }
@@ -615,7 +617,7 @@ public final class WindowSet {
                 draft.timeOffset(),
                 draft.syncGroup()));
       }
-      sessions.add(new Session(tabs, window.active()));
+      sessions.add(new Session(tabs, window.active(), dropped));
     }
     config.sessions().saveWindows(sessions);
   }

@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
@@ -319,6 +320,93 @@ class ViewFeaturesTest {
           });
       assertTrue(fixture.view.errors.get(0).contains(UiText.SAVE_OPEN_FILE.text()));
       assertEquals(5, Files.readAllLines(source).size());
+    }
+  }
+
+  @Test
+  void aSaveNamesTheLinesCutAtTheReadLimit() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      String longLine = "x".repeat(LineReader.MAX_LINE_BYTES + 10);
+      DocumentController document =
+          fixture.open(Files.writeString(temp.resolve("long.log"), "short\n" + longLine + "\n"));
+      document.select(new Selection(new TextPosition(0, 0), new TextPosition(1, 0)));
+      final Path target = fixture.temp.resolve("cut.txt");
+      fixture.view.saveTarget = target;
+      fixture.application.execute(CommandId.SAVE_SELECTION);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return Files.exists(target);
+            }
+          });
+      fixture.runUntilIdle();
+      assertEquals(UiText.NOTICE_SAVED_CUT.format(2L, "cut.txt", 1L), fixture.view.lastNotice());
+    }
+  }
+
+  @Test
+  void searchAllOpenFilesIgnoresInSelectionAndKeepsTheToggle() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Selection noHit = new Selection(new TextPosition(0, 0), new TextPosition(1, 0));
+      DocumentController first = fixture.open(fixture.lines("one.log", 30));
+      first.select(noHit);
+      DocumentController second = fixture.open(fixture.lines("two.log", 30));
+      second.select(noHit);
+      second.search().setOptions(second.search().options().withInSelection(true));
+      second.search().setFieldText("hit");
+      fixture.application.execute(CommandId.SEARCH_ALL_FILES);
+      final MultiSearchController multi = fixture.application.multiSearch();
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              for (MultiSearchController.FileResults group : multi.results()) {
+                if (group.state().phase() != SearchViewState.Phase.DONE) {
+                  return false;
+                }
+              }
+              return true;
+            }
+          });
+      assertEquals(8, multi.totalMatches());
+      assertTrue(second.search().options().inSelection(), "the tab's toggle stays");
+      assertFalse(first.search().options().inSelection());
+    }
+  }
+
+  @Test
+  void stopEndsEveryGroupAndAReloadDropsItsGroup() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      String line = "a".repeat(60) + "\n";
+      final DocumentController first =
+          fixture.open(Files.writeString(temp.resolve("one.log"), line));
+      DocumentController second = fixture.open(Files.writeString(temp.resolve("two.log"), line));
+      second.search().setFieldText("(.*a){25}x");
+      fixture.application.execute(CommandId.SEARCH_ALL_FILES);
+      final MultiSearchController multi = fixture.application.multiSearch();
+      multi.cancel();
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              for (MultiSearchController.FileResults group : multi.results()) {
+                if (group.state().phase() != SearchViewState.Phase.CANCELED) {
+                  return false;
+                }
+              }
+              return multi.results().size() == 2;
+            }
+          });
+      fixture.application.execute(CommandId.RELOAD);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return multi.results().size() == 1;
+            }
+          });
+      assertEquals(first, multi.results().get(0).document());
     }
   }
 

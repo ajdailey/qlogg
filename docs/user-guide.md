@@ -126,7 +126,8 @@ main view: the nearest line above that matches the pattern, through the next
 line matching the end.
 
 Edit > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
-each tab's filtered view gets the results for its file.
+each tab's filtered view gets the results for its file. It ignores In
+selection; each tab's search start and end lines apply.
 
 ## Marks and quick find
 
@@ -199,7 +200,7 @@ scrolling down past the last line starts it again (View > Follow on
 Overscroll). View > Follow New Files follows every file as it opens.
 
 A file that is truncated, replaced or rotated reopens by name with its results
-cleared. A deleted file keeps its content on screen until a file with that name
+cleared; a search with Auto-refresh on runs again. A deleted file keeps its content on screen until a file with that name
 appears again.
 
 ## Timestamps
@@ -240,9 +241,11 @@ the time of the line above it.
   to the first line with that time, else the last line before it, and stops
   following. A time before the first line goes to the first line. A file
   whose timestamps go backward, such as two logs joined together, is searched
-  line by line with progress in the status bar. While a go to time runs, `Esc`
-  stops it and any running mark, copy or save; loading goes on until a second
-  `Esc`.
+  line by line with progress in the status bar. QLogg finds such a file by
+  sampling it, so a short out-of-order stretch can go unnoticed; Go to Time
+  can then land beside that stretch instead of on the time. While a go to time
+  runs, `Esc` stops it and any running mark, copy or save; loading goes on
+  until a second `Esc`.
 - **Scroll All Tabs to This Time** (Edit menu, log view context menu): every
   other tab with a timestamp format, in every window, goes to the current
   line's time and stops following. Each tab applies its own time offset.
@@ -305,7 +308,9 @@ between two chosen lines.
 with Line Numbers puts each line's number in front. File > Save Selection and
 Save Filtered Results write the lines to a file in UTF-8. `Esc` stops a copy or
 save that is still running; a stopped save writes no file. One copy or save
-runs at a time.
+runs at a time. Both take the first MiB of a longer line, and the saved notice
+counts the lines cut. A copy or save fails when the file became shorter while
+it was read.
 
 ## View options
 

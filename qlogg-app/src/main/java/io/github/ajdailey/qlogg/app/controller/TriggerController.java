@@ -31,7 +31,9 @@ import org.slf4j.LoggerFactory;
  * skipped, so a rule added later acts only on lines appended after it. A mark or comment the budget
  * or {@link MarkComments#MAX_COMMENTS} refuses shows one notice per scan. Quiet lines are kept in a
  * {@link MutableLineSet} charged to {@code RESULTS} until the document closes; when the share
- * refuses them, quiet lines count toward the tab dot again for that document, with a notice.
+ * refuses them, quiet lines count toward the tab dot again for that document, with a notice, and no
+ * quiet line is kept after that. A scan that fails to read keeps its position and starts again only
+ * when the complete line count changes.
  */
 public final class TriggerController {
   /** Longest rule pattern a notice shows. */
@@ -49,7 +51,8 @@ public final class TriggerController {
   private long scanned = -1;
   private CancellationToken running;
   private boolean refused;
-  private boolean quietLost;
+  private long failedAt = -1;
+  private volatile boolean quietLost;
   private boolean detached;
 
   TriggerController(DocumentController owner, LogDocument document) {
@@ -155,7 +158,9 @@ public final class TriggerController {
       scanned = complete;
       return;
     }
-    start(scanned);
+    if (complete != failedAt) {
+      start(scanned);
+    }
   }
 
   private static long completeLines(LineIndex index) {
@@ -188,9 +193,10 @@ public final class TriggerController {
   @WorkerThread
   private void scan(Triggers with, long from, final CancellationToken token) {
     if (!document.enter()) {
-      postEnd(token);
+      postEnd(token, false);
       return;
     }
+    boolean read = false;
     try {
       LineReader reader = document.newReader();
       Path path = document.inMemory() ? null : document.path();
@@ -210,7 +216,7 @@ public final class TriggerController {
                 end,
                 document.marks(),
                 document.markComments(),
-                quiet,
+                quietLost ? null : quiet,
                 token);
         owner
             .ui()
@@ -223,6 +229,7 @@ public final class TriggerController {
                 });
         next = batch.to();
       }
+      read = true;
     } catch (ClosedChannelException e) {
       // The document closed during the scan.
     } catch (IOException | UncheckedIOException e) {
@@ -232,18 +239,18 @@ public final class TriggerController {
           LogText.oneLine(e.getMessage()));
     } finally {
       document.exit();
-      postEnd(token);
+      postEnd(token, read);
     }
   }
 
-  private void postEnd(final CancellationToken token) {
+  private void postEnd(final CancellationToken token, final boolean read) {
     owner
         .ui()
         .asyncExec(
             new Runnable() {
               @Override
               public void run() {
-                ended(token);
+                ended(token, read);
               }
             });
   }
@@ -273,7 +280,7 @@ public final class TriggerController {
     }
   }
 
-  private void ended(CancellationToken token) {
+  private void ended(CancellationToken token, boolean read) {
     if (token != running) {
       return;
     }
@@ -283,6 +290,11 @@ public final class TriggerController {
       quiet.clear();
       return;
     }
+    if (quietLost) {
+      // A batch can run between the refusal and its report.
+      quiet.clear();
+    }
+    failedAt = read ? -1 : completeLines(document.index());
     if (refused) {
       refused = false;
       owner

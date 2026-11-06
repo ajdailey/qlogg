@@ -134,7 +134,7 @@ public final class Triggers {
    * @param to the line after the last; lines past {@code from + BATCH_LINES} are not scanned
    * @param marks the document's marks
    * @param comments the document's mark comments
-   * @param quietLines receives the lines a quiet rule matched
+   * @param quietLines receives the lines a quiet rule matched, or null to keep none
    * @param token checked per line
    * @return what the scan did
    * @throws IOException on a read error
@@ -237,7 +237,8 @@ public final class Triggers {
         refused = true;
       }
     }
-    boolean quietRefused = quietCount > 0 && !quietLines.addSorted(quieted, quietCount);
+    boolean quietRefused =
+        quietLines != null && quietCount > 0 && !quietLines.addSorted(quieted, quietCount);
     return new Batch(
         from, line, loud, stopRule, stopLine, added, refused, quietRefused, List.copyOf(failures));
   }

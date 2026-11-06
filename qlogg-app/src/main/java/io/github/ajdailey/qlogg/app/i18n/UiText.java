@@ -1139,7 +1139,18 @@ public enum UiText {
   /** Tab tooltip line; the group number. */
   TAB_TIME_SYNCED,
   /** Notice: the caret line has no time to scroll the tabs to. */
-  NOTICE_TIME_NO_CARET;
+  NOTICE_TIME_NO_CARET,
+  // Copy and save.
+  /** The reason of a failed copy or save: the file shrank below its index. */
+  EXPORT_FILE_SHORTER,
+  /** Notice: a save finished; the lines, the file name and the lines cut at the read limit. */
+  NOTICE_SAVED_CUT,
+  // Session mark comments.
+  /** Notice after a restore: comments the last save left out; their count and the cap. */
+  NOTICE_COMMENTS_DROPPED,
+  // Reopen with auto-refresh.
+  /** Notice: a file changed on disk and its auto-refresh search runs again; the tab title. */
+  NOTICE_FILE_SEARCH_RERUN;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

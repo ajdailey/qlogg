@@ -8,8 +8,10 @@ import java.util.List;
  *
  * @param tabs the tabs in order
  * @param active the shown tab's index, or -1
+ * @param droppedComments mark comments the last save left out at the cap; the store keeps one count
+ *     for all windows and loads it on the first
  */
-public record Session(List<Tab> tabs, int active) {
+public record Session(List<Tab> tabs, int active, long droppedComments) {
   /** No tabs. */
   public static final Session EMPTY = new Session(List.of(), -1);
 
@@ -89,6 +91,16 @@ public record Session(List<Tab> tabs, int active) {
     public Tab(String path, String name, boolean follow, long[] marks) {
       this(path, name, follow, marks, List.of(), 0);
     }
+  }
+
+  /**
+   * Creates a session that left out no comment.
+   *
+   * @param tabs the tabs in order
+   * @param active the shown tab's index, or -1
+   */
+  public Session(List<Tab> tabs, int active) {
+    this(tabs, active, 0);
   }
 
   /** Checks the components and copies the list. */

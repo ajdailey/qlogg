@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -58,7 +59,7 @@ public final class MarksListController {
   }
 
   /** What a worker read. */
-  private record Snapshot(List<Row> rows, long total, long charged) {}
+  record Snapshot(List<Row> rows, long total, long charged) {}
 
   private final ApplicationController application;
   private final Listener listener;
@@ -110,6 +111,7 @@ public final class MarksListController {
   private long charged;
   private long marksVersion = -1;
   private long commentsVersion = -1;
+  private CancellationToken reading;
   private boolean readInFlight;
   private boolean readWanted;
   private boolean closed;
@@ -221,6 +223,9 @@ public final class MarksListController {
   }
 
   private void unbind() {
+    if (reading != null) {
+      reading.cancel();
+    }
     if (document != null) {
       document.removeListener(documentListener);
       MemoryBudget budget = document.budget();
@@ -247,6 +252,8 @@ public final class MarksListController {
     final MemoryBudget budget = target.budget();
     marksVersion = log.marks().version();
     commentsVersion = log.markComments().version();
+    final CancellationToken token = new CancellationToken();
+    reading = token;
     readInFlight =
         target
             .workers()
@@ -257,7 +264,7 @@ public final class MarksListController {
                   public void run() {
                     Snapshot snapshot = null;
                     try {
-                      snapshot = read(log, budget);
+                      snapshot = read(log, budget, token);
                     } finally {
                       final Snapshot result = snapshot;
                       target
@@ -294,9 +301,12 @@ public final class MarksListController {
     }
   }
 
-  /** Lists the marks with their comments and text; null when the document closed. */
+  /**
+   * Lists the marks with their comments and text; null when the document closed or the token was
+   * canceled, which it checks before each row.
+   */
   @WorkerThread
-  private static Snapshot read(LogDocument log, MemoryBudget budget) {
+  static Snapshot read(LogDocument log, MemoryBudget budget, CancellationToken token) {
     if (!log.enter()) {
       return null;
     }
@@ -312,6 +322,9 @@ public final class MarksListController {
       StringBuilder text = new StringBuilder();
       boolean readable = true;
       for (int i = 0; i < count; i++) {
+        if (token.isCanceled()) {
+          return null;
+        }
         long line = lines[i];
         String comment = comments.get(line);
         text.setLength(0);

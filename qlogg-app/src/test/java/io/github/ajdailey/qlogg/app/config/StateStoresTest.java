@@ -198,6 +198,26 @@ class StateStoresTest {
   }
 
   @Test
+  void theDroppedCommentCountRoundTripsAndReadsAsNoneWhenAbsentOrMalformed() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session.Tab tab = new Session.Tab("/mock/a.log", "", false, new long[0]);
+    assertTrue(
+        store.saveWindows(List.of(new Session(List.of(tab), 0, 2), new Session(List.of(), -1, 5))));
+    List<Session> windows = new SessionStore(location()).loadWindows();
+    assertEquals(7, windows.get(0).droppedComments());
+    assertEquals(0, windows.get(1).droppedComments());
+    assertTrue(store.save(new Session(List.of(tab), 0)));
+    assertFalse(Files.readString(temp.resolve(SessionStore.FILE)).contains("droppedComments"));
+    String tabs = "window.0.active=0\nwindow.0.tab.0.path=/mock/a.log\n";
+    for (String file : List.of(tabs, tabs + "droppedComments=x\n", tabs + "droppedComments=-4\n")) {
+      Files.writeString(temp.resolve(SessionStore.FILE), file, StandardCharsets.ISO_8859_1);
+      Session session = new SessionStore(location()).load();
+      assertEquals(1, session.tabs().size());
+      assertEquals(0, session.droppedComments());
+    }
+  }
+
+  @Test
   void sessionRoundTripsMarkCommentsAndSkipsMalformedOnes() throws Exception {
     SessionStore store = new SessionStore(location());
     List<MarkComments.Comment> comments =

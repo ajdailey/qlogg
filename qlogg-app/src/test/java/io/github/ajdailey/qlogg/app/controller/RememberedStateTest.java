@@ -16,9 +16,11 @@ import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.config.WindowState;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import java.io.BufferedWriter;
@@ -28,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -120,6 +123,47 @@ class RememberedStateTest {
       }
     }
     return file;
+  }
+
+  @Test
+  void commentsPastTheCapShowOneNoticeAtTheNextStartAndTheNextSaveClearsTheCount()
+      throws Exception {
+    Path first = lines("first.log", MarkComments.MAX_COMMENTS);
+    Path second = lines("second.log", 5);
+    try (Run run = new Run()) {
+      run.application.restoreSession(Session.EMPTY);
+      run.application.open(List.of(new FileRequest(first, 0), new FileRequest(second, 0)));
+      run.untilOpen(2);
+      for (int i = 0; i < MarkComments.MAX_COMMENTS; i++) {
+        run.tab("first.log").setMarkComment(i, "flagword");
+      }
+      for (int i = 0; i < 3; i++) {
+        run.tab("second.log").setMarkComment(i, "flagword");
+      }
+    }
+    final String notice = UiText.NOTICE_COMMENTS_DROPPED.format(3L, MarkComments.MAX_COMMENTS);
+    try (Run opened = new Run()) {
+      final Run run = opened;
+      Session session = run.config.sessions().load();
+      assertEquals(3, session.droppedComments());
+      run.application.restoreSession(session);
+      run.untilOpen(2);
+      run.until(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return run.view.notices.contains(notice);
+            }
+          });
+      assertEquals(1, Collections.frequency(run.view.notices, notice));
+    }
+    try (Run run = new Run()) {
+      Session session = run.config.sessions().load();
+      assertEquals(0, session.droppedComments(), "the save after the notice clears the count");
+      run.application.restoreSession(session);
+      run.untilOpen(2);
+      assertFalse(run.view.notices.contains(notice));
+    }
   }
 
   @Test

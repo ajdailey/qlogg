@@ -1040,7 +1040,8 @@ public final class SearchController {
   }
 
   private void flush() {
-    Report report = latest.get();
+    // Taken, not read: a second flush of a finished report would forget a refresh it started.
+    Report report = latest.getAndSet(null);
     if (closed || report == null || report.generation() != generation) {
       return;
     }

@@ -25,6 +25,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,9 @@ class TimeSyncGroupsTest {
 
   private ControllerFixture fixture;
   private TimeSyncGroups groups;
+
+  /** Opened after each test; holds the tasks of {@link #holdCpuPool}. */
+  private final CountDownLatch cpu = new CountDownLatch(1);
 
   /** Counts a tab's reported moves. */
   private static final class Spy implements TimeController.SyncListener {
@@ -70,6 +74,7 @@ class TimeSyncGroupsTest {
 
   @AfterEach
   void close() throws InterruptedException {
+    cpu.countDown();
     fixture.close();
   }
 
@@ -250,6 +255,23 @@ class TimeSyncGroupsTest {
     return tab;
   }
 
+  /** Occupies the CPU pool, so indexing cannot reach a line until {@link #cpu} opens. */
+  private void holdCpuPool() {
+    for (int i = 0; i < fixture.workers.cpuThreads(); i++) {
+      fixture.workers.executeCpu(
+          new Runnable() {
+            @Override
+            public void run() {
+              try {
+                cpu.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            }
+          });
+    }
+  }
+
   private void indexed(final DocumentController tab) throws InterruptedException {
     fixture.runUntil(
         new BooleanSupplier() {
@@ -262,11 +284,13 @@ class TimeSyncGroupsTest {
 
   @Test
   void aKeptLineThatWaitsForIndexingReportsNoMove() throws Exception {
+    holdCpuPool();
     DocumentController tab = opening("a.log");
     Spy spy = new Spy();
     tab.time().setSyncListener(spy);
     tab.keepLine(11);
     assertEquals(10, tab.pendingLine());
+    cpu.countDown();
     indexed(tab);
     assertEquals(10, line(tab));
     assertEquals(0, spy.moves);
@@ -276,11 +300,13 @@ class TimeSyncGroupsTest {
 
   @Test
   void aGoToLineThatWaitsForIndexingReportsItsMove() throws Exception {
+    holdCpuPool();
     DocumentController tab = opening("a.log");
     Spy spy = new Spy();
     tab.time().setSyncListener(spy);
     tab.goToLine(11);
     assertEquals(10, tab.pendingLine());
+    cpu.countDown();
     indexed(tab);
     assertEquals(10, line(tab));
     assertEquals(1, spy.moves);
@@ -310,6 +336,32 @@ class TimeSyncGroupsTest {
     caret(source, 60);
     reaches(target, 60);
     assertFalse(fixture.view.notices.contains(UiText.NOTICE_TIME_CANCELED.text()));
+  }
+
+  @Test
+  void aClickOnTheFirstLineOfAFreshTabReportsNoMove() throws Exception {
+    DocumentController tab = open("a.log");
+    Spy spy = new Spy();
+    tab.time().setSyncListener(spy);
+    caret(tab, 0);
+    assertEquals(0, spy.moves);
+    caret(tab, 1);
+    assertEquals(1, spy.moves);
+  }
+
+  @Test
+  void leavingEndsTheSyncMovesOfTheTabAndOfTheLastMember() throws Exception {
+    DocumentController source = open("a.log");
+    DocumentController target = open("b.log");
+    join(source, target);
+    // Their results can post but not apply: only this thread drains the queue.
+    target.time().syncTo(nanos(40));
+    source.time().syncTo(nanos(50));
+    groups.leave(target);
+    searched(target);
+    searched(source);
+    assertEquals(0, line(target));
+    assertEquals(0, line(source));
   }
 
   @Test

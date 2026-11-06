@@ -2,21 +2,26 @@ package io.github.ajdailey.qlogg.core.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -260,6 +265,53 @@ class RangeSearchTest {
           new RangeFinder.Range(0, last),
           around(document, range(false, null, false), RangeFinder.BLOCK_LINES + 5));
       assertNull(around(document, range(false, null, false), last + 1));
+    }
+  }
+
+  @Test
+  void aFileCutBelowTheIndexFailsTheSearchAndTheFinder() throws Exception {
+    final List<String> lines = List.of("BEGIN", "filler", "END", "after");
+    Path file = write(lines);
+    try (LogDocument opened = fixture.open(file, null)) {
+      final LogDocument document = opened;
+      try (FileChannel cut = FileChannel.open(file, StandardOpenOption.WRITE)) {
+        cut.truncate(3);
+      }
+      final SearchQuery query = range(false, null, false);
+      SearchFixture.Recording result =
+          fixture.search(
+              fixture.engine(new SearchSettings(2, 1 << 20, 2, 0, fixture.budget)),
+              document,
+              query);
+      assertEquals(OperationOutcome.FAILED, result.outcome);
+      assertTrue(result.failure instanceof IOException, String.valueOf(result.failure));
+      assertThrows(
+          IOException.class,
+          new Executable() {
+            @Override
+            public void execute() throws Throwable {
+              around(document, query, lines.size() - 1);
+            }
+          });
+    }
+  }
+
+  @Test
+  void aCanceledFinderStops() throws Exception {
+    try (LogDocument opened = fixture.open(write(List.of("BEGIN", "END")), null)) {
+      final LogDocument document = opened;
+      final SearchQuery query = range(false, null, false);
+      final CancellationToken token = new CancellationToken();
+      token.cancel();
+      assertThrows(
+          CancellationException.class,
+          new Executable() {
+            @Override
+            public void execute() throws Throwable {
+              RangeFinder.around(
+                  document, document.index(), query, StandardMatchers.INSTANCE, 1, token);
+            }
+          });
     }
   }
 

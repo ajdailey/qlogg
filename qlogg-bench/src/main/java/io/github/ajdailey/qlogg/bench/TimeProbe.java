@@ -110,7 +110,7 @@ public class TimeProbe {
     head.flip();
     lines = new String(head.array(), 0, head.limit(), StandardCharsets.US_ASCII).split("\n");
     first = reader.next(0, index.indexedBytes(), token).nanos();
-    last = TimeSearch.locate(reader, index.indexedBytes(), Long.MAX_VALUE, token).nanos();
+    last = TimeSearch.locate(reader, index.indexedBytes(), Long.MAX_VALUE, token).stamp().nanos();
   }
 
   /**
@@ -160,7 +160,7 @@ public class TimeProbe {
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public Stamp locate() throws IOException {
     long target = first + (long) (random.nextDouble() * (last - first));
-    return TimeSearch.locate(reader, index.indexedBytes(), target, token);
+    return TimeSearch.locate(reader, index.indexedBytes(), target, token).stamp();
   }
 
   /**

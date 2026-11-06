@@ -29,19 +29,20 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The state is the timestamp format (none disables the timestamp commands), the zone of local
  * times, the display zone and the tab's offset in nanoseconds, which every time shown adds. A
- * format or zone change makes both views read their times again; an offset change only reformats
- * them.
+ * format or zone change makes both views read their times again and drops a running go to time; an
+ * offset change only reformats them.
  *
  * <p>{@link #goToTime} runs on a {@code qlogg-search-} worker inside {@link LogDocument#enter},
  * holding the {@link io.github.ajdailey.qlogg.app.view.ActivityIndicator} active until its result
  * posts. It searches the index snapshot taken at the start. An order check of {@link
  * #ORDER_SAMPLES} {@link TimeSamples}, charged to {@link MemoryShare#HIGHLIGHT} and kept per index
  * generation and format, picks {@link TimeSearch#locate}, or {@link TimeSearch#locateLinear} with
- * progress notices at most every {@link #PROGRESS_MILLIS} ms when a sample descends. A refused
- * charge skips the check and bisects. A newer request, {@code Esc} ({@link #cancel}) and {@link
- * #detach} cancel the running one, and a result whose generation is not the newest is dropped. The
- * found line turns follow off and shows through {@link DocumentController#showLine}; the filtered
- * view's caret moves to the row of that line or the next listed one.
+ * progress notices at most every {@link #PROGRESS_MILLIS} ms when a sample descends. An
+ * inconsistent bisection ends in the same scan and out-of-order notice. A refused charge leaves the
+ * order unknown: the scan runs without that notice. A newer request, {@code Esc} ({@link #cancel})
+ * and {@link #detach} cancel the running one, and a result whose generation is not the newest is
+ * dropped. The found line turns follow off and shows through {@link DocumentController#showLine};
+ * the filtered view's caret moves to the row of that line or the next listed one.
  *
  * <p>{@link #syncTo} is the same search for a move another tab caused: it does not report to the
  * {@link SyncListener}, shows no position or progress notice, and ends when the tab's caret moves
@@ -103,7 +104,7 @@ public final class TimeController {
   private SyncListener syncListener;
   private boolean runningSync;
   private boolean quiet;
-  private long caretLine = -1;
+  private long caretLine;
   private long caretReads;
   private CancellationToken caretRead;
 
@@ -186,6 +187,7 @@ public final class TimeController {
       formatGeneration++;
       context = TimeContext.of(zone, document.document().openedModifiedMillis());
       dropSamples();
+      dropRunning();
     }
     document.timeChanged(reread);
   }
@@ -342,7 +344,14 @@ public final class TimeController {
 
   /** Cancels a running sync move without a notice. */
   void cancelSync() {
-    if (running != null && runningSync) {
+    if (runningSync) {
+      dropRunning();
+    }
+  }
+
+  /** Cancels a running go to time; its result posts and changes nothing. */
+  private void dropRunning() {
+    if (running != null) {
       running.cancel();
       generation++;
     }
@@ -518,11 +527,20 @@ public final class TimeController {
           }
         }
         boolean ordered = order == null || order.descents() == 0;
-        Stamp stamp =
-            ordered
-                ? TimeSearch.locate(reader, end, request.target(), request.token())
-                : TimeSearch.locateLinear(
-                    reader, end, request.target(), request.token(), progress(request));
+        boolean scan = !ordered || order == null && index.lineCount() > 0;
+        Stamp stamp = null;
+        if (!scan) {
+          TimeSearch.Bisection bisection =
+              TimeSearch.locate(reader, end, request.target(), request.token());
+          stamp = bisection.stamp();
+          ordered = bisection.consistent();
+          scan = !ordered;
+        }
+        if (scan) {
+          stamp =
+              TimeSearch.locateLinear(
+                  reader, end, request.target(), request.token(), progress(request));
+        }
         if (stamp == null) {
           notice = UiText.NOTICE_TIME_NONE;
         } else {

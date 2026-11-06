@@ -12,9 +12,11 @@ import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.controller.MultiSearchController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
@@ -27,6 +29,7 @@ import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
+import io.github.ajdailey.qlogg.core.search.SearchLimit;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import java.io.IOException;
@@ -490,6 +493,31 @@ class ViewFeaturesGuiTest {
     results.groups().notifyListeners(SWT.Selection, select);
     assertEquals(first, controller.activeDocument());
     results.shell().dispose();
+  }
+
+  @Test
+  void aGroupStoppedByALimitOrWithSkippedLinesCarriesItsNotice() throws Exception {
+    controller.openFile(write("limited.log"), 0);
+    waitForDocument("limited.log");
+    SearchOptions options = document().search().options();
+    SearchViewState memory =
+        new SearchViewState(
+            "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.MEMORY, 0, null);
+    assertEquals(
+        "limited.log: " + UiText.SEARCH_LIMIT_MEMORY.format(3L),
+        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), memory)));
+    SearchViewState skipped =
+        new SearchViewState(
+            "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.NONE, 2, null);
+    assertEquals(
+        "limited.log: " + skipped.statusText(),
+        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), skipped)));
+    SearchViewState done =
+        new SearchViewState(
+            "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.NONE, 0, null);
+    assertEquals(
+        UiText.MULTI_DONE.format("limited.log", 3L),
+        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), done)));
   }
 
   @Test

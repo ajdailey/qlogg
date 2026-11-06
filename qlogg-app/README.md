@@ -217,7 +217,10 @@ dropped.
   (`reopenChanged`) reopen the path on a `qlogg-index-` worker. The new
   controller takes the tab, the follow state and the search text, and results
   start empty. A change on disk also empties marks and color labels and shows
-  a notice. A reload keeps the caret's line, the color labels, the marks and
+  a notice, and with `autoRefresh` on a search that was not canceled runs again
+  with the text and toggles it ran with; the field and toggles stay as they
+  were, and the notice says the search runs again instead of results cleared.
+  `F5` does not rerun it. A reload keeps the caret's line, the color labels, the marks and
   their comments: the worker copies them into the new document, and its first
   completed indexing drops marks and comments past the last line. A reopen
   that fails shows a notice and keeps the old tab.
@@ -368,7 +371,10 @@ share. Subclasses map rows to lines (`sourceLine`, `rowOf`, `rows()`).
   each), 7 for a save; the controller releases them on the UI thread once the
   text is on the clipboard, written, refused or canceled. A selection the
   share cannot hold is refused with a notice naming both sizes. Copy holds the
-  `ActivityIndicator` active until it ends.
+  `ActivityIndicator` active until it ends. The builder is sized once, because
+  a doubling builder peaks above the charge. A file shorter than the index
+  snapshot after the rows are read fails the copy or save: a read past the end
+  returns less text, not an error.
 - One copy or save runs per view; another shows a notice. `TextExporter`
   checks a `CancellationToken` before every row and before
   `AtomicFiles.write`. `Esc` (`DocumentController.stop`) cancels the running
@@ -426,7 +432,8 @@ document's `SearchController` and `FilteredController`.
   time. It follows `activeDocumentChanged`, `documentReplaced` and
   `documentClosed`, and reads again when a content event finds the marks' or
   comments' `version()` changed. Each row reserves 96 bytes plus 2 per char
-  from `RESULTS` while listed; rows past a refusal are left out. `close`
+  from `RESULTS` while listed; rows past a refusal are left out. Listing
+  another document, or `close`, cancels a read before its next row. `close`
   releases the rows and removes its listeners.
 - `refreshHighlights` builds one `Highlighter` for both views from the rules
   `HighlightComposer` returns. The color labels (`LabelState`) are charged to
@@ -579,9 +586,11 @@ Copy with line numbers puts each source line's number and a tab before it.
 Save Selection writes the selected lines, or the block's columns, and Save
 Filtered Results every filtered row, as UTF-8 through `AtomicFiles` on the
 copy worker, charged to `COPY` at 7 bytes per file byte (the text plus its
-UTF-8 bytes). The chosen path passes `SafePaths.logFile` on a
-`qlogg-lifecycle-` worker; a path whose real path is an open document's
-`realPath()` is refused, so QLogg never writes a file it shows.
+UTF-8 bytes). A line over `LineReader.MAX_LINE_BYTES` is saved cut, and the
+saved notice counts those lines; a block save does not count them. The chosen
+path passes `SafePaths.logFile` on a
+`qlogg-lifecycle-` worker; a path whose real path is the `realPath()` of a
+document open in any window is refused, so QLogg never writes a file it shows.
 
 ### Search across open files and automatic highlighter sets
 
@@ -590,7 +599,10 @@ search of every open document, through each document's `SearchController`,
 so each uses its document's encoding and result set and is charged to
 `RESULTS`. `results()` is one `FileResults` group per file in tab order; Stop
 cancels every search of the group, and a closed or reloaded tab drops its
-group. A group is a snapshot of its file at run time.
+group. A group is a snapshot of its file at run time. A group stopped by a
+limit, or with skipped lines, shows the search bar's status in its row. A run
+ignores `inSelection` and leaves each tab's toggle as it was; each tab's search
+start and end limits apply.
 
 `ViewFeatures` applies the view settings to each new document and tries the
 `HighlightSelector`s in order: a file-name glob on the UI thread, a first-line
@@ -628,11 +640,13 @@ again; an offset change only reformats them and schedules a session save.
   inside `LogDocument.enter`, holding the `ActivityIndicator` until its result
   posts. It searches the index snapshot taken at the start. The order check
   (256 `TimeSamples`, 2,112 bytes charged to `HIGHLIGHT`) is kept while the
-  index generation and the format stand and returned on `detach`; a refused
-  charge skips it and bisects. A descent runs `locateLinear` with progress
-  notices at most every 250 ms. A newer request, `Esc` and `detach` cancel
-  the running one, and a result whose generation is not the newest is
-  dropped. The found line turns follow off and shows through `showLine`, and
+  index generation and the format stand and returned on `detach`. A descent
+  or an inconsistent `TimeSearch.locate` runs `locateLinear` with progress
+  notices at most every 250 ms and the out-of-order notice. A refused charge
+  leaves the order unknown and runs `locateLinear` without that notice. A
+  newer request, `Esc`, `detach` and a format or zone change cancel the
+  running one, and a result whose generation is not the newest is dropped.
+  The found line turns follow off and shows through `showLine`, and
   the filtered view's caret moves to that line's row or the next listed one.
   Notices: no format, no stamped line, target before the first stamp,
   target after the last stamp while indexing runs, out of order, canceled,
@@ -720,7 +734,8 @@ started with.
   `qlogg-search-` worker under `LogDocument.enter`. It loops over
   `Triggers.scan` in batches of 4,096 lines to the indexed end, re-reading
   the index each batch, and posts each batch. The token is canceled by
-  `detach`.
+  `detach`. A scan that fails to read keeps its position, and the next starts
+  when the complete line count changes.
 - On the UI thread a batch: logs a template failure once (WARN), repaints
   after marks, calls `followStoppedByTrigger` for a stop-follow match, and
   notifies `TriggerListener`s. `followStoppedByTrigger` does nothing while not
@@ -731,7 +746,8 @@ started with.
   notice per scan, naming the tab.
 - Quiet lines stay in a `MutableLineSet` charged to `RESULTS` until the
   document closes. When the share refuses them the set is cleared, a notice
-  shows, and quiet lines count toward the dot again for that document.
+  shows, quiet lines count toward the dot again for that document, and later
+  scans keep none.
 
 ### Menu state
 
@@ -807,7 +823,7 @@ write through `SettingsFile`, which applies the table above to their own file
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group) | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held
 for no I/O, so the UI thread calls them; `load` and `save` block. A session's
@@ -953,7 +969,8 @@ release, overscroll, follow on load and `-f`, auto-refresh over a grown last
 line, truncation, rename-rotation, a retargeted symbolic link (POSIX only) and
 delete-then-recreate reopening the tab,
 reload and stop loading. `RememberedStateTest` runs the application twice over
-one settings directory: tabs, names, follow, marks, a mark comment, the
+one settings directory: comments past the session cap show one notice at the
+next start and the next save clears their count; tabs, names, follow, marks, a mark comment, the
 active tab, the caret, the zoom, favorites, recent files, line numbers and the window state
 come back; `+line:N` wins over the remembered position; an encoding override
 reindexes and returns on the next open, and Auto clears it; a remembered name
@@ -978,11 +995,14 @@ background tab (`FOLLOW_STOPPED` above `NEW_MATCHES`), a templated mark on
 appended lines only, no firing on the first index, a reload or a truncation
 reopen, rules of two sets firing together, quiet growth and quiet matches
 leaving the dot, an append of three batches and more scanned once per line in
-contiguous batches, one notice for refused comments, and growth before a rule
-acts staying unscanned. `HighlightFileTest` round-trips triggers through
-export and `qlogg.conf`, loads a file without them, and turns off only the
-malformed action.
-`ViewFeaturesTest` covers the fold mapping, expansion by go to line, mark
+contiguous batches, one notice for refused comments, growth before a rule
+acts staying unscanned, a scan that cannot read ending instead of restarting,
+and an empty quiet set after a refusal. `HighlightFileTest` round-trips
+triggers through export and `qlogg.conf`, loads a file without them, and turns
+off only the malformed action.
+`ViewFeaturesTest` covers Stop ending every group of a search across files on a
+catastrophic regex, a reload dropping its group, In selection ignored by that
+search, the count of cut lines in the saved notice, the fold mapping, expansion by go to line, mark
 jumps, find next and `showLine`, collapse all and expand all with the `FOLDS`
 charge returned, copy skipping hidden lines, block copy and block extension,
 copy with line numbers, wrap with its fit and the block refusal, folds under
@@ -996,8 +1016,10 @@ bound, hidden ANSI colors in search, and sending text to the scratchpad.
 line taking the time above it, a selection's difference and the offset
 applied; go to time moving the caret, releasing follow and pairing the
 activity, between two entries and with an offset; the notice before the
-first stamp; an out-of-order file searched line by line; a newer request
-dropping the older result; `Esc` canceling with its notice and a held save,
+first stamp; an out-of-order file searched line by line, after the order
+check or after a probe outside its bracket; a refused order check searching
+line by line without the out-of-order notice; a format or zone change dropping
+a running search; a newer request dropping the older result; `Esc` canceling with its notice and a held save,
 and over held indexing leaving it running until a second `Esc` stops loading; the notice for
 a target past the indexed part; progress notices of a linear scan held at a
 gated line; the filtered view's rows' times; a file without
@@ -1045,7 +1067,8 @@ Every file a tab showed is closed, no thread survives, and the `RESULTS`,
 `LINE_INDEX`, `HIGHLIGHT`, `COPY` and `PASTED` reservations and the activity
 counters are 0. The seed is random per run and named in the failure;
 `-Dqlogg.closeLifecycle.seed=N` replays one.
-`WindowSetTest` runs two windows over one set: handed files open in the
+`WindowSetTest` runs two windows over one set: a save over a file open in the
+other window is refused, handed files open in the
 window activated last, which is raised; a handed file another window shows
 activates that tab at its line and then follows it, with no second tab; quit runs the quit listeners before
 the finish listeners and saves each window's tabs as its own `window.N`;

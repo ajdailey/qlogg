@@ -1395,7 +1395,10 @@ public abstract class LineViewController {
           case LISTENER -> listener.textRead(text);
           case FILE ->
               notifications.showNotice(
-                  UiText.NOTICE_SAVED.format(result.rows(), request.file().getFileName()));
+                  result.cutLines() == 0
+                      ? UiText.NOTICE_SAVED.format(result.rows(), request.file().getFileName())
+                      : UiText.NOTICE_SAVED_CUT.format(
+                          result.rows(), request.file().getFileName(), result.cutLines()));
         }
       } else if (result.refusal() != null) {
         UiText title = request.output() == Output.FILE ? UiText.SAVE_TITLE : UiText.COPY_TITLE;

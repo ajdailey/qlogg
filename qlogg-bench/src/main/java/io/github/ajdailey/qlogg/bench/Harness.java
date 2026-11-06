@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.bench;
 
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
@@ -10,8 +11,10 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
+import io.github.ajdailey.qlogg.core.model.ContextRows;
 import io.github.ajdailey.qlogg.core.model.DocumentListener;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.FilteredView;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
@@ -25,18 +28,29 @@ import io.github.ajdailey.qlogg.core.search.SearchListener;
 import io.github.ajdailey.qlogg.core.search.SearchQuery;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
+import io.github.ajdailey.qlogg.core.time.FormatDetector;
+import io.github.ajdailey.qlogg.core.time.ScanProgress;
+import io.github.ajdailey.qlogg.core.time.Stamp;
+import io.github.ajdailey.qlogg.core.time.TimeContext;
+import io.github.ajdailey.qlogg.core.time.TimeReader;
+import io.github.ajdailey.qlogg.core.time.TimeSamples;
+import io.github.ajdailey.qlogg.core.time.TimeSearch;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +58,7 @@ import java.util.Locale;
 import java.util.SplittableRandom;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -54,6 +69,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * <pre>
  * generate PROFILE BYTES FILE [SEED]   write a LogGenerator file
  * run FILE [SEARCH...]                 open, index, search, random reads, end of file
+ * multi SEARCH FILE...                 one search over several files, in turn and all at once
+ * filtered FILE SEARCH [BEFORE [AFTER]]  build the filtered rows of a search, read random screens
+ * time FILE [GO_TOS]                   detect the format, sample, go to times, read caret times
  * tail FILE LINES_PER_SECOND SECONDS   append to a new file and measure write-to-index latency
  * startup TARGET FILE SETTINGS [RUNS]  launch QLogg and time process start to first text paint
  * </pre>
@@ -64,9 +82,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * searches {@link LogGenerator#RARE_TOKEN} and {@link LogGenerator#COMMON_TOKEN} as literals and a
  * regex.
  *
- * <p>{@code run} and {@code tail} use the shipped launchers' heap, {@value #LAUNCHER_HEAP}: a JVM
- * started without a heap option relaunches the harness with it. A heap option on the command line,
- * or {@code -Dqlogg.bench.heap=jvm} for the JVM default, runs in place.
+ * <p>Every command that opens a document uses the shipped launchers' heap, {@value #LAUNCHER_HEAP}:
+ * a JVM started without a heap option relaunches the harness with it. A heap option on the command
+ * line, or {@code -Dqlogg.bench.heap=jvm} for the JVM default, runs in place.
  */
 public final class Harness {
   private static final int READS = 10_000;
@@ -75,8 +93,27 @@ public final class Harness {
   private static final long BOUND_MINUTES = 30;
   private static final String DEFAULT_REGEX = "worker-1[0-5]\\] #\\d+7 ";
 
+  /** One line in this many is marked before the filtered rows are built. */
+  private static final long MARK_STEP = 1000;
+
+  private static final int GO_TOS = 1000;
+  private static final int HEAD_BYTES = 64 * 1024;
+
+  /** The samples a go to time checks the order with, as the application takes them. */
+  private static final int ORDER_SAMPLES = 256;
+
+  private static final TimeContext UTC = new TimeContext(ZoneOffset.UTC, 2026, 11);
+  private static final ScanProgress NO_PROGRESS =
+      new ScanProgress() {
+        @Override
+        public void scanned(long position, long end) {}
+      };
+
   /** The heap option of {@code qlogg-dist/src/bin/qlogg} and the Windows launchers. */
   public static final String LAUNCHER_HEAP = "-XX:MaxRAMPercentage=50";
+
+  private static final List<String> OPENS_DOCUMENTS =
+      List.of("run", "multi", "filtered", "time", "tail");
 
   private static final String[] HEAP_OPTIONS = {
     "-Xmx", "-XX:MaxRAMPercentage=", "-XX:MaxRAM=", "-XX:MaxHeapSize="
@@ -93,7 +130,7 @@ public final class Harness {
   private final DocumentServices services;
   private final long cpuStart = cpuNanos();
 
-  private Harness(PrintStream out) {
+  Harness(PrintStream out) {
     this.out = out;
     workers =
         new Workers(
@@ -130,10 +167,12 @@ public final class Harness {
     if (args.length < 2) {
       System.err.println(
           "usage: generate PROFILE BYTES FILE [SEED] | run FILE [SEARCH...]"
-              + " | tail FILE LINES_PER_SECOND SECONDS | startup TARGET FILE SETTINGS [RUNS]");
+              + " | multi SEARCH FILE... | filtered FILE SEARCH [BEFORE [AFTER]]"
+              + " | time FILE [GO_TOS] | tail FILE LINES_PER_SECOND SECONDS"
+              + " | startup TARGET FILE SETTINGS [RUNS]");
       System.exit(2);
     }
-    if ((args[0].equals("run") || args[0].equals("tail")) && relaunchNeeded()) {
+    if (OPENS_DOCUMENTS.contains(args[0]) && relaunchNeeded()) {
       System.exit(relaunch(args));
     }
     switch (args[0]) {
@@ -152,6 +191,34 @@ public final class Harness {
           harness.workers.close();
         }
       }
+      case "multi" -> {
+        Harness harness = new Harness(System.out);
+        try {
+          harness.multi(args[1], paths(args, 2));
+        } finally {
+          harness.close();
+        }
+      }
+      case "filtered" -> {
+        Harness harness = new Harness(System.out);
+        try {
+          harness.filtered(
+              Path.of(args[1]),
+              args[2],
+              args.length > 3 ? Integer.parseInt(args[3]) : 0,
+              args.length > 4 ? Integer.parseInt(args[4]) : 0);
+        } finally {
+          harness.close();
+        }
+      }
+      case "time" -> {
+        Harness harness = new Harness(System.out);
+        try {
+          harness.time(Path.of(args[1]), args.length > 2 ? Integer.parseInt(args[2]) : GO_TOS);
+        } finally {
+          harness.close();
+        }
+      }
       case "tail" -> {
         Harness harness = new Harness(System.out);
         try {
@@ -162,6 +229,19 @@ public final class Harness {
       }
       default -> throw new IllegalArgumentException("Unknown command: " + args[0]);
     }
+  }
+
+  private static List<Path> paths(String[] args, int from) {
+    List<Path> files = new ArrayList<Path>();
+    for (int i = from; i < args.length; i++) {
+      files.add(Path.of(args[i]));
+    }
+    return files;
+  }
+
+  /** Closes the workers. */
+  void close() {
+    workers.close();
   }
 
   /** True when no heap option was given and {@code qlogg.bench.heap} is not {@code jvm}. */
@@ -293,10 +373,7 @@ public final class Harness {
       throws IOException, InterruptedException, ExpressionException {
     out.println("file=" + file);
     out.println("file.bytes=" + Files.size(file));
-    String heapOption = heapOption();
-    out.println("heap.option=" + (heapOption == null ? "jvm-default" : heapOption));
-    out.println("heap.max=" + Runtime.getRuntime().maxMemory());
-    out.println("cpus=" + Runtime.getRuntime().availableProcessors());
+    heapLines();
     long start = System.nanoTime();
     LogDocument document = LogDocument.open(file, null, services);
     out.println("open.ms=" + millis(System.nanoTime() - start));
@@ -327,6 +404,17 @@ public final class Harness {
     } finally {
       document.close();
     }
+    endLines();
+  }
+
+  private void heapLines() {
+    String heapOption = heapOption();
+    out.println("heap.option=" + (heapOption == null ? "jvm-default" : heapOption));
+    out.println("heap.max=" + Runtime.getRuntime().maxMemory());
+    out.println("cpus=" + Runtime.getRuntime().availableProcessors());
+  }
+
+  private void endLines() {
     out.println("cpu.ms=" + millis(cpuNanos() - cpuStart));
     out.println("rss.peak=" + rssPeak());
   }
@@ -375,8 +463,39 @@ public final class Harness {
     heap("heap.afterIndex");
   }
 
+  /** One running search: its results, its end and when it started and ended. */
+  private record RunningSearch(
+      String spec,
+      MutableLineSet results,
+      CountDownLatch done,
+      AtomicReference<OperationOutcome> outcome,
+      AtomicReference<SearchLimit> limit,
+      AtomicLong ended,
+      long started,
+      OperationHandle handle) {
+    void await() throws InterruptedException {
+      if (!done.await(BOUND_MINUTES, TimeUnit.MINUTES)) {
+        handle.cancel();
+        throw new IllegalStateException("Search did not finish: " + spec);
+      }
+    }
+  }
+
   private MutableLineSet search(LogDocument document, String spec)
       throws InterruptedException, ExpressionException {
+    long cpu = cpuNanos();
+    RunningSearch running = startSearch(document, spec);
+    running.await();
+    String key = "search[" + spec + "]";
+    out.println(key + ".outcome=" + running.outcome().get() + " limit=" + running.limit().get());
+    out.println(key + ".ms=" + millis(System.nanoTime() - running.started()));
+    out.println(key + ".cpu.ms=" + millis(cpuNanos() - cpu));
+    out.println(key + ".matches=" + running.results().size());
+    out.println(key + ".resultBytes=" + running.results().retainedBytes());
+    return running.results();
+  }
+
+  private RunningSearch startSearch(LogDocument document, String spec) throws ExpressionException {
     int colon = spec.indexOf(':');
     String kind = spec.substring(0, colon);
     String pattern = spec.substring(colon + 1);
@@ -391,8 +510,8 @@ public final class Harness {
     final CountDownLatch done = new CountDownLatch(1);
     final AtomicReference<OperationOutcome> outcome = new AtomicReference<OperationOutcome>();
     final AtomicReference<SearchLimit> limit = new AtomicReference<SearchLimit>();
+    final AtomicLong ended = new AtomicLong();
     SearchQuery query = new SearchQuery(expression, caseSensitive, false, false, null);
-    long cpu = cpuNanos();
     long start = System.nanoTime();
     OperationHandle handle =
         services
@@ -413,22 +532,220 @@ public final class Harness {
                       SearchLimit reached,
                       long skipped,
                       Exception failure) {
+                    ended.set(System.nanoTime());
                     outcome.set(result);
                     limit.set(reached);
                     done.countDown();
                   }
                 });
-    if (!done.await(BOUND_MINUTES, TimeUnit.MINUTES)) {
-      handle.cancel();
-      throw new IllegalStateException("Search did not finish: " + spec);
+    return new RunningSearch(spec, results, done, outcome, limit, ended, start, handle);
+  }
+
+  /**
+   * Searches several files for one text: in turn, then all at once, as a search across open files
+   * starts one search per tab on the shared engine.
+   */
+  void multi(String spec, List<Path> files)
+      throws IOException, InterruptedException, ExpressionException {
+    heapLines();
+    List<LogDocument> documents = new ArrayList<LogDocument>();
+    try {
+      for (Path file : files) {
+        out.println("file=" + file);
+        LogDocument document = LogDocument.open(file, null, services);
+        documents.add(document);
+        index(document);
+      }
+      long start = System.nanoTime();
+      for (LogDocument document : documents) {
+        search(document, spec).clear();
+      }
+      out.println("multi.files=" + documents.size());
+      out.println("multi.inTurn.ms=" + millis(System.nanoTime() - start));
+      long cpu = cpuNanos();
+      start = System.nanoTime();
+      List<RunningSearch> running = new ArrayList<RunningSearch>();
+      for (LogDocument document : documents) {
+        running.add(startSearch(document, spec));
+      }
+      long matches = 0;
+      for (int i = 0; i < running.size(); i++) {
+        RunningSearch search = running.get(i);
+        search.await();
+        matches += search.results().size();
+        String key = "multi.file" + i;
+        out.println(key + ".outcome=" + search.outcome().get() + " limit=" + search.limit().get());
+        out.println(key + ".ms=" + millis(search.ended().get() - search.started()));
+        out.println(key + ".matches=" + search.results().size());
+      }
+      out.println("multi.atOnce.ms=" + millis(System.nanoTime() - start));
+      out.println("multi.atOnce.cpu.ms=" + millis(cpuNanos() - cpu));
+      out.println("multi.matches=" + matches);
+      heap("heap.afterGc");
+      shares();
+    } finally {
+      for (LogDocument document : documents) {
+        document.close();
+      }
     }
-    String key = "search[" + spec + "]";
-    out.println(key + ".outcome=" + outcome.get() + " limit=" + limit.get());
-    out.println(key + ".ms=" + millis(System.nanoTime() - start));
-    out.println(key + ".cpu.ms=" + millis(cpuNanos() - cpu));
-    out.println(key + ".matches=" + results.size());
-    out.println(key + ".resultBytes=" + results.retainedBytes());
-    return results;
+    endLines();
+  }
+
+  /**
+   * Builds the filtered view of a search as the application does: the context rows, then the marks
+   * outside them, with one line in {@value #MARK_STEP} marked; then reads random screens of rows.
+   */
+  void filtered(Path file, String spec, int before, int after)
+      throws IOException, InterruptedException, ExpressionException {
+    heapLines();
+    out.println("file=" + file);
+    final LogDocument document = LogDocument.open(file, null, services);
+    try {
+      index(document);
+      MutableLineSet matches = search(document, spec);
+      MutableLineSet marks = document.marks();
+      long lines = document.index().lineCount();
+      for (long line = 0; line < lines; line += MARK_STEP) {
+        marks.add(line);
+      }
+      out.println("filtered.marks=" + marks.size());
+      FilteredView view = new FilteredView(matches, marks, budget);
+      try {
+        view.setContext(
+            before,
+            after,
+            new ContextRows.LineCount() {
+              @Override
+              public long get() {
+                return document.index().lineCount();
+              }
+            });
+        CancellationToken token = new CancellationToken();
+        long start = System.nanoTime();
+        boolean complete = true;
+        while (complete && view.contextStale()) {
+          ContextRows from = view.context();
+          ContextRows built = from.extend(budget, token);
+          view.installContext(built, from);
+          complete = built.complete();
+        }
+        out.println("filtered.context.ms=" + millis(System.nanoTime() - start));
+        out.println("filtered.context.complete=" + complete);
+        start = System.nanoTime();
+        FilteredView.Extras extras = FilteredView.buildExtras(view.rows(), marks, budget, token);
+        if (!view.installExtras(extras)) {
+          throw new IllegalStateException("Marks snapshot not installed");
+        }
+        out.println("filtered.extras.ms=" + millis(System.nanoTime() - start));
+        out.println("filtered.extras.lines=" + extras.lines().size());
+        out.println("filtered.extras.complete=" + extras.complete());
+        out.println("filtered.rows=" + view.size());
+        filteredScreens(document, view);
+        heap("heap.afterGc");
+        shares();
+      } finally {
+        view.close();
+      }
+    } finally {
+      document.close();
+    }
+    endLines();
+  }
+
+  /** Times mapping a random screen of rows to its lines, and reading those lines. */
+  private void filteredScreens(LogDocument document, FilteredView view) throws IOException {
+    LineIndex index = document.index();
+    LineReader reader = document.newReader();
+    SplittableRandom random = new SplittableRandom(7);
+    long[] source = new long[SCREEN_LINES];
+    long[] mapped = new long[READS];
+    long[] read = new long[READS];
+    long rows = Math.max(1, view.size() - SCREEN_LINES);
+    for (int i = 0; i < READS; i++) {
+      long top = random.nextLong(rows);
+      long t = System.nanoTime();
+      int count = view.sourceLines(top, SCREEN_LINES, source);
+      mapped[i] = System.nanoTime() - t;
+      t = System.nanoTime();
+      reader.readRows(index, top, source, count, 0, SCREEN_COLUMNS, null, false);
+      read[i] = System.nanoTime() - t;
+    }
+    percentiles("filtered.map", mapped);
+    percentiles("filtered.read", read);
+  }
+
+  /**
+   * Runs the steps of a go to time on a file: format detection on the head, the order samples,
+   * {@code goTos} bisections to random times, as many caret-time reads of random lines, and one
+   * linear pass. A file with no detected format ends after the detection.
+   */
+  void time(Path file, int goTos) throws IOException, InterruptedException {
+    heapLines();
+    out.println("file=" + file);
+    LogDocument document = LogDocument.open(file, null, services);
+    try {
+      index(document);
+      ByteBuffer head = ByteBuffer.allocate(HEAD_BYTES);
+      try (InputStream in = Files.newInputStream(file)) {
+        head.limit(in.readNBytes(head.array(), 0, HEAD_BYTES));
+      }
+      long start = System.nanoTime();
+      BuiltInFormat format = FormatDetector.detect(head, document.encoding(), UTC);
+      out.println("time.detect.us=" + format((System.nanoTime() - start) / 1e3));
+      out.println("time.format=" + format);
+      if (format != null) {
+        timeLookups(document, document.newTimeReader(format.parser(UTC)), goTos);
+      }
+      heap("heap.afterGc");
+      shares();
+    } finally {
+      document.close();
+    }
+    endLines();
+  }
+
+  private void timeLookups(LogDocument document, TimeReader reader, int goTos) throws IOException {
+    LineIndex index = document.index();
+    long end = index.indexedBytes();
+    CancellationToken token = new CancellationToken();
+    long start = System.nanoTime();
+    TimeSamples order = TimeSamples.sample(reader, index, index.lineCount(), ORDER_SAMPLES, token);
+    out.println("time.samples.ms=" + format((System.nanoTime() - start) / 1e6));
+    out.println("time.samples.descents=" + order.descents());
+    Stamp first = reader.next(0, end, token);
+    Stamp last = TimeSearch.locate(reader, end, Long.MAX_VALUE, token).stamp();
+    if (first == null || last == null) {
+      out.println("time.stamps=none");
+      return;
+    }
+    SplittableRandom random = new SplittableRandom(5);
+    long[] located = new long[goTos];
+    for (int i = 0; i < goTos; i++) {
+      long target = first.nanos() + (long) (random.nextDouble() * (last.nanos() - first.nanos()));
+      long t = System.nanoTime();
+      TimeSearch.locate(reader, end, target, token);
+      located[i] = System.nanoTime() - t;
+    }
+    percentiles("time.goTo", located);
+    long[] carets = new long[goTos];
+    for (int i = 0; i < goTos; i++) {
+      long line = random.nextLong(index.lineCount());
+      long t = System.nanoTime();
+      reader.at(index.lineStart(line), token);
+      carets[i] = System.nanoTime() - t;
+    }
+    percentiles("time.caret", carets);
+    start = System.nanoTime();
+    TimeSearch.locateLinear(reader, end, Long.MAX_VALUE, token, NO_PROGRESS);
+    out.println("time.linear.ms=" + millis(System.nanoTime() - start));
+  }
+
+  /** Prints p50, p99 and max in microseconds; sorts {@code nanos}. */
+  private void percentiles(String key, long[] nanos) {
+    Arrays.sort(nanos);
+    out.println(key + ".p50.us=" + format(nanos[nanos.length / 2] / 1e3));
+    out.println(key + ".p99.us=" + format(nanos[nanos.length * 99 / 100] / 1e3));
+    out.println(key + ".max.us=" + format(nanos[nanos.length - 1] / 1e3));
   }
 
   private void randomReads(LogDocument document) throws IOException {

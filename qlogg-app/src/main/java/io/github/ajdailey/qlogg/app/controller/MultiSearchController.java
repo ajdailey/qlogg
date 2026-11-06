@@ -17,6 +17,10 @@ import java.util.List;
  * <p>{@link #cancel} stops every search of the group. Closing a tab cancels its search and drops
  * its group ({@link #documentClosed}). A group is a snapshot of its file at run time: growth does
  * not extend it unless the file's own {@code autoRefresh} is on.
+ *
+ * <p>A run ignores {@code inSelection}, so a selection left in a tab does not narrow its group;
+ * each tab keeps its own In Selection toggle for its later searches. Each tab's search start and
+ * end limits apply.
  */
 public final class MultiSearchController {
   /**
@@ -69,7 +73,9 @@ public final class MultiSearchController {
       }
       group.add(document);
       document.search().addListener(progress);
-      document.search().run(searchText, options);
+      boolean inSelection = document.search().options().inSelection();
+      document.search().run(searchText, options.withInSelection(false));
+      document.search().setOptions(document.search().options().withInSelection(inSelection));
     }
     fire();
   }

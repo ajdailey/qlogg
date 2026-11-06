@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.model.Selection;
@@ -96,6 +98,17 @@ class MarkCommentsTest {
     assertEquals(
         UiText.NOTICE_COMMENT_NOT_KEPT.format(MarkComments.MAX_COMMENTS),
         fixture.view.lastNotice());
+  }
+
+  @Test
+  void aCanceledMarksListReadReturnsNothingAndNoReservation() throws Exception {
+    document.setMarkComment(3, "flagword");
+    settle();
+    MemoryBudget own = MemoryBudget.of(1L << 28);
+    CancellationToken token = new CancellationToken();
+    token.cancel();
+    assertNull(MarksListController.read(document.document(), own, token));
+    assertEquals(0, own.reserved(MemoryShare.RESULTS));
   }
 
   @Test

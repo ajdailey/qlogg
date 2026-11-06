@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
@@ -17,6 +19,7 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.model.Triggers;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -268,6 +271,46 @@ class TriggerControllerTest {
     }
     assertEquals(count + 1, next);
     assertTrue(ranges.size() > 3, "more than one batch: " + ranges.size());
+  }
+
+  @Test
+  void aScanThatCannotReadEndsAndDoesNotStartAgainByItself() throws Exception {
+    start(List.of(List.of(rule("ERROR", mark("")))));
+    final DocumentController document = open("unreadable.log", "one\n");
+    awaitScanned(document, 1);
+    append("unreadable.log", "ERROR two\n");
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document.document().index().lineCount() == 2;
+              }
+            },
+            ControllerFixture.BOUND));
+    document.document().bytes().close();
+    fixture.application.windowSet().services().cache().invalidate(document.document().bytes());
+    document.triggers().flushed(false);
+    assertTrue(document.triggers().scanning());
+    awaitScanned(document, 1);
+    assertFalse(document.marked(1));
+  }
+
+  @Test
+  void quietLinesAreNotKeptOnceTheShareRefusedThem() throws Exception {
+    start(List.of(List.of(rule("heartbeat", QUIET))));
+    DocumentController document = open("quiet.log", "one\n");
+    awaitScanned(document, 1);
+    long held = fixture.budget.available(MemoryShare.RESULTS) - 8;
+    assertTrue(fixture.budget.reserve(MemoryShare.RESULTS, held));
+    append("quiet.log", "heartbeat 1\n");
+    awaitScanned(document, 2);
+    assertEquals(UiText.NOTICE_TRIGGER_QUIET_LIMIT.text(), fixture.view.lastNotice());
+    assertFalse(document.triggers().defersDot());
+    fixture.budget.release(MemoryShare.RESULTS, held);
+    append("quiet.log", "heartbeat 2\n");
+    awaitScanned(document, 3);
+    assertFalse(document.triggers().isQuiet(2), "the refused set stays empty");
   }
 
   @Test

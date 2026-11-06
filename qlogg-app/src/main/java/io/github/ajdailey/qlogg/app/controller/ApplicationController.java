@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.app.config.PositionStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SearchToggles;
 import io.github.ajdailey.qlogg.app.config.Session;
+import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.config.WindowState;
@@ -31,6 +32,7 @@ import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -122,6 +124,7 @@ public final class ApplicationController implements DocumentHost {
   private static final Logger LOG = LoggerFactory.getLogger(ApplicationController.class);
 
   private final WindowSet set;
+  private long droppedComments;
   private final Workers workers;
   private final UiDispatcher ui;
   private final MainView view;
@@ -743,6 +746,11 @@ public final class ApplicationController implements DocumentHost {
         activate(controller);
       }
     }
+
+    @Override
+    public void restoreFinished() {
+      noticeDroppedComments();
+    }
   }
 
   /** Shows a tab, at a line when given, following when asked or by {@code follow.onLoad}. */
@@ -1272,6 +1280,12 @@ public final class ApplicationController implements DocumentHost {
     replacement.setLineNumbers(old.lineNumbers());
     replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
     replacement.search().setText(old.search().fieldText(), old.search().options());
+    SearchViewState ran = old.search().state();
+    boolean rerun =
+        change != null
+            && old.search().options().autoRefresh()
+            && ran.phase() != SearchViewState.Phase.IDLE
+            && ran.phase() != SearchViewState.Phase.CANCELED;
     boolean follow = old.following();
     long timeOffset = old.time().offset();
     long caret = Math.max(0, old.sourceLine(old.selection().caret().line()));
@@ -1295,13 +1309,20 @@ public final class ApplicationController implements DocumentHost {
       }
     }
     start(replacement);
+    if (rerun) {
+      // The search that ran goes again; the field and toggles stay as the user left them.
+      replacement.search().run(ran.text(), ran.options());
+      replacement.search().setText(old.search().fieldText(), old.search().options());
+    }
     replacement.time().setOffset(timeOffset);
     if (follow) {
       replacement.setFollowing(true);
     } else if (change == null) {
       replacement.keepLine(caret + 1);
     }
-    if (change != null) {
+    if (rerun) {
+      view.showNotice(UiText.NOTICE_FILE_SEARCH_RERUN.format(replacement.state().title()));
+    } else if (change != null) {
       UiText notice =
           switch (change) {
             case TRUNCATED -> UiText.NOTICE_FILE_TRUNCATED;
@@ -1844,15 +1865,28 @@ public final class ApplicationController implements DocumentHost {
 
   /**
    * Restores a session's tabs on a worker, each with its name, follow state and marks, and shows
-   * its active tab. This instance then saves the tab list.
+   * its active tab. This instance then saves the tab list. Mark comments the last save left out
+   * show one notice once the tabs are restored, and a save follows, which clears their count.
    *
    * @param session the session
    */
   public void restoreSession(final Session session) {
     set.setSessionOwner(true);
-    if (!shuttingDown) {
+    droppedComments = session.droppedComments();
+    if (session.tabs().isEmpty()) {
+      noticeDroppedComments();
+    } else if (!shuttingDown) {
       opener.restore(session, set.services());
     }
+  }
+
+  private void noticeDroppedComments() {
+    if (droppedComments > 0 && !shuttingDown) {
+      view.showNotice(
+          UiText.NOTICE_COMMENTS_DROPPED.format(droppedComments, SessionStore.MAX_COMMENTS));
+      scheduleSave();
+    }
+    droppedComments = 0;
   }
 
   /**

@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.FollowSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
@@ -169,7 +170,7 @@ class FollowControllerTest {
   @Test
   void truncationReopensTheFileWithEmptyResultsAndANotice() throws Exception {
     DocumentController document = open(Preferences.DEFAULTS, 50);
-    document.search().run("hit", AUTO_REFRESH);
+    document.search().run("hit", AUTO_REFRESH.withAutoRefresh(false));
     fixture.runUntilEnded(document.search());
     Files.writeString(
         temp.resolve("follow.log"), lines(0, 5), StandardOpenOption.TRUNCATE_EXISTING);
@@ -183,6 +184,52 @@ class FollowControllerTest {
         fixture.view.notices.contains(
             "File truncated on disk: follow.log reloaded, results cleared."),
         fixture.view.notices.toString());
+  }
+
+  @Test
+  void aChangeOnDiskRunsAnAutoRefreshSearchAgain() throws Exception {
+    DocumentController document = open(Preferences.DEFAULTS, 50);
+    document.search().run("hit", AUTO_REFRESH);
+    fixture.runUntilEnded(document.search());
+    Files.writeString(
+        temp.resolve("follow.log"), lines(0, 12), StandardOpenOption.TRUNCATE_EXISTING);
+    final DocumentController reopened = replacement(document);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return reopened.search().results().size() == 2
+                && reopened.search().state().phase() == SearchViewState.Phase.DONE;
+          }
+        });
+    assertEquals(List.of(3L, 10L), ControllerFixture.toList(reopened.search().results()));
+    assertEquals(
+        List.of(UiText.NOTICE_FILE_SEARCH_RERUN.format("follow.log")),
+        noticesAboutTheFile(),
+        "no results-cleared notice with a rerun");
+  }
+
+  private List<String> noticesAboutTheFile() {
+    List<String> found = new ArrayList<String>();
+    for (String notice : fixture.view.notices) {
+      if (notice.contains("on disk")) {
+        found.add(notice);
+      }
+    }
+    return found;
+  }
+
+  @Test
+  void aReloadDoesNotRunAnAutoRefreshSearchAgain() throws Exception {
+    DocumentController document = open(Preferences.DEFAULTS, 50);
+    document.search().run("hit", AUTO_REFRESH);
+    fixture.runUntilEnded(document.search());
+    fixture.application.execute(CommandId.RELOAD);
+    DocumentController reopened = replacement(document);
+    fixture.runUntil(lineCount(reopened, 50));
+    fixture.runUntilIdle();
+    assertEquals(SearchViewState.Phase.IDLE, reopened.search().state().phase());
+    assertEquals("hit", reopened.search().fieldText());
   }
 
   @Test

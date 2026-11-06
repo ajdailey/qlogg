@@ -303,15 +303,20 @@ public final class TimeSyncGroups {
     document.time().setSyncListener(listener);
   }
 
-  /** Takes a tab out of its group, if any; a group left with one member dissolves. */
+  /**
+   * Takes a tab out of its group, if any, ending its sync move; a group left with one member
+   * dissolves.
+   */
   private void remove(DocumentController document) {
     Group group = groupOf(document);
     if (group == null) {
       return;
     }
     group.members.remove(document);
+    document.time().cancelSync();
     if (group.members.size() == 1) {
       DocumentController last = group.members.remove(0);
+      last.time().cancelSync();
       last.time().setSyncListener(null);
       forget(last, null);
       groups.remove(group);

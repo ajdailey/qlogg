@@ -36,6 +36,9 @@ $H generate ascii-short 1000000000 <scratch>/ascii-short-1g.log [seed]
 $H run <scratch>/ascii-short-1g.log [SEARCH ...]
 $H run <scratch>/ascii-short-1g.log 'expr:"flagword" or "blockterm"' \
     'expr-regex:"worker-1[0-5]" and not "blockterm"'
+$H multi literal:blockterm <scratch>/a.log <scratch>/b.log <scratch>/c.log
+$H filtered <scratch>/ascii-short-1g.log literal:flagword 3 3
+$H time <scratch>/timed-1g.log [go-tos]
 $H tail <scratch>/tail.log 50000 20
 xvfb-run -a env GDK_BACKEND=x11 $H startup qlogg-dist/target/qlogg.jar \
     <scratch>/ascii-short-100m.log <scratch>/startup-jar [runs]
@@ -47,6 +50,9 @@ xvfb-run -a env GDK_BACKEND=x11 $H startup <scratch>/bundle/qlogg/bin/qlogg \
 |---|---|
 | `generate` | Writes a new file of at least the given size; fails when it exists |
 | `run` | Open; index (time, CPU, lines, index bytes per line, sparse or full); each search (time, CPU, matches, result-set bytes), by default `flagword`, `blockterm` and a regex; 10,000 random 50-line reads (p50, p99, max); the last screen; heap after GC with the result sets held; every share's reservation; process CPU and peak RSS (`VmHWM`, Linux) |
+| `multi` | One `SEARCH` over several files, as a search across open files runs it: opens and indexes each; searches them in turn (`multi.inTurn.ms`), then starts one search per file on the shared engine (`multi.atOnce.ms`, CPU, each file's time and matches, total matches); heap after GC, shares, peak RSS |
+| `filtered` | Filtered-result generation, as `FilteredController` runs it: `SEARCH`, one line in 1,000 marked, context rows for `BEFORE` and `AFTER` lines (0 by default; `filtered.context.ms`), the marks outside them (`filtered.extras.ms`), the row count; 10,000 random 50-row screens, mapped to lines and read (p50, p99, max of each); heap after GC, shares, peak RSS |
+| `time` | Timestamp navigation: format detection on the 64 KiB head, the 256 order samples, `GO_TOS` (1,000 by default) go to times by bisection to random times and as many caret-time reads of random lines (p50, p99, max of each), one linear pass; heap after GC, shares, peak RSS. A file with no detected format ends after the detection |
 | `tail` | Appends lines at the given rate for the given seconds to a new file opened with the default monitor settings; latency from the write to the line entering the index (p50, p99, max) |
 | `startup` | Launches QLogg `runs` times (6 by default), one at a time, with `--settings <dir> -m -n -d debug <file>`, and times each from process start to the first paint that shows file text (`LogCanvas` logs it at DEBUG); the first run, which also fills the settings directory and extracts the SWT natives, is reported apart from the median of the rest |
 
@@ -65,9 +71,10 @@ which holds each run's output as `startup-<n>.out`. Under Xvfb,
 
 ### Heap
 
-`run` and `tail` use the shipped launchers' heap, `-XX:MaxRAMPercentage=50`:
-a harness JVM started without a heap option relaunches itself with it, and
-`run` prints the option in force as `heap.option`. A heap option on the
+Every command that opens a document uses the shipped launchers' heap,
+`-XX:MaxRAMPercentage=50`: a harness JVM started without a heap option
+relaunches itself with it, and each command except `tail` prints the option in
+force as `heap.option`. A heap option on the
 command line (`-Xmx`, `-XX:MaxRAMPercentage`, `-XX:MaxRAM`,
 `-XX:MaxHeapSize`) runs in place; `-Dqlogg.bench.heap=jvm` runs in place at
 the JVM default (25% of RAM). Give a run with JFR or NMT options a heap
@@ -89,6 +96,9 @@ qlogg-bench/scripts/compare.sh <tree> $S 5 ascii-short-100m.log ascii-short-1g.l
 HEAP=-Xmx256m qlogg-bench/scripts/heap-run.sh $S/tiny-10g.log $S/runs/tiny \
     literal:blkt literal:flag 'regex:^blkt\d+7$'
 qlogg-bench/scripts/cold.sh <tree> $S ascii-short-50g.log 2
+cp qlogg-dist/target/qlogg.jar $S/
+qlogg-bench/scripts/kdock.sh <tree> $S /scripts/ui-heap.sh /data/qlogg.jar \
+    /data/tiny-10g.log blkt /data/uiheap/tiny
 ```
 
 | Script | Does |
@@ -97,6 +107,7 @@ qlogg-bench/scripts/cold.sh <tree> $S ascii-short-50g.log 2
 | `run-reference.sh` | In the container: opens the file, waits for indexing, then runs each pattern (default `flagword`, `blockterm` and the harness regex) through the search box in the viewer's default regex mode; prints index and search milliseconds and peak RSS |
 | `compare.sh` | `RUNS` rounds; each round runs `Harness run` and then `run-reference.sh` on every file after a `cat` warms the cache. Raw output in `$S/compare/<file>.<tool>.<round>`; prints the median of every time and of peak RSS per file and tool. `RUNS` 0 reprints the medians |
 | `heap-run.sh` | `Harness run` at `$HEAP` (default `-Xmx256m`) with JFR, a GC log and native memory tracking; writes `<prefix>.out`, `.jfr`, `.gc.log`, `.nmt` (`VM.native_memory summary` every 2 s) and `.heap` (`jdk.GCHeapSummary`) |
+| `ui-heap.sh` | In the container: opens the file in `qlogg.jar` at `$HEAP` (default `-Xmx256m`) with JFR and native memory tracking, searches the text through the search field, goes to the end of the file; prints NMT committed, the heap before and after a full GC, peak RSS and the count of `OutOfMemoryError` lines; writes `<prefix>.out`, `.jfr`, `.heap` and `.png` |
 | `cold.sh` | Rounds of `Harness run ... literal:flagword` and then the viewer with `flagword`. The page cache is not dropped, so the file must be larger than RAM |
 
 ## JMH probes

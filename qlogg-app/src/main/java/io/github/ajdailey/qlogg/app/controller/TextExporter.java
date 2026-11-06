@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
  * Builds the text of a copy, save or selected-text read on the calling worker. Stateless. Each
  * method holds a {@link LogDocument#enter} entry while it reads, checks its {@link
  * CancellationToken} before every row and before {@link AtomicFiles#write}, and returns an empty
- * result once canceled, so a canceled save writes no file.
+ * result once canceled, so a canceled save writes no file. A file shorter than the index snapshot
+ * after the rows are read fails the export: a read past the end returns less text, not an error.
  *
  * <p>A copy is charged to {@link MemoryShare#COPY} at {@link #COPY_BYTES_PER_FILE_BYTE} per
  * selected file byte, a save at {@link #SAVE_BYTES_PER_FILE_BYTE}; a selection the share cannot
@@ -89,11 +90,21 @@ final class TextExporter {
    * @param refusal the error message to show, or null
    * @param charged bytes reserved from {@link MemoryShare#COPY}; the caller releases them
    * @param rows rows taken
+   * @param cutLines for a save of whole lines, the lines longer than {@link
+   *     LineReader#MAX_LINE_BYTES}, of which it holds the first part
    */
-  record Result(String text, String refusal, long charged, long rows) {
+  record Result(String text, String refusal, long charged, long rows, long cutLines) {
     /** Nothing built and nothing charged. */
     static final Result NONE = new Result(null, null, 0, 0);
+
+    /** Creates a result with no cut lines. */
+    Result(String text, String refusal, long charged, long rows) {
+      this(text, refusal, charged, rows, 0);
+    }
   }
+
+  /** The rows {@link #appendText} took and the lines it counted as cut. */
+  private record Appended(long rows, long cutLines) {}
 
   private TextExporter() {}
 
@@ -139,14 +150,18 @@ final class TextExporter {
         result = new Result(null, refusal, 0, 0);
       } else {
         charged = bytes * perByte;
-        StringBuilder out = new StringBuilder();
-        long taken = appendText(document.newReader(), index, rows, request, out, token);
+        // Sized once: a doubling builder peaks above the charge.
+        StringBuilder out = new StringBuilder((int) bytes);
+        Appended taken = appendText(document.newReader(), index, rows, request, out, token);
+        if (document.bytes().size() < index.indexedBytes()) {
+          throw new IOException(UiText.EXPORT_FILE_SHORTER.text());
+        }
         String text = out.toString();
         if (output == Output.FILE) {
           token.check();
           AtomicFiles.write(request.file(), text.getBytes(StandardCharsets.UTF_8));
         }
-        result = new Result(text, null, charged, taken);
+        result = new Result(text, null, charged, taken.rows(), taken.cutLines());
       }
     } catch (CancellationException | ClosedChannelException e) {
       result = new Result(null, null, charged, 0);
@@ -226,9 +241,9 @@ final class TextExporter {
     return Math.min(chargeBytes / COPY_BYTES_PER_FILE_BYTE, Integer.MAX_VALUE - 8);
   }
 
-  /** Appends the selected text of the rows; returns the rows taken. */
+  /** Appends the selected text of the rows. */
   @WorkerThread
-  private static long appendText(
+  private static Appended appendText(
       LineReader copier,
       LineIndex index,
       Rows rows,
@@ -244,9 +259,14 @@ final class TextExporter {
     long right = Math.max(copied.anchor().column(), copied.caret().column());
     String separator = request.block() ? "\n" : System.lineSeparator();
     long line = Math.min(rows.firstLine(), last);
+    boolean countCut = request.output() == Output.FILE && !request.block();
     long taken = 0;
+    long cut = 0;
     for (long row = rows.first(); row <= rows.last() && line >= 0 && line <= last; row++) {
       token.check();
+      if (countCut && index.lineEnd(line) - index.lineStart(line) > LineReader.MAX_LINE_BYTES) {
+        cut++;
+      }
       if (request.output() == Output.NUMBERED) {
         out.append(line + 1).append('\t');
       }
@@ -263,7 +283,7 @@ final class TextExporter {
       taken++;
       line = rows.walk().next(line);
     }
-    return taken;
+    return new Appended(taken, cut);
   }
 
   /** File bytes of the rows: one span in the main view, a sum over listed lines else. */

@@ -64,6 +64,9 @@ final class DocumentOpener {
 
     /** The session's active tab opened; called after every restored tab's {@link #opened}. */
     void restoredActive(Path path);
+
+    /** The session's last tab was handled; called after {@link #restoredActive}. */
+    default void restoreFinished() {}
   }
 
   /**
@@ -295,6 +298,13 @@ final class DocumentOpener {
                         }
                       });
                 }
+                post(
+                    new Runnable() {
+                      @Override
+                      public void run() {
+                        listener.restoreFinished();
+                      }
+                    });
               }
             });
     if (!started) {
