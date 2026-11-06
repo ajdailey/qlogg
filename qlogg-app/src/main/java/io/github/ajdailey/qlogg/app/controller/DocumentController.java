@@ -114,10 +114,7 @@ public final class DocumentController extends LineViewController {
   private CancellationToken marking;
   private String highlightedText = "";
   private SearchOptions highlightedOptions;
-  private long pendingLine = -1;
-  private long pendingTop = -1;
-  private long pendingColumn;
-  private boolean pendingQuiet;
+  private PendingMove pending;
   private boolean following;
   private long overscroll;
   private DocumentViewState state;
@@ -129,6 +126,16 @@ public final class DocumentController extends LineViewController {
   private final TriggerController triggers;
   // Timestamps.
   private final TimeController time;
+
+  /**
+   * A move that waits for indexing to reach its line.
+   *
+   * @param line the 0-based line
+   * @param top the first visible line of a restored position, or -1 to center the line
+   * @param column the caret's column of a restored position
+   * @param quiet true when a time sync group does not hear of the move
+   */
+  private record PendingMove(long line, long top, long column, boolean quiet) {}
 
   /**
    * Creates the controller for an open document; {@link #start} begins indexing.
@@ -607,14 +614,12 @@ public final class DocumentController extends LineViewController {
    * @param oneBasedLine the line as the user numbers it, from 1
    */
   public void goToLine(long oneBasedLine) {
-    pendingTop = -1;
-    pendingQuiet = false;
     long line = Math.max(0, oneBasedLine - 1);
     if (reachable(line)) {
-      pendingLine = -1;
+      pending = null;
       moveTo(revealRow(Math.min(line, Math.max(0, shownLines() - 1))));
     } else {
-      pendingLine = line;
+      pending = new PendingMove(line, -1, 0, false);
     }
   }
 
@@ -628,7 +633,9 @@ public final class DocumentController extends LineViewController {
     time.setQuiet(true);
     goToLine(oneBasedLine);
     time.setQuiet(false);
-    pendingQuiet = pendingLine >= 0;
+    if (pending != null) {
+      pending = new PendingMove(pending.line(), -1, 0, true);
+    }
   }
 
   /**
@@ -668,12 +675,10 @@ public final class DocumentController extends LineViewController {
    */
   public void restorePosition(long top, long line, long column) {
     if (reachable(line)) {
-      pendingLine = -1;
+      pending = null;
       applyPosition(top, line, column);
     } else {
-      pendingLine = line;
-      pendingTop = top;
-      pendingColumn = column;
+      pending = new PendingMove(line, top, column, false);
     }
   }
 
@@ -713,7 +718,7 @@ public final class DocumentController extends LineViewController {
    * @return the 0-based line, or -1
    */
   public long pendingLine() {
-    return pendingLine;
+    return pending == null ? -1 : pending.line();
   }
 
   /** Goes to the first line. */
@@ -1135,17 +1140,16 @@ public final class DocumentController extends LineViewController {
     viewport().setMaxColumns(Math.max(estimatedColumns(index), lines().maxWidth()));
     long rows = index.lineCount() - folds.hiddenLines();
     viewport().setLineCount(rows);
-    if (pendingLine >= 0 && (pendingLine < index.lineCount() || !status.indexing())) {
-      long line = Math.min(pendingLine, Math.max(0, index.lineCount() - 1));
-      pendingLine = -1;
-      if (pendingTop >= 0) {
-        applyPosition(pendingTop, line, pendingColumn);
-        pendingTop = -1;
+    if (pending != null && (pending.line() < index.lineCount() || !status.indexing())) {
+      PendingMove move = pending;
+      pending = null;
+      long line = Math.min(move.line(), Math.max(0, index.lineCount() - 1));
+      if (move.top() >= 0) {
+        applyPosition(move.top(), line, move.column());
       } else {
-        time.setQuiet(pendingQuiet);
+        time.setQuiet(move.quiet());
         moveTo(revealRow(line));
         time.setQuiet(false);
-        pendingQuiet = false;
       }
     }
     if (following) {

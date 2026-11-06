@@ -1046,7 +1046,7 @@ of equal entries, which keeps the row count. `RememberedStateTest` brings a tab'
 and `TabMoveTest` moves it with the tab. `TimeSyncGroupsTest` covers a move
 reaching a member through both offsets, a go to time and a filtered row of a
 member propagating, no report for a sync move, a kept or restored position,
-a kept line waiting for indexing and follow, no sync from a followed member's
+a kept line or restored position waiting for indexing, a newer request replacing a waiting position, and follow, no sync from a followed member's
 appended lines, a go to line waiting for indexing reporting its move, moves within the debounce running one sync, a newer move canceling the
 target's search without a notice, a target's own move ending its sync move, `Esc` on
 a target, follow released without a position notice, a hidden tab moving, the

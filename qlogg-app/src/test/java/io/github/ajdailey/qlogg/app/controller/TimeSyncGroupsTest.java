@@ -299,6 +299,54 @@ class TimeSyncGroupsTest {
   }
 
   @Test
+  void aRestoredPositionThatWaitsForIndexingReportsNoMove() throws Exception {
+    holdCpuPool();
+    DocumentController tab = opening("a.log");
+    Spy spy = new Spy();
+    tab.time().setSyncListener(spy);
+    tab.restorePosition(5, 20, 2);
+    assertEquals(20, tab.pendingLine());
+    cpu.countDown();
+    indexed(tab);
+    assertEquals(20, line(tab));
+    assertEquals(2, tab.selection().caret().column());
+    assertEquals(5, tab.viewport().topLine());
+    assertEquals(0, spy.moves);
+  }
+
+  @Test
+  void aNewerRequestReplacesTheWaitingPositionWhole() throws Exception {
+    holdCpuPool();
+    DocumentController tab = opening("a.log");
+    Spy spy = new Spy();
+    tab.time().setSyncListener(spy);
+    tab.restorePosition(5, 20, 2);
+    tab.keepLine(11);
+    tab.goToLine(31);
+    assertEquals(30, tab.pendingLine());
+    cpu.countDown();
+    indexed(tab);
+    assertEquals(30, line(tab));
+    assertEquals(0, tab.selection().caret().column());
+    assertEquals(1, spy.moves);
+  }
+
+  @Test
+  void aKeptLineReplacesAWaitingRestoredPosition() throws Exception {
+    holdCpuPool();
+    DocumentController tab = opening("a.log");
+    Spy spy = new Spy();
+    tab.time().setSyncListener(spy);
+    tab.restorePosition(5, 20, 2);
+    tab.keepLine(11);
+    cpu.countDown();
+    indexed(tab);
+    assertEquals(10, line(tab));
+    assertEquals(0, tab.selection().caret().column());
+    assertEquals(0, spy.moves);
+  }
+
+  @Test
   void aGoToLineThatWaitsForIndexingReportsItsMove() throws Exception {
     holdCpuPool();
     DocumentController tab = opening("a.log");
