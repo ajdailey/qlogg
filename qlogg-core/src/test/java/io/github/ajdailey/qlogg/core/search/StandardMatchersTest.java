@@ -7,8 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -350,5 +354,78 @@ class StandardMatchersTest {
           }
         });
     assertTrue(System.nanoTime() - started < 5_000_000_000L);
+  }
+
+  @Test
+  void requiredPrefixStopsAtTheFirstMetacharacter() {
+    assertEquals("worker-1", StandardMatchers.requiredPrefix("worker-1[0-5]\\] #\\d+7 "));
+    assertEquals("worker", StandardMatchers.requiredPrefix("worker+"));
+    assertEquals("worke", StandardMatchers.requiredPrefix("worker?x"));
+    assertEquals("worke", StandardMatchers.requiredPrefix("worker*"));
+    assertEquals("worke", StandardMatchers.requiredPrefix("worker{0,2}"));
+    assertEquals("ab", StandardMatchers.requiredPrefix("ab\\Qcd\\E"));
+    assertEquals("", StandardMatchers.requiredPrefix("worker|batch"));
+    assertEquals("", StandardMatchers.requiredPrefix("(?i)worker"));
+    assertEquals("", StandardMatchers.requiredPrefix("^worker"));
+  }
+
+  /**
+   * A regex pre-filtered by its literal prefix finds what {@link Pattern} finds in the decoded
+   * text, for lines in a little-endian direct buffer, as search chunks are, with malformed UTF-8.
+   */
+  @Test
+  void aPrefilteredRegexMatchesAsItsPattern() {
+    String[] tokens = {
+      "wor", "work", "worker", "-1", "7", "\u00e9", "\u4e2d", " ", "x", "worker-1"
+    };
+    byte[][] malformed = {{(byte) 0xE4, (byte) 0xB8}, {(byte) 0xFF}, {(byte) 0x80}};
+    String[] patterns = {
+      "worker-1[0-9]", "work.r", "worker?-", "worker\\b", "\u4e2dx+", "\u00e9\\w", "wor+k", "x7 "
+    };
+    SplittableRandom random = new SplittableRandom(20261107);
+    for (Charset charset : CHARSETS) {
+      TextEncoding encoding = TextEncoding.of(charset, 0);
+      CancellationToken token = new CancellationToken();
+      LineText text = new LineText(encoding, token);
+      for (int round = 0; round < 600; round++) {
+        ByteArrayOutputStream line = new ByteArrayOutputStream();
+        int count = random.nextInt(0, 30);
+        for (int i = 0; i < count; i++) {
+          if (charset.equals(StandardCharsets.UTF_8) && random.nextInt(10) == 0) {
+            line.writeBytes(malformed[random.nextInt(malformed.length)]);
+          } else {
+            String piece = tokens[random.nextInt(tokens.length)];
+            line.writeBytes(encodable(piece, charset).getBytes(charset));
+          }
+        }
+        byte[] bytes = line.toByteArray();
+        String decoded = decode(bytes, charset);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length + 8);
+        buffer.order(ByteOrder.LITTLE_ENDIAN).position(4);
+        buffer.put(bytes);
+        text.set(buffer, 4, 4 + bytes.length);
+        for (String pattern : patterns) {
+          boolean expected = Pattern.compile(pattern, Pattern.UNIX_LINES).matcher(decoded).find();
+          LineMatcher matcher =
+              StandardMatchers.INSTANCE.create(
+                  query(pattern, MatchMode.REGEX, true, false), encoding, token);
+          assertEquals(expected, matcher.matches(text), charset + " " + pattern + " " + decoded);
+        }
+      }
+    }
+  }
+
+  /** Decodes as a one-shot heap decode does, malformed input replaced. */
+  static String decode(byte[] bytes, Charset charset) {
+    try {
+      return charset
+          .newDecoder()
+          .onMalformedInput(CodingErrorAction.REPLACE)
+          .onUnmappableCharacter(CodingErrorAction.REPLACE)
+          .decode(ByteBuffer.wrap(bytes))
+          .toString();
+    } catch (CharacterCodingException e) {
+      throw new AssertionError(e);
+    }
   }
 }

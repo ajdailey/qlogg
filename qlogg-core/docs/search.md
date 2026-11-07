@@ -41,8 +41,11 @@ before `finished`; both run on the coordinator thread.
   line byte (the bytes and their decoded chars) are reserved from
   `IO_BUFFERS` until it is matched. A refused reservation trims the pool and
   retries once.
-- Every search trims the pool when it ends, so a pool grown by an earlier
-  parallel search does not hold the share.
+- A search that ends with less of `IO_BUFFERS` free than a full pool
+  (`maxChunksInFlight` x `chunkBytes`) trims the pool, so a pool grown by an
+  earlier parallel search does not hold the share. With more free, the pool
+  stays for the next search: reallocating its direct buffers cost 5.4 ms per
+  search on a 16 MiB file (`SearchTrimProbe`).
 - A long line that `IO_BUFFERS` refuses with nothing in flight, or that is
   longer than `SearchEngine.MAX_LINE_BYTES` (`Integer.MAX_VALUE - 8`), is
   skipped. It is not matched, not reported as a match under inverse, and the
@@ -72,6 +75,20 @@ term takes one of these forms:
 | Any other literal, or one whose pattern does not encode | `Pattern.quote` regex on decoded text |
 | Case-sensitive regex with no metacharacter (`\ ^ $ . \| ? * + ( ) [ ] { }`) and no U+FFFD | As a case-sensitive literal |
 | Any other regex | `java.util.regex.Pattern` on decoded text with `UNIX_LINES`, plus `CASE_INSENSITIVE \| UNICODE_CASE` when case folds |
+
+- A byte search finds candidates eight bytes per `getLong` (`ByteScan`) by the
+  pattern's first byte and its last nonzero byte together, then compares the
+  rest. Workers split chunks at LF the same way.
+- A case-sensitive regex whose first chars before any metacharacter form a
+  literal of 3 or more encoded bytes (`worker-1` in `worker-1[0-5]`) runs that
+  literal as a byte search first and decodes only the lines that contain it.
+  A pattern with `|` anywhere, or a quantifier `?`, `*` or `{` on the
+  literal's last char, gives a shorter literal or none. Not with `hideAnsi`,
+  and only where byte search runs.
+- `LineText` decodes a line in a direct buffer through an 8 KiB heap window,
+  because the JDK decoders' fast loops run only on heap buffers. UTF-16LE and
+  UTF-16BE lines copy units to chars; a line with an odd byte count, a
+  surrogate or U+FFFE goes to the decoder.
 
 Byte search and regex differ in what they see:
 

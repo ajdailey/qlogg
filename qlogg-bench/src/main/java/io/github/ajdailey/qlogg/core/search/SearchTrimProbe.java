@@ -37,18 +37,21 @@ import org.openjdk.jmh.annotations.Warmup;
 /**
  * Repeated whole-file literal searches for {@link LogGenerator#COMMON_TOKEN} with the default
  * settings and every CPU, with {@code trim=true} (the shipped engine: the read-buffer pool is
- * trimmed to {@code ReadBuffers.MIN_BUFFERS} when each search ends, so the next one allocates its
- * direct buffers again) against {@code trim=false} (the pool keeps every buffer). The difference is
- * the trim's cost per search. In this package for the engine's package-private constructor. The
- * {@code ascii-short} file is written once to {@code -Dqlogg.bench.dir} and reused; the cache is
- * warm.
+ * trimmed to {@code ReadBuffers.MIN_BUFFERS} when a search ends with {@code IO_BUFFERS} short of a
+ * full pool, so the next one allocates its direct buffers again) against {@code trim=false} (the
+ * pool keeps every buffer). The difference is the trim's cost per search; at a heap where the share
+ * holds another full pool, the shipped engine does not trim. In this package for the engine's
+ * package-private constructor. The {@code ascii-short} file is written once to {@code
+ * -Dqlogg.bench.dir} and reused; the cache is warm.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 3)
 @Measurement(iterations = 10)
-@Fork(value = 1, jvmArgsPrepend = Harness.LAUNCHER_HEAP)
+@Fork(
+    value = 1,
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
 public class SearchTrimProbe {
   /** File size in MiB. */
   @Param({"16", "256"})

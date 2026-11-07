@@ -384,6 +384,59 @@ class SearchEngineTest {
     }
   }
 
+  /**
+   * With a full pool's bytes still free in IO_BUFFERS, a search keeps the buffers it grew to. Gated
+   * workers hold every chunk, so the pool reaches {@code maxChunksInFlight} before any returns.
+   */
+  @Test
+  void aSearchKeepsItsGrownPoolWhileTheShareHoldsAnother() throws Exception {
+    StringBuilder many = new StringBuilder();
+    for (int i = 0; i < 200; i++) {
+      many.append("line ").append(i).append(" needle\n");
+    }
+    try (LogDocument document = fixture.open(write("many.log", bytes(many.toString())), null)) {
+      final CountDownLatch gate = new CountDownLatch(1);
+      MatcherFactory gated =
+          new MatcherFactory() {
+            @Override
+            public LineMatcher create(
+                SearchQuery query, TextEncoding encoding, CancellationToken token) {
+              final LineMatcher inner = StandardMatchers.INSTANCE.create(query, encoding, token);
+              return new LineMatcher() {
+                @Override
+                public boolean matches(LineText line) {
+                  try {
+                    gate.await(SearchFixture.BOUND.toMillis(), TimeUnit.MILLISECONDS);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  return inner.matches(line);
+                }
+              };
+            }
+          };
+      MemoryBudget roomy = MemoryBudget.of(10_000_000);
+      SearchEngine engine =
+          new SearchEngine(fixture.workers, gated, new SearchSettings(10, 4096, 4, 0, roomy));
+      SearchFixture.Recording recording = new SearchFixture.Recording();
+      OperationHandle handle =
+          engine.search(
+              document,
+              SearchQuery.of("needle", MatchMode.LITERAL),
+              new MutableLineSet(),
+              recording);
+      long deadline = System.nanoTime() + SearchFixture.BOUND.toNanos();
+      while (roomy.reserved(MemoryShare.IO_BUFFERS) < 4 * 4096L && System.nanoTime() < deadline) {
+        Thread.sleep(5);
+      }
+      gate.countDown();
+      assertTrue(handle.await(SearchFixture.BOUND.toMillis()));
+      assertEquals(OperationOutcome.COMPLETED, recording.outcome);
+      assertEquals(200, recording.matches);
+      assertEquals(4 * 4096L, roomy.reserved(MemoryShare.IO_BUFFERS));
+    }
+  }
+
   @Test
   void invalidRegexFails() throws Exception {
     try (LogDocument document = fixture.open(write("a.log", bytes("a\nb\n")), null)) {

@@ -53,7 +53,9 @@ import org.openjdk.jmh.annotations.Warmup;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 2)
 @Measurement(iterations = 5)
-@Fork(value = 1, jvmArgsPrepend = Harness.LAUNCHER_HEAP)
+@Fork(
+    value = 1,
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
 public class SearchProbe {
   /** File size in MiB. */
   @Param({"1024"})

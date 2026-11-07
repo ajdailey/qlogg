@@ -75,8 +75,8 @@ which holds each run's output as `startup-<n>.out`. Under Xvfb,
 
 Every command that opens a document uses the shipped launchers' heap,
 `-XX:MaxRAMPercentage=50`: a harness JVM started without a heap option
-relaunches itself with it, and each command except `tail` prints the option in
-force as `heap.option`. A heap option on the
+relaunches itself with it and the launchers' `-XX:GCTimeRatio=1`, and each
+command except `tail` prints the option in force as `heap.option`. A heap option on the
 command line (`-Xmx`, `-XX:MaxRAMPercentage`, `-XX:MaxRAM`,
 `-XX:MaxHeapSize`) runs in place; `-Dqlogg.bench.heap=jvm` runs in place at
 the JVM default (25% of RAM). Give a run with JFR or NMT options a heap
@@ -121,14 +121,14 @@ java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar SearchTr
 java -Dqlogg.bench.dir=<scratch> -jar qlogg-bench/target/benchmarks.jar TimeProbe -p fileMib=2560
 ```
 
-Each fork runs at `-XX:MaxRAMPercentage=50`; `-jvmArgsPrepend
--XX:MaxRAMPercentage=25` runs the JVM default instead.
+Each fork runs at `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`;
+`-jvmArgsPrepend -XX:MaxRAMPercentage=25` runs the JVM default heap instead.
 
 | Benchmark | Measures |
 |---|---|
 | `ReadProbe` | Sequential LF count over a generated log (`-p fileMib=1024` by default): `positional` reads into one 4 MiB direct buffer, the indexer's read path; `mapped` reads `MappedByteBuffer` windows of 1 GiB. Both use the same counting loop. Warm page cache |
 | `SearchProbe` | Whole-file `SearchEngine` search of a generated, indexed log (`-p fileMib=1024`) with the default settings and every CPU: `literal` (byte search), `literalIgnoreCase` (ASCII folding on bytes), `regex` (decoded text). Warm page cache |
-| `SearchTrimProbe` | Repeated whole-file literal searches for `blockterm` in an `ascii-short` file (`-p fileMib=16,256`), with `trim=true` (the shipped engine: the read-buffer pool drops back to `ReadBuffers.MIN_BUFFERS` when a search ends, so the next search allocates its direct buffers again) against `trim=false` (the pool keeps them). The difference is the trim's cost per search. In package `core.search` for the engine's package-private constructor. Warm page cache |
+| `SearchTrimProbe` | Repeated whole-file literal searches for `blockterm` in an `ascii-short` file (`-p fileMib=16,256`), with `trim=true` (the shipped engine: the read-buffer pool drops back to `ReadBuffers.MIN_BUFFERS` when a search ends with `IO_BUFFERS` short of a full pool, so the next search allocates its direct buffers again) against `trim=false` (the pool keeps them). The difference is the trim's cost per search; at the default heap the share holds another full pool and neither trims. In package `core.search` for the engine's package-private constructor. Warm page cache |
 | `TimeProbe` | Over a generated, indexed `timed` log (`-p fileMib=1024` by default): `parse`, the `iso` scanner per line over the 64 KiB head (ns per line); `detect`, `FormatDetector` on that head; `locate`, one go to time by bisection to a random time; `linear`, a `locateLinear` pass over the whole file on one thread; `samples`, 4,000 `TimeSamples`. Warm page cache |
 
 ## Scrolling frame time

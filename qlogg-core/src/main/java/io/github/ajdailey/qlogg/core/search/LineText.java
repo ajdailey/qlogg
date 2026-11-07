@@ -4,10 +4,13 @@ import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.text.AnsiCodes;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 
 /**
  * One line as a matcher sees it: its encoded bytes in a shared buffer, terminator excluded, and its
@@ -21,14 +24,20 @@ public final class LineText {
   /** {@code charAt} calls between cancellation checks. */
   public static final int CHECK_INTERVAL = 4096;
 
+  /** Heap bytes a line in a direct buffer is copied through while it decodes. */
+  static final int WINDOW_BYTES = 8192;
+
   /** Char scratch kept between lines; a longer line's scratch is dropped by {@link #trim}. */
   static final int KEPT_CHARS = 1 << 16;
 
   private final CharsetDecoder decoder;
+  private final ByteOrder utf16;
   private final CancellationToken token;
   private final boolean hideAnsi;
   private final Chars chars = new Chars();
+  private final ByteBuffer window = ByteBuffer.allocate(WINDOW_BYTES);
   private ByteBuffer buffer = ByteBuffer.allocate(0);
+  private ByteBuffer units;
   private int start;
   private int end;
   private char[] scratch = new char[256];
@@ -62,6 +71,14 @@ public final class LineText {
             .onMalformedInput(CodingErrorAction.REPLACE)
             .onUnmappableCharacter(CodingErrorAction.REPLACE);
     this.token = token;
+    Charset charset = encoding.charset();
+    if (charset.equals(StandardCharsets.UTF_16LE)) {
+      utf16 = ByteOrder.LITTLE_ENDIAN;
+    } else if (charset.equals(StandardCharsets.UTF_16BE)) {
+      utf16 = ByteOrder.BIG_ENDIAN;
+    } else {
+      utf16 = null;
+    }
   }
 
   /**
@@ -72,6 +89,9 @@ public final class LineText {
    * @param to the line's exclusive end, terminator excluded
    */
   public void set(ByteBuffer bytes, int from, int to) {
+    if (bytes != buffer) {
+      units = null;
+    }
     buffer = bytes;
     start = from;
     end = to;
@@ -125,27 +145,86 @@ public final class LineText {
     }
   }
 
+  /**
+   * Decodes into the char scratch, doubling it on overflow. A heap buffer decodes in place; a
+   * direct buffer is copied through {@link #WINDOW_BYTES} of heap scratch, because the charset
+   * decoders' array loops (with their ASCII intrinsics) run only on heap buffers.
+   */
   private void decode() {
+    if (utf16 != null && decodeUtf16()) {
+      return;
+    }
     int bytes = end - start;
     int need =
         (int) Math.min(Integer.MAX_VALUE - 8L, (long) (bytes * decoder.maxCharsPerByte()) + 1);
-    ByteBuffer view = buffer.duplicate();
     while (true) {
       if (scratch.length < need) {
         scratch = new char[need];
       }
-      view.limit(end).position(start);
       CharBuffer out = CharBuffer.wrap(scratch);
       decoder.reset();
-      CoderResult result = decoder.decode(view, out, true);
-      if (!result.isOverflow()) {
-        result = decoder.flush(out);
-      }
+      CoderResult result = buffer.hasArray() ? decodeHeap(out) : decodeDirect(out);
       if (!result.isOverflow()) {
         length = hideAnsi ? AnsiCodes.strip(scratch, out.position()) : out.position();
         return;
       }
       need = (int) Math.min(Integer.MAX_VALUE - 8L, scratch.length * 2L);
+    }
+  }
+
+  /**
+   * Copies UTF-16 units to chars. Returns false, leaving the line to the decoder, at an odd byte
+   * count, a surrogate or U+FFFE, which the decoder pairs or replaces.
+   */
+  private boolean decodeUtf16() {
+    int bytes = end - start;
+    if ((bytes & 1) != 0) {
+      return false;
+    }
+    int count = bytes >>> 1;
+    if (scratch.length < count) {
+      scratch = new char[count];
+    }
+    if (units == null) {
+      units = buffer.duplicate().clear().order(utf16);
+    }
+    for (int i = 0; i < count; i++) {
+      char c = units.getChar(start + 2 * i);
+      if (Character.isSurrogate(c) || c == '\ufffe') {
+        return false;
+      }
+      scratch[i] = c;
+    }
+    length = hideAnsi ? AnsiCodes.strip(scratch, count) : count;
+    return true;
+  }
+
+  private CoderResult decodeHeap(CharBuffer out) {
+    ByteBuffer view = buffer.duplicate();
+    view.limit(end).position(start);
+    CoderResult result = decoder.decode(view, out, true);
+    return result.isOverflow() ? result : decoder.flush(out);
+  }
+
+  /** Feeds the line through the window; bytes of a split sequence carry to the next pass. */
+  private CoderResult decodeDirect(CharBuffer out) {
+    ByteBuffer in = window.clear().limit(0);
+    int next = start;
+    while (true) {
+      in.compact();
+      int n = Math.min(in.remaining(), end - next);
+      buffer.get(next, in.array(), in.position(), n);
+      in.position(in.position() + n);
+      next += n;
+      in.flip();
+      boolean last = next == end;
+      CoderResult result = decoder.decode(in, out, last);
+      if (result.isOverflow()) {
+        return result;
+      }
+      if (last) {
+        return decoder.flush(out);
+      }
     }
   }
 

@@ -57,7 +57,9 @@ import org.openjdk.jmh.annotations.Warmup;
 @BenchmarkMode(Mode.AverageTime)
 @Warmup(iterations = 2)
 @Measurement(iterations = 5)
-@Fork(value = 1, jvmArgsPrepend = Harness.LAUNCHER_HEAP)
+@Fork(
+    value = 1,
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
 public class TimeProbe {
   private static final int PARSE_LINES = 1 << 16;
   private static final TimeContext UTC = new TimeContext(ZoneOffset.UTC, 2026, 11);

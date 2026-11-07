@@ -34,7 +34,10 @@ import java.util.regex.PatternSyntaxException;
  * ASCII-compatible encoding, else the term runs as a regex. Regexes compile with {@code
  * UNIX_LINES}, so {@code ^}, {@code $} and {@code .} treat the line as one line, plus {@code
  * CASE_INSENSITIVE | UNICODE_CASE} when case folds; whole word wraps the pattern with {@link
- * #wholeWord}. Thread-safe; each matcher it creates is not.
+ * #wholeWord}. A case-sensitive regex whose {@link #requiredPrefix} encodes to at least {@link
+ * #MIN_PREFILTER_BYTES} bytes, where byte search runs and ANSI sequences are not hidden, decodes
+ * and matches only lines whose bytes contain that prefix. Thread-safe; each matcher it creates is
+ * not.
  */
 public final class StandardMatchers implements MatcherFactory {
   /** The shared instance. */
@@ -42,6 +45,9 @@ public final class StandardMatchers implements MatcherFactory {
 
   /** Characters with a meaning in a {@link Pattern} outside a character class. */
   private static final String REGEX_META = "\\^$.|?*+()[]{}";
+
+  /** Shortest encoded literal prefix a regex is pre-filtered by. */
+  static final int MIN_PREFILTER_BYTES = 3;
 
   /** Text tried after a pattern so the wrapper's closing group stays outside it. */
   private static final String[] CLOSERS = {"", "\\E", "\n", "\\E\n"};
@@ -180,9 +186,52 @@ public final class StandardMatchers implements MatcherFactory {
       }
     }
     if (term.mode() == MatchMode.LITERAL) {
-      return regex(Pattern.quote(term.pattern()), query);
+      return regex(Pattern.quote(term.pattern()), query, null);
     }
-    return regex(term.pattern(), query);
+    return regex(term.pattern(), query, prefilter(term.pattern(), query, enc));
+  }
+
+  /**
+   * Returns a byte search for the literal every match of a case-sensitive regex starts with, or
+   * null when that literal is shorter than {@link #MIN_PREFILTER_BYTES} bytes or a byte match would
+   * not be a character match.
+   */
+  private static ByteLiteral prefilter(String pattern, SearchQuery query, TextEncoding enc) {
+    if (!query.caseSensitive() || query.hideAnsi() || !byteAligned(enc)) {
+      return null;
+    }
+    String prefix = requiredPrefix(pattern);
+    if (prefix.isEmpty() || !encodable(prefix, enc.charset())) {
+      return null;
+    }
+    byte[] bytes = prefix.getBytes(enc.charset());
+    if (bytes.length < MIN_PREFILTER_BYTES) {
+      return null;
+    }
+    return new ByteLiteral(bytes, false, enc.unitWidth(), false);
+  }
+
+  /**
+   * Returns the chars before a regex's first metacharacter, less the last one when a {@code ?},
+   * {@code *} or <code>{</code> quantifier follows it; empty when the pattern has a {@code |}.
+   *
+   * @param pattern the regex
+   * @return a literal every match starts with, possibly empty
+   */
+  static String requiredPrefix(String pattern) {
+    if (pattern.indexOf('|') >= 0) {
+      return "";
+    }
+    int end = 0;
+    while (end < pattern.length()
+        && REGEX_META.indexOf(pattern.charAt(end)) < 0
+        && pattern.charAt(end) != '\ufffd') {
+      end++;
+    }
+    if (end < pattern.length() && "?*{".indexOf(pattern.charAt(end)) >= 0) {
+      end = Math.max(0, end - 1);
+    }
+    return pattern.substring(0, end);
   }
 
   private static ByteLiteral byteLiteral(String pattern, SearchQuery query, TextEncoding enc) {
@@ -246,7 +295,7 @@ public final class StandardMatchers implements MatcherFactory {
     }
   }
 
-  private static Node regex(String pattern, SearchQuery query) {
+  private static Node regex(String pattern, SearchQuery query, final ByteLiteral required) {
     int flags = Pattern.UNIX_LINES;
     if (!query.caseSensitive()) {
       flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
@@ -256,7 +305,7 @@ public final class StandardMatchers implements MatcherFactory {
     return new Node() {
       @Override
       public boolean test(LineText line) {
-        return matcher.reset(line.chars()).find();
+        return (required == null || required.test(line)) && matcher.reset(line.chars()).find();
       }
     };
   }
@@ -267,12 +316,26 @@ public final class StandardMatchers implements MatcherFactory {
     private final boolean fold;
     private final int unit;
     private final boolean wholeWord;
+    private final int trail;
+    private final boolean foldLead;
+    private final boolean foldTrail;
 
     ByteLiteral(byte[] pattern, boolean fold, int unit, boolean wholeWord) {
       this.pattern = pattern;
       this.fold = fold;
       this.unit = unit;
       this.wholeWord = wholeWord;
+      int last = pattern.length - 1;
+      while (last > 0 && pattern[last] == 0) {
+        last--;
+      }
+      this.trail = Math.max(0, last);
+      this.foldLead = pattern.length > 0 && fold && letter(pattern[0]);
+      this.foldTrail = pattern.length > 0 && fold && letter(pattern[trail]);
+    }
+
+    private static boolean letter(byte b) {
+      return b >= 'a' && b <= 'z';
     }
 
     static byte lower(byte b) {
@@ -283,14 +346,41 @@ public final class StandardMatchers implements MatcherFactory {
       return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_';
     }
 
+    /**
+     * Finds candidates by the first pattern byte and the last nonzero one together, then compares
+     * the rest at aligned offsets.
+     */
     @Override
     public boolean test(LineText line) {
       ByteBuffer bytes = line.buffer();
       int from = line.start();
       int to = line.end();
-      int m = pattern.length;
-      for (int at = from; at <= to - m; at += unit) {
-        if (equalAt(bytes, at) && (!wholeWord || bounded(bytes, at, from, to))) {
+      if (pattern.length == 0) {
+        return testEmpty(bytes, from, to);
+      }
+      int stop = to - pattern.length + 1;
+      int at = from;
+      while (at < stop) {
+        int found =
+            ByteScan.indexOfPair(
+                bytes, at, stop, pattern[0], foldLead, pattern[trail], foldTrail, trail);
+        if (found < 0) {
+          return false;
+        }
+        if ((found - from) % unit == 0
+            && equalAt(bytes, found)
+            && (!wholeWord || bounded(bytes, found, from, to))) {
+          return true;
+        }
+        at = found + 1;
+      }
+      return false;
+    }
+
+    /** An empty pattern matches at every aligned offset that passes the whole-word check. */
+    private boolean testEmpty(ByteBuffer bytes, int from, int to) {
+      for (int at = from; at <= to; at += unit) {
+        if (!wholeWord || bounded(bytes, at, from, to)) {
           return true;
         }
       }

@@ -36,7 +36,9 @@ import org.openjdk.jmh.annotations.Warmup;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 2)
 @Measurement(iterations = 5)
-@Fork(value = 1, jvmArgsPrepend = Harness.LAUNCHER_HEAP)
+@Fork(
+    value = 1,
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
 public class ReadProbe {
   private static final long WINDOW = 1L << 30;
   private static final long LF_BYTES = 0x0a0a0a0a0a0a0a0aL;

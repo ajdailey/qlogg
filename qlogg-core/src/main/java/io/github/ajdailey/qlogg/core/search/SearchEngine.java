@@ -35,8 +35,10 @@ import java.util.regex.PatternSyntaxException;
  * <p>Memory: a chunk reads into a pooled direct buffer of {@code chunkBytes} reserved from {@link
  * MemoryShare#IO_BUFFERS}, or, for a longer line, a heap buffer for which {@link
  * #LONG_LINE_BYTES_PER_BYTE} bytes per line byte are reserved there until it is matched. Results
- * reserve from {@link MemoryShare#RESULTS}. The pool is trimmed when a search ends and before a
- * long line's reservation is refused. A long line that {@code IO_BUFFERS} refuses with nothing in
+ * reserve from {@link MemoryShare#RESULTS}. The pool is trimmed before a long line's reservation is
+ * refused, and when a search ends with less of {@code IO_BUFFERS} free than a full pool ({@code
+ * maxChunksInFlight} x {@code chunkBytes}); with more free, the next search reuses the buffers
+ * instead of allocating them again. A long line that {@code IO_BUFFERS} refuses with nothing in
  * flight, or that is longer than {@link #MAX_LINE_BYTES}, is skipped: it is not matched, the search
  * continues after it, and {@code finished} reports the count of skipped lines. When {@code RESULTS}
  * refuses a chunk's matches, the search keeps its results and ends {@code COMPLETED} with {@link
@@ -96,7 +98,8 @@ public final class SearchEngine {
    * @param workers runs coordinators and matching
    * @param matchers compiles queries
    * @param settings chunk sizes, in-flight bound, result limit and budget
-   * @param trimAtEnd true trims the pool when a search ends; false keeps every buffer it grew to
+   * @param trimAtEnd true trims the pool when a search ends with the share short of a full pool;
+   *     false keeps every buffer it grew to
    */
   SearchEngine(
       Workers workers, MatcherFactory matchers, SearchSettings settings, boolean trimAtEnd) {
@@ -170,6 +173,14 @@ public final class SearchEngine {
     Operation operation = new Operation(source, index, query, first, end, results, listener);
     workers.start(Workers.Kind.SEARCH, operation);
     return operation;
+  }
+
+  /**
+   * True when {@code IO_BUFFERS} has fewer bytes free than a full pool of this engine's buffers.
+   */
+  private boolean shareShort() {
+    return settings.budget().available(MemoryShare.IO_BUFFERS)
+        < (long) settings.maxChunksInFlight() * settings.chunkBytes();
   }
 
   /** One chunk's bytes and, once matched, its matching lines. */
@@ -689,7 +700,7 @@ public final class SearchEngine {
         }
       }
       inFlight.clear();
-      if (trimAtEnd) {
+      if (trimAtEnd && shareShort()) {
         buffers.trim();
       }
       if (interrupted) {
@@ -712,21 +723,17 @@ public final class SearchEngine {
   /** Returns the offset of the first unit equal to {@code unit} at an aligned offset, or -1. */
   private static int findUnit(ByteBuffer bytes, int from, int to, byte[] unit) {
     int width = unit.length;
-    if (width == 1) {
-      byte b = unit[0];
-      for (int i = from; i < to; i++) {
-        if (bytes.get(i) == b) {
-          return i;
-        }
+    int at = from;
+    while (true) {
+      int found = ByteScan.indexOf(bytes, at, to - width + 1, unit[0]);
+      if (found < 0 || width == 1) {
+        return found;
       }
-      return -1;
-    }
-    for (int i = from; i + width <= to; i += width) {
-      if (unitAt(bytes, i, unit)) {
-        return i;
+      if ((found - from) % width == 0 && unitAt(bytes, found, unit)) {
+        return found;
       }
+      at = found + 1;
     }
-    return -1;
   }
 
   private static boolean unitAt(ByteBuffer bytes, int at, byte[] unit) {

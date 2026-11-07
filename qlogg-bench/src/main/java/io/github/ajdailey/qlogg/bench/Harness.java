@@ -83,8 +83,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * regex.
  *
  * <p>Every command that opens a document uses the shipped launchers' heap, {@value #LAUNCHER_HEAP}:
- * a JVM started without a heap option relaunches the harness with it. A heap option on the command
- * line, or {@code -Dqlogg.bench.heap=jvm} for the JVM default, runs in place.
+ * a JVM started without a heap option relaunches the harness with it and the launchers' {@value
+ * #LAUNCHER_GC}. A heap option on the command line, or {@code -Dqlogg.bench.heap=jvm} for the JVM
+ * default, runs in place.
  */
 public final class Harness {
   private static final int READS = 10_000;
@@ -111,6 +112,9 @@ public final class Harness {
 
   /** The heap option of {@code qlogg-dist/src/bin/qlogg} and the Windows launchers. */
   public static final String LAUNCHER_HEAP = "-XX:MaxRAMPercentage=50";
+
+  /** The garbage collector option of the same launchers. */
+  public static final String LAUNCHER_GC = "-XX:GCTimeRatio=1";
 
   private static final List<String> OPENS_DOCUMENTS =
       List.of("run", "multi", "filtered", "time", "tail");
@@ -259,11 +263,15 @@ public final class Harness {
     return null;
   }
 
-  /** Runs the same command in a new JVM with {@link #LAUNCHER_HEAP} and this JVM's options. */
+  /**
+   * Runs the same command in a new JVM with {@link #LAUNCHER_HEAP}, {@link #LAUNCHER_GC} and this
+   * JVM's options.
+   */
   private static int relaunch(String[] args) throws IOException, InterruptedException {
     List<String> command = new ArrayList<String>();
     command.add(javaCommand());
     command.add(LAUNCHER_HEAP);
+    command.add(LAUNCHER_GC);
     command.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
     command.add("-cp");
     command.add(System.getProperty("java.class.path"));
@@ -282,8 +290,9 @@ public final class Harness {
    * first run is reported apart: it also fills the settings directory and, for {@code qlogg.jar},
    * extracts the SWT natives.
    *
-   * @param target {@code qlogg.jar}, run with this JVM's {@code java} and {@link #LAUNCHER_HEAP};
-   *     anything else is an executable launcher such as a bundle's {@code bin/qlogg}
+   * @param target {@code qlogg.jar}, run with this JVM's {@code java}, {@link #LAUNCHER_HEAP} and
+   *     {@link #LAUNCHER_GC}; anything else is an executable launcher such as a bundle's {@code
+   *     bin/qlogg}
    * @param file the file opened
    * @param settings the {@code --settings} directory, created when missing; holds each run's output
    * @param runs launches, at least 1
@@ -299,6 +308,7 @@ public final class Harness {
       if (target.endsWith(".jar")) {
         command.add(javaCommand());
         command.add(LAUNCHER_HEAP);
+        command.add(LAUNCHER_GC);
         command.add("-jar");
       }
       command.add(target);
