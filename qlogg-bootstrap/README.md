@@ -3,6 +3,20 @@
 The entry point of the universal `qlogg.jar`. It depends on the JDK only and
 loads every other QLogg class, and SWT, through its own class loader.
 
+---
+
+## Map
+
+| Class | Role |
+|---|---|
+| `Main` | Java 8 entry point and version check |
+| `Boot` | Startup sequence |
+| `Target` | `os.name` and `os.arch` to a target |
+| `BootIndex` | `META-INF/qlogg/index.properties` |
+| `Natives`, `NativesLocation` | Native library verification and extraction |
+| `NestedJarClassLoader` | Classes and resources from nested jars |
+| `MacRelaunch` | Relaunch with `-XstartOnFirstThread` |
+
 ## Startup
 
 `Main` is compiled for Java 8 so an older runtime prints
@@ -91,9 +105,13 @@ child's status. A relaunched process that is still off the main thread prints
 `QLogg could not start on the macOS main thread.` and exits 2. JVM options of
 the first process are not carried over.
 
-## Tests
+## Testing
 
-`MainTest.java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named
-by `-Dqlogg.test.java8=<path to java>` and is skipped without it.
-`BootstrapArchitectureTest` keeps the module on the JDK, process creation in
-`MacRelaunch` and `System.exit` in `Main`.
+| Class | Covers |
+|---|---|
+| `MainTest` | Java 21 and later accepted, the message naming the running Java, `Main` compiled as Java 8 bytecode; `java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named by `-Dqlogg.test.java8=<path to java>` and is skipped without it |
+| `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
+| `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both |
+| `NativesTest` | Extraction into an owner-only directory, an existing cache directory set owner-only, a tampered library extracted again, a failed move over a matching library succeeding and over a mismatched one failing, a bundle directory verified and never written, names outside the directory refused |
+| `NestedJarClassLoaderTest` | Classes and resources from nested jars |
+| `BootstrapArchitectureTest` | The module depends on the JDK only, process creation only in `MacRelaunch`, `System.exit` only in `Main` |

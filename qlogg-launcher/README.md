@@ -5,7 +5,21 @@ platform, then runs the SWT event loop. It is the only module that configures
 java.util.logging (through `slf4j-jdk14`), and its test class path sees every
 module except the bootstrap, so it holds the architecture rules.
 
-## Startup and exit
+---
+
+## Map
+
+| Class | Role |
+|---|---|
+| `Main` | Entry point; installs logging, calls `Launcher.run`, exits on a nonzero status |
+| `Launcher` | Settings directory, platform setup, single-instance handoff, debug log file |
+| `PlatformSetup` | `user.home` and the WebView2 data folder |
+| `Gui` | Composition and the event loop on the UI thread |
+| `ShutdownHook` | Quit on SIGTERM, logoff or a parent ending the process |
+| `LogConfigurator`, `StderrHandler`, `RecentHandler`, `LogFileHandler`, `LineFormatter`, `RetainingLogManager` | Logging |
+| `FileLog` | The debug log file (`LogFiles`) and pruning |
+
+## Exit status
 
 `Launcher.run` returns the exit status:
 
@@ -19,75 +33,101 @@ module except the bootstrap, so it holds the architecture rules.
 the Display exists. After a normal close `main` returns and the JVM exits on
 its own.
 
-Before the Display exists, `Launcher` resolves the settings directory
-(`SettingsLocation.fromSystem`) and loads `qlogg.conf`. In explicit and
-portable mode on Linux, `PlatformSetup` then sets `user.home` to the settings
-directory, so GTK SWT writes its `.swt/trims.prefs` there. On Windows, in
-every mode, it sets `org.eclipse.swt.browser.EdgeDataDir` to
-`<settings>/cache/webview2`, so the user guide's WebView2 browser keeps its
-data in the settings directory.
+## Before the Display
 
-Without `-m`, `Launcher` then runs the single-instance handoff (`app.ipc`):
-it creates the settings directory owner-only if missing, and
-`InstanceServer.claim` either makes this launch the primary or
-`InstanceClient.handOff` sends the files, `-f` and `+line:N` to the primary
-and `run` returns 0; the primary may still be starting, and the client then
-waits for its first window, up to 35 s. A failure at any step, or a settings directory another
-user owns or others can write (`InstanceClient.refusal`), logs one WARN and the
-launch opens its own window, as with `-m`. A launch that stays then opens the
-debug log file when `-l` or `log.file` asks for it.
+`Launcher` resolves the settings directory (`SettingsLocation.fromSystem`) and
+loads `qlogg.conf`, `positions.conf`, and `qlogg_session.conf` when the session
+is restored: with `-s`, or with neither `-s` nor `-n`, no file given and
+`session.loadLast` on.
 
-`Gui` runs on the calling thread, which becomes the UI thread. It creates
-`Workers` first and starts the primary's `InstanceServer` on them, so handoffs
-are accepted before the Display exists. It resolves `ui.theme` before the first Shell; for light and dark,
-`SwtThemeService.open` also sets the native widgets' theme (system leaves them
-to the OS), so on Windows a theme change reaches them at the next start; on
-macOS they always follow the OS. It loads the default time zone's rules on a `qlogg-lifecycle-`
-worker, so the first open does not read the JDK time-zone data on the UI
-thread. It creates the `MemoryBudget` from `Runtime.maxMemory()`, the document
-services (an `Indexer` with default settings, a `BlockCache` of 64 KiB blocks
-holding the whole `BLOCK_CACHE` share, `encoding.default` as the fallback
-charset), the dispatcher, the `WindowSet` with `LogConfigurator.RECENT`
-and the `FileLog`, connects the macOS application menu (`AppMenu.hook`, a
-no-op elsewhere), and the first window with the default `Keymap` and the
-user's overrides and its `ApplicationController`, places the window (the
-`--window-*` options, else the remembered bounds), maximizes it when it was
-maximized and no `--window-*` option is given, opens it, and logs
-`Main window open: client area <w>x<h>, location <x>,<y>` at INFO. Before the
-Display exists it loads `positions.conf`, and `qlogg_session.conf` when the
-session is restored: with `-s`, or with neither `-s` nor `-n`, no file given
-and `session.loadLast` on. The first window restores `window.0`'s tabs and
-each further session window opens a window with its own; then the
-command-line files open in the first window on workers, a tab each, following
-with `-f`. The instance saves the tab list only when it restored the session
-without `-m`. New Window goes through the set's `Factory` in `Gui`: a window
-at the remembered size, placed by the window system. A window's close button
-closes that window (`closeWindow`); the last one quits.
+`PlatformSetup` then sets:
+
+| Property | When | Value | Why |
+|---|---|---|---|
+| `user.home` | Explicit and portable mode, Linux | The settings directory | GTK SWT writes `.swt/trims.prefs` there |
+| `org.eclipse.swt.browser.EdgeDataDir` | Windows, every mode | `<settings>/cache/webview2` | The user guide's WebView2 browser keeps its data in the settings directory |
+
+### Single-instance handoff
+
+Without `-m`, `Launcher` runs the handoff (`app.ipc`). It creates the settings
+directory owner-only if missing. `InstanceServer.claim` either makes this
+launch the primary, or `InstanceClient.handOff` sends the files, `-f` and
+`+line:N` to the primary and `run` returns 0. The primary may still be
+starting; the client then waits for its first window, up to 35 s.
+
+A failure at any step, or a settings directory another user owns or others can
+write (`InstanceClient.refusal`), logs one WARN, and the launch opens its own
+window as with `-m`. A launch that stays opens the debug log file when `-l` or
+`log.file` asks for it.
+
+## Gui
+
+`Gui` runs on the calling thread, which becomes the UI thread. In order, it:
+
+1. Creates `Workers` and starts the primary's `InstanceServer` on them, so
+   handoffs are accepted before the Display exists.
+2. Resolves `ui.theme` before the first Shell. For light and dark,
+   `SwtThemeService.open` also sets the native widgets' theme (system leaves
+   them to the OS); on Windows a theme change reaches them at the next start,
+   and on macOS they always follow the OS.
+3. Loads the default time zone's rules on a `qlogg-lifecycle-` worker, so the
+   first open does not read the JDK time-zone data on the UI thread.
+4. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
+   services: an `Indexer` with default settings, a `BlockCache` of 64 KiB
+   blocks holding the whole `BLOCK_CACHE` share, and `encoding.default` as the
+   fallback charset.
+5. Creates the dispatcher and the `WindowSet` with `LogConfigurator.RECENT` and
+   the `FileLog`, and connects the macOS application menu (`AppMenu.hook`, a
+   no-op elsewhere).
+6. Creates the first window with the default `Keymap`, the user's overrides and
+   its `ApplicationController`. It places the window (the `--window-*`
+   options, else the remembered bounds), maximizes it when it was maximized and
+   no `--window-*` option is given, opens it, and logs `Main window open:
+   client area <w>x<h>, location <x>,<y>` at INFO.
+7. Restores the session: the first window takes `window.0`'s tabs and each
+   further session window opens a window with its own. Then the command-line
+   files open in the first window on workers, a tab each, following with `-f`.
+8. Runs the event loop until every window is disposed, then disposes the
+   Display and returns.
+
+The instance saves the tab list only when it restored the session without
+`-m`. New Window goes through the set's `Factory` in `Gui`: a window at the
+remembered size, placed by the window system. A window's close button closes
+that window (`closeWindow`); the last one quits.
+
+### Handed files
+
 A primary's `InstanceServer` holds handed files until the first window is open
-and the command-line files are on their way, then `deliverTo` releases them in
-arrival order; its receiver answers `ERR` once quit has begun and otherwise
-posts `WindowSet.openHandoff`. Quit closes it first on its lifecycle worker, and
-`Gui` closes it on exit before `Workers.close`, including an exit before the
-first window (SWT failed to load), so held launches get `ERR` and open their own
-windows.
+and the command-line files are on their way; then `deliverTo` releases them in
+arrival order. Its receiver answers `ERR` once quit has begun and otherwise
+posts `WindowSet.openHandoff`.
+
+Quit closes the server first on its lifecycle worker. `Gui` closes it on exit
+before `Workers.close`, including an exit before the first window (SWT failed
+to load), so held launches get `ERR` and open their own windows.
+
+### Shutdown hook
+
 `Gui` registers a JVM shutdown hook (`ShutdownHook`, thread `qlogg-shutdown`
 from `Workers.shutdownHook`) and removes it when the event loop ends. On
-SIGTERM, logoff or a parent ending the process, the hook posts
-`WindowSet.quit` through the dispatcher, waits up to 3 s for the quit's
-finish listener, logs the surviving `qlogg-` threads at WARN if it times out,
-and closes the handoff listener, which deletes the endpoint file.
-At `-d 2` and above it starts an `EventLoopWatchdog` (`qlogg-app`) on a
-`qlogg-watchdog-` thread: a probe through the dispatcher every 250 ms, and a
-WARN with the UI thread's stack when one waits over 100 ms, then an INFO with
-the whole delay; it never interrupts the UI thread. The loop ends when
-every window is disposed; then the Display is disposed and `run` returns.
+SIGTERM, logoff or a parent ending the process, the hook posts `WindowSet.quit`
+through the dispatcher and waits up to 3 s for the quit's finish listener. On
+timeout it logs the surviving `qlogg-` threads at WARN. It then closes the
+handoff listener, which deletes the endpoint file.
+
+### Event loop watchdog
+
+At `-d 2` and above `Gui` starts an `EventLoopWatchdog` (`qlogg-app`) on a
+`qlogg-watchdog-` thread. It posts a probe through the dispatcher every 250 ms
+and logs a WARN with the UI thread's stack when one waits over 100 ms, then an
+INFO with the whole delay. It never interrupts the UI thread.
 
 ## Logging
 
 SLF4J logs through `slf4j-jdk14` to java.util.logging (JUL). `Main` calls
 `LogConfigurator.install` before any class logs. It sets
-`java.util.logging.manager` to `RetainingLogManager` unless the property is set,
-then calls `LogManager.reset()`, which drops what the JDK read from
+`java.util.logging.manager` to `RetainingLogManager` unless the property is
+set, then calls `LogManager.reset()`, which drops what the JDK read from
 `$JAVA_HOME/conf/logging.properties` or a `java.util.logging.config.*`
 property, and attaches the root handlers:
 
@@ -98,39 +138,47 @@ property, and attaches the root handlers:
 | `LogFileHandler` | DEBUG, or `-d` when finer | `<settings>/logs/qlogg.log` through `FileLog`, while attached; `qlogg-<pid>.log` in a process without the handoff lock |
 
 `-d` maps to JUL as slf4j-jdk14 maps the SLF4J levels: `error` SEVERE, `warn`
-WARNING, `info` INFO, `debug` FINE, `trace` FINEST. The `io.github.ajdailey.qlogg`
-logger takes the finest handler level; every other logger, including the JDK's
-own, stays at INFO, so `-d` and the file do not turn on JDK debug output.
-
-Every handler formats with `LineFormatter` and publishes on the logging thread:
-`2026-11-04 12:00:00,123 WARN  [thread] i.g.a.q.l.Launcher - message`, then
-the stack trace when there is one. The logger name is cut to 20 characters by
-shortening packages from the left. CR, LF, NEL, U+2028 and U+2029 in the
-message become `_`, a backstop behind `LogText.oneLine` at the call sites.
-
-`LogFileHandler` writes each line with one unbuffered write, so a crash loses
-no line, and a slow disk holds the thread that logs. Before a write would take
-`qlogg.log` past 10 MiB it moves the file to `qlogg.log.1` and starts a new
-one. It writes no lock file. The `logs` folder is created owner-only, and on
-POSIX the file `rw-------`. A failed move reopens `qlogg.log` and keeps
-appending; the next line over the size tries the move again, and the first
-failure after a successful move logs a WARN. A failed write or open detaches
-the file and logs an ERROR.
+WARNING, `info` INFO, `debug` FINE, `trace` FINEST. The
+`io.github.ajdailey.qlogg` logger takes the finest handler level. Every other
+logger, including the JDK's own, stays at INFO, so `-d` and the file do not
+turn on JDK debug output.
 
 `RetainingLogManager` ignores `reset()` once configured. The JDK's logging
 shutdown hook calls `reset()`, which would remove the handlers while
 `ShutdownHook` still logs its forced-exit WARN.
 
-A primary instance started with the file attached runs `FileLog.prune` on a
-`qlogg-lifecycle-` worker: it deletes each regular file in `logs` named
-`qlogg-<pid>.log` (the name `FileLog.fileName` gives a process without the
-lock) or its rolled `qlogg-<pid>.log.1` that was modified more than 7 days
-ago and whose process is not running (`ProcessHandle.of`). Both checks
-protect a live instance's file: its process runs, and its writes keep it
-young. `qlogg.log` and other names are never
-deleted.
-
 The uncaught exception handler logs the throwable with its stack trace.
+
+### Line format
+
+Every handler formats with `LineFormatter` and publishes on the logging
+thread: `2026-11-04 12:00:00,123 WARN  [thread] i.g.a.q.l.Launcher -
+message`, then the stack trace when there is one. The logger name is cut to 20
+characters by shortening packages from the left. CR, LF, NEL, U+2028 and
+U+2029 in the message become `_`, a backstop behind `LogText.oneLine` at the
+call sites.
+
+### Log file
+
+`LogFileHandler` writes each line with one unbuffered write, so a crash loses
+no line and a slow disk holds the thread that logs. It writes no lock file. The
+`logs` folder is created owner-only, and on POSIX the file `rw-------`.
+
+| Event | Action |
+|---|---|
+| A write would take `qlogg.log` past 10 MiB | Moves the file to `qlogg.log.1` and starts a new one |
+| The move fails | Reopens `qlogg.log` and keeps appending; the next line over the size tries again. The first failure after a successful move logs a WARN |
+| A write or open fails | Detaches the file and logs an ERROR |
+
+### Pruning
+
+A primary instance started with the file attached runs `FileLog.prune` on a
+`qlogg-lifecycle-` worker. It deletes each regular file in `logs` named
+`qlogg-<pid>.log` (the name `FileLog.fileName` gives a process without the
+lock), or its rolled `qlogg-<pid>.log.1`, that was modified more than 7 days
+ago and whose process is not running (`ProcessHandle.of`). Both checks protect
+a live instance's file: its process runs, and its writes keep it young.
+`qlogg.log` and other names are never deleted.
 
 ## Architecture rules
 
@@ -164,56 +212,26 @@ fails:
 | No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors` or pool constructors outside `Workers` | One owner for every thread |
 | `LogDocument.open` and `ofText` only in `app.controller.DocumentOpener` within `app` | A document whose open ends after its window closed is closed, not leaked |
 
-## Tests
+## Testing
 
-`GuiTest` (tag `swt`) runs the composed application under Xvfb: it waits for
-the file to name the window at 900 x 600, location 50,40, shuts down, and
-checks that no `qlogg-` thread survives. `LargeFileGuiTest` (tag `swt`) writes a 3 GiB
-file of 64-byte numbered lines (50,331,648 lines) into the temporary directory,
-opens it through `Gui`, and checks that the first line shows while indexing
-runs, that go to line shows the last line (past 2^31 bytes) with the scroll
-bar at its end, and that a thumb drag shows the mapped line. It needs 4 GiB
-free and is skipped otherwise. `ScreenshotsTest` runs only with
-`-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): it opens a generated
-mock log through `Gui` at 1100 x 700 (`-Dqlogg.screenshots.width` and
-`.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab
-row shows) with a highlighter set, runs a search,
-marks two lines, and writes `qlogg-light.png` and `qlogg-dark.png` through
-`Shell.print`. Surefire plants `java.util.logging.config.file`
-(`planted-logging.properties`); `LogConfiguratorTest` checks that its handlers,
-levels and properties are gone after `install`. `RetainingLogManagerTest`
-checks that `reset()` keeps the handlers once retained. `LauncherProcessTest`
-runs launches as real processes through `LaunchMain`: a primary asked to open,
-import from or export over `instance.lock` keeps the lock, and the next launch
-hands its files over.
-`PortableRunTest` (tag `swt`) runs `Gui` twice over a portable bundle with
-`user.home` set as `PlatformSetup` sets it: the first run opens a log, zooms
-and adds a favorite, the second restores the session; afterwards every new or
-changed file lies inside the bundle and the home directory is empty.
-`WindowsGuiTest` (tag `swt`) runs `Gui` as a primary instance: New Window
-opens a second window, a handoff from a worker opens its file in the window
-activated last, and quit closes both windows, the workers and the endpoint
-file; a handoff sent before `Gui` runs opens as a tab. `ShutdownHookTest` runs the hook's task directly: it requests the quit
-and releases once it finishes, only releases after an ordered quit, and
-returns after its bound when the quit never finishes, naming the surviving
-threads. `SigtermTest` (tag `swt`, Linux) starts `Main` as a
-child process that restores a two-file session, waits for both files'
-`Indexing ... done` lines in its `-l` log, sends SIGTERM (`Process.destroy`)
-and checks that the process ends within the hook's bound, the endpoint file is
-gone, the session and positions files were written, and the hook's INFO
-line reached the log. Windows has no
-SIGTERM; `destroy` there terminates without hooks. `FileLogTest` checks the file's location, the
-level with the file attached and detached, that the folder holds only
-`qlogg.log` after a detach, `-d trace` staying finer, a process without the
-lock writing `qlogg-<pid>.log`, the roll to `qlogg.log.1`, that a failed roll
-(a non-empty directory named `qlogg.log.1`) keeps writing the file with one
-WARN and rolls once the directory is gone, and that a failed reopen (a
-read-only file) detaches the file and its ERROR reaches the recent lines; with set
-modification times, prune deletes only an old `qlogg-<pid>.log` and `.1` of an
-ended process and keeps a young one, a running process's, `qlogg.log`, a `.2`
-name, other names and a directory. `LauncherTest` checks the WebView2 data folder for
-per-user, portable and explicit settings on Windows, and that other systems
-leave the property unset. `StoreFaultsTest` (tag `swt`) starts `Gui` over a
-malformed, an oversized and an unknown-version session file: each opens an
-empty window, exits 0 and logs a WARN. A remembered encoding the runtime does
-not support opens the file with detection.
+Classes tagged `swt` open windows and run under a display (Xvfb under
+`xvfb-run`). Surefire plants `java.util.logging.config.file`
+(`planted-logging.properties`) so `LogConfiguratorTest` can check that
+`install` removes it.
+
+| Class | Covers |
+|---|---|
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives |
+| `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
+| `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row shows) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
+| `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies inside the bundle and the home directory is empty |
+| `WindowsGuiTest` (`swt`) | `Gui` as a primary: New Window opens a second window, a handoff from a worker opens its file in the window activated last, quit closes both windows, the workers and the endpoint file; a handoff sent before `Gui` runs opens as a tab |
+| `StoreFaultsTest` (`swt`) | `Gui` over a malformed, an oversized and an unknown-version session file: each opens an empty window, exits 0 and logs a WARN. A remembered encoding the runtime does not support opens the file with detection |
+| `SigtermTest` (`swt`, Linux) | `Main` as a child process restoring a two-file session: after both files' `Indexing ... done` lines in its `-l` log, SIGTERM (`Process.destroy`) ends it within the hook's bound, the endpoint file is gone, the session and positions files were written, and the hook's INFO line reached the log. Windows has no SIGTERM; `destroy` there terminates without hooks |
+| `ShutdownHookTest` | The hook's task run directly: it requests the quit and releases once it finishes, only releases after an ordered quit, and returns after its bound when the quit never finishes, naming the surviving threads |
+| `LauncherProcessTest` | Launches as real processes through `LaunchMain`: a primary asked to open, import from or export over `instance.lock` keeps the lock, and the next launch hands its files over |
+| `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
+| `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
+| `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |
+| `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN and rolling once the directory is gone; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
+| `ArchitectureTest` | The rules above, and each rule against its fixture |

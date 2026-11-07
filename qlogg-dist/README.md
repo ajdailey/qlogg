@@ -10,6 +10,8 @@ launchers. Packaging is `src/build/dist.xml`, run by maven-antrun-plugin at
 any other host the module builds `target/qlogg.jar` only, and `SmokeTest`
 runs against it.
 
+---
+
 ## Universal jar
 
 `target/qlogg.jar` holds the bootstrap classes at the root, the application
@@ -105,7 +107,7 @@ recovery are in the root `README.md` under "Continuous integration".
 `src/macos/qlogg.entitlements` (`allow-jit`,
 `allow-unsigned-executable-memory`, `disable-library-validation`), which the
 JVM needs under the hardened runtime. rcodesign cannot sign a shell script as
-the main executable, which is why the macOS launcher is the jpackage binary.
+the main executable, so the macOS launcher is the jpackage binary.
 CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
 The bundles are not notarized. On every target, the CI `bundle` job also runs
 the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` on Windows) with
@@ -118,13 +120,15 @@ setup-java's JDK as `JAVA_HOME`.
 `tools/icons.sh` renders `qlogg.ico`, `QLogg.icns` and the PNGs in
 `qlogg-ui-swt` from them; the build uses the committed outputs.
 
-## Smoke tests
+## Testing
 
-`SmokeTest` (tag `swt`) runs at `integration-test`: `java -jar qlogg.jar -v`
-prints the manifest version as its first line; `java -jar qlogg.jar` opens a
-900 x 600 window at 50,40 and writes no `logs` folder; and on linux-x86_64 the
-extracted bundle runs with `-l` and `PATH` holding only `uname` and
-`readlink`, reports its own `runtime/` as `java.home`, opens the same window,
-and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's
-line and no other file in `logs`. That runtime must have `jdk.charsets` and support every
-charset the Encoding menu lists (`CharsetProbe`).
+`SmokeTest` (tag `swt`) runs at `integration-test` against the built jar and,
+on linux-x86_64, the extracted bundle:
+
+| Case | Checks |
+|---|---|
+| `java -jar qlogg.jar -v` | Prints the manifest version as its first line |
+| Jar content | LF native digests and `natives.<target>` lists sorted by name, so a Windows build writes the same jar |
+| `java -jar qlogg.jar` | Opens a 900 x 600 window at 50,40 and writes no `logs` folder |
+| Linux bundle with `-l`, `PATH` holding only `uname` and `readlink` | Reports its own `runtime/` as `java.home`, opens the same window, and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's line and no other file in `logs` |
+| Linux bundle runtime | Has `jdk.charsets` and supports every charset the Encoding menu lists (`CharsetProbe`) |

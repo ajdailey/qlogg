@@ -8,6 +8,8 @@ repository; delete generated files when done.
 ./mvnw -pl qlogg-bench -am package -DskipTests
 ```
 
+---
+
 ## Log generator
 
 `LogGenerator` writes deterministic files: the same profile, size and seed give
@@ -169,3 +171,10 @@ only when `qlogg.bench.rowPaint` is `true`:
 xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=RowPaintProbe \
   -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.rowPaint=true
 ```
+
+## Testing
+
+| Class | Covers |
+|---|---|
+| `LogGeneratorTest` | The same seed writing the same bytes; both token densities in `ascii-short`; 10-byte `tiny` lines; the `utf16le` byte order mark; `no-final-newline` ending with text; non-ASCII lines in `utf8-mixed`; `timed` stamps in order with stack traces |
+| `HarnessTest` | `multi` counting the same matches in turn and at once; `filtered` with and without context listing matches and marks; `time` running every lookup on a timed file and stopping after detection without a format |

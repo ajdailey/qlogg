@@ -1,0 +1,72 @@
+# qlogg-ui-swt tests
+
+Every test class is tagged `swt` and drives real SWT widgets over real
+documents. Module overview: [README.md](README.md).
+
+## Running
+
+- Linux runs the `swt` tests when `DISPLAY` is set and skips them otherwise;
+  run them under `xvfb-run -a`. Surefire sets `GDK_BACKEND=x11`, so the windows
+  go to Xvfb even in a Wayland session. Windows and macOS always run them, and
+  macOS runs them with `-XstartOnFirstThread`. A build with
+  `-Dqlogg.target=<target>` compiles against that target's fragment and skips
+  them.
+- The `test-gtk4` CI job runs them with `SWT_GTK4=1`. A test that hits a known
+  GTK 4 failure skips itself there through the test class `Gtk4`.
+- `EventLoop.runUntil` dispatches events until a condition holds, with a bound
+  and no fixed sleep.
+- `HangWatchdog`, registered for every test in the module through
+  `META-INF/services` and `junit-platform.properties`, prints every thread's
+  stack to stderr when a test, its `@BeforeEach` and `@AfterEach` included,
+  runs past `-Dqlogg.test.hangSeconds` (120 by default), and halts the test JVM
+  5 s later. A test blocked in a native call on the main thread then ends the
+  build with its stack in the log, and surefire reports the fork crash.
+- Pixel assertions read the screen through `GC.copyArea` or a control through
+  `Control.print`. On GTK, `Control.print` draws a tab strip the screen does not
+  show.
+
+## Screenshots
+
+Some tests write PNGs when a property names a directory. `GuideScreenshotsTest`
+runs only with one; the others run either way.
+
+| Property | Class | Files |
+|---|---|---|
+| `-Dqlogg.guide.shots=<dir>` | `GuideScreenshotsTest` (`tools/screenshots.sh`) | The user guide's images |
+| `-Dqlogg.shots=<dir>` | `TabMoveGuiTest` | `tabmove-source.png`, `tabmove-target.png` |
+| `-Dqlogg.shots=<dir>` | `OptionsAndMenusTest` | `options.png`, `main.png` |
+| `-Dqlogg.shots=<dir>` | `MarkCommentsGuiTest` | `gutter.png`, `mark-comment.png`, `marks-list.png` |
+| `-Dqlogg.shots=<dir>` | `RowPixelsTest` | `rows-plain.png`, `rows-cjk.png`, `rows-wrapped.png`, `rows-wrapped-selection.png` at 1100x700 |
+| `-Dqlogg.qc.shots=<dir>` | `TabColorsGuiTest` | Each step of the theme sequence |
+
+The probes `ScrollFrameProbe`, `OpenStallProbe` and `RowPaintProbe` are
+benchmarks; `qlogg-bench/README.md` describes them.
+
+## Coverage
+
+| Class | Covers |
+|---|---|
+| `MainWindowTest` | The requested client size and location (needs X11, so Xvfb, for the position), a huge request clamped to the work area, a close request reaching the handler, the dispatcher dropping submissions after disposal |
+| `LogViewTest` | Composes the window over a real document and drives it with SWT events: painted text and line-number pixels (`Control.print`), a selection of columns 150-160 at 6 pt lying on its glyphs, keys including `Ctrl+E Ctrl+T`, mouse selection and `Ctrl+C` to the clipboard, scroll bar drag and wheel, the menu bar's menus, order, labels and accelerators, Go to Line, the Help windows and the About layout, the search bar with `N` and `Shift+N` walking its matches, and the busy cursor across overlapping operations |
+| `FilteredPaneTest` | The filtered pane over a real search: the search row in the bottom pane with its controls in order and the result tabs full width below it; a click on a row moving the main view to the line; visibility keys and the combo agreeing; the sash grip; `+` and `-` moving the sash and Save Splitter Position storing it; both views carrying the context menu and building it on the first right click; a double click selecting a word and `*` finding it through the quick find bar to an end-of-file notice; kept sets as tabs; the filters menu and history list; the Predefined Filters table editing a row in place, toggling Regex and applying; context rows painting the shade and a group rule; the range end field showing while Range is on |
+| `TabsTest` | Two files: the top row's toolbar, path field and its menu, Stop and file fields; the tab row showing with two files, hiding with one and showing again; the last file shown; selecting a tab showing its document and file fields; dragging a tab moving it, the dragged tab staying selected with its document in the views and the path field; closing and Close All; `F` following; the tab menu's items and a middle click closing tabs; a second tab menu reusing the first with new items; Reload and the document check items enabled after an open with no menu shown since; File > Close emptying and disabling the path field; a rename in the tab; the toolbar's Follow tracking the document; View > Opened Files and Switch to File; dropped files opening |
+| `TabDotTest` | Appending to a background tab's file: the `NEW_LINES` dot and tooltip line, a theme change recoloring it and disposing the old image, showing the tab clearing both; the rendered dot opaque at its center and transparent at the corners; a stop-follow trigger on a following background tab giving the `FOLLOW_STOPPED` dot and tooltip line |
+| `TabColorsGuiTest` | Tab strips' screen pixels in light, dark, light and dark, light, dark order, with focus outside and inside the folder: contrast of at least 4.5 and a strip of the theme's lightness. Its theme service reports every change as shown, so win32 opens no modal restart notice. Skips on GTK 4, where `GC.copyArea` from the Display reads white. A probe child of a known color checks that a screen read shows the main window, because the `windows-11-arm` runner's desktop lies under a full-screen first-run page; when it does not, win32 reads through `Control.print`, which equals the screen there, and other platforms fail |
+| `TabMoveGuiTest` | Two windows over one `WindowSet`: View > Move to New Window and the tab menu item moving the shown tab to a new window, the emptied window staying open without views and its menu item disabled; a release inside the window's own bounds doing nothing and one outside opening a new window with the tab; a drag released over another window off its tab strip appending the tab there and showing it; `dropTab` over that strip inserting at the tab under the point; a drag inside the strip reordering without looking for a window. The strip drop calls `dropTab` directly because GTK 4 opens every window at 0,0 under Xvfb, where the release point would also hit the source strip |
+| `TimeSyncGuiTest` | Joining through the tab cascade and the log-view cascade; check marks, the group label, Leave's state and the tooltip line; a `&` in a file name and a tab name on the tab, tooltip and cascade; a caret move and Scroll All reaching hidden tabs |
+| `TimestampsGuiTest` | The time field showing the caret time and the format in its tooltip; the position field showing a selection's difference, and the filtered view's while it has focus; an offset changing both; the size's tooltip following the file's modification time; a click on the time field opening Go to Time; Go to Time accepting a date and time or a time on the caret line's date and refusing anything else; the Time Offset fields rewriting each other and refusing text that does not parse; the format editor previewing the caret line and refusing a pattern that does not compile |
+| `TimeSpreadGuiTest` | The bar's pixels: a level's blended color in both modes, the disorder color, a match line over the shading, the dark palette, Off clearing the layer; the Time Spread cascade choosing a mode as a radio group |
+| `HelpItemsTest` | Debug Log File checked only while the log file is attached; a WARN line showing the status-bar marker, Show Log clearing it and listing the lines, a later ERROR showing it again, a second Show Log refreshing the same window; Help > Documentation loading the copy in the guide window or closing and taking the fallback (without a browser widget or under GTK 4, the notice naming it); the locations `GuideWindow` allows; without the application menu, the menu bar keeping About and Options. Without WebView2: a factory throwing Edge's timeout `SWTException` leaving no window, and the load bound expiring once unless met. It reads the location from the `changed` event, never `Browser.getUrl`, which blocks on a WebView2 still starting |
+| `OptionsAndMenusTest` | The Advanced tab's Keep file closed box; a bullet-column click marking and unmarking; `Ctrl`+wheel zoom over the focused filtered view applying in place (same views, menu bar and focus, fewer rows, the height restored by Reset Zoom); the Encoding, Favorites and Open Recent menus; the shortcut editor refusing `Ctrl+O` for Reload, adding `Ctrl+Alt+R` and the File menu showing it after Apply; a new key for Match Case reaching the search row's tooltip; the Folding tab refusing an unclosed class and applying an entry start pattern |
+| `MainMenuBarTest` | Showing one top menu leaving every other menu's items and sets unchanged; the Encoding menu's charset items being the same objects after each show while the check follows Auto, a forced charset and a choice from Other, one charset checked at a time; with the list held back through `MainWindow.setEncodingSource`, Other empty and disabled while a forced charset is checked, filling in once when the list arrives |
+| `CommandStatesTest` | Every check item's checked and enabled state, and the file commands' enabled state, after `syncMenu` with no document, with a document and with its filtered view focused |
+| `ThemeAndHighlightTest` | Switching the palette and reading painted pixels of both canvases; clicking the overview bar; toggling a set from the Highlighters menu and reading the span's painted color; `HighlightersDialog` through add, an invalid pattern, move and remove; a rule's trigger actions set, an invalid template regex reported and the actions read back after OK |
+| `ViewFeaturesGuiTest` | `Alt` and `Shift` with the wheel; an `Alt`-drag block selection; a drag held still below the view scrolling until release, focus loss or tab close; a click on the second wrapped row of a long line and the reported fit; a double click past a wrapped row's end selecting the word there; whitespace and fold painting; scratchpad transforms inline and on a worker (the tab read-only until the result) with the epoch value and `Ctrl+N`; the search across two files with its row selecting a tab; the selectors editor row |
+| `MarkCommentsGuiTest` | Painted bullets (a commented mark's corner pixel filled, a plain mark's not); the gutter tooltip; the Edit Mark Comment dialog; the marks list through go to, `F2` edit, `Delete` and a tab switch |
+| `TextGridCasesTest` | `hit`, `wrappedRows`, `wrapFit` and `gutterWidth` in grid units on a real font: nearest column boundary, gutter and negative coordinates, clamping below the last line, a tab row, a scrolled view, line numbers on and off, wrapped segments at two widths with the click past a segment's end clamped to it |
+| `TextGridTest` | The same cases against `TextGrid` with no display, at a fractional and an integer advance, plus `wrappedWordHit` |
+| `RowPixelsTest` | Painted extents against glyph ink: a span and the selection on the second row of a wrapped ASCII line and of a wrapped CJK line; a span over CJK glyphs at the start of an unwrapped row and after leading spaces; ASCII glyphs at the same height on a laid-out row and an ASCII row. A wrapped case waits for the wrapped read, because the block read before it holds one screen width of each line. Extents are read on a row's bottom pixel line, which glyph ink reaches when a laid-out row sits below the grid baseline |
+| `ResourceLeakTest` | Starts its Display with `DeviceData.tracking`, runs a warm-up round of tab open and close, light and dark theme, zoom in and out and a menu sync, then four more rounds, and requires each tracked type's count (`Font`, `Image`, `Cursor`, and `TextLayout` on GTK 3) to return to the warm-up's; a failure lists each new object's allocation stack. SWT 3.135.0 does not track `Color` |
+| `SwtUiDispatcherTest` | A canceled timer not running; cancel after dispose doing nothing |
+| `HangWatchdogTest` | The dump naming the test and showing the calling thread's stack |
+| `GuideScreenshotsTest` | Writes the user guide's images; runs only with `-Dqlogg.guide.shots=<dir>` |

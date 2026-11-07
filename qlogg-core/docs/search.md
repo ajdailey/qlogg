@@ -1,0 +1,162 @@
+# Search
+
+`core.search` runs a query over a document's lines and holds the matching
+line numbers. Module overview: [qlogg-core](../README.md). Quick find
+(`LineFinder`) is in [Documents](documents.md#quick-find).
+
+## SearchEngine
+
+`SearchEngine.search(source, query, results, listener)` searches the lines of
+the source's current index snapshot, limited to `SearchQuery.scope` (null for
+every indexed line), and adds the matching line numbers to a `MutableLineSet`
+in ascending order.
+
+A coordinator on a `qlogg-search-` virtual thread cuts the range into chunks
+of whole lines (10,000 lines or 4 MiB, whichever comes first; a longer line is
+a chunk of its own), reads each chunk in one positional read and submits it to
+the CPU pool. A worker splits its chunk at LF units, drops a trailing CR from
+each line and matches it. The coordinator merges results in chunk order, so
+they stay in line order however chunks finish, and no match spans two chunks.
+At most `maxChunksInFlight` chunks (default three per CPU thread) are read but
+not merged.
+
+`SearchListener.progressed` runs at most every 100 ms and once at the end,
+before `finished`; both run on the coordinator thread.
+
+### Outcomes
+
+| End | Outcome | Limit |
+|---|---|---|
+| Range searched | `COMPLETED` | `NONE` |
+| `maxResults` reached (0 is no limit) | `COMPLETED` | `MAX_RESULTS`; the results stop at the limit |
+| `RESULTS` refuses the next chunk's matches | `COMPLETED` | `MEMORY`; the results up to the last whole chunk stay |
+| `cancel()`, a read on a closed source, or closed workers | `CANCELED` | `NONE` |
+| A regex that does not compile (`PatternSyntaxException`), a regex that overflows the stack on a line (`PatternTooComplexException` with the line), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
+
+### Buffers and long lines
+
+- A chunk reads into a pooled direct buffer of `chunkBytes` (`ReadBuffers`,
+  from `IO_BUFFERS`).
+- A line longer than `chunkBytes` reads into a heap buffer, and 3 bytes per
+  line byte (the bytes and their decoded chars) are reserved from
+  `IO_BUFFERS` until it is matched. A refused reservation trims the pool and
+  retries once.
+- Every search trims the pool when it ends, so a pool grown by an earlier
+  parallel search does not hold the share.
+- A long line that `IO_BUFFERS` refuses with nothing in flight, or that is
+  longer than `SearchEngine.MAX_LINE_BYTES` (`Integer.MAX_VALUE - 8`), is
+  skipped. It is not matched, not reported as a match under inverse, and the
+  search continues after it. `SearchListener.finished` reports the count of
+  skipped lines; `progressed` counts them as searched.
+
+### Cancellation and runaway regexes
+
+Cancellation is checked before each chunk, every 1,024 lines in a worker, and
+every 4,096 `charAt` calls a regex makes on `LineText.chars()`, so a regex
+that backtracks without end stops on cancel.
+
+A worker catches a `StackOverflowError` from a regex (`(a|b)*c` raises one on
+a 400,000-char line) and the search ends with `PatternTooComplexException`.
+The pool thread survives and nothing reaches the workers' failure handler.
+`LineFinder` (quick find) throws the same exception.
+
+## Matching
+
+`StandardMatchers` compiles a query into one `LineMatcher` per worker. Each
+term takes one of these forms:
+
+| Term | Runs as |
+|---|---|
+| Literal, case-sensitive | Byte search for the pattern encoded in the document charset |
+| Literal, case folded, ASCII pattern, ASCII-compatible encoding | Byte search folding `A`-`Z` |
+| Any other literal, or one whose pattern does not encode | `Pattern.quote` regex on decoded text |
+| Case-sensitive regex with no metacharacter (`\ ^ $ . \| ? * + ( ) [ ] { }`) and no U+FFFD | As a case-sensitive literal |
+| Any other regex | `java.util.regex.Pattern` on decoded text with `UNIX_LINES`, plus `CASE_INSENSITIVE \| UNICODE_CASE` when case folds |
+
+Byte search and regex differ in what they see:
+
+- Byte search runs only where a byte match is a character match: UTF-8,
+  US-ASCII, single-byte charsets, and UTF-16 or UTF-32 at unit-aligned
+  offsets. Other multi-byte charsets (Shift_JIS, GBK) run as regex.
+- A byte search sees the file's bytes; a regex sees malformed input as
+  U+FFFD.
+- Byte folding folds ASCII letters only, so `k` does not match U+212A KELVIN
+  SIGN, which a case-folded regex matches.
+
+Line and option rules:
+
+- The line excludes LF and a trailing CR. `^` and `$` anchor at its ends, and
+  `UNIX_LINES` makes no other char a line terminator.
+- Whole word: a term matches only where the chars before and after it are not
+  `[A-Za-z0-9_]`. A byte search checks the bytes around the match
+  (ASCII-compatible encodings only); otherwise `StandardMatchers.wholeWord`
+  wraps the regex in `(?<!\w)(?:...)(?!\w)`. A pattern that ends inside `\Q`,
+  a `(?x)` comment, or a `\Q` inside such a comment (`Pattern` reads it as a
+  quote) gets `\E`, a line feed or both before the closing parenthesis.
+- Inverse negates the whole expression.
+- With `SearchQuery.hideAnsi`, `LineText` removes ANSI SGR sequences from the
+  decoded chars and every literal runs as a quoted regex, because the file's
+  bytes still hold the sequences.
+
+### Combining expressions
+
+`ExpressionParser.parse(text, mode, combining)` reads the combining syntax:
+
+- Terms in double quotes. `\"` is a quote inside a term; other backslashes
+  stay, so regex escapes pass through.
+- Operators `and` `&`, `or` `|`, `xor`, `not` `!`, the aliases `nand`, `nor`
+  and `xnor`, and parentheses. Operator words are case-insensitive.
+- Precedence, highest first: `not`, `and`, `xor`, `or`.
+- Combining text without a double quote is one term.
+- A syntax error throws `ExpressionException` with a `Reason` and a 1-based
+  column; nesting deeper than 256 is an error.
+
+## Range search
+
+A query with `SearchQuery.rangeEnd` set is a range search. A line matching
+`expression` opens a range, and the first later line matching `rangeEnd`
+closes it. The results are every line from the opening line through the
+closing line; a range still open at the end of the scope runs to it.
+
+- Workers match each line against both expressions (each with the query's
+  case, whole-word and ANSI rules, not inverted) and return both hit lists.
+  The coordinator walks them in chunk order and carries the open state across
+  chunks, so the chunk partition cannot change the result.
+- The opening line is not tested against the end, and a start line inside an
+  open range neither opens nor closes anything.
+- `inverse` returns the lines outside every range.
+- `scope` limits the scan; `rangeOpen` states whether a range is open before
+  the scope's first line. A skipped line inside an open range is in it.
+- When a range search completes with no limit,
+  `SearchListener.rangeOpenBeforeLast` reports whether a range was open
+  before the scope's last line. A search from that line on (an auto-refresh)
+  starts from that state.
+
+`RangeFinder.around` finds the range around one line: the nearest line at or
+above it matching the start, through the first later line matching the end, or
+the last line. It returns null when no start precedes the line or that range
+closed above it. It reads blocks of whole lines (4,096 lines, 1 MiB) through
+one heap buffer and matches the first 1 MiB of a longer line. It looks back
+only to the nearest start, so where start lines repeat before an end, its
+range begins later than the range search's.
+
+## Result sets
+
+`MutableLineSet` holds line numbers in buckets of 65,536 lines: a sorted
+`char[]` of the low 16 bits up to 4,096 entries, else a 1,024-word bitmap. A
+bitmap returns to an array at 2,048 entries or fewer. Counts of the entries
+before each bucket make `rank` and `select` a binary search over buckets.
+
+- Cost (`retainedBytes()`): 40 B per bucket (object and array header), plus
+  2 B per array slot padded to 8 B or 8 KiB per bitmap, plus 20 B per slot of
+  the bucket directory, which doubles as it grows. These are HotSpot sizes
+  with compressed references (heaps under 32 GiB).
+- With a budget, the set holds exactly `retainedBytes()` of `RESULTS`.
+  `addSorted` reserves an upper bound of the batch's growth first and adds
+  nothing when the share refuses; `add` and `toggle` charge without the limit
+  check; removals and `clear()` release.
+- A `ReentrantReadWriteLock` guards the set. A writer holds it for one batch
+  and never across I/O, so a reader on the UI thread waits at most for one
+  chunk merge.
+- `version()` counts changes, so a reader detects a toggle that left the size
+  unchanged.

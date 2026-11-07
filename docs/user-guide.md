@@ -99,31 +99,45 @@ The icon toggles beside the field, also on keys `4` to `9` in a log view:
 | Keep results | The next search adds a result tab instead of replacing the results |
 | Range | Every line from a line matching the pattern through the next line matching the range end; no key |
 
-Edit > Search > Set Search Start and Set Search End limit every search to the
-lines between; Clear Search Limits removes the limit. The filtered view lists
-matches, marks or both (`1`, `2`, `3`; `v` and `V`
-cycle). The history drop-down recalls earlier patterns, and Predefined
-filters stores named patterns (Tools > Predefined Filters, import and export).
-`Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
-exclude it, or replace the search with it.
+### Limits, views and filters
+
+- Edit > Search > Set Search Start and Set Search End limit every search to
+  the lines between; Clear Search Limits removes the limit.
+- The filtered view lists matches, marks or both (`1`, `2`, `3`; `v` and `V`
+  cycle).
+- The history drop-down recalls earlier patterns. Tools > Predefined Filters
+  stores named patterns, with import and export.
+- `Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
+  exclude it, or replace the search with it.
+
+### Context lines
 
 The two number fields after the pattern set the context lines: the filtered
 view lists that many lines above and below each result, on a shaded
-background, with a rule above each group. Counts, `n` and `N`, the overview
-bar and the bullets in the margin use the results only. A kept result tab
-keeps the counts its search ran with; a changed count applies to the next
-search. The context lines after the last result fill in as the file grows,
-with or without Auto-refresh.
+background, with a rule above each group.
+
+- Counts, `n` and `N`, the overview bar and the bullets in the margin use the
+  results only.
+- A kept result tab keeps the counts its search ran with; a changed count
+  applies to the next search.
+- The context lines after the last result fill in as the file grows, with or
+  without Auto-refresh.
+
+### Range search
 
 With Range on, a field for the end pattern appears beside the pattern. The
 results are every line from a line matching the pattern through the next line
-matching the end, both lines included; a range that is still open at the end
-of the file runs to the end and, with Auto-refresh, extends as the file grows.
-Inverse lists the lines outside the ranges, and the search start, end and In
-selection limits apply as for any search. Edit > Search > Select Range Around
-Line (`Ctrl+R` in a log view) selects the range around the current line of the
-main view: the nearest line above that matches the pattern, through the next
-line matching the end.
+matching the end, both lines included.
+
+- A range still open at the end of the file runs to the end and, with
+  Auto-refresh, extends as the file grows.
+- Inverse lists the lines outside the ranges.
+- The search start, end and In selection limits apply as for any search.
+- Edit > Search > Select Range Around Line (`Ctrl+R` in a log view) selects
+  the range around the current line of the main view: the nearest line above
+  that matches the pattern, through the next line matching the end.
+
+### Searching all open files
 
 Edit > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
 each tab's filtered view gets the results for its file. It ignores In
@@ -135,16 +149,22 @@ selection; each tab's search start and end lines apply.
 one line. `]` and `[` go to the next and previous mark. Marks show in the
 gutter, the overview bar and the filtered view.
 
+### Mark comments
+
 `M` (Edit > Edit Mark Comment) asks for a comment on the current line and
 marks the line when it has no mark; an empty comment keeps the mark without
 one. A commented mark has a square bullet, and the pointer over it shows the
 comment. Unmarking a line drops its comment. A comment is one line of at most
 200 characters; a file keeps at most 1,000.
 
+### Marks list
+
 Tools > Marks List lists the shown tab's marks with line number, comment and
 the start of the line, and follows the tab you show. `Enter` or a double
 click goes to the line, `Delete` removes the selected marks and `F2` edits a
 comment in the list. It lists the first 10,000 marks.
+
+### Quick find
 
 Quick find (`Ctrl+F`, `'` forward, `"` backward) searches the shown view from
 the current line without changing the filtered view. `*` and `/` find the
@@ -199,86 +219,129 @@ end of the file in view as lines arrive. Scrolling up stops following;
 scrolling down past the last line starts it again (View > Follow on
 Overscroll). View > Follow New Files follows every file as it opens.
 
+### Rotation and deletion
+
 A file that is truncated, replaced or rotated reopens by name with its results
-cleared; a search with Auto-refresh on runs again. A deleted file keeps its content on screen until a file with that name
-appears again.
+cleared; a search with Auto-refresh on runs again. A deleted file keeps its
+content on screen until a file with that name appears again.
 
 When the file cannot be opened at that moment, for example between a log
-rotator's rename and its create, the tab keeps its content, shows one notice and
-reads Waiting to reopen in the status bar in place of Following. QLogg tries
-again at each check of the file, once a second by default, and following
+rotator's rename and its create, the tab keeps its content, shows one notice
+and reads Waiting to reopen in the status bar in place of Following. QLogg
+tries again at each check of the file, once a second by default, and following
 resumes when the file opens.
 
-QLogg holds a file open while its tab is open, and Windows refuses a rename over
-an open file, so a program that rotates its log that way fails. Tools > Options,
-Advanced, Keep file closed opens the file only for each read. It applies to
-files opened or reloaded afterwards. With it on, the content of a moved or
-deleted file cannot be read: a deleted file shows a notice and only lines
-already read stay on screen. A rename that lands during a read is still refused,
-and a retry succeeds.
+### Keep file closed
+
+QLogg holds a file open while its tab is open, and Windows refuses a rename
+over an open file, so a program that rotates its log that way fails. Tools >
+Options, Advanced, Keep file closed opens the file only for each read. It
+applies to files opened or reloaded afterwards.
+
+With it on, the content of a moved or deleted file cannot be read: a deleted
+file shows a notice and only lines already read stay on screen. A rename that
+lands during a read is still refused, and a retry succeeds.
 
 ## Timestamps
 
 ![Time of the current line and the time across a selection](images/guide/timestamps.png)
 
 QLogg finds the timestamp at the start of each line when a file opens: ISO
-8601 (`2026-03-01 05:00:00.002`, with `T`, a comma or a zone offset),
-dates with slashes or dots, `01 Mar 2026`, syslog (`Mar  1 05:00:00`), Common
-Log Format, Java logging (`Mar 01, 2026 5:00:00 AM`) and epoch seconds or
+8601 (`2026-03-01 05:00:00.002`, with `T`, a comma or a zone offset), dates
+with slashes or dots, `01 Mar 2026`, syslog (`Mar  1 05:00:00`), Common Log
+Format, Java logging (`Mar 01, 2026 5:00:00 AM`) and epoch seconds or
 milliseconds. A line without a timestamp, such as a stack trace line, takes
 the time of the line above it.
 
-- **Time field**: the top row shows the current line's time. Its tooltip names
-  the format, the time zone and the offset; a click opens Go to Time. A file
-  without timestamps leaves it empty and disables the timestamp commands.
-- **Selection difference**: with several lines selected, the position field
-  adds the time from the first to the last selected line, for example
-  `Sel 4 lines  +00:01:23.456`, or `+2d 03:00:00.000` past a day. A negative
-  time means the lines are out of order. In the filtered view the lines are
-  the selected rows' lines.
-- **Format**: View > Timestamps > Format picks another format, or None. Edit
-  Formats defines your own: a name, a regular expression whose group named
-  `ts` finds the time in the first 256 characters, and a pattern such as
-  `yyyy-MM-dd HH:mm:ss.SSS`; the editor shows the value it reads from the
-  current line before you save. QLogg remembers the format you pick for each
-  file.
-- **Time zone**: times without a zone are read in the zone set in View >
-  Timestamps > Time Zone for the file, else `time.zone` in `qlogg.conf`, else
-  the system zone. Times show in `time.displayZone`, else the system zone, so
-  files written in different zones compare on one clock.
-- **Time offset**: View > Timestamps > Time Offset shifts every time the tab
-  shows, as `[+-][d.]HH:mm:ss[.fff]` or as the time the current line should
-  show; zero clears it. The line text does not change. The session keeps the
-  offset, and a reload keeps it.
-- **Go to Time** (`Ctrl+Shift+L`, Edit menu): enter `yyyy-MM-dd HH:mm:ss` or
-  `HH:mm:ss` on the current line's date, with an optional fraction. QLogg goes
-  to the first line with that time, else the last line before it, and stops
-  following. A time before the first line goes to the first line. A file
-  whose timestamps go backward, such as two logs joined together, is searched
-  line by line with progress in the status bar. QLogg finds such a file by
-  sampling it, so a short out-of-order stretch can go unnoticed; Go to Time
-  can then land beside that stretch instead of on the time. While a go to time
-  runs, `Esc` stops it and any running mark, copy or save; loading goes on
-  until a second `Esc`.
-- **Scroll All Tabs to This Time** (Edit menu, log view context menu): every
-  other tab with a timestamp format, in every window, goes to the current
-  line's time and stops following. Each tab applies its own time offset.
-- **Time Sync** (tab and log view context menus): check another tab to keep
-  the two on one time. That tab moves to this tab's time, or, when it is in a
-  group already (its number shows beside it), this tab joins and moves to its
-  time. Moving the current line in a member moves the others shortly after;
-  a hidden tab moves too. A move reaching a member stops its following, but
-  following in a member moves nobody. The tab's tooltip shows its group.
-  Uncheck a tab or choose Leave Time Sync to end it; a group left with one
-  tab ends. Groups survive a reload and a move to another window, and the
-  session keeps them.
-- **Time spread**: View > Timestamps > Time Spread shades the
-  [overview bar](#the-main-window) by how the lines spread over time, for
-  every open file with a format. Activity shades rows where lines come at
-  least twice as fast as the average, Pauses rows that span at least twice the
-  average time; the color deepens at 4, 8 and 16 times. Purple rows are places
-  where the time goes backward. A click still goes to the line under the
-  pointer. A growing file updates every 2 seconds. Off is the default.
+### Time field
+
+The top row shows the current line's time. Its tooltip names the format, the
+time zone and the offset; a click opens Go to Time. A file without timestamps
+leaves it empty and disables the timestamp commands.
+
+### Selection difference
+
+With several lines selected, the position field adds the time from the first
+to the last selected line, for example `Sel 4 lines  +00:01:23.456`, or
+`+2d 03:00:00.000` past a day. A negative time means the lines are out of
+order. In the filtered view the lines are the selected rows' lines.
+
+### Timestamp format
+
+View > Timestamps > Format picks another format, or None. QLogg remembers the
+format you pick for each file.
+
+Edit Formats defines your own: a name, a regular expression whose group named
+`ts` finds the time in the first 256 characters, and a pattern such as
+`yyyy-MM-dd HH:mm:ss.SSS`. The editor shows the value it reads from the
+current line before you save.
+
+### Time zone
+
+Times without a zone are read in the zone set in View > Timestamps > Time Zone
+for the file, else `time.zone` in `qlogg.conf`, else the system zone. Times
+show in `time.displayZone`, else the system zone, so files written in
+different zones compare on one clock.
+
+### Time offset
+
+View > Timestamps > Time Offset shifts every time the tab shows, as
+`[+-][d.]HH:mm:ss[.fff]` or as the time the current line should show; zero
+clears it. The line text does not change. The session keeps the offset, and a
+reload keeps it.
+
+### Go to Time
+
+Go to Time (`Ctrl+Shift+L`, Edit menu) takes `yyyy-MM-dd HH:mm:ss`, or
+`HH:mm:ss` on the current line's date, with an optional fraction. QLogg goes to
+the first line with that time, else the last line before it, and stops
+following. A time before the first line goes to the first line.
+
+A file whose timestamps go backward, such as two logs joined together, is
+searched line by line with progress in the status bar. QLogg finds such a file
+by sampling it, so a short out-of-order stretch can go unnoticed; Go to Time
+can then land beside that stretch instead of on the time.
+
+While a go to time runs, `Esc` stops it and any running mark, copy or save;
+loading goes on until a second `Esc`.
+
+### Scroll All Tabs to This Time
+
+Scroll All Tabs to This Time (Edit menu, log view context menu) moves every
+other tab with a timestamp format, in every window, to the current line's time
+and stops its following. Each tab applies its own time offset.
+
+### Time Sync
+
+Time Sync (tab and log view context menus) keeps tabs on one time. Check
+another tab to join it: that tab moves to this tab's time, or, when it is in a
+group already (its number shows beside it), this tab joins and moves to its
+time.
+
+- Moving the current line in a member moves the others shortly after; a
+  hidden tab moves too.
+- A move reaching a member stops its following, but following in a member
+  moves nobody.
+- The tab's tooltip shows its group.
+- Uncheck a tab or choose Leave Time Sync to leave. A group left with one tab
+  ends.
+- Groups survive a reload and a move to another window, and the session keeps
+  them.
+
+### Time spread
+
+View > Timestamps > Time Spread shades the [overview bar](#the-main-window) by
+how the lines spread over time, for every open file with a format. Off is the
+default.
+
+| Mode | Shades rows |
+|---|---|
+| Activity | Where lines come at least twice as fast as the average |
+| Pauses | That span at least twice the average time |
+
+The color deepens at 4, 8 and 16 times. Purple rows are places where the time
+goes backward. A click still goes to the line under the pointer. A growing file
+updates every 2 seconds.
 
 ![Time spread, Activity: the burst of lines shows dark in the overview bar](images/guide/time-spread-activity.png)
 
@@ -357,10 +420,13 @@ Favorites menu adds, removes and opens favorite files.
 
 ## Windows and the running instance
 
-File > New Window opens another main window. A tab moves between windows
-with everything it shows: its position, selection, marks, search results,
-filtered view, folds, follow state and name stay, and the file is not read
-again.
+File > New Window opens another main window.
+
+### Moving tabs between windows
+
+A tab moves between windows with everything it shows: its position,
+selection, marks, search results, filtered view, folds, follow state and name
+stay, and the file is not read again.
 
 - Drag a tab onto another QLogg window: over its tab row, the tab lands where
   it is dropped; anywhere else in that window, after the last tab.
@@ -372,12 +438,13 @@ again.
 A tab does not move into a window that already shows the same file, or while
 its file is reloading.
 
-A launch without `-m` hands its
-files to the QLogg already running for the same settings directory and exits:
-the files open in the window used last, which comes to the front. A file a
-window shows already is shown in that tab instead of a second one, with
-`+line:N` and `-f` applied. On macOS, files opened from the Finder or dropped
-on the Dock icon arrive the same way.
+### Launching QLogg again
+
+A launch without `-m` hands its files to the QLogg already running for the
+same settings directory and exits. The files open in the window used last,
+which comes to the front. A file a window shows already is shown in that tab
+instead of a second one, with `+line:N` and `-f` applied. On macOS, files
+opened from the Finder or dropped on the Dock icon arrive the same way.
 
 ## Options
 
