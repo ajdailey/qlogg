@@ -51,9 +51,13 @@ whitespace markers. A translucent color is blended over the color under it.
 
 ### Rows outside printable ASCII
 
-A row outside printable ASCII is laid out once per paint in the painter's one
-`TextLayout`, which draws it. A column table read from the layout
-(`getLocation`) places the spans, the selection and the markers on its glyphs.
+A row outside printable ASCII is laid out in a `TextLayout`, which draws it. A
+column table read from the layout (`getLocation`) places the spans, the
+selection and the markers on its glyphs. An entry is read when its column is
+first placed, since each `getLocation` call on GTK walks the line. The painter
+keeps a row's layout and table, keyed by the row's text, while each paint draws
+it; `LogCanvas` calls `endPaint` after a paint to release the rest, so a
+repaint of an unchanged screen lays out nothing.
 Do not measure a prefix alone: GTK draws spaces that lead CJK text in the CJK
 font of the run they join, so the prefix measures wider than in the row.
 

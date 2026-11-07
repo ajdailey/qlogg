@@ -1023,6 +1023,7 @@ public final class LogCanvas {
         y += lineHeight;
       }
     }
+    painter.endPaint();
     paintGroupRules(gc, gutter, area.width);
     paintGutter(gc, viewport, block, wrap, gutter, area);
     if (!TEXT_PAINTED.get()

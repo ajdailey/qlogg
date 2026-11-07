@@ -163,13 +163,22 @@ xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=OpenStallProbe \
 columns, one ASCII and one whose lines start with CJK, Hangul, fullwidth and
 combining characters, opens each in the main window (1100 x 700) and repaints
 the first screen 500 times. `RowPainter` draws an ASCII row as a string and
-lays out a non-ASCII row in a `TextLayout`. It prints the paint time per frame
-(p50, p90, p99, max, mean) for each file and the ratio of the means. It runs
-only when `qlogg.bench.rowPaint` is `true`:
+lays out a non-ASCII row in a `TextLayout`. The non-ASCII screen is timed
+again with highlight spans and a selection (`nonAsciiSpans`), then with
+whitespace markers as well (`nonAsciiMarked`). Each non-ASCII case is also
+timed scrolling a screen down or up per frame (`...Scroll`), so every row is
+laid out afresh; the repaint cases reuse the last paint's layouts. It prints
+the paint time per frame (p50, p90, p99, max, mean) for each case and the
+ratio of the non-ASCII to the ASCII mean. It runs only when
+`qlogg.bench.rowPaint` is `true`; `-Dqlogg.shots=<dir>` also writes the
+window after each case as `rows-<case>.png` (not under GTK 4, where
+`Control.print` draws nothing). A run can outlast the test hang
+bound of 120 s, so the command raises it:
 
 ```sh
 xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=RowPaintProbe \
-  -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.rowPaint=true
+  -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.rowPaint=true \
+  -Dqlogg.test.hangSeconds=900
 ```
 
 ## Testing

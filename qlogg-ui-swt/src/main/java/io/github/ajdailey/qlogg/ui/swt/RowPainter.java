@@ -3,6 +3,12 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.core.model.HighlightSpans;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.LineTerminator;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Device;
 import org.eclipse.swt.graphics.Font;
@@ -19,17 +25,20 @@ import org.eclipse.swt.graphics.TextLayout;
  * whitespace markers. A translucent color is blended over the color under it.
  *
  * <p>Column {@code c} of a printable-ASCII row sits on the {@link TextGrid}, and the row is drawn
- * with {@code GC.drawString}. Any other row is laid out once in a {@link TextLayout}, which also
- * draws it; a column table taken from that layout places the spans, the selection and the markers
- * on its glyphs. A prefix measured alone has the wrong width: GTK draws spaces that lead CJK text
- * in the CJK font of the run they join, narrower than the same spaces alone. The layout is drawn
- * with its baseline on the GC font's: its line ascent and leading come from the tallest font in the
- * line, and {@code TextLayout.setAscent} does not lower them on GTK 3. {@code GC.setTextAntialias}
- * does not reach a {@code TextLayout} on GTK, so forced anti-aliasing applies to printable-ASCII
- * rows only.
+ * with {@code GC.drawString}. Any other row is laid out in a {@link TextLayout}, which also draws
+ * it; a column table taken from that layout places the spans, the selection and the markers on its
+ * glyphs. A table entry is read from the layout when its column is first placed: each {@code
+ * getLocation} call on GTK walks the line. A laid-out row is kept, keyed by its text, while each
+ * paint draws it, so a repaint of the same rows lays out and measures nothing. A prefix measured
+ * alone has the wrong width: GTK draws spaces that lead CJK text in the CJK font of the run they
+ * join, narrower than the same spaces alone. The layout is drawn with its baseline on the GC
+ * font's: its line ascent and leading come from the tallest font in the line, and {@code
+ * TextLayout.setAscent} does not lower them on GTK 3. {@code GC.setTextAntialias} does not reach a
+ * {@code TextLayout} on GTK, so forced anti-aliasing applies to printable-ASCII rows only.
  *
- * <p>Owns one {@code TextLayout}, disposed by {@link #dispose}; a paint allocates no SWT resource.
- * UI thread only.
+ * <p>Owns one {@code TextLayout} per laid-out row of the last paint and at most as many spares,
+ * disposed by {@link #dispose}. The caller must call {@link #endPaint} after each paint. UI thread
+ * only.
  */
 final class RowPainter {
   /**
@@ -96,10 +105,41 @@ final class RowPainter {
   /** Chars a {@code TextLayout} breaks a line at; laid out as spaces so the row stays one line. */
   private static final String BREAKS = "\n\r\u000b\u000c\u001c\u001d\u001e\u0085  ";
 
-  private final TextLayout layout;
+  /** Marks a column table entry not yet read from the layout. */
+  private static final int UNREAD = Integer.MIN_VALUE;
 
-  /** For a laid-out row, the x of each column of the drawn part from its left edge. */
-  private int[] table = new int[256];
+  /** A drawn part laid out, with its column table. */
+  private static final class LaidOut {
+    final TextLayout layout;
+
+    /** The x of each column from the part's left edge, or {@link #UNREAD}; one past the last. */
+    final int[] table;
+
+    /** The char index of each column, or null when the part has no surrogate pair. */
+    final int[] chars;
+
+    /** The y offset that puts the layout's baseline on the GC font's. */
+    final int top;
+
+    /** Whether the current paint drew it. */
+    boolean used;
+
+    LaidOut(TextLayout layout, int[] table, int[] chars, int top) {
+      this.layout = layout;
+      this.table = table;
+      this.chars = chars;
+      this.top = top;
+    }
+  }
+
+  private final Device device;
+  private Font font;
+
+  /** The laid-out rows of the last and the current paint, by drawn part. */
+  private final Map<String, LaidOut> laidOut = new HashMap<String, LaidOut>();
+
+  /** Layouts of rows the last paint did not draw, for reuse. */
+  private final List<TextLayout> spare = new ArrayList<TextLayout>();
 
   // State of the row being painted.
   private GC gc;
@@ -109,7 +149,7 @@ final class RowPainter {
   private long start;
   private int partX;
   private int partY;
-  private boolean laidOut;
+  private LaidOut laid;
   private int partColumns;
 
   /**
@@ -119,8 +159,8 @@ final class RowPainter {
    * @param font the font rows are drawn in
    */
   RowPainter(Device device, Font font) {
-    layout = new TextLayout(device);
-    layout.setFont(font);
+    this.device = device;
+    this.font = font;
   }
 
   /**
@@ -129,12 +169,40 @@ final class RowPainter {
    * @param font the font; the caller keeps ownership
    */
   void setFont(Font font) {
-    layout.setFont(font);
+    this.font = font;
+    for (LaidOut row : laidOut.values()) {
+      spare.add(row.layout);
+    }
+    laidOut.clear();
   }
 
-  /** Disposes the layout. */
+  /** Releases the layouts of rows the paint just ended did not draw. */
+  void endPaint() {
+    Iterator<LaidOut> rows = laidOut.values().iterator();
+    while (rows.hasNext()) {
+      LaidOut row = rows.next();
+      if (row.used) {
+        row.used = false;
+      } else {
+        rows.remove();
+        spare.add(row.layout);
+      }
+    }
+    while (spare.size() > laidOut.size()) {
+      spare.remove(spare.size() - 1).dispose();
+    }
+  }
+
+  /** Disposes the layouts. */
   void dispose() {
-    layout.dispose();
+    for (LaidOut row : laidOut.values()) {
+      row.layout.dispose();
+    }
+    laidOut.clear();
+    for (TextLayout layout : spare) {
+      layout.dispose();
+    }
+    spare.clear();
   }
 
   /**
@@ -211,16 +279,17 @@ final class RowPainter {
     }
     this.gc = null;
     this.row = null;
+    laid = null;
   }
 
   /**
-   * Cuts the shown columns out of the row's text and, for a row outside printable ASCII, lays them
-   * out and fills the column table.
+   * Cuts the shown columns out of the row's text and, for a row outside printable ASCII, finds or
+   * makes its layout.
    */
   private void prepare(String text, long textColumn) {
     start = Math.max(row.from(), textColumn);
     partX = row.x() + grid.columnOffset(start - row.from());
-    laidOut = false;
+    laid = null;
     partColumns = 0;
     if (text == null) {
       part = "";
@@ -235,29 +304,53 @@ final class RowPainter {
     if (part.isEmpty() || TextGrid.printableAscii(part)) {
       return;
     }
-    laidOut = true;
+    laid = laidOut.get(part);
+    if (laid == null) {
+      laid = layOut(part);
+      laidOut.put(part, laid);
+    }
+    laid.used = true;
+    partY = row.y() + laid.top;
+    partColumns = laid.table.length - 1;
+  }
+
+  private LaidOut layOut(String part) {
+    TextLayout layout = spare.isEmpty() ? new TextLayout(device) : spare.remove(spare.size() - 1);
+    layout.setFont(font);
     layout.setText(singleLine(part));
     FontMetrics metrics = gc.getFontMetrics();
     FontMetrics line = layout.getLineMetrics(0);
-    partY =
-        row.y() + metrics.getAscent() + metrics.getLeading() - line.getAscent() - line.getLeading();
+    int top = metrics.getAscent() + metrics.getLeading() - line.getAscent() - line.getLeading();
     int columns = 0;
     for (int i = 0; i < part.length(); i++) {
       if (!Character.isLowSurrogate(part.charAt(i))) {
         columns++;
       }
     }
-    if (table.length < columns + 1) {
-      table = new int[columns + 1];
-    }
-    int column = 0;
-    for (int i = 0; i < part.length(); i++) {
-      if (!Character.isLowSurrogate(part.charAt(i))) {
-        table[column++] = layout.getLocation(i, false).x;
+    int[] table = new int[columns + 1];
+    Arrays.fill(table, UNREAD);
+    int[] chars = null;
+    if (columns < part.length()) {
+      chars = new int[columns + 1];
+      int column = 0;
+      for (int i = 0; i < part.length(); i++) {
+        if (!Character.isLowSurrogate(part.charAt(i))) {
+          chars[column++] = i;
+        }
       }
+      chars[columns] = part.length();
     }
-    table[columns] = layout.getLocation(part.length(), false).x;
-    partColumns = columns;
+    return new LaidOut(layout, table, chars, top);
+  }
+
+  /** Returns the x of column {@code k} of the drawn part from its left edge. */
+  private int tableX(int k) {
+    int x = laid.table[k];
+    if (x == UNREAD) {
+      x = laid.layout.getLocation(laid.chars == null ? k : laid.chars[k], false).x;
+      laid.table[k] = x;
+    }
+    return x;
   }
 
   private static String singleLine(String text) {
@@ -274,8 +367,8 @@ final class RowPainter {
   }
 
   private void drawPart() {
-    if (laidOut) {
-      layout.draw(gc, partX, partY);
+    if (laid != null) {
+      laid.layout.draw(gc, partX, partY);
     } else {
       gc.drawString(part, partX, row.y(), true);
     }
@@ -283,14 +376,14 @@ final class RowPainter {
 
   /** Returns the x of a display column on this row. */
   private int columnX(long column) {
-    if (!laidOut || column <= start) {
+    if (laid == null || column <= start) {
       return row.x() + grid.columnOffset(column - row.from());
     }
     long k = column - start;
     if (k <= partColumns) {
-      return partX + table[(int) k];
+      return partX + tableX((int) k);
     }
-    return partX + table[partColumns] + grid.columnOffset(k - partColumns);
+    return partX + tableX(partColumns) + grid.columnOffset(k - partColumns);
   }
 
   /**
@@ -330,9 +423,10 @@ final class RowPainter {
       if (Character.isLowSurrogate(text.charAt(i))) {
         continue;
       }
-      if (column >= row.from() && column < row.to()) {
+      char mark = marks.charAt(i);
+      if (mark != ' ' && column >= row.from() && column < row.to()) {
         int x = columnX(column);
-        switch (marks.charAt(i)) {
+        switch (mark) {
           case LineBlock.TAB_MARK -> arrow(x, middle, true);
           case LineBlock.SPACE_MARK -> gc.drawPoint(x + cell / 2, middle);
           case LineBlock.CR_MARK -> arrow(x, middle, false);
