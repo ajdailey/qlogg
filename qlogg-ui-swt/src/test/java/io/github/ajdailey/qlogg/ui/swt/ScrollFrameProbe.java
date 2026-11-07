@@ -12,7 +12,6 @@ import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
-import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
@@ -76,8 +75,6 @@ class ScrollFrameProbe {
               }
             });
     MemoryBudget budget = MemoryBudget.fromRuntime();
-    long cacheBytes = budget.limit(MemoryShare.BLOCK_CACHE);
-    budget.charge(MemoryShare.BLOCK_CACHE, cacheBytes);
     DocumentServices services =
         new DocumentServices(
             workers,
@@ -86,7 +83,7 @@ class ScrollFrameProbe {
                 workers,
                 StandardMatchers.INSTANCE,
                 SearchSettings.defaults(workers.cpuThreads(), budget)),
-            new BlockCache(64 * 1024, cacheBytes),
+            BlockCache.fromBudget(budget),
             budget,
             StandardCharsets.ISO_8859_1);
     MainWindow window = new MainWindow(display);

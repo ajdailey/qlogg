@@ -17,7 +17,6 @@ import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeController;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
-import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
@@ -62,9 +61,6 @@ import org.slf4j.LoggerFactory;
  * {@link #run} returns.
  */
 final class Gui {
-  /** Bytes per block cache block. */
-  static final int CACHE_BLOCK_BYTES = 64 * 1024;
-
   private static final Logger LOG = LoggerFactory.getLogger(Gui.class);
 
   /** Receives the composed application once the window is open; for tests. */
@@ -171,8 +167,6 @@ final class Gui {
       boolean restore,
       List<Session> sessions) {
     MemoryBudget budget = MemoryBudget.fromRuntime();
-    long cacheBytes = budget.limit(MemoryShare.BLOCK_CACHE);
-    budget.charge(MemoryShare.BLOCK_CACHE, cacheBytes);
     DocumentServices services =
         new DocumentServices(
             workers,
@@ -182,7 +176,7 @@ final class Gui {
                 StandardMatchers.INSTANCE,
                 SearchSettings.defaults(workers.cpuThreads(), budget)
                     .withMaxResults(preferences.maxResults())),
-            new BlockCache(CACHE_BLOCK_BYTES, cacheBytes),
+            BlockCache.fromBudget(budget),
             budget,
             options.defaultCharset());
     final SwtThemeService system = SwtThemeService.open(display, preferences.theme());

@@ -2,7 +2,6 @@ package io.github.ajdailey.qlogg.bench;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
-import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -101,7 +100,7 @@ public class TimeProbe {
     }
     source = FileByteSource.open(file);
     MemoryBudget budget = MemoryBudget.fromRuntime();
-    BlockCache cache = new BlockCache(64 * 1024, budget.limit(MemoryShare.BLOCK_CACHE));
+    BlockCache cache = BlockCache.fromBudget(budget);
     TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
     index = index(source, encoding, budget, cache);
     reader = new TimeReader(source, cache, encoding, BuiltInFormat.ISO.parser(UTC));

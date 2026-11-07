@@ -99,9 +99,9 @@ recovery are in the root `README.md` under "Continuous integration".
 
 | Launcher | Behavior |
 |---|---|
-| `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. Runs only `uname` and `readlink` besides Java |
-| `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation and starting the arm64 runtime is unverified |
-| `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread` and `-XX:MaxRAMPercentage=50`; the layout copies jpackage's and is unverified on macOS |
+| `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. Runs only `uname` and `readlink` besides Java |
+| `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation and starting the arm64 runtime is unverified |
+| `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `-XX:MaxRAMPercentage=50` and `-XX:GCTimeRatio=1`; the layout copies jpackage's and is unverified on macOS |
 
 `rcodesign` 0.29.0 ad-hoc signs each `QLogg.app` on Linux with
 `src/macos/qlogg.entitlements` (`allow-jit`,

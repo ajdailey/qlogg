@@ -54,7 +54,7 @@ shares that all open documents draw from:
 |---|---|---|
 | `LINE_INDEX` | 40 | `GrowableLineIndex` |
 | `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines |
-| `BLOCK_CACHE` | 10 | `BlockCache` |
+| `BLOCK_CACHE` | 10 | `BlockCache`, at most 64 MiB |
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `COPY` | 5 | Text being copied to the clipboard or saved |
 | `FOLDS` | 3 | Fold maps |

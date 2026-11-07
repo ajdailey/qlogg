@@ -29,7 +29,7 @@ the same bytes. Every profile except `tiny` puts `flagword` in 0.1% and
 ## Harness
 
 `Harness` builds the same core services as the application (budget from the
-runtime, block cache of its share, every CPU) and prints one `key=value` line
+runtime, `BlockCache.fromBudget`, every CPU) and prints one `key=value` line
 per measurement. Run it in its own JVM so heap and diagnostic options apply:
 
 ```sh

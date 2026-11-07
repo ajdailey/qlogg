@@ -2,12 +2,21 @@ package io.github.ajdailey.qlogg.core.io;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.SplittableRandom;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class BlockCacheTest {
@@ -126,5 +135,72 @@ class BlockCacheTest {
     int reads = open.reads.get();
     cache.read(open, 0, 1, ByteBuffer.allocate(1));
     assertEquals(reads, open.reads.get());
+  }
+
+  @Test
+  void fromBudgetTakesTheShareUpToTheCap() {
+    MemoryBudget small = MemoryBudget.of(256L << 20);
+    BlockCache share = BlockCache.fromBudget(small);
+    long limit = small.limit(MemoryShare.BLOCK_CACHE);
+    assertEquals(limit / BlockCache.BLOCK_BYTES, share.maxBlocks());
+    assertEquals(limit, small.reserved(MemoryShare.BLOCK_CACHE));
+
+    MemoryBudget large = MemoryBudget.of(12L << 30);
+    BlockCache capped = BlockCache.fromBudget(large);
+    assertEquals(BlockCache.MAX_BYTES / BlockCache.BLOCK_BYTES, capped.maxBlocks());
+    assertEquals(BlockCache.MAX_BYTES, large.reserved(MemoryShare.BLOCK_CACHE));
+  }
+
+  @Test
+  void concurrentMissesReadTheirOwnBytesWhileArraysAreReused() throws InterruptedException {
+    final int blockSize = 64;
+    final byte[] content = new byte[blockSize * 64];
+    for (int i = 0; i < content.length; i++) {
+      content[i] = (byte) (i * 31 + i / blockSize);
+    }
+    final MemorySource source = new MemorySource(content);
+    final BlockCache cache = new BlockCache(blockSize, blockSize * 4);
+    final int threads = 4;
+    final CountDownLatch done = new CountDownLatch(threads);
+    final AtomicReference<Throwable> failure = new AtomicReference<Throwable>();
+    try (Workers workers =
+        new Workers(
+            threads,
+            new Thread.UncaughtExceptionHandler() {
+              @Override
+              public void uncaughtException(Thread thread, Throwable error) {
+                failure.compareAndSet(null, error);
+              }
+            })) {
+      for (int t = 0; t < threads; t++) {
+        final long seed = t;
+        workers.executeCpu(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  SplittableRandom random = new SplittableRandom(seed);
+                  ByteBuffer dst = ByteBuffer.allocate(blockSize * 2);
+                  for (int read = 0; read < 5_000; read++) {
+                    int position = random.nextInt(content.length - blockSize * 2);
+                    dst.clear();
+                    cache.read(source, position, blockSize * 2, dst);
+                    byte[] expected =
+                        Arrays.copyOfRange(content, position, position + blockSize * 2);
+                    if (!Arrays.equals(expected, dst.array())) {
+                      throw new AssertionError("wrong bytes at " + position);
+                    }
+                  }
+                } catch (IOException | AssertionError e) {
+                  failure.compareAndSet(null, e);
+                } finally {
+                  done.countDown();
+                }
+              }
+            });
+      }
+      assertTrue(done.await(60, TimeUnit.SECONDS));
+    }
+    assertNull(failure.get());
   }
 }

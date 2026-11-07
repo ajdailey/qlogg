@@ -63,8 +63,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Headless benchmark harness over the same core services the application builds: a memory budget
- * from the runtime, a block cache of the block-cache share and every CPU. Prints one {@code
- * key=value} line per measurement on standard output.
+ * from the runtime, the application's block cache ({@code BlockCache.fromBudget}) and every CPU.
+ * Prints one {@code key=value} line per measurement on standard output.
  *
  * <pre>
  * generate PROFILE BYTES FILE [SEED]   write a LogGenerator file
@@ -142,8 +142,6 @@ public final class Harness {
               }
             });
     budget = MemoryBudget.fromRuntime();
-    long cacheBytes = budget.limit(MemoryShare.BLOCK_CACHE);
-    budget.charge(MemoryShare.BLOCK_CACHE, cacheBytes);
     services =
         new DocumentServices(
             workers,
@@ -152,7 +150,7 @@ public final class Harness {
                 workers,
                 StandardMatchers.INSTANCE,
                 SearchSettings.defaults(workers.cpuThreads(), budget)),
-            new BlockCache(64 * 1024, cacheBytes),
+            BlockCache.fromBudget(budget),
             budget,
             StandardCharsets.ISO_8859_1);
   }

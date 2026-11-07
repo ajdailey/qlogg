@@ -74,8 +74,8 @@ window as with `-m`. A launch that stays opens the debug log file when `-l` or
    first open does not read the JDK time-zone data on the UI thread.
 4. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
    services: an `Indexer` with default settings, a `BlockCache` of 64 KiB
-   blocks holding the whole `BLOCK_CACHE` share, and `encoding.default` as the
-   fallback charset.
+   blocks holding the `BLOCK_CACHE` share up to 64 MiB, and
+   `encoding.default` as the fallback charset.
 5. Creates the dispatcher and the `WindowSet` with `LogConfigurator.RECENT` and
    the `FileLog`, and connects the macOS application menu (`AppMenu.hook`, a
    no-op elsewhere).
