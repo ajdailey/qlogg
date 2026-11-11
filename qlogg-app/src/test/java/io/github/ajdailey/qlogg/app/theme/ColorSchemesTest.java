@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 /**
- * Contrast floors for the theme palettes and every bundled scheme: text 4.5:1 on every row ground,
+ * Contrast floors for every listed scheme, Light and Dark included: text 4.5:1 on every row ground,
  * selected text 4.5:1 on the selection, the default color labels and a new highlighter rule 4.5:1,
  * and line numbers, markers, dots and time-spread colors 3:1 on what they are drawn over. With
  * {@code -Dqlogg.qc.contrast=true} each palette's lowest ratio is printed.
@@ -28,18 +28,10 @@ class ColorSchemesTest {
   private static final double TEXT = 4.5;
   private static final double GRAPHIC = 3.0;
 
-  private static List<ColorScheme> everyPalette() {
-    List<ColorScheme> all = new ArrayList<ColorScheme>();
-    all.add(new ColorScheme("light", "Light", Palette.LIGHT));
-    all.add(new ColorScheme("dark", "Dark", Palette.DARK));
-    all.addAll(ColorSchemes.BUNDLED);
-    return all;
-  }
-
   @Test
   void everyPaletteMeetsTheContrastFloors() {
     List<String> faults = new ArrayList<String>();
-    for (ColorScheme scheme : everyPalette()) {
+    for (ColorScheme scheme : ColorSchemes.NONE.all()) {
       Palette p = scheme.palette();
       Floor floor = new Floor(scheme.id(), faults);
       Rgb[] grounds = {
@@ -104,11 +96,45 @@ class ColorSchemesTest {
     assertEquals(9, ColorSchemes.BUNDLED.size());
   }
 
+  // Light and Dark view colors.
+
+  @Test
+  void lightAndDarkLeadTheListWithTheThemePalettes() {
+    List<String> ids = new ArrayList<String>();
+    for (ColorScheme scheme : ColorSchemes.NONE.all()) {
+      ids.add(scheme.id());
+    }
+    assertEquals(
+        List.of(
+            "light",
+            "dark",
+            "sandstone",
+            "nightwater",
+            "garden-light",
+            "garden-dark",
+            "legal-pad",
+            "paper",
+            "midnight",
+            "phosphor",
+            "graphite"),
+        ids);
+    assertEquals("follow", ColorSchemes.FOLLOW_THEME);
+    assertEquals("Light", ColorSchemes.NONE.find("light").name());
+    assertEquals("Dark", ColorSchemes.NONE.find("dark").name());
+    assertSame(Palette.LIGHT, ColorSchemes.NONE.find("light").palette());
+    assertSame(Palette.DARK, ColorSchemes.NONE.find("dark").palette());
+    for (String id : new String[] {"follow", "light", "dark"}) {
+      assertTrue(ColorSchemes.reserved(id), id);
+    }
+    assertFalse(ColorSchemes.reserved("theme"));
+    assertNull(ColorSchemes.NONE.find("theme"));
+  }
+
   @Test
   void userSchemesFollowTheBundledOnesAndCannotTakeAReservedId() {
     final ColorScheme user = new ColorScheme("mock-scheme", "Mock", Palette.DARK);
     ColorSchemes schemes = new ColorSchemes(List.of(user));
-    assertEquals(ColorSchemes.BUNDLED.size() + 1, schemes.all().size());
+    assertEquals(ColorSchemes.NONE.all().size() + 1, schemes.all().size());
     assertSame(user, schemes.all().get(schemes.all().size() - 1));
     assertSame(user, schemes.find("mock-scheme"));
     assertNull(schemes.find(ColorSchemes.FOLLOW_THEME));
@@ -119,6 +145,14 @@ class ColorSchemesTest {
           @Override
           public void execute() {
             new ColorSchemes(List.of(new ColorScheme("paper", "Mock", Palette.DARK)));
+          }
+        });
+    assertThrows(
+        IllegalArgumentException.class,
+        new Executable() {
+          @Override
+          public void execute() {
+            new ColorSchemes(List.of(new ColorScheme("dark", "Mock", Palette.LIGHT)));
           }
         });
   }

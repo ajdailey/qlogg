@@ -417,13 +417,16 @@ controls follow the system appearance and the theme recolors the log views.
 
 Tools > Options, View, View colors picks the colors of the log views, gutter,
 overview bar and tab strips apart from the theme, as a terminal profile does.
-Follow Theme, the default, uses the theme's light or dark colors. A named
-scheme keeps its colors through every theme change, including a system
-appearance change; menus, dialogs and other controls keep following the
-theme. A change applies at once.
+Follow theme, the default, uses the theme's light or dark colors. Light and
+Dark use those colors whatever the theme, so the log views can be dark in
+light chrome and the reverse. A named scheme keeps its colors through every
+theme change, including a system appearance change; menus, dialogs and other
+controls keep following the theme. A change applies at once.
 
 | Scheme | Colors |
 |---|---|
+| Light | Navy on white |
+| Dark | Light gray-blue on navy |
 | Sandstone | Gray-blue on cream |
 | Nightwater | Gray-blue on dark teal |
 | Garden Light | Charcoal on light gray |
@@ -434,13 +437,14 @@ theme. A change applies at once.
 | Phosphor | Green on black |
 | Graphite | Gray on black |
 
-Text in every bundled scheme reaches a contrast of 4.5:1 on each row color,
+Text in every listed scheme reaches a contrast of 4.5:1 on each row color,
 the match highlight and the default color labels.
 
 To add a scheme, put a file named `<id>.properties` in the `colors` folder of
 the settings directory ([Command line](#command-line)); QLogg reads the folder
 at start and lists the schemes after the bundled ones. `<id>` is letters,
-digits, `-` and `_`. The file sets `dark=true` or `dark=false`, which picks
+digits, `-` and `_`, and is not `follow`, `light`, `dark` or a bundled
+scheme's id. The file sets `dark=true` or `dark=false`, which picks
 the color label variants, an optional `name=` shown in the list, and each of
 these keys as `#rrggbb`:
 

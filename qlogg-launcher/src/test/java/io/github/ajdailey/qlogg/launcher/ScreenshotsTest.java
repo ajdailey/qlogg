@@ -95,8 +95,8 @@ class ScreenshotsTest {
   // View colors.
 
   /**
-   * Writes {@code qlogg-light-chrome-nightwater.png} and {@code qlogg-dark-chrome-sandstone.png} to
-   * {@code -Dqlogg.screenshots.colors=<dir>}.
+   * Writes {@code qlogg-light-chrome-nightwater.png}, {@code qlogg-dark-chrome-sandstone.png} and
+   * {@code qlogg-light-chrome-dark.png} to {@code -Dqlogg.screenshots.colors=<dir>}.
    */
   @Test
   @EnabledIfSystemProperty(named = "qlogg.screenshots.colors", matches = ".+")
@@ -106,6 +106,7 @@ class ScreenshotsTest {
     List<FileRequest> files = List.of(new FileRequest(mockLog(temp.resolve("service.log")), 0));
     shoot(files, ThemeMode.LIGHT, "nightwater", out.resolve("qlogg-light-chrome-nightwater.png"));
     shoot(files, ThemeMode.DARK, "sandstone", out.resolve("qlogg-dark-chrome-sandstone.png"));
+    shoot(files, ThemeMode.LIGHT, "dark", out.resolve("qlogg-light-chrome-dark.png"));
   }
 
   private static boolean dark(ThemeMode theme, String colors) {

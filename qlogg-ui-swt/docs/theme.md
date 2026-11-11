@@ -8,7 +8,8 @@ images. Module overview: [../README.md](../README.md).
 ## Palette
 
 The palette comes from `ApplicationController.theme()`: the theme's, or the
-`view.colors` scheme's. A change recolors both log views, the overview bar, the
+`view.colors` scheme's; the `light` and `dark` schemes hold the theme palettes,
+so the log views can take either side in either chrome. A change recolors both log views, the overview bar, the
 tab strips and the tab dots at once: each view disposes its `PaletteColors` and
 creates them from the new palette. Native widgets (menus, scroll bars, fields,
 buttons) take `ui.theme` alone from `Display.setDarkThemePreferred`, applied per

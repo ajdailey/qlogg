@@ -7,14 +7,23 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The color schemes {@code view.colors} names: the bundled ones, then the user's. Immutable.
+ * The color schemes {@code view.colors} names: Light, Dark, the bundled ones, then the user's.
+ * Immutable.
  *
  * <p>Each bundled scheme starts from a published terminal palette or a plain pair, with each color
  * moved toward black or white only as far as the contrast floors in {@code ColorSchemesTest} need.
  */
 public final class ColorSchemes {
   /** The {@code view.colors} value that keeps the theme's palette. */
-  public static final String FOLLOW_THEME = "theme";
+  public static final String FOLLOW_THEME = "follow";
+
+  /** {@link Palette#LIGHT} whatever the theme. */
+  public static final ColorScheme LIGHT =
+      new ColorScheme("light", UiText.VIEW_COLORS_LIGHT.text(), Palette.LIGHT);
+
+  /** {@link Palette#DARK} whatever the theme. */
+  public static final ColorScheme DARK =
+      new ColorScheme("dark", UiText.VIEW_COLORS_DARK.text(), Palette.DARK);
 
   /** The bundled schemes, in list order. */
   public static final List<ColorScheme> BUNDLED =
@@ -245,7 +254,7 @@ public final class ColorSchemes {
               0x35c4b0,
               0x3f3f3f));
 
-  /** The bundled schemes alone. */
+  /** Light, Dark and the bundled schemes. */
   public static final ColorSchemes NONE = new ColorSchemes(List.<ColorScheme>of());
 
   private final List<ColorScheme> all;
@@ -256,7 +265,10 @@ public final class ColorSchemes {
    * @param user the user's schemes; none may take a {@link #reserved} id
    */
   public ColorSchemes(List<ColorScheme> user) {
-    List<ColorScheme> list = new ArrayList<ColorScheme>(BUNDLED);
+    List<ColorScheme> list = new ArrayList<ColorScheme>();
+    list.add(LIGHT);
+    list.add(DARK);
+    list.addAll(BUNDLED);
     for (ColorScheme scheme : user) {
       if (reserved(scheme.id())) {
         throw new IllegalArgumentException("scheme id is reserved");
@@ -270,10 +282,10 @@ public final class ColorSchemes {
    * Reports whether a user scheme cannot take an id.
    *
    * @param id the id
-   * @return true for {@link #FOLLOW_THEME} and the bundled ids
+   * @return true for {@link #FOLLOW_THEME}, {@link #LIGHT}, {@link #DARK} and the bundled ids
    */
   public static boolean reserved(String id) {
-    if (FOLLOW_THEME.equals(id)) {
+    if (FOLLOW_THEME.equals(id) || LIGHT.id().equals(id) || DARK.id().equals(id)) {
       return true;
     }
     for (ColorScheme scheme : BUNDLED) {
@@ -287,7 +299,7 @@ public final class ColorSchemes {
   /**
    * Returns the schemes.
    *
-   * @return the bundled schemes, then the user's
+   * @return {@link #LIGHT}, {@link #DARK}, the bundled schemes, then the user's
    */
   public List<ColorScheme> all() {
     return all;

@@ -111,7 +111,8 @@ resolves `ui.theme` (`ThemeMode`) against `ThemeService.systemDark()`, and
 
 | `view.colors` | Palette | Native controls |
 |---|---|---|
-| `theme` (Follow Theme), or an id that names no scheme | `LIGHT` or `DARK` from `ui.theme`; `SYSTEM` follows the service's change events | Follow `ui.theme` |
+| `follow` (Follow theme), or an id that names no scheme | `LIGHT` or `DARK` from `ui.theme`; `SYSTEM` follows the service's change events | Follow `ui.theme` |
+| `light`, `dark` | `LIGHT`, `DARK`, through every theme and system change | Follow `ui.theme` |
 | A scheme id | The scheme's, through every theme and system change | Follow `ui.theme` |
 
 Each mode change, and each system change in `SYSTEM`, calls
@@ -126,10 +127,10 @@ saves `view.colors` through `setViewOptions`, which calls
 
 ### Color schemes
 
-`ColorSchemes.BUNDLED` holds nine schemes, each a complete `Palette`. The
-user's schemes from `SchemeStore` follow them ([Settings](settings.md#color-scheme-files)).
-`ColorSchemesTest` holds every bundled scheme, `LIGHT` and `DARK` to these
-contrast floors:
+`ColorSchemes.all()` lists `LIGHT` and `DARK` as Light and Dark, then the nine
+schemes of `ColorSchemes.BUNDLED`, each a complete `Palette`, then the user's
+schemes from `SchemeStore` ([Settings](settings.md#color-scheme-files)).
+`ColorSchemesTest` holds every listed scheme to these contrast floors:
 
 | Color | On | Floor |
 |---|---|---|
@@ -142,7 +143,8 @@ contrast floors:
 | `overviewFrame` | `overview` | 3 |
 | Tab dots, `spreadPause`, `spreadActivity` | `overview`, `gutter`, `background` | 3 |
 
-Each bundled scheme starts from a published terminal palette or a plain pair.
+`LIGHT` and `DARK` start from a navy (`#1b2e44`) and white pair; each bundled
+scheme starts from a published terminal palette or a plain pair.
 A color below its floor moves toward black or white only as far as the floor
 needs. The text moves against `background`, `currentLine` and `gutter`; the
 other row colors move against the text.

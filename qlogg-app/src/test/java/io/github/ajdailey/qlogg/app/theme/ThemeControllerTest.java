@@ -113,7 +113,9 @@ class ThemeControllerTest {
 
   @Test
   void everyThemeAndColorsSettingResolves() {
-    String[] settings = {ColorSchemes.FOLLOW_THEME, "paper", "nightwater", "absent"};
+    String[] settings = {
+      ColorSchemes.FOLLOW_THEME, "light", "dark", "paper", "nightwater", "absent", "theme"
+    };
     for (ThemeMode mode : ThemeMode.values()) {
       for (boolean dark : new boolean[] {false, true}) {
         for (String colors : settings) {
@@ -158,6 +160,27 @@ class ThemeControllerTest {
     assertEquals(List.of(Palette.DARK, nightwater), seen);
     assertEquals(List.of(true, false, true), system.preferred);
     assertEquals("nightwater", theme.colors());
+  }
+
+  // Light and Dark view colors.
+
+  @Test
+  void lightAndDarkPinTheirPaletteInEitherChrome() {
+    FakeSystem system = new FakeSystem();
+    ThemeController theme = new ThemeController(system, ThemeMode.LIGHT, ColorSchemes.NONE, "dark");
+    theme.setMode(ThemeMode.LIGHT);
+    assertSame(Palette.DARK, theme.palette());
+    theme.setColors("light");
+    assertSame(Palette.LIGHT, theme.palette());
+    theme.setMode(ThemeMode.DARK);
+    assertSame(Palette.LIGHT, theme.palette());
+    theme.setColors("dark");
+    assertSame(Palette.DARK, theme.palette());
+    theme.setColors(ColorSchemes.FOLLOW_THEME);
+    assertSame(Palette.DARK, theme.palette());
+    theme.setMode(ThemeMode.LIGHT);
+    assertSame(Palette.LIGHT, theme.palette());
+    assertEquals(List.of(false, true, false), system.preferred);
   }
 
   @Test

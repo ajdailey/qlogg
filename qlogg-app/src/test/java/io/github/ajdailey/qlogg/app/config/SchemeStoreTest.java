@@ -114,7 +114,7 @@ class SchemeStoreTest {
   void noFolderLeavesTheBundledSchemes() {
     SchemeStore store = new SchemeStore(location());
     store.load();
-    assertEquals(ColorSchemes.BUNDLED, store.schemes().all());
+    assertEquals(ColorSchemes.NONE.all(), store.schemes().all());
     assertEquals(List.of(), warnings);
   }
 
@@ -126,8 +126,8 @@ class SchemeStoreTest {
     SchemeStore store = new SchemeStore(location());
     store.load();
     List<ColorScheme> all = store.schemes().all();
-    assertEquals(ColorSchemes.BUNDLED.size() + 2, all.size());
-    ColorScheme first = all.get(ColorSchemes.BUNDLED.size());
+    assertEquals(ColorSchemes.NONE.all().size() + 2, all.size());
+    ColorScheme first = all.get(ColorSchemes.NONE.all().size());
     assertEquals("mock-a", first.id());
     assertEquals("mock-a", first.name());
     assertEquals(Palette.DARK, first.palette());
@@ -142,7 +142,9 @@ class SchemeStoreTest {
     write("bad-color.properties", full.replace("text=#", "text=#zz"));
     write("bad-dark.properties", full.replace("dark=true", "dark=maybe"));
     write("paper.properties", full);
-    write("theme.properties", full);
+    write("follow.properties", full);
+    write("light.properties", full);
+    write("dark.properties", full);
     write("bad.id.properties", full);
     write("too-long.properties", full + "#" + "x".repeat(SchemeStore.MAX_BYTES) + "\n");
     write("bad-escape.properties", full + "name=\\u00zz\n");
@@ -150,10 +152,12 @@ class SchemeStoreTest {
     write("good.properties", full);
     SchemeStore store = new SchemeStore(location());
     store.load();
-    assertEquals(ColorSchemes.BUNDLED.size() + 1, store.schemes().all().size());
+    assertEquals(ColorSchemes.NONE.all().size() + 1, store.schemes().all().size());
     assertEquals("good", store.schemes().find("good").id());
-    assertEquals(9, warnings.size(), warnings.toString());
+    assertEquals(11, warnings.size(), warnings.toString());
     assertSame(ColorSchemes.BUNDLED.get(5).palette(), store.schemes().find("paper").palette());
+    assertSame(Palette.LIGHT, store.schemes().find("light").palette());
+    assertSame(Palette.DARK, store.schemes().find("dark").palette());
   }
 
   @Test
@@ -176,6 +180,10 @@ class SchemeStoreTest {
     String text = Files.readString(temp.resolve("qlogg.conf"), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("view.colors=nightwater\n"), text);
     assertEquals("nightwater", new ConfigStore(location()).load().view().colors());
+    for (String id : new String[] {"light", "dark", "theme"}) {
+      assertTrue(config.save(saved.withView(saved.view().withColors(id))));
+      assertEquals(id, new ConfigStore(location()).load().view().colors());
+    }
     assertTrue(config.save(Preferences.DEFAULTS));
     assertEquals(ColorSchemes.FOLLOW_THEME, new ConfigStore(location()).load().view().colors());
     Files.writeString(

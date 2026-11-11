@@ -59,67 +59,67 @@ public record Palette(
     Rgb spreadActivity,
     // View colors.
     Rgb labelGray) {
-  /** The default palette. */
+  /** The default palette: navy {@code #1b2e44} text on white. */
   public static final Palette LIGHT =
       new Palette(
           false,
-          Rgb.of(0x1e1e1e),
+          Rgb.of(0x1b2e44),
           Rgb.of(0xffffff),
-          Rgb.of(0x3874d8),
-          Rgb.of(0xffffff),
-          Rgb.of(0xeef3fb),
-          Rgb.of(0x8a8a8a),
-          Rgb.of(0xf3f3f3),
-          Rgb.of(0xffe680),
-          Rgb.of(0xc9e7ff),
-          Rgb.of(0xf7f7f7),
-          Rgb.of(0xe0301e),
-          Rgb.of(0x1e8ae0),
-          Rgb.of(0xf3f3f3),
-          Rgb.of(0x8a8a8a),
+          Rgb.of(0xbfe6f8),
+          Rgb.of(0x1b2e44),
+          Rgb.of(0xf1f6fa),
+          Rgb.of(0x6e7f91),
+          Rgb.of(0xf3f5f8),
+          Rgb.of(0xfdebc8),
+          Rgb.of(0xd6e4f2),
+          Rgb.of(0xf7f9fb),
+          Rgb.of(0xc0281f),
+          Rgb.of(0x0a6a96),
+          Rgb.of(0xf3f5f8),
+          Rgb.of(0x6e7f91),
           // Tab data dot.
-          Rgb.of(0x2e9e44),
-          Rgb.of(0xe8590c),
+          Rgb.of(0x3a9d5d),
+          Rgb.of(0xa8410e),
           // Context lines.
-          Rgb.of(0xebebeb),
+          Rgb.of(0xebeff4),
           // Keyword triggers.
-          Rgb.of(0x8e44ad),
+          Rgb.of(0x8338a0),
           // Time spread.
-          Rgb.of(0xc77700),
-          Rgb.of(0x00897b),
+          Rgb.of(0xa86d0c),
+          Rgb.of(0x18736a),
           // View colors.
-          Rgb.of(0xc8c8c8));
+          Rgb.of(0xbfc9d3));
 
-  /** The dark palette. */
+  /** The dark palette: {@code #dce6f0} text on navy {@code #1b2e44}. */
   public static final Palette DARK =
       new Palette(
           true,
-          Rgb.of(0xd4d4d4),
-          Rgb.of(0x1e1e1e),
-          Rgb.of(0x264f78),
+          Rgb.of(0xdce6f0),
+          Rgb.of(0x1b2e44),
+          Rgb.of(0x2f5f88),
           Rgb.of(0xffffff),
-          Rgb.of(0x2a2d2e),
-          Rgb.of(0x858585),
-          Rgb.of(0x252526),
-          Rgb.of(0x695c1a),
+          Rgb.of(0x223a54),
+          Rgb.of(0x8095aa),
+          Rgb.of(0x162638),
+          Rgb.of(0x463818),
           Rgb.of(0x1f4a6b),
-          Rgb.of(0x252526),
-          Rgb.of(0xf14c4c),
-          Rgb.of(0x3794ff),
-          Rgb.of(0x252526),
-          Rgb.of(0x858585),
+          Rgb.of(0x1f3349),
+          Rgb.of(0xff8a80),
+          Rgb.of(0x56c1f0),
+          Rgb.of(0x162638),
+          Rgb.of(0x8095aa),
           // Tab data dot.
-          Rgb.of(0x4ec26a),
-          Rgb.of(0xff7b3a),
+          Rgb.of(0x6cc58a),
+          Rgb.of(0xff8f5a),
           // Context lines.
-          Rgb.of(0x2f2f30),
+          Rgb.of(0x20344c),
           // Keyword triggers.
-          Rgb.of(0xc27ae0),
+          Rgb.of(0xdcaaf2),
           // Time spread.
-          Rgb.of(0xf0a030),
-          Rgb.of(0x35c4b0),
+          Rgb.of(0xe0a84e),
+          Rgb.of(0x7fd8c5),
           // View colors.
-          Rgb.of(0x4a4a4a));
+          Rgb.of(0x40597a));
 
   // View colors.
 

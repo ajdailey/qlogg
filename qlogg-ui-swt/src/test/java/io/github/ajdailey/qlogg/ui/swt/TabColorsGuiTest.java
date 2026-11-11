@@ -279,6 +279,8 @@ class TabColorsGuiTest {
     checkScheme("light-chrome-then-paper", "paper");
     setColors("graphite");
     checkScheme("light-chrome-then-graphite", "graphite");
+    setColors("dark");
+    checkScheme("light-chrome-then-dark", "dark");
     setColors(ColorSchemes.FOLLOW_THEME);
     check("light-chrome-then-theme", false);
     assertSame(Palette.LIGHT, window.canvas().palette());
@@ -293,6 +295,9 @@ class TabColorsGuiTest {
     checkScheme("dark-chrome-then-midnight", "midnight");
     setColors("legal-pad");
     checkScheme("dark-chrome-then-legal-pad", "legal-pad");
+    setColors("light");
+    checkScheme("dark-chrome-then-light", "light");
+    setColors("legal-pad");
     controller.setTheme(ThemeMode.LIGHT);
     settle();
     checkScheme("light-chrome-keeps-legal-pad", "legal-pad");
@@ -304,7 +309,7 @@ class TabColorsGuiTest {
     settle();
   }
 
-  /** Checks both strips, the main view and the filtered view against a bundled scheme. */
+  /** Checks both strips, the main view and the filtered view against a listed scheme. */
   private void checkScheme(String step, String id) throws Exception {
     Palette palette = ColorSchemes.NONE.find(id).palette();
     assertSame(palette, window.canvas().palette(), step);

@@ -613,7 +613,7 @@ final class OptionsDialog {
 
   // View colors.
 
-  /** Lists Follow Theme, then every scheme; an id naming no scheme stays listed by its id. */
+  /** Lists Follow theme, then every scheme; an id naming no scheme stays listed by its id. */
   private void viewColors(Composite page) {
     new Label(page, SWT.NONE).setText(UiText.OPTIONS_VIEW_COLORS.text());
     viewColors = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);

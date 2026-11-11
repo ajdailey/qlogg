@@ -1219,7 +1219,13 @@ public enum UiText {
 
   // Dropped folders.
   /** Notice: a drop held folders, which are not opened. */
-  NOTICE_FOLDERS_NOT_OPENED;
+  NOTICE_FOLDERS_NOT_OPENED,
+
+  // Light and Dark view colors.
+  /** View colors choice: the light palette whatever the theme. */
+  VIEW_COLORS_LIGHT,
+  /** View colors choice: the dark palette whatever the theme. */
+  VIEW_COLORS_DARK;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 
