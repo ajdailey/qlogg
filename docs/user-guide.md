@@ -413,6 +413,49 @@ when you change it, and where only the title bar, scroll bars, menu bar and
 lists turn dark. On Linux the GTK theme must have a dark variant. On macOS
 controls follow the system appearance and the theme recolors the log views.
 
+### View colors
+
+Tools > Options, View, View colors picks the colors of the log views, gutter,
+overview bar and tab strips apart from the theme, as a terminal profile does.
+Follow Theme, the default, uses the theme's light or dark colors. A named
+scheme keeps its colors through every theme change, including a system
+appearance change; menus, dialogs and other controls keep following the
+theme. A change applies at once.
+
+| Scheme | Colors |
+|---|---|
+| Sandstone | Gray-blue on cream |
+| Nightwater | Gray-blue on dark teal |
+| Garden Light | Charcoal on light gray |
+| Garden Dark | Light gray on charcoal |
+| Legal Pad | Black on light yellow |
+| Paper | Black on white |
+| Midnight | White on black |
+| Phosphor | Green on black |
+| Graphite | Gray on black |
+
+Text in every bundled scheme reaches a contrast of 4.5:1 on each row color,
+the match highlight and the default color labels.
+
+To add a scheme, put a file named `<id>.properties` in the `colors` folder of
+the settings directory ([Command line](#command-line)); QLogg reads the folder
+at start and lists the schemes after the bundled ones. `<id>` is letters,
+digits, `-` and `_`. The file sets `dark=true` or `dark=false`, which picks
+the color label variants, an optional `name=` shown in the list, and each of
+these keys as `#rrggbb`:
+
+| Keys | Colors |
+|---|---|
+| `text`, `background`, `currentLine`, `contextRow`, `resultRow` | Line text, the view, the caret's line, context lines, filtered rows |
+| `selection`, `selectionText` | Selected text |
+| `match`, `mark`, `labelGray` | Search match, marked line, the gray color label |
+| `gutter`, `lineNumbers`, `matchMarker`, `markMarker` | Gutter, its numbers and bullets; also the tab strip background |
+| `overview`, `overviewFrame`, `spreadPause`, `spreadActivity` | Overview bar and its time spread |
+| `newLinesDot`, `newMatchesDot`, `followStoppedDot` | Tab dots; `followStoppedDot` also marks time running backward |
+
+A file with a missing or invalid value is skipped, and the log records one
+warning naming it.
+
 ## Scratchpad
 
 Tools > Scratchpad holds text tabs. `Ctrl+Z` in a log view appends the
@@ -469,7 +512,7 @@ Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 | Tab | Settings |
 |---|---|
 | General | Restore the last session, recent file count, search history size, search after add, quick find options, follow options |
-| View | Font family and size, bold, anti-aliasing |
+| View | Font family and size, bold, anti-aliasing, [view colors](#view-colors) |
 | File | Default encoding, change notifications and the check interval |
 | Shortcuts | Rebind any command; keys another command holds are refused; restore defaults |
 | Advanced | Stop a search after a number of matches; Keep file closed ([Following a growing file](#following-a-growing-file)) |

@@ -24,6 +24,8 @@ final class ViewFile {
   static final String SELECTOR_KEY = "highlight.selector.";
   // Time spread.
   static final String TIME_SPREAD_KEY = "view.timeSpread";
+  // View colors.
+  static final String COLORS_KEY = "view.colors";
 
   /** Most continuation patterns read. */
   static final int MAX_CONTINUATION = 64;
@@ -78,7 +80,9 @@ final class ViewFile {
         flag(properties, ANSI_KEY, defaults.hideAnsi()),
         folds,
         selectors,
-        spread(properties, defaults.timeSpread()));
+        spread(properties, defaults.timeSpread()),
+        // View colors.
+        colors(properties, defaults.colors()));
   }
 
   /**
@@ -92,6 +96,8 @@ final class ViewFile {
     properties.setProperty(WHITESPACE_KEY, Boolean.toString(view.showWhitespace()));
     properties.setProperty(ANSI_KEY, Boolean.toString(view.hideAnsi()));
     properties.setProperty(TIME_SPREAD_KEY, view.timeSpread().id());
+    // View colors.
+    properties.setProperty(COLORS_KEY, view.colors());
     properties.setProperty(FOLD_START_KEY, view.folds().entryStart());
     List<String> continuation = view.folds().continuation();
     for (int i = 0; i < continuation.size() && i < MAX_CONTINUATION; i++) {
@@ -117,6 +123,22 @@ final class ViewFile {
       return fallback;
     }
     return mode;
+  }
+
+  // View colors.
+
+  /** Returns a scheme id; one that could not name a scheme file falls back with one WARN. */
+  private static String colors(Properties properties, String fallback) {
+    String value = properties.getProperty(COLORS_KEY);
+    if (value == null) {
+      return fallback;
+    }
+    String id = value.strip();
+    if (!SchemeStore.validId(id)) {
+      LOG.warn("Ignoring an invalid {}", LogText.oneLine(COLORS_KEY));
+      return fallback;
+    }
+    return id;
   }
 
   private static boolean flag(Properties properties, String key, boolean fallback) {

@@ -133,7 +133,7 @@ class HighlightSetsEditorTest {
     assertEquals(UiText.HIGHLIGHTERS_NEW_RULE.text(), added.pattern());
     assertEquals(MatchMode.REGEX, added.mode());
     assertEquals(HighlightSetsEditor.NEW_RULE_BACKGROUND, added.background());
-    assertNull(added.foreground());
+    assertEquals(HighlightSetsEditor.NEW_RULE_FOREGROUND, added.foreground());
     for (int i = 2; i < HighlightSet.MAX_RULES; i++) {
       assertEquals(i, editor.addRule(0));
     }

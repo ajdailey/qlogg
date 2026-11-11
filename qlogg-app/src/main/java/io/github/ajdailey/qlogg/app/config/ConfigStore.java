@@ -69,6 +69,8 @@ public final class ConfigStore {
   // Session and remembered positions.
   private final SessionStore sessions;
   private final PositionStore positions;
+  // View colors.
+  private final SchemeStore schemes;
 
   /**
    * Creates the store; nothing is read until {@link #load}.
@@ -79,6 +81,8 @@ public final class ConfigStore {
     this.location = location;
     this.sessions = new SessionStore(location);
     this.positions = new PositionStore(location);
+    // View colors.
+    this.schemes = new SchemeStore(location);
   }
 
   // Session and remembered positions.
@@ -99,6 +103,17 @@ public final class ConfigStore {
    */
   public PositionStore positions() {
     return positions;
+  }
+
+  // View colors.
+
+  /**
+   * Returns the user's color schemes in the same directory, none until {@link SchemeStore#load}.
+   *
+   * @return the scheme store
+   */
+  public SchemeStore schemes() {
+    return schemes;
   }
 
   /**

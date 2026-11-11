@@ -14,6 +14,8 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.theme.ColorScheme;
+import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
@@ -41,6 +43,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -87,6 +90,27 @@ class ScreenshotsTest {
         Files.deleteIfExists(file.path());
       }
     }
+  }
+
+  // View colors.
+
+  /**
+   * Writes {@code qlogg-light-chrome-nightwater.png} and {@code qlogg-dark-chrome-sandstone.png} to
+   * {@code -Dqlogg.screenshots.colors=<dir>}.
+   */
+  @Test
+  @EnabledIfSystemProperty(named = "qlogg.screenshots.colors", matches = ".+")
+  void viewColorsInTheOtherChrome() throws Exception {
+    Path out = Files.createDirectories(Path.of(System.getProperty("qlogg.screenshots.colors")));
+    Files.createDirectories(temp.resolve("settings"));
+    List<FileRequest> files = List.of(new FileRequest(mockLog(temp.resolve("service.log")), 0));
+    shoot(files, ThemeMode.LIGHT, "nightwater", out.resolve("qlogg-light-chrome-nightwater.png"));
+    shoot(files, ThemeMode.DARK, "sandstone", out.resolve("qlogg-dark-chrome-sandstone.png"));
+  }
+
+  private static boolean dark(ThemeMode theme, String colors) {
+    ColorScheme scheme = ColorSchemes.NONE.find(colors);
+    return scheme == null ? theme == ThemeMode.DARK : scheme.palette().dark();
   }
 
   private static Path mockLog(Path file) throws IOException {
@@ -140,6 +164,11 @@ class ScreenshotsTest {
   }
 
   private void shoot(List<FileRequest> files, ThemeMode theme, final Path png) throws Exception {
+    shoot(files, theme, ColorSchemes.FOLLOW_THEME, png);
+  }
+
+  private void shoot(List<FileRequest> files, ThemeMode theme, final String colors, final Path png)
+      throws Exception {
     StartupRequest request =
         new StartupRequest(files, false, SessionMode.DEFAULT, WIDTH, HEIGHT, 0, 0, null, true);
     final boolean[] saved = new boolean[1];
@@ -184,7 +213,7 @@ class ScreenshotsTest {
                       document.select(Selection.caretAt(new TextPosition(180, 0)));
                       step[0] = 20;
                     } else {
-                      save(window, png);
+                      save(window, png, !ColorSchemes.FOLLOW_THEME.equals(colors));
                       saved[0] = true;
                       controller.shutdown();
                       return;
@@ -196,7 +225,10 @@ class ScreenshotsTest {
         };
     PrintStream err = new PrintStream(System.err, true, StandardCharsets.UTF_8);
     Preferences preferences =
-        Preferences.DEFAULTS.withTheme(theme).withHighlights(highlights(theme == ThemeMode.DARK));
+        Preferences.DEFAULTS
+            .withTheme(theme)
+            .withView(Preferences.DEFAULTS.view().withColors(colors))
+            .withHighlights(highlights(dark(theme, colors)));
     assertEquals(
         0,
         new Gui(
@@ -211,16 +243,26 @@ class ScreenshotsTest {
   }
 
   /** Paints the shell into an image through the public print API and writes a PNG. */
-  private static void save(MainWindow window, Path png) {
+  private static void save(MainWindow window, Path png, boolean screen) {
     Display display = window.shell().getDisplay();
     while (display.readAndDispatch()) {
       // Flush pending paints so the image shows the latest rows.
     }
     Point size = window.shell().getSize();
+    if (screen) {
+      // Shell.print draws GTK native controls light under a dark theme; the screen shows them.
+      Rectangle area = window.shell().getClientArea();
+      size = new Point(area.width, area.height);
+    }
     Image image = new Image(display, size.x, size.y);
-    GC gc = new GC(image);
+    GC gc = screen ? new GC(display) : new GC(image);
     try {
-      window.shell().print(gc);
+      if (screen) {
+        Point origin = window.shell().toDisplay(0, 0);
+        gc.copyArea(image, origin.x, origin.y);
+      } else {
+        window.shell().print(gc);
+      }
       ImageData data = image.getImageData();
       ImageLoader loader = new ImageLoader();
       loader.data = new ImageData[] {data};

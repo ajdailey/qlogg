@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
@@ -9,6 +10,8 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
+import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
@@ -44,7 +47,9 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -53,9 +58,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The tab strip's screen pixels across theme changes, under Xvfb, with focus outside and inside the
- * folder: each tab is readable and the strip follows the theme. With {@code -Dqlogg.qc.shots=<dir>}
- * each step also writes the window as a PNG. Skipped on GTK 4. Where a screen read does not show
- * the windows, win32 reads through {@code Control.print} and other platforms fail.
+ * folder: each tab is readable and the strip follows the palette, which a fixed color scheme sets
+ * apart from the theme; the log views' background matches the scheme. With {@code
+ * -Dqlogg.qc.shots=<dir>} each step also writes the window as a PNG. Skipped on GTK 4. Where a
+ * screen read does not show the windows, win32 reads through {@code Control.print} and other
+ * platforms fail.
  */
 @Tag("swt")
 class TabColorsGuiTest {
@@ -80,6 +87,10 @@ class TabColorsGuiTest {
   private boolean screenShowsWindows;
 
   private void open(ThemeMode mode) throws Exception {
+    open(mode, ColorSchemes.FOLLOW_THEME);
+  }
+
+  private void open(ThemeMode mode, String colors) throws Exception {
     assumeFalse(Gtk4.active(), Gtk4.NO_SCREEN_READ);
     display = new Display();
     final SwtThemeService system = SwtThemeService.open(display, mode);
@@ -110,7 +121,9 @@ class TabColorsGuiTest {
             window,
             services,
             new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, temp)),
-            Preferences.DEFAULTS.withTheme(mode),
+            Preferences.DEFAULTS
+                .withTheme(mode)
+                .withView(Preferences.DEFAULTS.view().withColors(colors)),
             new ThemeService() {
               @Override
               public boolean systemDark() {
@@ -254,6 +267,79 @@ class TabColorsGuiTest {
     assertTrue(faults.isEmpty(), faults.toString());
   }
 
+  // View colors.
+
+  @Test
+  void aDarkSchemeInLightChromeAndALiveSwitchBothWays() throws Exception {
+    open(ThemeMode.LIGHT, "nightwater");
+    checkScheme("light-chrome-nightwater", "nightwater");
+    setColors("paper");
+    checkScheme("light-chrome-then-paper", "paper");
+    setColors("graphite");
+    checkScheme("light-chrome-then-graphite", "graphite");
+    setColors(ColorSchemes.FOLLOW_THEME);
+    check("light-chrome-then-theme", false);
+    assertSame(Palette.LIGHT, window.canvas().palette());
+    assertTrue(faults.isEmpty(), faults.toString());
+  }
+
+  @Test
+  void aLightSchemeInDarkChromeAndALiveSwitchBothWays() throws Exception {
+    open(ThemeMode.DARK, "sandstone");
+    checkScheme("dark-chrome-sandstone", "sandstone");
+    setColors("midnight");
+    checkScheme("dark-chrome-then-midnight", "midnight");
+    setColors("legal-pad");
+    checkScheme("dark-chrome-then-legal-pad", "legal-pad");
+    controller.setTheme(ThemeMode.LIGHT);
+    settle();
+    checkScheme("light-chrome-keeps-legal-pad", "legal-pad");
+    assertTrue(faults.isEmpty(), faults.toString());
+  }
+
+  private void setColors(String id) {
+    controller.setViewOptions(controller.preferences().view().withColors(id));
+    settle();
+  }
+
+  /** Checks both strips, the main view and the filtered view against a bundled scheme. */
+  private void checkScheme(String step, String id) throws Exception {
+    Palette palette = ColorSchemes.NONE.find(id).palette();
+    assertSame(palette, window.canvas().palette(), step);
+    assertSame(palette, window.results().canvas().palette(), step);
+    check(step, palette.dark());
+    inspectView(step + "-main", window.canvas().control(), palette);
+    inspectView(step + "-filtered", window.results().canvas().control(), palette);
+  }
+
+  /** Reads the view's lower right corner, below the text, which shows the scheme background. */
+  private void inspectView(String step, Canvas view, Palette palette) throws Exception {
+    view.redraw();
+    view.update();
+    settle();
+    Rectangle size = view.getClientArea();
+    int x = size.width - 24;
+    int y = size.height - 8;
+    ImageData data;
+    if (screenShowsWindows) {
+      Point at = view.toDisplay(x, y);
+      data = capture(new Rectangle(at.x, at.y, 1, 1));
+      x = 0;
+      y = 0;
+    } else {
+      data = print(view);
+    }
+    RGB seen = data.palette.getRGB(data.getPixel(x, y));
+    RGB expected =
+        new RGB(
+            palette.background().red(), palette.background().green(), palette.background().blue());
+    if (Math.abs(seen.red - expected.red) > 2
+        || Math.abs(seen.green - expected.green) > 2
+        || Math.abs(seen.blue - expected.blue) > 2) {
+      faults.add(step + ": background " + seen + ", expected " + expected);
+    }
+  }
+
   /** Runs the event loop for a fixed turn: nothing signals that GTK finished restyling. */
   private void settle() {
     final long end = System.nanoTime() + Duration.ofMillis(500).toNanos();
@@ -314,13 +400,13 @@ class TabColorsGuiTest {
     loader.save(Path.of(shots, name + ".png").toString(), SWT.IMAGE_PNG);
   }
 
-  /** Reads a covered folder's pixels on win32, where they equal the screen's (measured). */
-  private ImageData print(CTabFolder tabs) {
-    Rectangle size = tabs.getBounds();
+  /** Reads a covered control's pixels on win32, where they equal the screen's (measured). */
+  private ImageData print(Control control) {
+    Rectangle size = control.getBounds();
     Image image = new Image(display, size.width, size.height);
     GC gc = new GC(image);
     try {
-      assertTrue(tabs.print(gc), "print");
+      assertTrue(control.print(gc), "print");
       return image.getImageData();
     } finally {
       gc.dispose();

@@ -103,19 +103,54 @@ another.
 
 ## Palette and theme
 
-`Palette` holds the log view, gutter bullet, overview bar and time-spread
-colors as `Rgb` values (`LIGHT`, `DARK`). `ThemeController` resolves
-`ThemeMode` against `ThemeService.systemDark()` and pushes a new palette to
-`PaletteListener`s. `SYSTEM` follows the service's change events. Each mode
-change, and each system change in `SYSTEM`, also calls
-`ThemeService.preferDark` so native controls match the palette.
+`Palette` holds the log view, gutter bullet, overview bar, time-spread and
+gray color label colors as `Rgb` values (`LIGHT`, `DARK`). `ThemeController`
+resolves `ui.theme` (`ThemeMode`) against `ThemeService.systemDark()`, and
+`view.colors` against `ColorSchemes`, and pushes a new palette to
+`PaletteListener`s:
+
+| `view.colors` | Palette | Native controls |
+|---|---|---|
+| `theme` (Follow Theme), or an id that names no scheme | `LIGHT` or `DARK` from `ui.theme`; `SYSTEM` follows the service's change events | Follow `ui.theme` |
+| A scheme id | The scheme's, through every theme and system change | Follow `ui.theme` |
+
+Each mode change, and each system change in `SYSTEM`, calls
+`ThemeService.preferDark` with the theme's side, never the scheme's.
 
 `ApplicationController.theme()` is the `ThemeController`. The View menu's theme
 items call `setTheme`, which saves `ui.theme`. When `ThemeController.setMode`
 reports that native controls show the theme only from the next start (Windows),
-`setTheme` shows `THEME_RESTART_MESSAGE` through `showInfo`.
+`setTheme` shows `THEME_RESTART_MESSAGE` through `showInfo`. Tools > Options
+saves `view.colors` through `setViewOptions`, which calls
+`ThemeController.setColors`.
+
+### Color schemes
+
+`ColorSchemes.BUNDLED` holds nine schemes, each a complete `Palette`. The
+user's schemes from `SchemeStore` follow them ([Settings](settings.md#color-scheme-files)).
+`ColorSchemesTest` holds every bundled scheme, `LIGHT` and `DARK` to these
+contrast floors:
+
+| Color | On | Floor |
+|---|---|---|
+| `text` | `background`, `currentLine`, `gutter`, `match`, `mark`, `resultRow`, `contextRow`, `labelGray` | 4.5 |
+| `selectionText` | `selection` | 4.5 |
+| Default color label text, or `text` for the gray label | The label background | 4.5 |
+| `NEW_RULE_FOREGROUND` | `NEW_RULE_BACKGROUND` | 4.5 |
+| `lineNumbers` | `gutter` | 3 |
+| `matchMarker`, `markMarker` | `gutter`, `overview`, `currentLine` | 3 |
+| `overviewFrame` | `overview` | 3 |
+| Tab dots, `spreadPause`, `spreadActivity` | `overview`, `gutter`, `background` | 3 |
+
+Each bundled scheme starts from a published terminal palette or a plain pair.
+A color below its floor moves toward black or white only as far as the floor
+needs. The text moves against `background`, `currentLine` and `gutter`; the
+other row colors move against the text.
 
 A palette change recolors every tab's match highlight, whose default color is
-the palette's, and the color labels: on a dark palette a label still at its
-default colors paints with the dark default (`ColorLabel.forPalette`). Colors
-the user set, highlighter colors included, are never changed.
+the palette's, and the color labels (`ColorLabel.forPalette`): on a dark
+palette a label still at its default colors paints with the dark default, and
+the default gray label, which keeps the line text color, takes `labelGray`.
+Colors the user set, highlighter colors included, are never changed. A new
+highlighter rule is `NEW_RULE_FOREGROUND` on `NEW_RULE_BACKGROUND`, readable on
+every palette.

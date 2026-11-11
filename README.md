@@ -31,7 +31,7 @@ plugins.
 | Highlighting | Highlighter sets (regex or text, line or match, capture groups, opacity, variance), automatic set selection, color labels, match highlight, keyword triggers on appended lines | [Highlighters](docs/user-guide.md#highlighters-and-color-labels) |
 | Marks | Marks and mark comments, gutter bullets, Marks List | [Marks](docs/user-guide.md#marks-and-quick-find) |
 | Timestamps | Format detection and user formats, time zones, caret and selection times, offsets, Go to Time, Scroll All Tabs and Time Sync groups, time spread on the overview bar | [Timestamps](docs/user-guide.md#timestamps) |
-| Viewing | Line numbers, go to line and `+line:N`, Go Back and Go Forward over jumps, block selection, copy with line numbers, save of a selection or the filtered view, text wrap, whitespace and line-end markers, hidden ANSI colors, folding of multi-line entries, font zoom, light, dark and system themes | [Moving around](docs/user-guide.md#moving-around), [Selecting](docs/user-guide.md#selecting-copying-and-saving), [Folding](docs/user-guide.md#folding-multi-line-entries), [View options](docs/user-guide.md#view-options) |
+| Viewing | Line numbers, go to line and `+line:N`, Go Back and Go Forward over jumps, block selection, copy with line numbers, save of a selection or the filtered view, text wrap, whitespace and line-end markers, hidden ANSI colors, folding of multi-line entries, font zoom, light, dark and system themes, view color schemes apart from the theme, nine bundled and user scheme files | [Moving around](docs/user-guide.md#moving-around), [Selecting](docs/user-guide.md#selecting-copying-and-saving), [Folding](docs/user-guide.md#folding-multi-line-entries), [View options](docs/user-guide.md#view-options), [View colors](docs/user-guide.md#view-colors) |
 | Multiple files and windows | Movable, renamable tabs with a dot for new lines or matches, a tab menu and Switch to File; several main windows, tabs moved between them as they are | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
 | Sessions and settings | Session restore of tabs, marks, offsets and sync groups; remembered position, encoding and time format per file; remembered window state; Tools > Options with a shortcut editor | [Sessions](docs/user-guide.md#sessions-recent-files-and-favorites), [Options](docs/user-guide.md#options) |
 | Portable settings | Settings beside the installation when `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
@@ -223,6 +223,7 @@ An empty `qlogg.conf` in the installation directory selects portable mode.
 | `positions.conf` | Position, encoding override and timestamp choices of the last 500 files |
 | `instance.lock`, `instance.endpoint` | Single-instance lock and handoff endpoint |
 | `logs/` | Debug log files |
+| `colors/` | User color schemes, `<id>.properties` ([format](qlogg-app/docs/settings.md#color-scheme-files)) |
 | `cache/` | The user guide's copy; on Windows, the guide browser's data in `cache\webview2` |
 
 - In explicit and portable mode on Linux, `user.home` is the settings

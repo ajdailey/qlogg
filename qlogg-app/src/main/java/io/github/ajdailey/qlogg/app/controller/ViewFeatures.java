@@ -135,8 +135,8 @@ final class ViewFeatures {
   }
 
   /**
-   * Replaces the view settings and saves them; new selectors apply to files opened later, and new
-   * fold rules to the open files of every window.
+   * Replaces the view settings and saves them: new selectors apply to files opened later, new fold
+   * rules to the open files of every window, and a new color scheme to every window's views.
    *
    * @param options the settings
    */
@@ -149,6 +149,10 @@ final class ViewFeatures {
           open.setFoldRules(options.folds());
         }
       }
+    }
+    // View colors.
+    if (!options.colors().equals(current.view().colors())) {
+      application.theme().setColors(options.colors());
     }
   }
 

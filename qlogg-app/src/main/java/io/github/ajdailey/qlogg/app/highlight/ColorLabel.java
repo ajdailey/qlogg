@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.highlight;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,6 +67,29 @@ public record ColorLabel(String name, Rgb foreground, Rgb background, boolean cy
         label =
             new ColorLabel(
                 label.name(), color(DARK_COLORS[i][0]), Rgb.of(DARK_COLORS[i][1]), label.cycle());
+      }
+      painted.add(label);
+    }
+    return Collections.unmodifiableList(painted);
+  }
+
+  // View colors.
+
+  /**
+   * Returns the labels a palette paints with: {@link #forPalette(List, boolean)} for the palette's
+   * side, and a default label that keeps the text color takes {@link Palette#labelGray}.
+   *
+   * @param labels {@link #COUNT} labels from the settings
+   * @param palette the palette
+   * @return the labels to paint with
+   */
+  public static List<ColorLabel> forPalette(List<ColorLabel> labels, Palette palette) {
+    List<ColorLabel> sided = forPalette(labels, palette.dark());
+    List<ColorLabel> painted = new ArrayList<ColorLabel>(sided.size());
+    for (int i = 0; i < sided.size(); i++) {
+      ColorLabel label = sided.get(i);
+      if (i < COUNT && DEFAULT_COLORS[i][0] < 0 && hasColors(labels.get(i), DEFAULT_COLORS[i])) {
+        label = new ColorLabel(label.name(), null, palette.labelGray(), label.cycle());
       }
       painted.add(label);
     }

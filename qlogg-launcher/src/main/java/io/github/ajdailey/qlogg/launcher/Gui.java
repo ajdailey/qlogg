@@ -132,6 +132,8 @@ final class Gui {
       }
       Options options = preferences.options();
       config.positions().load();
+      // View colors.
+      config.schemes().load();
       boolean restore =
           request.session() == SessionMode.LOAD
               || (request.session() == SessionMode.DEFAULT
@@ -180,7 +182,11 @@ final class Gui {
             budget,
             options.defaultCharset());
     final SwtThemeService system = SwtThemeService.open(display, preferences.theme());
-    final Palette palette = ThemeController.resolve(preferences.theme(), system.systemDark());
+    final Palette palette =
+        ThemeController.resolve(
+            preferences.theme(),
+            system.systemDark(),
+            config.schemes().schemes().find(preferences.view().colors()));
     warmTimeZone(workers);
     // Per-process log pruning.
     if (server != null && logFiles instanceof FileLog fileLog && fileLog.attached()) {

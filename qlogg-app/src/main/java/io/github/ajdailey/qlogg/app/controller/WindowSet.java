@@ -138,7 +138,10 @@ public final class WindowSet {
     this.services = services;
     this.config = config;
     this.preferences = new AtomicReference<Preferences>(preferences);
-    this.theme = new ThemeController(system, preferences.theme());
+    // View colors.
+    this.theme =
+        new ThemeController(
+            system, preferences.theme(), config.schemes().schemes(), preferences.view().colors());
     this.monitor = new FileMonitor(workers, preferences.options().monitor());
     this.keymap = Keymap.defaults().withOverrides(preferences.options().shortcuts());
     theme.addListener(

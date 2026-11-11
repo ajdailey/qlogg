@@ -1,12 +1,13 @@
 package io.github.ajdailey.qlogg.app.theme;
 
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import java.util.List;
 
 /**
  * Colors of the log views. The views create their toolkit colors from it and recreate them when the
  * palette changes.
  *
- * @param dark true for a dark palette; selects the matching icon variant
+ * @param dark true for a dark palette; picks the default color label variants
  * @param text line text
  * @param background view background
  * @param selection selected text background
@@ -28,6 +29,7 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
  *     time-spread layer draws rows whose time runs backward in it
  * @param spreadPause overview bar shading of rows spanning more time than the average
  * @param spreadActivity overview bar shading of rows with more lines per second than the average
+ * @param labelGray background of a default color label that keeps the line text color
  */
 public record Palette(
     boolean dark,
@@ -54,7 +56,9 @@ public record Palette(
     Rgb followStoppedDot,
     // Time spread.
     Rgb spreadPause,
-    Rgb spreadActivity) {
+    Rgb spreadActivity,
+    // View colors.
+    Rgb labelGray) {
   /** The default palette. */
   public static final Palette LIGHT =
       new Palette(
@@ -82,7 +86,9 @@ public record Palette(
           Rgb.of(0x8e44ad),
           // Time spread.
           Rgb.of(0xc77700),
-          Rgb.of(0x00897b));
+          Rgb.of(0x00897b),
+          // View colors.
+          Rgb.of(0xc8c8c8));
 
   /** The dark palette. */
   public static final Palette DARK =
@@ -95,7 +101,7 @@ public record Palette(
           Rgb.of(0x2a2d2e),
           Rgb.of(0x858585),
           Rgb.of(0x252526),
-          Rgb.of(0x7a6a1e),
+          Rgb.of(0x695c1a),
           Rgb.of(0x1f4a6b),
           Rgb.of(0x252526),
           Rgb.of(0xf14c4c),
@@ -111,5 +117,51 @@ public record Palette(
           Rgb.of(0xc27ae0),
           // Time spread.
           Rgb.of(0xf0a030),
-          Rgb.of(0x35c4b0));
+          Rgb.of(0x35c4b0),
+          // View colors.
+          Rgb.of(0x4a4a4a));
+
+  // View colors.
+
+  /** The color components' names, in component order; a scheme file's keys. */
+  public static final List<String> COLOR_NAMES =
+      List.of(
+          "text",
+          "background",
+          "selection",
+          "selectionText",
+          "currentLine",
+          "lineNumbers",
+          "gutter",
+          "match",
+          "mark",
+          "resultRow",
+          "matchMarker",
+          "markMarker",
+          "overview",
+          "overviewFrame",
+          "newLinesDot",
+          "newMatchesDot",
+          "contextRow",
+          "followStoppedDot",
+          "spreadPause",
+          "spreadActivity",
+          "labelGray");
+
+  /**
+   * Creates a palette from its colors in component order.
+   *
+   * @param dark true for a dark palette
+   * @param colors one color per {@link #COLOR_NAMES} entry
+   * @return the palette
+   */
+  public static Palette of(boolean dark, Rgb... colors) {
+    if (colors.length != COLOR_NAMES.size()) {
+      throw new IllegalArgumentException("one color per component is required");
+    }
+    Rgb[] c = colors;
+    return new Palette(
+        dark, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12],
+        c[13], c[14], c[15], c[16], c[17], c[18], c[19], c[20]);
+  }
 }

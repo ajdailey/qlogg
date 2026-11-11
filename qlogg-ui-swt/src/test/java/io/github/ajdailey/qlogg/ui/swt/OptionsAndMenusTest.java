@@ -19,6 +19,9 @@ import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
+import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -43,6 +46,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -427,5 +431,26 @@ class OptionsAndMenusTest {
       gc.dispose();
       image.dispose();
     }
+  }
+
+  // View colors.
+
+  @Test
+  void theViewTabListsTheSchemesAndAppliesOneLive() {
+    OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    dialog.open();
+    Combo colors = dialog.viewColors();
+    assertEquals(ColorSchemes.BUNDLED.size() + 1, colors.getItemCount());
+    assertEquals(UiText.VIEW_COLORS_THEME.text(), colors.getItem(0));
+    assertEquals(0, colors.getSelectionIndex());
+    colors.select(colors.indexOf(ColorSchemes.NONE.find("phosphor").name()));
+    assertTrue(dialog.apply());
+    Palette phosphor = ColorSchemes.NONE.find("phosphor").palette();
+    assertEquals("phosphor", controller.preferences().view().colors());
+    assertSame(phosphor, window.palette());
+    colors.select(0);
+    assertTrue(dialog.apply());
+    assertSame(Palette.LIGHT, window.palette());
+    dialog.shell().dispose();
   }
 }

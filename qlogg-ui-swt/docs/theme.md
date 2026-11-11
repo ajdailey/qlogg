@@ -7,11 +7,18 @@ images. Module overview: [../README.md](../README.md).
 
 ## Palette
 
-The palette comes from `ApplicationController.theme()`. A change recolors both
-log views and the overview bar at once: each disposes its `PaletteColors` and
+The palette comes from `ApplicationController.theme()`: the theme's, or the
+`view.colors` scheme's. A change recolors both log views, the overview bar, the
+tab strips and the tab dots at once: each view disposes its `PaletteColors` and
 creates them from the new palette. Native widgets (menus, scroll bars, fields,
-buttons) take the theme from `Display.setDarkThemePreferred`, applied per
-platform as below.
+buttons) take `ui.theme` alone from `Display.setDarkThemePreferred`, applied per
+platform as below, so a light scheme can sit in dark chrome and the reverse.
+
+| Surface | Colors from |
+|---|---|
+| `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips | The palette |
+| Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
+| `CocoaChrome` shell and list colors | The system appearance; skips `PALETTE_COLORED` folders |
 
 ## Native widget theme
 
@@ -44,8 +51,8 @@ reads them once, so an uncolored strip keeps them through a theme change
   elsewhere the selected tab has the strip's background and keeps the
   selection foreground. That foreground is therefore `text`, not
   `selectionText`.
-- On cocoa and win32 the strips follow `ui.theme` while native controls do
-  not.
+- The strips follow the palette, not `ui.theme`: a fixed scheme keeps them
+  through a theme change.
 - `colorTabs` sets `CocoaChrome.PALETTE_COLORED`, and `CocoaChrome` leaves such
   a folder alone: an appearance change does not change the palette, so nothing
   would restore the colors it wrote.

@@ -109,6 +109,57 @@ class ThemeControllerTest {
     assertFalse(theme.setMode(ThemeMode.LIGHT));
   }
 
+  // View colors.
+
+  @Test
+  void everyThemeAndColorsSettingResolves() {
+    String[] settings = {ColorSchemes.FOLLOW_THEME, "paper", "nightwater", "absent"};
+    for (ThemeMode mode : ThemeMode.values()) {
+      for (boolean dark : new boolean[] {false, true}) {
+        for (String colors : settings) {
+          FakeSystem system = new FakeSystem();
+          system.dark = dark;
+          ThemeController theme = new ThemeController(system, mode, ColorSchemes.NONE, colors);
+          ColorScheme scheme = ColorSchemes.NONE.find(colors);
+          Palette themed = ThemeController.resolve(mode, dark);
+          String step = mode + " system dark " + dark + " colors " + colors;
+          assertSame(scheme == null ? themed : scheme.palette(), theme.palette(), step);
+          theme.setMode(mode);
+          assertEquals(List.of(themed.dark()), system.preferred, step);
+        }
+      }
+    }
+  }
+
+  @Test
+  void aSystemChangeWithAFixedSchemeMovesOnlyTheNativeControls() {
+    FakeSystem system = new FakeSystem();
+    ThemeController theme =
+        new ThemeController(system, ThemeMode.SYSTEM, ColorSchemes.NONE, "paper");
+    final List<Palette> seen = new ArrayList<Palette>();
+    theme.addListener(
+        new PaletteListener() {
+          @Override
+          public void paletteChanged(Palette palette) {
+            seen.add(palette);
+          }
+        });
+    Palette paper = ColorSchemes.NONE.find("paper").palette();
+    assertSame(paper, theme.palette());
+    system.flip(true);
+    assertSame(paper, theme.palette());
+    assertEquals(List.of(), seen);
+    assertEquals(List.of(true), system.preferred);
+    theme.setColors(ColorSchemes.FOLLOW_THEME);
+    theme.setColors("nightwater");
+    system.flip(false);
+    theme.setMode(ThemeMode.DARK);
+    Palette nightwater = ColorSchemes.NONE.find("nightwater").palette();
+    assertEquals(List.of(Palette.DARK, nightwater), seen);
+    assertEquals(List.of(true, false, true), system.preferred);
+    assertEquals("nightwater", theme.colors());
+  }
+
   @Test
   void themeRoundTripsInPortableMode() throws Exception {
     Files.writeString(temp.resolve(SettingsLocation.MARKER), "", StandardCharsets.ISO_8859_1);

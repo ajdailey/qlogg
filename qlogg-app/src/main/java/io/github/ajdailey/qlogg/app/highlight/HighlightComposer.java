@@ -72,7 +72,7 @@ public final class HighlightComposer {
     if (match != null) {
       rules.add(match);
     }
-    rules.addAll(labels.rules(ColorLabel.forPalette(settings.labels(), palette.dark())));
+    rules.addAll(labels.rules(ColorLabel.forPalette(settings.labels(), palette)));
     return rules;
   }
 

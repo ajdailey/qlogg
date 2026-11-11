@@ -1189,7 +1189,33 @@ public enum UiText {
   /** Command palette filter field hint. */
   PALETTE_FILTER,
   /** Command palette column: the menu a command sits in. */
-  PALETTE_MENU;
+  PALETTE_MENU,
+
+  // View colors.
+  /** Options label: the log views' color scheme. */
+  OPTIONS_VIEW_COLORS,
+  /** View colors choice: the theme's palette. */
+  VIEW_COLORS_THEME,
+  /** Bundled color scheme. */
+  VIEW_COLORS_SANDSTONE,
+  /** Bundled color scheme. */
+  VIEW_COLORS_NIGHTWATER,
+  /** Bundled color scheme. */
+  VIEW_COLORS_GARDEN_LIGHT,
+  /** Bundled color scheme. */
+  VIEW_COLORS_GARDEN_DARK,
+  /** Bundled color scheme. */
+  VIEW_COLORS_LEGAL_PAD,
+  /** Bundled color scheme. */
+  VIEW_COLORS_PAPER,
+  /** Bundled color scheme. */
+  VIEW_COLORS_MIDNIGHT,
+  /** Bundled color scheme. */
+  VIEW_COLORS_PHOSPHOR,
+  /** Bundled color scheme. */
+  VIEW_COLORS_GRAPHITE,
+  /** Options note: where user schemes are read. */
+  OPTIONS_VIEW_COLORS_NOTE;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

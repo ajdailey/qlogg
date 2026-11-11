@@ -1,8 +1,8 @@
 # Settings
 
-The settings directory, `qlogg.conf` and the position and session stores in
-`app.config` of [qlogg-app](../README.md). The directory modes are in the root
-`README.md`; the settings saves are in [Windows and
+The settings directory, `qlogg.conf`, the color scheme files and the position
+and session stores in `app.config` of [qlogg-app](../README.md). The directory
+modes are in the root `README.md`; the settings saves are in [Windows and
 tabs](windows-and-tabs.md#settings-saves).
 
 ## Settings directory
@@ -45,7 +45,7 @@ range falls back to its default.
 |---|---|---|
 | `Preferences` fields | `ui.theme` (`ThemeMode`), search history and size, `search.maxResults`, `search.runOnAdd`, quick find options, `view.splitPercent`, `view.overview`, predefined filters | `ConfigStore` |
 | `HighlightSettings` | `highlight.*`, `label.*`, `matchHighlight.*` | `HighlightFile` |
-| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread` | `ViewFile` |
+| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file` | `OptionsFile` |
 | `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `dialog.*` | `OptionsFile` |
@@ -68,6 +68,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Save Splitter Position |
 | `view.overview` | `true`, `false` | `true` | View > Overview Bar |
 | `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
+| `view.colors` | `theme`, a bundled scheme id, or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. An id that names no scheme follows the theme and stays saved | `theme` | Tools > Options, View |
 | `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files |
 | `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll |
 | `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Options, Advanced |
@@ -99,6 +100,24 @@ continuation patterns and at least one pattern in all are allowed.
 | `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
 | `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |
 | `time.format.N.name`, `.locate`, `.pattern` | A user timestamp format: a name, a regex whose group `ts` holds the time, a `DateTimeFormatter` pattern; at most 32 | none | View > Timestamps > Edit Formats |
+
+## Color scheme files
+
+`SchemeStore.load` reads `<id>.properties` files in the `colors` folder of the
+settings directory; the launcher calls it before the Display exists. The
+schemes follow the bundled ones in `ColorSchemes.all()`, in file name order.
+
+| Key | Value |
+|---|---|
+| `dark` | `true` or `false`: the palette's side, which picks the default color label variants |
+| `name` | The name in Tools > Options; blank, or holding a control character, shows the id; cut at 64 chars |
+| Each `Palette.COLOR_NAMES` entry | `#rrggbb` |
+
+Other keys are ignored. A file is skipped with one WARN naming it when its id
+is not 1 to 64 letters, digits, `-` and `_`, or is `theme` or a bundled id;
+when it is not a regular file (links are not followed), is over 64 KiB or does
+not parse; or when `dark` or a color is missing or invalid. At most 64 files
+are read. Values are never logged.
 
 ## Position and session stores
 

@@ -15,6 +15,8 @@ import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
+import io.github.ajdailey.qlogg.app.theme.ColorScheme;
+import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -85,6 +87,9 @@ final class OptionsDialog {
   private Text foldStart;
   private Text foldContinuation;
   private Label foldError;
+  // View colors.
+  private Combo viewColors;
+  private final List<String> colorIds = new ArrayList<String>();
 
   OptionsDialog(Shell parent, ApplicationController controller) {
     this.controller = controller;
@@ -213,6 +218,8 @@ final class OptionsDialog {
             initialFont.effectiveSize(platformSize));
     bold = check(page, UiText.OPTIONS_FONT_BOLD, initialFont.bold());
     antialias = check(page, UiText.OPTIONS_FONT_ANTIALIAS, initialFont.antialias());
+    // View colors.
+    viewColors(page);
   }
 
   private void file(Composite page, Options options) {
@@ -600,6 +607,43 @@ final class OptionsDialog {
             .preferences()
             .withRunSearchOnAdd(runOnAdd.getSelection())
             .withMaxResults(maxResults.getSelection()));
+    // View colors.
+    applyViewColors();
+  }
+
+  // View colors.
+
+  /** Lists Follow Theme, then every scheme; an id naming no scheme stays listed by its id. */
+  private void viewColors(Composite page) {
+    new Label(page, SWT.NONE).setText(UiText.OPTIONS_VIEW_COLORS.text());
+    viewColors = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
+    viewColors.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+    String current = controller.preferences().view().colors();
+    colorIds.add(ColorSchemes.FOLLOW_THEME);
+    viewColors.add(UiText.VIEW_COLORS_THEME.text());
+    for (ColorScheme scheme : controller.theme().schemes().all()) {
+      colorIds.add(scheme.id());
+      viewColors.add(scheme.name());
+    }
+    if (!colorIds.contains(current)) {
+      colorIds.add(current);
+      viewColors.add(current);
+    }
+    viewColors.select(colorIds.indexOf(current));
+    note(page, UiText.OPTIONS_VIEW_COLORS_NOTE);
+  }
+
+  /** Hands a changed color scheme to the controller. */
+  private void applyViewColors() {
+    int index = viewColors.getSelectionIndex();
+    ViewOptions view = controller.preferences().view();
+    if (index >= 0 && !colorIds.get(index).equals(view.colors())) {
+      controller.setViewOptions(view.withColors(colorIds.get(index)));
+    }
+  }
+
+  Combo viewColors() {
+    return viewColors;
   }
 
   void open() {

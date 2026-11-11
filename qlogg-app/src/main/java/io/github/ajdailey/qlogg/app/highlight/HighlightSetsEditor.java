@@ -22,6 +22,10 @@ public final class HighlightSetsEditor {
   /** Background of a new rule. */
   public static final Rgb NEW_RULE_BACKGROUND = Rgb.of(0xffe680);
 
+  // View colors.
+  /** Text of a new rule: dark on {@link #NEW_RULE_BACKGROUND} under every scheme. */
+  public static final Rgb NEW_RULE_FOREGROUND = Rgb.of(0x1e1e1e);
+
   private final List<HighlightSet> sets;
   private final List<String> active;
 
@@ -112,7 +116,7 @@ public final class HighlightSetsEditor {
 
   /**
    * Appends a match-only regex rule with the pattern {@link UiText#HIGHLIGHTERS_NEW_RULE} and
-   * {@link #NEW_RULE_BACKGROUND}.
+   * {@link #NEW_RULE_FOREGROUND} on {@link #NEW_RULE_BACKGROUND}.
    *
    * @param set the set's index
    * @return the rule's index; -1 at {@link HighlightSet#MAX_RULES} or when the set index is out of
@@ -125,7 +129,10 @@ public final class HighlightSetsEditor {
     List<HighlightRule> rules = new ArrayList<HighlightRule>(sets.get(set).rules());
     rules.add(
         HighlightRule.matchOnly(
-            UiText.HIGHLIGHTERS_NEW_RULE.text(), MatchMode.REGEX, null, NEW_RULE_BACKGROUND));
+            UiText.HIGHLIGHTERS_NEW_RULE.text(),
+            MatchMode.REGEX,
+            NEW_RULE_FOREGROUND,
+            NEW_RULE_BACKGROUND));
     replaceRules(set, rules);
     return rules.size() - 1;
   }
