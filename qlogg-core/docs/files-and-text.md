@@ -40,7 +40,10 @@ collection, and on Windows a live mapping blocks the writer's truncation.
 `AtomicFiles.write` puts the content in a temporary file in the target's
 directory (POSIX `rw-------`), then moves it over the target with
 `ATOMIC_MOVE`. On failure the target is unchanged and the temporary file is
-deleted. Nothing goes to `java.io.tmpdir`.
+deleted. Nothing goes to `java.io.tmpdir`. Where POSIX permissions do not exist
+(Windows), a move that throws a `FileSystemException` is tried up to 10 times,
+25 ms apart: a target another process holds open without delete sharing
+refuses the move for that moment. Any other `IOException` throws at once.
 
 - `write(Path, InputStream)` streams the content through a 64 KiB buffer.
 - `writeOwnerOnly`, for a secret, also replaces the temporary file's ACL with

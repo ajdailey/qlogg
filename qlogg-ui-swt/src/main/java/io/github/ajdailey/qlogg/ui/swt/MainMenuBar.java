@@ -163,7 +163,7 @@ final class MainMenuBar {
                 nested(target, MenuTable.nestedCascade(command)),
                 radio ? SWT.RADIO : command.check() ? SWT.CHECK : SWT.PUSH);
         item.setData(command);
-        String keys = keymap.keysText(command, mac);
+        String keys = keymap.menuKeyText(command, mac);
         item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
         KeyStroke accelerator = keymap.accelerator(command);
         if (accelerator != null) {

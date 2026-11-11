@@ -218,11 +218,13 @@ final class HelpController {
   }
 
   /**
-   * Writes the user guide to the cache folder on a worker, then shows it in a browser window, else
-   * in the application the system opens HTML with, else names the file in a notice.
+   * Writes the user guide to the cache folder on a worker, then shows it in a browser window where
+   * {@link WindowSet#embeddedGuide} allows one, else in the application the system opens HTML with,
+   * else names the file in a notice.
    */
   void showGuide() {
     final Path settings = set.config().location().directory();
+    final boolean embedded = set.embeddedGuide();
     start(
         "User guide not shown",
         new Runnable() {
@@ -247,7 +249,7 @@ final class HelpController {
                   public void run() {
                     if (guide == null) {
                       view.showNotice(notice);
-                    } else if (!view.showGuide(guide)) {
+                    } else if (!embedded || !view.showGuide(guide)) {
                       showGuideElsewhere(guide);
                     }
                   }

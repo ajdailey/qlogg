@@ -8,8 +8,11 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.AclEntry;
 import java.nio.file.attribute.AclEntryPermission;
@@ -20,6 +23,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -37,6 +41,90 @@ class AtomicFilesTest {
       }
     }
     return names;
+  }
+
+  /** A move refused with access denied until {@code refusals} calls have failed. */
+  private static AtomicFiles.Move refused(final int refusals, final AtomicInteger calls) {
+    return new AtomicFiles.Move() {
+      @Override
+      public void run() throws IOException {
+        if (calls.incrementAndGet() <= refusals) {
+          throw new AccessDeniedException("target");
+        }
+      }
+    };
+  }
+
+  /** A move failing every time with the given exception. */
+  private static AtomicFiles.Move failing(final IOException failure, final AtomicInteger calls) {
+    return new AtomicFiles.Move() {
+      @Override
+      public void run() throws IOException {
+        calls.incrementAndGet();
+        throw failure;
+      }
+    };
+  }
+
+  @Test
+  void aRefusedMoveIsTriedAgain() throws IOException {
+    AtomicInteger calls = new AtomicInteger();
+    AtomicFiles.tryMove(refused(2, calls), 3);
+    assertEquals(3, calls.get());
+  }
+
+  @Test
+  void aSharingViolationIsTriedAgain() throws IOException {
+    final AtomicInteger calls = new AtomicInteger();
+    AtomicFiles.tryMove(
+        new AtomicFiles.Move() {
+          @Override
+          public void run() throws IOException {
+            if (calls.incrementAndGet() == 1) {
+              throw new FileSystemException("target", null, "used by another process");
+            }
+          }
+        },
+        2);
+    assertEquals(2, calls.get());
+  }
+
+  @Test
+  void aMoveRefusedEveryTimeThrowsAfterTheLastAttempt() {
+    final AtomicInteger calls = new AtomicInteger();
+    assertThrows(
+        AccessDeniedException.class,
+        new Executable() {
+          @Override
+          public void execute() throws IOException {
+            AtomicFiles.tryMove(refused(5, calls), 3);
+          }
+        });
+    assertEquals(3, calls.get());
+  }
+
+  @Test
+  void everyFileSystemExceptionIsTriedAgainAndOtherFailuresAreNot() {
+    final AtomicInteger missing = new AtomicInteger();
+    assertThrows(
+        NoSuchFileException.class,
+        new Executable() {
+          @Override
+          public void execute() throws IOException {
+            AtomicFiles.tryMove(failing(new NoSuchFileException("temp"), missing), 3);
+          }
+        });
+    assertEquals(3, missing.get());
+    final AtomicInteger disk = new AtomicInteger();
+    assertThrows(
+        IOException.class,
+        new Executable() {
+          @Override
+          public void execute() throws IOException {
+            AtomicFiles.tryMove(failing(new IOException("disk"), disk), 3);
+          }
+        });
+    assertEquals(1, disk.get());
   }
 
   @Test

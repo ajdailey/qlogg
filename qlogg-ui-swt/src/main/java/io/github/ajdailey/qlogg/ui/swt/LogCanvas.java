@@ -274,7 +274,7 @@ public final class LogCanvas {
         continue;
       }
       MenuItem item = new MenuItem(menu, SWT.PUSH);
-      String keys = keymap.keysText(command, mac);
+      String keys = keymap.menuKeyText(command, mac);
       item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
       item.setData(command);
       item.addListener(
@@ -398,7 +398,7 @@ public final class LogCanvas {
   }
 
   private String keymapText(CommandId command, boolean mac) {
-    return keymapRef.keysText(command, mac);
+    return keymapRef.menuKeyText(command, mac);
   }
 
   /**

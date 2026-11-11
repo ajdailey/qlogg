@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,6 +53,19 @@ class StoreFaultsTest {
   @Test
   void anUnknownSessionVersionIsIgnoredAndKept() throws Exception {
     assertIgnoredAndKept("version=2\nwindow.0.active=0\nwindow.0.tab.0.path=/mock/a.log\n");
+  }
+
+  /** Windows refuses a move over a directory with access denied; the next save still runs. */
+  @Test
+  void aRefusedSessionSaveLeavesSavingOn() throws Exception {
+    Path blocker = Files.createDirectory(temp.resolve(SessionStore.FILE));
+    Files.writeString(blocker.resolve("inside"), "x");
+    SessionStore store = new SessionStore(location());
+    assertFalse(store.save(Session.EMPTY));
+    Files.delete(blocker.resolve("inside"));
+    Files.delete(blocker);
+    assertTrue(store.save(Session.EMPTY));
+    assertTrue(Files.isRegularFile(temp.resolve(SessionStore.FILE)));
   }
 
   @Test

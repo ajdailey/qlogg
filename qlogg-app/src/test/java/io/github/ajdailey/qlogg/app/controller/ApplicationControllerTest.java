@@ -23,7 +23,6 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
-import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -274,9 +273,8 @@ class ApplicationControllerTest {
               }
             },
             BOUND));
-    // Threads end without posting to the UI queue, which runUntil waits on, so poll instead.
     assertTrue(
-        Poll.until(
+        ui.runUntil(
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {

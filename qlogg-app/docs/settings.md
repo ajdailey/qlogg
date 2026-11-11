@@ -29,7 +29,8 @@ the UI thread; the launcher loads before the Display exists.
 | No `version` key | Read as version 1 |
 | Unreadable, over 1 MiB, unparsable, or another `version` | Malformed: defaults, one WARN; the first save copies the file to `qlogg.conf.invalid`, then replaces it |
 | A value that does not parse (`ui.theme=purple`) | That setting's default, one WARN; the file is not malformed |
-| Directory read-only at load, or a save denied | Saving disabled, one WARN |
+| Directory read-only at load or at a failed save | Saving disabled, one WARN |
+| A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | That save returns false with one WARN; the next save runs |
 | `PER_USER` directory missing at save | Created owner-only through `SafePaths.settingsDirectory` |
 
 Saves write sorted keys with no date comment through `AtomicFiles`. Logs name

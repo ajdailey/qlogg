@@ -35,6 +35,7 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
+import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -326,6 +327,32 @@ class TabsTest {
               @Override
               public boolean getAsBoolean() {
                 return window.tabs().getItemCount() == 3;
+              }
+            }));
+  }
+
+  /** A drag gets Copy unless every dragged path is a folder, which gets no drop. */
+  @Test
+  void aDragOfFoldersOnlyGetsNoDrop() throws Exception {
+    final Path folder = Files.createDirectory(temp.resolve("folder"));
+    Path log = Files.writeString(temp.resolve("third.log"), "z\n");
+    assertEquals(DND.DROP_COPY, window.dropDetail());
+    window.checkDragged(new String[] {folder.toString()});
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return window.dropDetail() == DND.DROP_NONE;
+              }
+            }));
+    window.checkDragged(new String[] {folder.toString(), log.toString()});
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return window.dropDetail() == DND.DROP_COPY;
               }
             }));
   }

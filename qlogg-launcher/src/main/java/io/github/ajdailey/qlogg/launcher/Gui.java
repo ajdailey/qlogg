@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.launcher;
 
+import io.github.ajdailey.qlogg.app.about.UserGuide;
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.cli.SessionMode;
 import io.github.ajdailey.qlogg.app.cli.StartupRequest;
@@ -195,6 +196,8 @@ final class Gui {
     final SwtUiDispatcher ui = new SwtUiDispatcher(display);
     final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
     set.setLogging(LogConfigurator.RECENT, logFiles);
+    set.setEmbeddedGuide(
+        UserGuide.embedded(config.location().mode(), System.getProperty("os.name")));
     set.setFactory(
         new WindowSet.Factory() {
           @Override

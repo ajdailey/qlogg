@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -23,7 +24,10 @@ import java.util.Set;
  * Replaces a file in one step: the content goes to a temporary file in the target's directory,
  * owner-only where POSIX permissions exist, which then moves over the target with {@code
  * ATOMIC_MOVE}. A reader sees the old file or the new one, never a partial write. Nothing goes to
- * {@code java.io.tmpdir}.
+ * {@code java.io.tmpdir}. Where POSIX permissions do not exist (Windows), a move that throws a
+ * {@code FileSystemException} is tried up to {@value #MOVE_ATTEMPTS} times, {@value
+ * #MOVE_RETRY_MILLIS} ms apart: a target another process holds open without delete sharing refuses
+ * the move for that moment.
  */
 public final class AtomicFiles {
   private static final Set<PosixFilePermission> OWNER_FILE =
@@ -31,6 +35,22 @@ public final class AtomicFiles {
 
   /** Bytes read from a stream at a time. */
   private static final int COPY_BUFFER = 64 * 1024;
+
+  /** Tries of a refused move on a file system without POSIX permissions. */
+  static final int MOVE_ATTEMPTS = 10;
+
+  /** Milliseconds between tries of a refused move. */
+  static final long MOVE_RETRY_MILLIS = 25;
+
+  /** The step {@link #tryMove} repeats. */
+  interface Move {
+    /**
+     * Moves the file.
+     *
+     * @throws IOException when the move fails
+     */
+    void run() throws IOException;
+  }
 
   private AtomicFiles() {}
 
@@ -102,11 +122,53 @@ public final class AtomicFiles {
           }
         }
       }
-      Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      replace(temp, file);
       moved = true;
     } finally {
       if (!moved) {
         Files.deleteIfExists(temp);
+      }
+    }
+  }
+
+  private static void replace(final Path temp, final Path file) throws IOException {
+    boolean posix = temp.getFileSystem().supportedFileAttributeViews().contains("posix");
+    tryMove(
+        new Move() {
+          @Override
+          public void run() throws IOException {
+            Files.move(
+                temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+          }
+        },
+        posix ? 1 : MOVE_ATTEMPTS);
+  }
+
+  /**
+   * Runs a move, again after a {@code FileSystemException} until the attempts are used.
+   *
+   * @param move the move
+   * @param attempts the most tries
+   * @throws IOException the last refusal, or any other failure at once; an interrupt during the
+   *     wait ends the tries with the refusal and keeps the interrupt status
+   */
+  static void tryMove(Move move, int attempts) throws IOException {
+    int attempt = 1;
+    while (true) {
+      try {
+        move.run();
+        return;
+      } catch (FileSystemException e) {
+        if (attempt >= attempts) {
+          throw e;
+        }
+        attempt++;
+        try {
+          Thread.sleep(MOVE_RETRY_MILLIS);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw e;
+        }
       }
     }
   }

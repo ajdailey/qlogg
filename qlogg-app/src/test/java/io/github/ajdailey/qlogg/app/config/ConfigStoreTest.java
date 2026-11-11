@@ -203,6 +203,21 @@ class ConfigStoreTest {
     }
   }
 
+  /** Windows refuses a move over a directory with access denied; the next save still runs. */
+  @Test
+  void aRefusedSaveLeavesSavingOn() throws IOException {
+    Path dir = Files.createDirectory(temp.resolve("refused"));
+    Path blocker = Files.createDirectory(dir.resolve("qlogg.conf"));
+    Files.writeString(blocker.resolve("inside"), "x");
+    ConfigStore store = store(dir);
+    assertFalse(store.save(DARK));
+    assertFalse(store.saveDisabled());
+    Files.delete(blocker.resolve("inside"));
+    Files.delete(blocker);
+    assertTrue(store.save(DARK));
+    assertEquals(DARK, store(dir).load());
+  }
+
   @Test
   void aPerUserDirectoryIsCreatedOwnerOnlyOnSave() throws IOException {
     Path dir = temp.resolve("config").resolve("qlogg");

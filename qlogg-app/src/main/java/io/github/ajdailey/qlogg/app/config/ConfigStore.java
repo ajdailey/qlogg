@@ -13,7 +13,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -200,10 +199,9 @@ public final class ConfigStore {
       keepInvalid = false;
       AtomicFiles.write(file, format(preferences));
       return true;
-    } catch (AccessDeniedException e) {
-      disableSaving();
-      return false;
     } catch (IOException e) {
+      // A refused move says nothing about the directory: on Windows a file open elsewhere is
+      // refused too, and the next save can succeed.
       if (Files.isDirectory(location.directory()) && !Files.isWritable(location.directory())) {
         disableSaving();
       } else {

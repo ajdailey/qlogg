@@ -254,6 +254,24 @@ public final class Keymap {
   }
 
   /**
+   * Returns the key a menu item shows after its tab: the command's first single-stroke binding. GTK
+   * parses that text as one accelerator, so a list of keys shows a key of another command and a
+   * two-stroke sequence shows its second stroke alone.
+   *
+   * @param command the command
+   * @param mac true for macOS names
+   * @return the key, empty when the command has no single-stroke binding
+   */
+  public String menuKeyText(CommandId command, boolean mac) {
+    for (Binding binding : bindings) {
+      if (binding.command() == command && binding.second() == null) {
+        return binding.text(mac);
+      }
+    }
+    return "";
+  }
+
+  /**
    * Returns the shortcut reference as plain text: one line per command with keys, grouped by menu.
    *
    * @param mac true for macOS names

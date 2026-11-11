@@ -37,7 +37,9 @@ or by `closeUnclaimed`, never delivered.
 `open(files, follow)` runs `LogDocument.open` for each file on one
 `qlogg-index-` worker, in the order given. Each file opens a tab after the
 others and is shown, so the last one ends shown, at its `+line:N`. File > Open
-and `openDropped` (files dropped on the window) use the same path.
+and `openDropped` (files dropped on the window) use the same path;
+`openDropped` skips folders on the worker and then shows the notice "Folders
+are not opened".
 
 - A file already open shows its tab.
 - `LogDocument.path()` is the path as given, with symbolic links kept. It keys

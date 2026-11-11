@@ -1,8 +1,10 @@
 package io.github.ajdailey.qlogg.app.about;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -36,5 +38,14 @@ class UserGuidePageTest {
       assertTrue(ids.contains(target.group(1)), "#" + target.group(1));
     }
     assertTrue(links > 0, "the page has in-page links");
+  }
+
+  @Test
+  void linuxShowsTheGuideEmbeddedOnlyInPerUserMode() {
+    assertTrue(UserGuide.embedded(SettingsMode.PER_USER, "Linux"));
+    assertFalse(UserGuide.embedded(SettingsMode.PORTABLE, "Linux"));
+    assertFalse(UserGuide.embedded(SettingsMode.EXPLICIT, "Linux"));
+    assertTrue(UserGuide.embedded(SettingsMode.PORTABLE, "Windows 11"));
+    assertTrue(UserGuide.embedded(SettingsMode.EXPLICIT, "Mac OS X"));
   }
 }

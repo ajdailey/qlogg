@@ -47,6 +47,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -289,6 +290,22 @@ class OptionsAndMenusTest {
     return list;
   }
 
+  /** Returns the shortcut editor's list of the selected command's keys. */
+  private static org.eclipse.swt.widgets.List keyList(Composite parent) {
+    for (Control child : parent.getChildren()) {
+      if (child instanceof org.eclipse.swt.widgets.List list) {
+        return list;
+      }
+      if (child instanceof Composite composite) {
+        org.eclipse.swt.widgets.List found = keyList(composite);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
+  }
+
   @Test
   void theShortcutEditorRefusesTakenKeysAndAppliesFreeOnes() throws Exception {
     final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
@@ -309,15 +326,19 @@ class OptionsAndMenusTest {
     dialog.clearCaptured();
     dialog.record(KeyStroke.parse("Ctrl+Alt+R"));
     dialog.addCaptured();
+    // A menu shows a command's first key, so the default key goes and the new one comes first.
+    org.eclipse.swt.widgets.List keys = keyList(dialog.shell());
+    keys.setSelection(0);
+    dialog.removeSelected();
     dialog.folder().setSelection(3);
     shoot(dialog.shell(), "options-shortcuts.png");
     dialog.folder().setSelection(1);
     shoot(dialog.shell(), "options-view.png");
     dialog.apply();
     assertEquals(
-        "Ctrl+Alt+R", controller.keymap().bindingsFor(CommandId.RELOAD).get(1).text(false));
+        "Ctrl+Alt+R", controller.keymap().bindingsFor(CommandId.RELOAD).get(0).text(false));
     final String shown =
-        controller.keymap().bindingsFor(CommandId.RELOAD).get(1).text(SwtKeys.mac());
+        controller.keymap().bindingsFor(CommandId.RELOAD).get(0).text(SwtKeys.mac());
     assertTrue(
         runUntil(
             new BooleanSupplier() {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -225,6 +226,34 @@ class ThemeAndHighlightTest {
       assertEquals("win32".equals(SWT.getPlatform()), !service.showsNow(false));
     } finally {
       display.setDarkThemePreferred(false);
+    }
+  }
+
+  /**
+   * The test GTK theme has a dark variant, so the dark tests reach native chrome: a theme without
+   * one, or a named theme that is missing, keeps native controls light.
+   */
+  @Test
+  void theDarkSettingDarkensNativeControlsOnGtk() {
+    assumeTrue("gtk".equals(SWT.getPlatform()), "native dark chrome is GTK's");
+    Shell shell = new Shell(display);
+    try {
+      SwtThemeService.open(display, ThemeMode.DARK);
+      shell.open();
+      final long end = System.nanoTime() + Duration.ofMillis(500).toNanos();
+      EventLoop.runUntil(
+          display,
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return System.nanoTime() >= end;
+            }
+          },
+          Duration.ofSeconds(5));
+      assertTrue(ToolIcons.dark(shell.getBackground()), shell.getBackground().toString());
+    } finally {
+      SwtThemeService.open(display, ThemeMode.LIGHT);
+      shell.dispose();
     }
   }
 

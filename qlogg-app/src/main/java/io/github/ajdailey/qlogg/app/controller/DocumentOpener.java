@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -68,6 +69,9 @@ final class DocumentOpener {
 
     /** The session's last tab was handled; called after {@link #restoredActive}. */
     default void restoreFinished() {}
+
+    /** A drop held folders, which were not opened; called after the drop's files. */
+    default void foldersSkipped() {}
   }
 
   /**
@@ -138,6 +142,30 @@ final class DocumentOpener {
       final boolean follow,
       final boolean handed,
       final DocumentServices services) {
+    open(files, follow, handed, false, services);
+  }
+
+  /**
+   * Opens dropped paths as {@link #open} does, skipping folders on the worker; when it skips one,
+   * {@link OpenListener#foldersSkipped} follows.
+   *
+   * @param paths the dropped paths, in the order given
+   * @param services the services the documents open with
+   */
+  void openDropped(List<Path> paths, DocumentServices services) {
+    List<FileRequest> files = new ArrayList<FileRequest>();
+    for (Path path : paths) {
+      files.add(new FileRequest(path, 0));
+    }
+    open(files, false, false, true, services);
+  }
+
+  private void open(
+      List<FileRequest> files,
+      final boolean follow,
+      final boolean handed,
+      final boolean dropped,
+      final DocumentServices services) {
     if (closed || files.isEmpty()) {
       return;
     }
@@ -148,11 +176,25 @@ final class DocumentOpener {
             new Runnable() {
               @Override
               public void run() {
+                boolean skipped = false;
                 for (FileRequest request : requests) {
                   if (closed) {
                     break;
                   }
+                  if (dropped && Files.isDirectory(request.path())) {
+                    skipped = true;
+                    continue;
+                  }
                   load(request.path(), request.line(), follow, null, null, 0, 0, services, handed);
+                }
+                if (skipped) {
+                  post(
+                      new Runnable() {
+                        @Override
+                        public void run() {
+                          listener.foldersSkipped();
+                        }
+                      });
                 }
               }
             });

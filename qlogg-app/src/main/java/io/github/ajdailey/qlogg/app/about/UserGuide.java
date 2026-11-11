@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.about;
 
+import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import java.io.IOException;
@@ -22,6 +23,20 @@ public final class UserGuide {
   public static final String FILE = "guide.html";
 
   private UserGuide() {}
+
+  /**
+   * Reports whether Help > Documentation shows the copy in the embedded browser. On Linux in
+   * portable and {@code --settings} mode it does not: WebKitGTK and Mesa write their cache and data
+   * under the user's home, outside the settings directory, so the copy goes to the system's HTML
+   * application instead.
+   *
+   * @param mode the settings mode
+   * @param osName the {@code os.name} property
+   * @return false on Linux outside per-user mode
+   */
+  public static boolean embedded(SettingsMode mode, String osName) {
+    return mode == SettingsMode.PER_USER || !"Linux".equals(osName);
+  }
 
   /**
    * Reports whether the build includes the page.

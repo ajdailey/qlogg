@@ -19,6 +19,9 @@ import java.util.function.BooleanSupplier;
  * the next drain.
  */
 public final class ManualUiDispatcher implements UiDispatcher {
+  /** Longest wait in {@link #runUntil} between checks of the condition. */
+  static final long RECHECK_MILLIS = 10;
+
   private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
   private final UiThreadCheck uiThread = new UiThreadCheck();
   private final List<Runnable> heldTimers = new ArrayList<Runnable>();
@@ -154,7 +157,8 @@ public final class ManualUiDispatcher implements UiDispatcher {
   }
 
   /**
-   * Runs tasks as they arrive until the condition holds.
+   * Runs tasks as they arrive until the condition holds, checking it after each task and at least
+   * every {@link #RECHECK_MILLIS} ms, so a condition a worker sets ends the wait without a UI task.
    *
    * @param condition checked before each wait
    * @param bound the longest total wait
@@ -170,7 +174,9 @@ public final class ManualUiDispatcher implements UiDispatcher {
       if (left <= 0) {
         return false;
       }
-      Runnable task = queue.poll(left, TimeUnit.NANOSECONDS);
+      Runnable task =
+          queue.poll(
+              Math.min(left, TimeUnit.MILLISECONDS.toNanos(RECHECK_MILLIS)), TimeUnit.NANOSECONDS);
       if (task != null) {
         task.run();
       }

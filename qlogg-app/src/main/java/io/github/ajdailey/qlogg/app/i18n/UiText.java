@@ -1215,7 +1215,11 @@ public enum UiText {
   /** Bundled color scheme. */
   VIEW_COLORS_GRAPHITE,
   /** Options note: where user schemes are read. */
-  OPTIONS_VIEW_COLORS_NOTE;
+  OPTIONS_VIEW_COLORS_NOTE,
+
+  // Dropped folders.
+  /** Notice: a drop held folders, which are not opened. */
+  NOTICE_FOLDERS_NOT_OPENED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

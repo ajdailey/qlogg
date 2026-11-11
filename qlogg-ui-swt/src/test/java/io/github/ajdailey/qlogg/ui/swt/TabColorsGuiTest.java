@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
+import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
@@ -51,6 +52,7 @@ import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -338,6 +340,35 @@ class TabColorsGuiTest {
         || Math.abs(seen.blue - expected.blue) > 2) {
       faults.add(step + ": background " + seen + ", expected " + expected);
     }
+  }
+
+  /** About opened after a live switch either way is as large as its content wants. */
+  @Test
+  void aboutFitsItsTextAfterASwitchEachWay() throws Exception {
+    open(ThemeMode.SYSTEM);
+    boolean dark = controller.palette().equals(Palette.DARK);
+    controller.setTheme(dark ? ThemeMode.LIGHT : ThemeMode.DARK);
+    settle();
+    assertAboutFits();
+    controller.setTheme(dark ? ThemeMode.DARK : ThemeMode.LIGHT);
+    settle();
+    assertAboutFits();
+  }
+
+  private void assertAboutFits() {
+    controller.execute(CommandId.ABOUT);
+    settle();
+    Shell about = null;
+    for (Shell shell : display.getShells()) {
+      if (shell.getText().equals("About QLogg")) {
+        about = shell;
+      }
+    }
+    assertTrue(about != null, "no About window");
+    Point size = about.getSize();
+    Point wanted = about.computeSize(SWT.DEFAULT, SWT.DEFAULT, true);
+    about.dispose();
+    assertTrue(size.x >= wanted.x && size.y >= wanted.y, size + " < " + wanted);
   }
 
   /** Runs the event loop for a fixed turn: nothing signals that GTK finished restyling. */

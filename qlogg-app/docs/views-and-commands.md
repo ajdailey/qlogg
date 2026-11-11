@@ -97,9 +97,10 @@ is the client area plus the trim.
 
 `ManualUiDispatcher` (test sources, published in the test jar) queues
 submissions until a test runs them on its own thread. `runUntil` drives the
-queue to a condition with a bound, so controller tests need no sleeps. Draining
-from another thread throws. `confined(type, listener)` wraps a listener so a
-call off the UI thread is recorded, and the next drain throws it.
+queue to a condition with a bound, rechecking it at least every 10 ms, so
+controller tests need no sleeps. Draining from another thread throws.
+`confined(type, listener)` wraps a listener so a call off the UI thread is
+recorded, and the next drain throws it.
 
 ## Key bindings
 

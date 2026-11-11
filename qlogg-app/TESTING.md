@@ -7,8 +7,9 @@ Tests run without a display. Controller tests run over `FakeView` and
 
 - `ManualUiDispatcher` queues UI submissions until the test drains them on its
   own thread; `runUntil` drives the queue to a condition with a bound, so no
-  test sleeps. `holdTimers` holds `timerExec` waits until the test releases
-  them.
+  test sleeps. It checks the condition at least every 10 ms, so a condition a
+  worker sets ends the wait without a UI task. `holdTimers` holds `timerExec`
+  waits until the test releases them.
 - `FakeView` records any `MainView` call other than `setActive` and `setIdle`
   made off the test thread, and the teardown throws it, so a worker path that
   touches the view fails the test.
@@ -31,10 +32,10 @@ Tests run without a display. Controller tests run over `FakeView` and
 
 | Class | Covers |
 |---|---|
-| `WindowSetTest` | Two windows over one set: a save over a file open in the other window is refused; handed files open in the window activated last, which is raised; a handed file another window shows activates that tab at its line and then follows it, with no second tab; quit runs the quit listeners before the finish listeners and saves each window's tabs as its own `window.N`; closing one window keeps the other and drops its tabs from the session; search toggles used in one window seed the next document in either window; closing a window while it opens files, reloads or restores a session closes the document whose open finishes afterwards and skips the rest. Help items: Show Log and the warning marker, Debug Log File following the file (a failed attach stays unchecked), the folder items creating and opening their folders, Report an Issue copying the details before it opens the issue page, Documentation writing the guide's copy and then showing it, opening it or naming it in a notice, and a guide window failing later doing the same |
+| `WindowSetTest` | Two windows over one set: a save over a file open in the other window is refused; handed files open in the window activated last, which is raised; a handed file another window shows activates that tab at its line and then follows it, with no second tab; quit runs the quit listeners before the finish listeners and saves each window's tabs as its own `window.N`; closing one window keeps the other and drops its tabs from the session; search toggles used in one window seed the next document in either window; closing a window while it opens files, reloads or restores a session closes the document whose open finishes afterwards and skips the rest. Help items: Show Log and the warning marker, Debug Log File following the file (a failed attach stays unchecked), the folder items creating and opening their folders, Report an Issue copying the details before it opens the issue page, Documentation writing the guide's copy and then showing it, opening it or naming it in a notice, without the embedded guide opening it in the system application though the view has a browser, and a guide window failing later doing the same |
 | `TabMoveTest` | A moved tab keeps the same `LogDocument` and open file, line count, forced encoding, tab name, marks, follow, a collapsed fold, selection, top line, results, a kept set and the filtered view's visibility; copy reaches the new window's clipboard; the session is written with both windows before any UI task runs; insertion at the drop index with the source showing its next tab; refusal into a window showing the file and during a reload; the last tab moving with the new window at the drop point; a moved document surviving its source window's close, then closing once at quit; a tab's time offset moving with it; time sync across windows after a move |
 | `TabHostTest` | An activity reported before a move ends in its first window |
-| `TabCommandsTest` | The tab menu's close and rename commands, the path commands and the executable check, dropped files, open from clipboard (no file commands, the `PASTED` charge returned on close) |
+| `TabCommandsTest` | The tab menu's close and rename commands, the path commands and the executable check, dropped files, a dropped folder skipped with a notice, open from clipboard (no file commands, the `PASTED` charge returned on close) |
 | `TabDataModelTest` | Initial indexing and growth of the shown tab set no state; background growth sets `NEW_LINES` and showing clears it; matching growth wins over new lines and survives a reload; a search run in a background tab sets nothing; a background reload or truncation sets `NEW_LINES`; a closed tab reports no further change |
 | `TabTipsTest` | The tooltip over an empty path, each state, a sync group and a `&` |
 | `HelpControllerTest` | A Help result arriving after the window began closing is dropped; a folder that cannot be created shows a notice; a failed launch shows one |
@@ -53,8 +54,8 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `ReloadTest` | `F5` keeps marks, their comments and labels and drops marks and comments past the end; a change on disk clears them |
 | `RememberedStateTest` | Runs the application twice over one settings directory: comments past the session cap show one notice at the next start, and the next save clears their count; tabs, names, follow, marks, a mark comment, the active tab, the caret, the zoom, favorites, recent files, line numbers, the window state and a tab's time offset come back; `+line:N` wins over the remembered position; an encoding override reindexes and returns on the next open, and Auto clears it; a remembered encoding the runtime does not support logs one WARN naming it and opens with detection, a supported one logs none; an instance that did not load the session writes none; a closed tab listed in Recently Closed across runs, Open All reopening it at its remembered position and Clear emptying the list; Open All showing an open file, opening a closed one and naming a missing one in one notice |
 | `StateStoresTest` | Round-trips a tab's time offset and `syncGroup` and a file's timestamp format and zone; reads a malformed offset as 0 |
-| `ConfigStoreTest` | Round-trips the timestamp settings and drops a format that does not compile |
-| `StoreFaultsTest` | A malformed, oversized and unknown-version session file loads as no windows and is kept as `.invalid` on the next save; a remembered encoding the runtime lacks reads as detection |
+| `ConfigStoreTest` | Round-trips the timestamp settings and drops a format that does not compile; a save refused by a directory at the file's name leaves saving on, and the next save writes |
+| `StoreFaultsTest` | A malformed, oversized and unknown-version session file loads as no windows and is kept as `.invalid` on the next save; a remembered encoding the runtime lacks reads as detection; a refused session save leaves saving on |
 
 ## Marks, highlighting and triggers
 

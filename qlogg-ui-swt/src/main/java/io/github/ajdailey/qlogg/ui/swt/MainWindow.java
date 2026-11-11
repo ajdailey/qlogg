@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabFolder2Adapter;
@@ -200,6 +201,9 @@ public final class MainWindow implements MainView, ApplicationListener {
   private TabDots tabDots;
   private TabDataListener tabDataListener;
   private long noticeGeneration;
+  // Drop target: the drag counter and whether the current drag holds folders only.
+  private int drags;
+  private boolean dragFoldersOnly;
   private final LogCanvas.PrefixListener prefixListener =
       new LogCanvas.PrefixListener() {
         @Override
@@ -558,15 +562,75 @@ public final class MainWindow implements MainView, ApplicationListener {
         new DropTargetAdapter() {
           @Override
           public void dragEnter(DropTargetEvent event) {
-            if (event.detail == DND.DROP_DEFAULT || event.detail == DND.DROP_MOVE) {
-              event.detail = DND.DROP_COPY;
-            }
+            drags++;
+            dragFoldersOnly = false;
+            checkDragged(files, event);
+            event.detail = dropDetail();
+          }
+
+          @Override
+          public void dragOver(DropTargetEvent event) {
+            event.detail = dropDetail();
+          }
+
+          @Override
+          public void dragOperationChanged(DropTargetEvent event) {
+            event.detail = dropDetail();
           }
 
           @Override
           public void drop(DropTargetEvent event) {
             if (event.data instanceof String[] names) {
               dropped(names);
+            }
+          }
+        });
+  }
+
+  /**
+   * Returns the operation a drag over the window gets: Copy, so a modifier pressed during the drag
+   * never asks the source to move and delete the file; none while every dragged path is a folder.
+   */
+  int dropDetail() {
+    return dragFoldersOnly ? DND.DROP_NONE : DND.DROP_COPY;
+  }
+
+  /**
+   * Starts the folder check of a drag's paths when {@code FileTransfer} returns them during the
+   * drag; GTK SWT receives them only for the drop.
+   */
+  private void checkDragged(FileTransfer files, DropTargetEvent event) {
+    if (controller == null || !files.isSupportedType(event.currentDataType)) {
+      return;
+    }
+    Object data = files.nativeToJava(event.currentDataType);
+    if (data instanceof String[] names) {
+      checkDragged(names);
+    }
+  }
+
+  /**
+   * Checks dragged paths on a worker and records whether all are folders, for {@link #dropDetail}.
+   *
+   * @param names the dragged paths as the platform gives them
+   */
+  void checkDragged(String[] names) {
+    final int drag = drags;
+    List<Path> paths = new ArrayList<Path>();
+    for (String name : names) {
+      try {
+        paths.add(Path.of(name));
+      } catch (InvalidPathException e) {
+        return;
+      }
+    }
+    controller.checkDragged(
+        paths,
+        new Consumer<Boolean>() {
+          @Override
+          public void accept(Boolean foldersOnly) {
+            if (drag == drags) {
+              dragFoldersOnly = foldersOnly;
             }
           }
         });

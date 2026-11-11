@@ -28,10 +28,10 @@ Options, Shortcuts changes them.
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
 File > Open Recent or the Favorites menu, or on the command line. Each file
-opens in its own tab. The first lines show at once while indexing continues in
-the background; `Esc` or the Stop button stops it. File > Open from Clipboard
-(`Ctrl+V` in a log view) opens the clipboard's text, up to 16 MiB, held in
-memory only.
+opens in its own tab; a dropped folder is not opened. The first lines show at
+once while indexing continues in the background; `Esc` or the Stop button
+stops it. File > Open from Clipboard (`Ctrl+V` in a log view) opens the
+clipboard's text, up to 16 MiB, held in memory only.
 
 Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
 color labels.
@@ -524,7 +524,7 @@ Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 
 | Item | Action |
 |---|---|
-| Documentation | This guide, in its own window; when the window cannot show it within 15 seconds, in your system browser |
+| Documentation | This guide, in its own window; when the window cannot show it within 15 seconds, and on Linux in portable and `--settings` mode, in your system browser |
 | Keyboard Shortcuts (`F1`) | Every binding, with a filter and Copy |
 | Command-Line Options | The `--help` text |
 | Show Log | QLogg's recent log lines |
@@ -557,4 +557,9 @@ qlogg [options] [[+line:N] file]...
 QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
 `~/.config/qlogg`, Windows `%APPDATA%\QLogg`, macOS
 `~/Library/Application Support/QLogg`, or the installation directory when a
-`qlogg.conf` exists there (portable mode).
+`qlogg.conf` exists there (portable mode). On Linux in portable mode and with
+`--settings`, Help > Documentation opens this guide in your system browser,
+because the embedded browser keeps its cache in your home folder. GTK's input
+method support still creates an empty `~/.config/ibus/bus` folder there, and
+with the experimental GTK 4 backend (`SWT_GTK4=1`) the graphics driver writes
+its shader cache to `~/.cache/mesa_shader_cache` on every run.

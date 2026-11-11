@@ -87,6 +87,15 @@ class KeymapTest {
   }
 
   @Test
+  void aMenuShowsTheFirstSingleStroke() {
+    assertEquals("F3", keymap.menuKeyText(CommandId.FIND_NEXT, false));
+    assertEquals("Ctrl+End", keymap.menuKeyText(CommandId.GO_TO_BOTTOM, false));
+    assertEquals("M", keymap.menuKeyText(CommandId.TOGGLE_MARK, false));
+    assertEquals("", keymap.menuKeyText(CommandId.TOGGLE_LINE_NUMBERS, false));
+    assertEquals("Cmd+=", keymap.menuKeyText(CommandId.ZOOM_IN, true));
+  }
+
+  @Test
   void searchKeysFollowKlogg() {
     assertEquals("F3, N, Ctrl+G", keymap.keysText(CommandId.FIND_NEXT, false));
     assertEquals(

@@ -199,7 +199,15 @@ call replaces its text and activates it.
   refits in place, so a zoom keeps the menu bar, the views and the focus.
   `SWT.ZoomChanged` (a DPI change) takes the same path.
 - A `DropTarget` on the shell takes `FileTransfer`; each dropped path opens a
-  tab through `ApplicationController.openDropped`, on a worker.
+  tab through `ApplicationController.openDropped`, on a worker. `dragEnter`,
+  `dragOver` and `dragOperationChanged` all set Copy, so a modifier pressed
+  during the drag never returns Move, after which a file manager deletes the
+  source. Where `FileTransfer.nativeToJava` returns the paths during the drag,
+  `dragEnter` starts `ApplicationController.checkDragged` on a worker, and a
+  drag of folders only gets no-drop. Expected on win32 and cocoa, where SWT
+  reads the drag data on demand; GTK SWT receives it only for the drop, so a
+  GTK drag of folders shows Copy and the drop shows the notice. Neither is
+  measured: no posted drag between processes runs under Xvfb.
 
 ## Platform services
 

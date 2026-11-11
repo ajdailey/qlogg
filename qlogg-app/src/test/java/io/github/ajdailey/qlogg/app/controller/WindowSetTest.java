@@ -556,6 +556,24 @@ class WindowSetTest {
     assertEquals(UiText.NOTICE_GUIDE_AT.format(copy), firstView.lastNotice());
   }
 
+  /** Without the embedded guide, Documentation opens the copy elsewhere though the view has one. */
+  @Test
+  void documentationWithoutTheEmbeddedGuideOpensItElsewhere() throws Exception {
+    final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
+    set.setEmbeddedGuide(false);
+    firstView.browser = true;
+    first.execute(CommandId.DOCUMENTATION);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return firstView.launched.size() == 1;
+          }
+        });
+    assertEquals(List.of(copy), firstView.launched);
+    assertTrue(firstView.guides.isEmpty());
+  }
+
   @Test
   void aGuideWindowFailingLaterOpensTheGuideElsewhere() {
     Path copy = temp.resolve("guide.html");

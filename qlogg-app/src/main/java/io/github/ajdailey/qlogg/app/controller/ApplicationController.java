@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -737,6 +738,11 @@ public final class ApplicationController implements DocumentHost {
     }
 
     @Override
+    public void foldersSkipped() {
+      view.showNotice(UiText.NOTICE_FOLDERS_NOT_OPENED.text());
+    }
+
+    @Override
     public void reopened(
         DocumentController old, LogDocument document, FileChange change, boolean marksComplete) {
       ApplicationController.this.reopened(old, document, change, marksComplete);
@@ -806,16 +812,44 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
-   * Opens files dropped on the window on a worker, a tab each.
+   * Opens files dropped on the window on a worker, a tab each; folders are skipped with a notice.
    *
    * @param paths the dropped paths, not yet validated
    */
   public void openDropped(List<Path> paths) {
-    List<FileRequest> requests = new ArrayList<FileRequest>();
-    for (Path path : paths) {
-      requests.add(new FileRequest(path, 0));
+    if (!shuttingDown) {
+      opener.openDropped(paths, set.services());
     }
-    open(requests, false);
+  }
+
+  /**
+   * Checks on a worker whether every path dragged over the window is a folder, for a drop target
+   * that shows no-drop over a drag it would not open.
+   *
+   * @param paths the dragged paths
+   * @param result receives true when every path is a folder, on the UI thread
+   */
+  public void checkDragged(List<Path> paths, final Consumer<Boolean> result) {
+    final List<Path> dragged = List.copyOf(paths);
+    workers.tryStart(
+        Workers.Kind.INDEX,
+        new Runnable() {
+          @Override
+          public void run() {
+            boolean folders = !dragged.isEmpty();
+            for (Path path : dragged) {
+              folders &= Files.isDirectory(path);
+            }
+            final boolean foldersOnly = folders;
+            ui.asyncExec(
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    result.accept(foldersOnly);
+                  }
+                });
+          }
+        });
   }
 
   /**

@@ -146,6 +146,24 @@ class TabCommandsTest {
   }
 
   @Test
+  void droppedFoldersAreSkippedWithANotice() throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    Path folder = Files.createDirectory(temp.resolve("folder"));
+    Path a = fixture.lines("drop-a.log", 2);
+    fixture.application.openDropped(List.of(folder, a));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.view.notices.contains("Folders are not opened");
+          }
+        });
+    assertEquals(1, fixture.application.documents().size());
+    assertEquals("drop-a.log", fixture.application.activeDocument().state().title());
+    assertEquals(List.of(), fixture.view.errors);
+  }
+
+  @Test
   void clipboardTextOpensInMemoryWithoutFileCommands() throws Exception {
     fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
     fixture.application.execute(CommandId.OPEN_CLIPBOARD);

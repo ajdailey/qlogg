@@ -409,6 +409,28 @@ class LogViewTest {
     MenuItem copy = bar.getItem(1).getMenu().getItem(0);
     assertEquals("&Copy\t" + MOD1 + "C", copy.getText());
     assertEquals(0, copy.getAccelerator());
+    // GTK parses the text after the tab as one accelerator: one key, never a list or a sequence.
+    for (MenuItem top : bar.getItems()) {
+      for (MenuItem item : top.getMenu().getItems()) {
+        String text = item.getText();
+        int tab = text.indexOf('\t');
+        String keys = tab < 0 ? "" : text.substring(tab + 1);
+        assertFalse(keys.contains(", ") || keys.contains(" "), text);
+      }
+    }
+    MenuItem findNext = item(bar, CommandId.FIND_NEXT);
+    assertTrue(findNext.getText().endsWith("\tF3"), findNext.getText());
+  }
+
+  private static MenuItem item(Menu bar, CommandId command) {
+    for (MenuItem top : bar.getItems()) {
+      for (MenuItem item : top.getMenu().getItems()) {
+        if (item.getData() == command) {
+          return item;
+        }
+      }
+    }
+    throw new AssertionError("no menu item for " + command);
   }
 
   @Test

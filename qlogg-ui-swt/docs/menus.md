@@ -13,9 +13,15 @@ labels and checked and enabled state come from `qlogg-app` (`CommandId`,
 Highlighters, Encoding, Favorites, Help), items in `MenuTable.commands` order.
 Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
 
-- Each item's text shows all its keys. Only a `WINDOW` binding becomes an SWT
-  accelerator, so `LOG_VIEW` keys such as `Ctrl+C` reach the log view and never
-  a text field.
+- Each item's text shows one key after the tab, `Keymap.menuKeyText`: the
+  command's first single-stroke binding, none when it has only sequences. GTK 3
+  and GTK 4 parse that text as one accelerator, so a list (`F3, N, Ctrl+G`)
+  shows another command's key (`G`) and a sequence (`Ctrl+E Ctrl+T`) its second
+  stroke alone (measured under Xvfb). Tooltips, Keyboard Shortcuts and the
+  Options shortcut editor list every key. The log view's context menu follows
+  the same rule.
+- Only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys such
+  as `Ctrl+C` reach the log view and never a text field.
 - A `check()` command is a check item.
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.

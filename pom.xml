@@ -391,8 +391,13 @@
                         <!-- GTK prefers Wayland when WAYLAND_DISPLAY is set, which
                              puts test windows on the desktop session instead of
                              the X server DISPLAY names (Xvfb). -->
+                        <!-- GTK takes its theme from settings.ini. Ubuntu's names Yaru,
+                             which a CI runner lacks, and a missing theme ignores the dark
+                             setting, so the GUI test modules name Adwaita in
+                             src/test/resources/gtk-config. -->
                         <environmentVariables>
                             <GDK_BACKEND>x11</GDK_BACKEND>
+                            <XDG_CONFIG_HOME>${project.build.testOutputDirectory}/gtk-config</XDG_CONFIG_HOME>
                         </environmentVariables>
                     </configuration>
                 </plugin>

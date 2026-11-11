@@ -96,6 +96,8 @@ public final class WindowSet {
   private Keymap keymap;
   private Factory factory;
   private RecentLog recent;
+  // Embedded user guide.
+  private boolean embeddedGuide = true;
   private LogFiles logFiles = LogFiles.NONE;
   private long seenWarnings;
   private volatile boolean quitting;
@@ -160,6 +162,25 @@ public final class WindowSet {
    */
   public void setFactory(Factory value) {
     factory = value;
+  }
+
+  /**
+   * Sets whether Help > Documentation may show the guide in the embedded browser; see {@link
+   * io.github.ajdailey.qlogg.app.about.UserGuide#embedded}. True until set.
+   *
+   * @param embedded false to open the guide in the system's HTML application instead
+   */
+  public void setEmbeddedGuide(boolean embedded) {
+    this.embeddedGuide = embedded;
+  }
+
+  /**
+   * Reports whether Help > Documentation may show the guide in the embedded browser.
+   *
+   * @return the value given to {@link #setEmbeddedGuide}
+   */
+  boolean embeddedGuide() {
+    return embeddedGuide;
   }
 
   /**
