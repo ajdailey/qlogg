@@ -18,6 +18,8 @@ import java.util.Map;
  * @param openDirectory {@code open.directory}: where File > Open starts, or empty
  * @param recentFiles {@code recent.N}: most recent first, at most {@link Options#MAX_RECENT}
  * @param dialogs {@code dialog.<name>.width} and {@code .height}: a dialog's last size
+ * @param closedFiles {@code closed.N}: File > Recently Closed, most recent first, at most {@link
+ *     #MAX_CLOSED}
  */
 public record UiState(
     WindowState window,
@@ -27,14 +29,26 @@ public record UiState(
     boolean filteredLineNumbers,
     String openDirectory,
     List<String> recentFiles,
-    Map<String, Size> dialogs) {
+    Map<String, Size> dialogs,
+    List<String> closedFiles) {
   /** Most dialog sizes kept. */
   public static final int MAX_DIALOGS = 32;
+
+  /** Most recently closed files kept. */
+  public static final int MAX_CLOSED = 20;
 
   /** Nothing remembered. */
   public static final UiState DEFAULTS =
       new UiState(
-          WindowState.UNKNOWN, 0, SearchToggles.DEFAULTS, true, true, "", List.of(), Map.of());
+          WindowState.UNKNOWN,
+          0,
+          SearchToggles.DEFAULTS,
+          true,
+          true,
+          "",
+          List.of(),
+          Map.of(),
+          List.of());
 
   /**
    * A dialog's size in pixels.
@@ -57,7 +71,8 @@ public record UiState(
         || search == null
         || openDirectory == null
         || recentFiles == null
-        || dialogs == null) {
+        || dialogs == null
+        || closedFiles == null) {
       throw new IllegalArgumentException("every component is required");
     }
     if (split != 0 && (split < Preferences.MIN_SPLIT || split > Preferences.MAX_SPLIT)) {
@@ -69,6 +84,9 @@ public record UiState(
                 ? recentFiles.subList(0, Options.MAX_RECENT)
                 : recentFiles);
     dialogs = Collections.unmodifiableMap(new LinkedHashMap<String, Size>(dialogs));
+    closedFiles =
+        List.copyOf(
+            closedFiles.size() > MAX_CLOSED ? closedFiles.subList(0, MAX_CLOSED) : closedFiles);
   }
 
   /**
@@ -87,7 +105,8 @@ public record UiState(
         filteredLineNumbers,
         openDirectory,
         recentFiles,
-        dialogs);
+        dialogs,
+        closedFiles);
   }
 
   /**
@@ -105,7 +124,8 @@ public record UiState(
         filteredLineNumbers,
         openDirectory,
         recentFiles,
-        dialogs);
+        dialogs,
+        closedFiles);
   }
 
   /**
@@ -116,7 +136,8 @@ public record UiState(
    * @return the copy
    */
   public UiState withLineNumbers(boolean main, boolean filtered) {
-    return new UiState(window, split, search, main, filtered, openDirectory, recentFiles, dialogs);
+    return new UiState(
+        window, split, search, main, filtered, openDirectory, recentFiles, dialogs, closedFiles);
   }
 
   /**
@@ -127,7 +148,15 @@ public record UiState(
    */
   public UiState withOpenDirectory(String value) {
     return new UiState(
-        window, split, search, lineNumbers, filteredLineNumbers, value, recentFiles, dialogs);
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        value,
+        recentFiles,
+        dialogs,
+        closedFiles);
   }
 
   /**
@@ -138,7 +167,15 @@ public record UiState(
    */
   public UiState withRecentFiles(List<String> value) {
     return new UiState(
-        window, split, search, lineNumbers, filteredLineNumbers, openDirectory, value, dialogs);
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        openDirectory,
+        value,
+        dialogs,
+        closedFiles);
   }
 
   /**
@@ -156,6 +193,55 @@ public record UiState(
       list.remove(list.size() - 1);
     }
     return withRecentFiles(list);
+  }
+
+  // Recently Closed.
+
+  /**
+   * Returns a copy with other recently closed files.
+   *
+   * @param value most recent first
+   * @return the copy
+   */
+  public UiState withClosedFiles(List<String> value) {
+    return new UiState(
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        openDirectory,
+        recentFiles,
+        dialogs,
+        value);
+  }
+
+  /**
+   * Returns a copy with a file first in Recently Closed, at most {@link #MAX_CLOSED} kept.
+   *
+   * @param path the path
+   * @return the copy
+   */
+  public UiState addClosed(String path) {
+    List<String> list = new ArrayList<String>(closedFiles);
+    list.remove(path);
+    list.add(0, path);
+    return withClosedFiles(list);
+  }
+
+  /**
+   * Returns a copy with a file left out of Recently Closed.
+   *
+   * @param path the path
+   * @return the copy, or this one when the file is not listed
+   */
+  public UiState removeClosed(String path) {
+    if (!closedFiles.contains(path)) {
+      return this;
+    }
+    List<String> list = new ArrayList<String>(closedFiles);
+    list.remove(path);
+    return withClosedFiles(list);
   }
 
   /**
@@ -176,6 +262,14 @@ public record UiState(
       copy.remove(copy.keySet().iterator().next());
     }
     return new UiState(
-        window, split, search, lineNumbers, filteredLineNumbers, openDirectory, recentFiles, copy);
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        openDirectory,
+        recentFiles,
+        copy,
+        closedFiles);
   }
 }

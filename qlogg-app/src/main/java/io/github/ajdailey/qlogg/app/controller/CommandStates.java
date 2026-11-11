@@ -134,7 +134,12 @@ public final class CommandStates {
       return file;
     }
     return switch (command) {
-      case MOVE_TO_NEW_WINDOW -> document != null;
+      // Navigation history: Go Back and Go Forward.
+      case MOVE_TO_NEW_WINDOW, GO_BACK, GO_FORWARD -> document != null;
+      // Open All and Recently Closed.
+      case OPEN_ALL_RECENT -> !application.preferences().state().recentFiles().isEmpty();
+      case OPEN_ALL_CLOSED, CLEAR_CLOSED ->
+          !application.preferences().state().closedFiles().isEmpty();
       case ADD_FAVORITE -> file && !application.isFavorite(document);
       case REMOVE_FAVORITE -> application.isFavorite(document);
       // Timestamps.

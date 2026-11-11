@@ -454,4 +454,72 @@ class RememberedStateTest {
           run.application.preferences().state().recentFiles());
     }
   }
+
+  // Recently Closed and Open All.
+
+  @Test
+  void recentlyClosedIsSavedAndReopensAtTheRememberedPosition() throws Exception {
+    Path alpha = lines("alpha.log", 40);
+    String path = alpha.toAbsolutePath().normalize().toString();
+    try (Run run = new Run()) {
+      run.application.open(List.of(new FileRequest(alpha, 0)));
+      run.untilOpen(1);
+      run.tab("alpha.log").goToLine(21);
+      run.application.execute(CommandId.CLOSE);
+      assertEquals(List.of(path), run.application.preferences().state().closedFiles());
+    }
+    try (final Run run = new Run()) {
+      assertEquals(List.of(path), run.application.preferences().state().closedFiles());
+      run.application.execute(CommandId.OPEN_ALL_CLOSED);
+      run.untilOpen(1);
+      final DocumentController reopened = run.tab("alpha.log");
+      run.until(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return reopened.selection().caret().line() == 20;
+            }
+          });
+      assertEquals(List.of(), run.application.preferences().state().closedFiles());
+      run.application.execute(CommandId.CLOSE);
+      assertEquals(List.of(path), run.application.preferences().state().closedFiles());
+      run.application.execute(CommandId.CLEAR_CLOSED);
+      assertEquals(List.of(), run.application.preferences().state().closedFiles());
+    }
+  }
+
+  @Test
+  void openAllShowsAnOpenFileOpensAClosedOneAndNamesAMissingOne() throws Exception {
+    Path open = lines("open.log", 3);
+    Path closed = lines("closed.log", 3);
+    Path missing = lines("missing.log", 3);
+    try (final Run run = new Run()) {
+      run.application.open(
+          List.of(
+              new FileRequest(missing, 0), new FileRequest(closed, 0), new FileRequest(open, 0)));
+      run.untilOpen(3);
+      run.application.closeDocument(run.tab("missing.log"));
+      run.application.closeDocument(run.tab("closed.log"));
+      Files.delete(missing);
+      assertEquals(3, run.application.preferences().state().recentFiles().size());
+      run.application.execute(CommandId.OPEN_ALL_RECENT);
+      run.until(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return !run.view.notices.isEmpty()
+                  && run.application.documents().size() == 2
+                  && !run.application.activeDocument().state().indexing();
+            }
+          });
+      assertEquals(
+          UiText.NOTICE_OPEN_ALL_SKIPPED.format(1, "missing.log"),
+          run.view.notices.get(run.view.notices.size() - 1));
+      assertEquals("closed.log", run.application.activeDocument().state().title());
+      assertEquals(List.of(), run.view.errors);
+      assertEquals(
+          List.of(missing.toAbsolutePath().normalize().toString()),
+          run.application.preferences().state().closedFiles());
+    }
+  }
 }

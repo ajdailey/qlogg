@@ -421,6 +421,7 @@ class LogViewTest {
                 "Open",
                 "Open from Clipboard",
                 "Open Recent",
+                "Recently Closed",
                 "-",
                 "Save Selection to File",
                 "Save Filtered Results to File",
@@ -448,6 +449,8 @@ class LogViewTest {
             "Scroll All Tabs to This Time",
             "Go to Top",
             "Go to Bottom",
+            "Go Back",
+            "Go Forward",
             "-",
             "Mark or Unmark",
             "Next Mark",
@@ -466,7 +469,7 @@ class LogViewTest {
             "Block Selection",
             "Search All Open Files"),
         labels(bar.getItem(1).getMenu()));
-    MenuItem search = bar.getItem(1).getMenu().getItem(28);
+    MenuItem search = bar.getItem(1).getMenu().getItem(30);
     assertEquals(SWT.CASCADE, search.getStyle() & SWT.CASCADE);
     assertEquals("Search Field", labels(search.getMenu()).get(0));
     assertEquals(
@@ -476,6 +479,8 @@ class LogViewTest {
             "Next Tab",
             "Previous Tab",
             "Move to New Window",
+            "-",
+            "Command Palette",
             "-",
             "Follow File",
             "Follow New Files",
@@ -520,10 +525,10 @@ class LogViewTest {
             "-",
             "Next Filtered View Mode",
             "Previous Filtered View Mode"),
-        labels(bar.getItem(2).getMenu().getItem(29).getMenu()));
+        labels(bar.getItem(2).getMenu().getItem(31).getMenu()));
     assertEquals(
         List.of("Light Theme", "Dark Theme", "System Theme"),
-        labels(bar.getItem(2).getMenu().getItem(39).getMenu()));
+        labels(bar.getItem(2).getMenu().getItem(41).getMenu()));
     assertEquals(
         onThisPlatform(
             List.of(

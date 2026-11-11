@@ -641,6 +641,9 @@ public final class TimeController {
     if (found.line() >= 0) {
       document.setFollowing(false);
       quiet = request.sync();
+      if (!quiet) {
+        document.recordJump();
+      }
       document.showLine(found.line());
       document.filtered().showNearest(found.line());
       quiet = false;

@@ -843,7 +843,7 @@ public final class SearchController {
     long caret = document.sourceLine(document.selection().caret().line());
     long next = shownResults().ceiling(caret + 1);
     if (next >= 0) {
-      document.goToLine(next + 1);
+      document.jumpToLine(next + 1);
     } else {
       document.notifications().showNotice(UiText.NOTICE_END_OF_FILE.text());
     }
@@ -857,7 +857,7 @@ public final class SearchController {
     long caret = document.sourceLine(document.selection().caret().line());
     long previous = caret == 0 ? -1 : shownResults().floor(caret - 1);
     if (previous >= 0) {
-      document.goToLine(previous + 1);
+      document.jumpToLine(previous + 1);
     } else {
       document.notifications().showNotice(UiText.NOTICE_START_OF_FILE.text());
     }

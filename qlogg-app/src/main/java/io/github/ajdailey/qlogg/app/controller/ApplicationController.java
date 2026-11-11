@@ -154,6 +154,9 @@ public final class ApplicationController implements DocumentHost {
   private final TimeFeatures time;
   // Tab data dot.
   private final TabDataModel tabData = new TabDataModel();
+  // Recently Closed, Open All and the command palette.
+  private final RecentFiles recent;
+  private CommandPalette palette;
 
   /**
    * Creates the only window of a new {@link WindowSet} with a system setting that is always light.
@@ -230,6 +233,8 @@ public final class ApplicationController implements DocumentHost {
               }
             });
     this.help = new HelpController(set, view, this::isShuttingDown);
+    // Recently Closed and Open All.
+    this.recent = new RecentFiles(this, workers, ui, view);
     // Tab data dot.
     addListener(tabData);
     set.register(this);
@@ -770,7 +775,7 @@ public final class ApplicationController implements DocumentHost {
     activate(shown);
     boolean following = follow || preferences.get().follow().onLoad();
     if (line > 0) {
-      shown.goToLine(line);
+      shown.jumpToLine(line);
     } else if (!following && !document.inMemory()) {
       PositionStore.Entry position = config.positions().get(document.path());
       if (!position.equals(PositionStore.Entry.NONE)) {
@@ -1211,6 +1216,10 @@ public final class ApplicationController implements DocumentHost {
     quickFind.cancelRunning(document);
     features.documentClosed(document);
     rememberPosition(document);
+    // Recently Closed.
+    if (!shuttingDown) {
+      recent.closed(document.document());
+    }
     scheduleSave();
     document.close();
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
@@ -1291,6 +1300,8 @@ public final class ApplicationController implements DocumentHost {
     replacement.setLineNumbers(old.lineNumbers());
     replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
     replacement.search().setText(old.search().fieldText(), old.search().options());
+    // Navigation history.
+    replacement.history().takeOver(old.history());
     SearchViewState ran = old.search().state();
     boolean rerun =
         change != null
@@ -1453,6 +1464,11 @@ public final class ApplicationController implements DocumentHost {
       // Mark comments and marks list.
       case MARKS_LIST -> view.showMarks();
       case EDIT_MARK_COMMENT -> editMarkComment();
+      // Open All, Recently Closed and the command palette.
+      case OPEN_ALL_RECENT -> recent.openAll(preferences.get().state().recentFiles());
+      case OPEN_ALL_CLOSED -> recent.openAll(preferences.get().state().closedFiles());
+      case CLEAR_CLOSED -> recent.clearClosed();
+      case COMMAND_PALETTE -> view.showCommandPalette();
       default -> {
         if (!features.execute(command) && !time.execute(command)) {
           documentCommand(command);
@@ -1612,7 +1628,8 @@ public final class ApplicationController implements DocumentHost {
         document.toggleLineNumbers();
         rememberLineNumbers(document);
       }
-      case NEXT_MARK, PREVIOUS_MARK, FOLLOW, STOP -> document.execute(command);
+      // Navigation history: Go Back and Go Forward.
+      case NEXT_MARK, PREVIOUS_MARK, FOLLOW, STOP, GO_BACK, GO_FORWARD -> document.execute(command);
       case ADD_TO_SEARCH -> editSearch(target, search, SearchController.Edit.ADD);
       case EXCLUDE_FROM_SEARCH -> editSearch(target, search, SearchController.Edit.EXCLUDE);
       case REPLACE_SEARCH -> editSearch(target, search, SearchController.Edit.REPLACE);
@@ -1783,10 +1800,24 @@ public final class ApplicationController implements DocumentHost {
           @Override
           public void lineChosen(long line) {
             if (active == document) {
-              document.goToLine(line);
+              document.jumpToLine(line);
             }
           }
         });
+  }
+
+  // Command palette.
+
+  /**
+   * Returns the command palette over this window's commands.
+   *
+   * @return the palette, created on first use
+   */
+  public CommandPalette commandPalette() {
+    if (palette == null) {
+      palette = new CommandPalette(this);
+    }
+    return palette;
   }
 
   /** Collects the About facts on a worker, then shows the dialog. */
@@ -2002,7 +2033,10 @@ public final class ApplicationController implements DocumentHost {
     }
     Preferences current = preferences.get();
     UiState state =
-        current.state().addRecent(document.path().toString(), current.options().recentCount());
+        current
+            .state()
+            .addRecent(document.path().toString(), current.options().recentCount())
+            .removeClosed(document.path().toString());
     if (!state.equals(current.state())) {
       setPreferences(current.withState(state));
     }

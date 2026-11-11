@@ -81,6 +81,9 @@ import org.slf4j.LoggerFactory;
  * document until the user picks sets.
  *
  * <p>The {@link TriggerController} applies the triggers of the same rules to appended lines.
+ *
+ * <p>Jumps record the caret's line in a {@link NavigationHistory}, which Go Back and Go Forward
+ * walk; a reload or reopen hands it to the new controller.
  */
 public final class DocumentController extends LineViewController {
   /** Least interval between flushes of index progress. */
@@ -128,6 +131,9 @@ public final class DocumentController extends LineViewController {
   private final TriggerController triggers;
   // Timestamps.
   private final TimeController time;
+  // Navigation history.
+  private final NavigationHistory history = new NavigationHistory();
+  private boolean filteredMove;
 
   /**
    * A move that waits for indexing to reach its line.
@@ -347,6 +353,9 @@ public final class DocumentController extends LineViewController {
   @Override
   void caretMoved() {
     time.caretMoved();
+    if (!filteredMove) {
+      history.stay();
+    }
   }
 
   /**
@@ -621,6 +630,8 @@ public final class DocumentController extends LineViewController {
     switch (command) {
       case NEXT_MARK -> nextMark();
       case PREVIOUS_MARK -> previousMark();
+      case GO_BACK -> goBack();
+      case GO_FORWARD -> goForward();
       case STOP -> stop();
       case FOLLOW -> setFollowing(!following);
       default -> super.execute(command);
@@ -756,6 +767,7 @@ public final class DocumentController extends LineViewController {
     long caret = Math.max(0, sourceLine(selection().caret().line()));
     long next = document.marks().ceiling(caret + 1);
     if (next >= 0) {
+      recordJump();
       showLine(next);
     } else {
       notifications().showNotice(UiText.NOTICE_NO_NEXT_MARK.text());
@@ -767,10 +779,77 @@ public final class DocumentController extends LineViewController {
     long caret = Math.max(0, sourceLine(selection().caret().line()));
     long previous = caret == 0 ? -1 : document.marks().floor(caret - 1);
     if (previous >= 0) {
+      recordJump();
       showLine(previous);
     } else {
       notifications().showNotice(UiText.NOTICE_NO_PREVIOUS_MARK.text());
     }
+  }
+
+  // Navigation history.
+
+  /**
+   * Goes to a line as {@link #goToLine} does, recording the caret's line as a jump.
+   *
+   * @param oneBasedLine the line as the user numbers it, from 1
+   */
+  public void jumpToLine(long oneBasedLine) {
+    recordJump();
+    goToLine(oneBasedLine);
+  }
+
+  /** Records the caret's line in the navigation history, before a jump moves it. */
+  void recordJump() {
+    history.record(caretLine());
+  }
+
+  /** Records the line the filtered view moved the main view from, as a jump. */
+  void commitDeparture() {
+    history.commit();
+  }
+
+  /**
+   * Shows a line for the filtered view's caret; the first such move keeps the caret's line as the
+   * departure a click or Enter records.
+   *
+   * @param line a 0-based line
+   */
+  void showFromFiltered(long line) {
+    long caret = caretLine();
+    if (line != caret) {
+      history.depart(caret);
+    }
+    filteredMove = true;
+    try {
+      showLine(line);
+    } finally {
+      filteredMove = false;
+    }
+  }
+
+  /** Goes to the line before the last jump, keeping the caret's line for Go Forward. */
+  public void goBack() {
+    long line = history.back(caretLine());
+    if (line >= 0) {
+      goToLine(line + 1);
+    }
+  }
+
+  /** Goes to the line Go Back left. */
+  public void goForward() {
+    long line = history.forward();
+    if (line >= 0) {
+      goToLine(line + 1);
+    }
+  }
+
+  /** Returns the navigation history, for a reload and tests. */
+  NavigationHistory history() {
+    return history;
+  }
+
+  private long caretLine() {
+    return Math.max(0, sourceLine(selection().caret().line()));
   }
 
   /**
@@ -1174,6 +1253,9 @@ public final class DocumentController extends LineViewController {
     }
     if (following) {
       viewport().scrollToLine(viewport().maxTop());
+    }
+    if (!status.indexing()) {
+      history.clamp(index.lineCount());
     }
     state = buildState(status);
     fireState(state);

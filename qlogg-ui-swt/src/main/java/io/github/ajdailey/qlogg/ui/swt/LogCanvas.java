@@ -734,6 +734,8 @@ public final class LogCanvas {
       select(new Selection(current.anchor(), position));
     } else {
       select(Selection.caretAt(position));
+      // Navigation history.
+      document.rowChosen();
     }
     dragging = true;
   }

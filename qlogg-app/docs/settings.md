@@ -84,6 +84,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `font.bold`, `font.antialias` | `true`, `false` | `false` | Tools > Options, View |
 | `recent.count` | 1 to 50: files File > Open Recent keeps | 20 | Tools > Options, General |
 | `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Open Recent > Clean Up |
+| `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear |
 | `favorite.N` | Favorite file paths, at most 100 | none | Favorites menu |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Options, File |
 | `encoding.default` | The charset detection falls back to | `ISO-8859-1` | Tools > Options, File |

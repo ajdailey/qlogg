@@ -74,10 +74,23 @@ Encoding menu forces another one, and the choice is remembered for the file.
 | `Home`, `0`, `^`, `$`, `End` | Line start, line end, right edge of the text |
 | `Ctrl+L` | Go to a line |
 | `Ctrl+Shift+L` | Go to a time |
+| `Alt+Left`, `Alt+Right` (macOS: `Cmd+[`, `Cmd+]`) | Go back to the line before a jump, and forward again |
 | `Ctrl+PageDown`, `Ctrl+PageUp` | Next and previous tab |
 | `Space` | Switch between the main and the filtered view |
 | `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Options size |
 | `Alt`+wheel, `Shift`+wheel | Scroll sideways, scroll by pages |
+| `Ctrl+Shift+P` | Command palette |
+
+Edit > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
+`+line:N`, Go to Time, Go to Top and Bottom, Find Next and Previous, the next or
+previous mark, a Marks List row, a quick find match, and a click or `Enter` on
+a filtered-view row. Scrolling and moving the current line are not jumps. A
+reload keeps the jumps; a shorter file moves those past its end to its last
+line.
+
+View > Command Palette lists every menu command with its menu and keys. Type
+letters of the command's name in order, such as `gtl` for Go to Line, and press
+`Enter` to run the first one. Commands that cannot run now are gray.
 
 ## Search and the filtered view
 
@@ -415,8 +428,11 @@ the shown tab, tab names, follow, marks, mark comments, time offsets and time
 sync groups. Each file's
 position and forced encoding are remembered; `+line:N` wins over the position.
 
-File > Open Recent lists recent files (Clean Up drops missing ones). The
-Favorites menu adds, removes and opens favorite files.
+File > Open Recent lists recent files (Clean Up drops missing ones). File >
+Recently Closed lists the last 20 files whose tabs you closed; a reopened file
+returns to its position. Open All on either list opens every listed file and
+names any it could not open; Clear empties Recently Closed. The Favorites menu
+adds, removes and opens favorite files.
 
 ## Windows and the running instance
 

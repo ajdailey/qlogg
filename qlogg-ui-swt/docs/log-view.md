@@ -108,6 +108,9 @@ and selection and hands focus back to the canvas.
 - A double click selects the word (letters, digits, `_`) under the pointer
   within the decoded column window of a printable-ASCII row
   (`LineViewController.selectWordAt`).
+- A left click without `Shift` outside the bullet column calls
+  `LineViewController.rowChosen`, so a click in the filtered view is a jump of
+  the navigation history.
 - A left click in the bullet column toggles the mark of the clicked row's line.
   Over a commented mark's bullet the canvas tooltip shows the comment;
   elsewhere it shows none.

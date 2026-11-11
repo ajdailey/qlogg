@@ -25,12 +25,27 @@ public final class Keymap {
     this.bindings = Collections.unmodifiableList(new ArrayList<Binding>(bindings));
   }
 
+  /** True on macOS, where Go Back and Go Forward take {@code Command+[} and {@code Command+]}. */
+  private static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
+
   /**
-   * Returns the default bindings.
+   * Returns the default bindings of the running platform.
    *
    * @return the keymap
    */
   public static Keymap defaults() {
+    return defaults(MAC);
+  }
+
+  /**
+   * Returns the default bindings. Go Back and Go Forward are {@code Alt+Left} and {@code
+   * Alt+Right}, or {@code Command+[} and {@code Command+]} on macOS, where {@code Option+Left} and
+   * {@code Right} move by word in a text field.
+   *
+   * @param mac true for the macOS bindings
+   * @return the keymap
+   */
+  public static Keymap defaults(boolean mac) {
     List<Binding> b = new ArrayList<Binding>();
     window(b, CommandId.OPEN, P, 'o');
     view(b, CommandId.OPEN_CLIPBOARD, P, 'v');
@@ -144,6 +159,16 @@ public final class Keymap {
     window(b, CommandId.ZOOM_RESET, P, '0');
     // Context lines and range filter.
     view(b, CommandId.SELECT_RANGE, P, 'r');
+    // Navigation history and command palette.
+    if (mac) {
+      window(b, CommandId.GO_BACK, P, '[');
+      window(b, CommandId.GO_FORWARD, P, ']');
+    } else {
+      window(b, CommandId.GO_BACK, KeyStroke.ALT, KeyStroke.LEFT);
+      window(b, CommandId.GO_FORWARD, KeyStroke.ALT, KeyStroke.RIGHT);
+    }
+    view(b, CommandId.GO_TO_RESULT, 0, KeyStroke.ENTER);
+    window(b, CommandId.COMMAND_PALETTE, P, 'P');
     return new Keymap(b);
   }
 

@@ -29,7 +29,8 @@ import java.util.regex.PatternSyntaxException;
  * without a result set. The pattern is fixed text unless {@code quickFind.regex} is on; ignore case
  * is the bar's box. With no occurrence left in the direction, a notice says so and the selection
  * stays: there is no wrap. With {@code quickFind.incremental} on, each change to the text searches
- * forward again from where the caret was when typing began.
+ * forward again from where the caret was when typing began. A match found is a jump of the
+ * document's navigation history; while typing, only the first match is.
  *
  * <p>Each find compiles the pattern and scans on a {@code qlogg-search-} worker ({@link
  * LineFinder}) inside a document entry, holding the {@link ActivityIndicator} active until its
@@ -51,6 +52,9 @@ public final class QuickFindController {
   private long originRow = -1;
   private long originColumn;
   private boolean forward = true;
+  // Navigation history.
+  private boolean findIncremental;
+  private boolean originRecorded;
 
   QuickFindController(
       ApplicationController application,
@@ -253,11 +257,13 @@ public final class QuickFindController {
     Selection selection = target.selection();
     long row;
     long column;
+    findIncremental = incremental;
     if (incremental) {
       if (originView != target) {
         originView = target;
         originRow = selection.start().line();
         originColumn = selection.start().column();
+        originRecorded = false;
       }
       row = originRow;
       column = originColumn;
@@ -395,7 +401,7 @@ public final class QuickFindController {
       notice = forward ? UiText.NOTICE_END_OF_FILE.text() : UiText.NOTICE_START_OF_FILE.text();
       notifications.showNotice(notice);
     } else {
-      target.selectRange(target.revealRow(match.line()), match.startColumn(), match.endColumn());
+      select(target, match);
     }
     publish(
         new QuickFindState(
@@ -406,6 +412,27 @@ public final class QuickFindController {
             state.incremental(),
             false,
             notice));
+  }
+
+  /**
+   * Selects a match as a jump of the navigation history; typing with incremental find on records
+   * only the move away from where typing began.
+   */
+  private void select(final LineViewController target, final LineFinder.Match match) {
+    Runnable move =
+        new Runnable() {
+          @Override
+          public void run() {
+            target.selectRange(
+                target.revealRow(match.line()), match.startColumn(), match.endColumn());
+          }
+        };
+    if (findIncremental && originRecorded) {
+      move.run();
+      return;
+    }
+    originRecorded = findIncremental;
+    target.jump(move);
   }
 
   private QuickFindState withOpen(boolean open, String notice) {

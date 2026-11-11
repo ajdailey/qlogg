@@ -172,6 +172,7 @@ public final class MarksListController {
    */
   public void goTo(long line) {
     if (document != null && !document.isClosed()) {
+      document.recordJump();
       document.showLine(line);
     }
   }

@@ -183,6 +183,25 @@ public abstract class LineViewController {
   /** Called after the user moved the view or the caret. Does nothing by default. */
   void userMoved() {}
 
+  // Navigation history.
+
+  /**
+   * Called after a click or Enter chose the caret's row; the filtered view records the main view's
+   * line from before it moved it. Does nothing by default.
+   */
+  public void rowChosen() {}
+
+  /**
+   * Runs a move as a jump of the document's navigation history: the main view records its line,
+   * then moves.
+   *
+   * @param move the move
+   */
+  void jump(Runnable move) {
+    owner().recordJump();
+    move.run();
+  }
+
   /**
    * Returns the status of the document for the status bar.
    *
@@ -339,8 +358,9 @@ public abstract class LineViewController {
       case SET_SELECTION_END -> setSelectionEnd();
       case TOGGLE_LINE_NUMBERS -> toggleLineNumbers();
       case TOGGLE_MARK -> toggleMarks();
-      case GO_TO_TOP -> moveTo(0);
-      case GO_TO_BOTTOM -> moveTo(Long.MAX_VALUE);
+      case GO_TO_TOP -> jumpTo(0);
+      case GO_TO_BOTTOM -> jumpTo(Long.MAX_VALUE);
+      case GO_TO_RESULT -> rowChosen();
       case LINE_UP -> moveCaret(-1, false);
       case LINE_DOWN -> moveCaret(1, false);
       case EXTEND_UP -> moveCaret(-1, true);
@@ -750,6 +770,17 @@ public abstract class LineViewController {
     caretMoved();
     userMoved();
     changed();
+  }
+
+  /** Moves to a row as a jump of the navigation history. */
+  private void jumpTo(final long row) {
+    jump(
+        new Runnable() {
+          @Override
+          public void run() {
+            moveTo(row);
+          }
+        });
   }
 
   /**

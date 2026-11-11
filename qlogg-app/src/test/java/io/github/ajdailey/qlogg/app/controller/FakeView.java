@@ -415,4 +415,14 @@ final class FakeView implements MainView {
     formatSample = caretLine;
     formatsListener = listener;
   }
+
+  // Command palette.
+
+  int paletteShown;
+
+  @Override
+  public void showCommandPalette() {
+    ui.check("showCommandPalette");
+    paletteShown++;
+  }
 }

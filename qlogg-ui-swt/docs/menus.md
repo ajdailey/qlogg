@@ -31,7 +31,8 @@ Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
 |---|---|
 | Highlighters | The sets after None, as check items |
 | View > Opened Files | The open files as radio items; choosing one shows its tab |
-| File > Open Recent | The recent paths before Clean Up, refilled on show |
+| File > Open Recent | The recent paths before Open All and Clean Up, refilled on show |
+| File > Recently Closed | The closed paths before Open All and Clear, refilled on show; choosing one opens it |
 | Favorites | The favorites after Add to Favorites and Remove from Favorites, refilled on show |
 | Encoding | Auto, the common charsets as radio items, then Other with every other charset the runtime supports (`EncodingChoices`) |
 | View > Timestamps > Format | Filled on show from `CommandStates.timeFormats`: the built-ins, the user formats and None as radio items, the shown file's checked |

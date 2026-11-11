@@ -15,9 +15,20 @@ public enum CommandId {
   OPEN(CommandGroup.FILE, UiText.COMMAND_OPEN, false, false),
   /** Open the clipboard's text in a new tab. */
   OPEN_CLIPBOARD(CommandGroup.FILE, UiText.COMMAND_OPEN_CLIPBOARD, false, false),
+  // Open All and Recently Closed.
+  /** Open every recent file. */
+  OPEN_ALL_RECENT(
+      CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_RECENT, false, false, UiText.MENU_OPEN_RECENT),
   /** Drop the recent files that no longer exist; the cascade lists the recent files before it. */
   CLEAN_RECENT(
       CommandGroup.FILE, UiText.COMMAND_CLEAN_RECENT, false, false, UiText.MENU_OPEN_RECENT),
+  // Open All and Recently Closed.
+  /** Open every recently closed file. */
+  OPEN_ALL_CLOSED(
+      CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_CLOSED, false, false, UiText.MENU_RECENTLY_CLOSED),
+  /** Empty Recently Closed; the cascade lists the closed files before Open All. */
+  CLEAR_CLOSED(
+      CommandGroup.FILE, UiText.COMMAND_CLEAR_CLOSED, false, false, UiText.MENU_RECENTLY_CLOSED),
   /** Write the selected lines to a chosen file. */
   SAVE_SELECTION(CommandGroup.FILE, UiText.COMMAND_SAVE_SELECTION, true, false),
   /** Write the filtered view's lines to a chosen file. */
@@ -56,6 +67,13 @@ public enum CommandId {
   GO_TO_TOP(CommandGroup.EDIT, UiText.COMMAND_GO_TO_TOP, false, false),
   /** Go to the last line. */
   GO_TO_BOTTOM(CommandGroup.EDIT, UiText.COMMAND_GO_TO_BOTTOM, false, false),
+  // Navigation history.
+  /** Go back to the line before the last jump. */
+  GO_BACK(CommandGroup.EDIT, UiText.COMMAND_GO_BACK, false, false),
+  /** Go forward to the line Go Back left. */
+  GO_FORWARD(CommandGroup.EDIT, UiText.COMMAND_GO_FORWARD, false, false),
+  /** In the filtered view, keep the row's line as a jump the main view can go back from. */
+  GO_TO_RESULT(CommandGroup.LOG_VIEW, UiText.COMMAND_GO_TO_RESULT, false, false),
   /** Mark or unmark the selected lines. */
   TOGGLE_MARK(CommandGroup.EDIT, UiText.COMMAND_TOGGLE_MARK, true, false),
   /** Go to the next mark. */
@@ -128,6 +146,9 @@ public enum CommandId {
   // Tab move between windows.
   /** Move the active tab to a new window. */
   MOVE_TO_NEW_WINDOW(CommandGroup.VIEW, UiText.COMMAND_MOVE_TO_NEW_WINDOW, false, false),
+  // Command palette.
+  /** Choose a command from a filtered list and run it. */
+  COMMAND_PALETTE(CommandGroup.VIEW, UiText.COMMAND_COMMAND_PALETTE, true, false),
   /** Follow the end of the active file. */
   FOLLOW(CommandGroup.VIEW, UiText.COMMAND_FOLLOW, true, true),
   /** Set {@code follow.onLoad}. */

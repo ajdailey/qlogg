@@ -24,8 +24,9 @@ import java.util.concurrent.CancellationException;
  * The filtered view under the main view: one row per matching or marked line ({@link Visibility}),
  * from the result set the search shows. Rows read their text from the document, so copy and display
  * use the source lines. Moving the caret to a row shows its line in the main view. Line numbers are
- * the source lines' and show by default, toggled apart from the main view's. Confined to the UI
- * thread.
+ * the source lines' and show by default, toggled apart from the main view's. A click, Enter, Go to
+ * Top and Bottom and quick find record the main view's line from before this view moved it in the
+ * document's navigation history. Confined to the UI thread.
  *
  * <p>In marks and matches mode the rows use a snapshot of the marks outside the matches ({@link
  * FilteredView.Extras}), built on a {@code qlogg-search-} worker whenever the marks or the matches
@@ -115,9 +116,23 @@ public final class FilteredController extends LineViewController {
     if (selection().isEmpty() || selection().anchor().line() == selection().caret().line()) {
       long line = view.sourceLine(selection().caret().line());
       if (line >= 0) {
-        owner.showLine(line);
+        owner.showFromFiltered(line);
       }
     }
+  }
+
+  // Navigation history.
+
+  /** Records the main view's line from before this view moved it, as a jump. */
+  @Override
+  public void rowChosen() {
+    owner.commitDeparture();
+  }
+
+  @Override
+  void jump(Runnable move) {
+    move.run();
+    rowChosen();
   }
 
   /**

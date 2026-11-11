@@ -194,4 +194,35 @@ class KeymapTest {
     String filtered = keymap.reference(false, "line numbers");
     assertEquals(List.of("View", "  Line Numbers\tCtrl+E Ctrl+T"), List.of(filtered.split("\n")));
   }
+
+  // Navigation history and command palette.
+
+  @Test
+  void goBackAndForwardTakeAltArrowsOrCommandBrackets() {
+    Keymap others = Keymap.defaults(false);
+    assertEquals(
+        new KeyStroke(KeyStroke.ALT, KeyStroke.LEFT), others.accelerator(CommandId.GO_BACK));
+    assertEquals(
+        new KeyStroke(KeyStroke.ALT, KeyStroke.RIGHT), others.accelerator(CommandId.GO_FORWARD));
+    Keymap mac = Keymap.defaults(true);
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, '['), mac.accelerator(CommandId.GO_BACK));
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, ']'), mac.accelerator(CommandId.GO_FORWARD));
+    for (Keymap map : List.of(others, mac)) {
+      for (CommandId command :
+          List.of(
+              CommandId.GO_BACK,
+              CommandId.GO_FORWARD,
+              CommandId.GO_TO_RESULT,
+              CommandId.COMMAND_PALETTE)) {
+        for (Binding binding : map.bindingsFor(command)) {
+          assertEquals(List.of(), map.conflicts(binding), binding.text(false));
+        }
+      }
+    }
+    assertEquals(
+        KeyStroke.of(KeyStroke.PRIMARY, 'P'), others.accelerator(CommandId.COMMAND_PALETTE));
+    assertEquals(
+        new KeyStroke(0, KeyStroke.ENTER),
+        others.bindingsFor(CommandId.GO_TO_RESULT).get(0).first());
+  }
 }

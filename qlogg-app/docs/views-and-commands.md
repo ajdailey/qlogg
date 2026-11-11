@@ -107,6 +107,10 @@ call off the UI thread is recorded, and the next drain throws it.
 and Help > Keyboard Shortcuts all read it. `PRIMARY` is Ctrl, or Command on
 macOS.
 
+`Keymap.defaults()` reads `os.name`; `defaults(mac)` differs only for Go Back
+and Go Forward: `Alt+Left` and `Alt+Right`, or `Command+[` and `Command+]` on
+macOS, where `Option`+arrow moves by word in a text field.
+
 ### Commands and menus
 
 `CommandId` lists every command in menu order with its menu (`CommandGroup`),
@@ -118,8 +122,8 @@ Highlighters, Encoding, Favorites and Help.
 application menu present it leaves out About, Options and Exit, which that menu
 holds as About, Preferences and Quit. In File, View and Tools, and in each of
 their cascades, no two items share a mnemonic (`MenuTableTest`). View has more
-items than letters, so Text Wrap, Wrap New Files, Toggle Fold and Save Splitter
-Position have none.
+items than letters, so Text Wrap, Wrap New Files, Toggle Fold, Save Splitter
+Position and Command Palette have none.
 
 ### Keystrokes and scopes
 
@@ -143,7 +147,7 @@ stroke cancels it.
 
 `KeymapTest` rejects a stroke bound twice, a single stroke that is also a
 sequence prefix, an accelerator on a command with no menu, and a log view
-command with no key.
+command with no key, and checks both platforms' Go Back and Go Forward keys.
 
 ### User overrides
 

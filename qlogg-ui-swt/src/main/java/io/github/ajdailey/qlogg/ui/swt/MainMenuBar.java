@@ -29,8 +29,9 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * The main window's menu bar: one menu per {@link CommandGroup} with its {@link MenuTable}
- * commands, View > Opened Files, File > Open Recent, the highlighter sets, the favorites and the
- * encodings. Item state comes from {@link CommandStates}; this class only applies it.
+ * commands, View > Opened Files, File > Open Recent and Recently Closed, the highlighter sets, the
+ * favorites and the encodings. Item state comes from {@link CommandStates}; this class only applies
+ * it.
  *
  * <p>Showing a top menu syncs that menu's items and its listed entries only. Enablement of every
  * item also follows each document event ({@link #syncEnablement}), because a disabled item's
@@ -59,6 +60,9 @@ final class MainMenuBar {
   private CommandGroup openedFilesGroup;
   private Menu recentMenu;
   private CommandGroup recentGroup;
+  // Recently Closed.
+  private Menu closedMenu;
+  private CommandGroup closedGroup;
   // Timestamps.
   private Menu timeFormatMenu;
   private CommandGroup timeFormatGroup;
@@ -102,6 +106,8 @@ final class MainMenuBar {
     otherLoaded = false;
     openedFilesMenu = null;
     recentMenu = null;
+    // Recently Closed.
+    closedMenu = null;
     timeFormatMenu = null;
     nestedMenu = null;
     Menu bar = new Menu(shell, SWT.BAR);
@@ -179,6 +185,11 @@ final class MainMenuBar {
           recentMenu = target;
           recentGroup = group;
         }
+        // Recently Closed.
+        if (command == CommandId.CLEAR_CLOSED) {
+          closedMenu = target;
+          closedGroup = group;
+        }
       }
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
@@ -242,6 +253,10 @@ final class MainMenuBar {
     }
     if (group == recentGroup) {
       syncRecent();
+    }
+    // Recently Closed.
+    if (group == closedGroup) {
+      syncClosed();
     }
     if (group == timeFormatGroup) {
       syncTimeFormats();
@@ -393,6 +408,37 @@ final class MainMenuBar {
       none.setData(LISTED);
     }
     new MenuItem(recentMenu, SWT.SEPARATOR, at).setData(LISTED);
+  }
+
+  // Recently Closed.
+
+  /** Lists the recently closed paths before Open All, or a disabled placeholder. */
+  private void syncClosed() {
+    if (closedMenu == null || closedMenu.isDisposed()) {
+      return;
+    }
+    clearListed(closedMenu);
+    List<String> closed = controller.preferences().state().closedFiles();
+    int at = 0;
+    for (String path : closed) {
+      listedItem(closedMenu, at++, path);
+    }
+    if (closed.isEmpty()) {
+      MenuItem none = new MenuItem(closedMenu, SWT.PUSH, at++);
+      none.setText(UiText.CLOSED_NONE.text());
+      none.setEnabled(false);
+      none.setData(LISTED);
+    }
+    new MenuItem(closedMenu, SWT.SEPARATOR, at).setData(LISTED);
+  }
+
+  /**
+   * Returns File > Recently Closed.
+   *
+   * @return the cascade, filled when its top menu shows
+   */
+  Menu closedMenu() {
+    return closedMenu;
   }
 
   /** Lists the favorites after Add and Remove, or a disabled placeholder. */

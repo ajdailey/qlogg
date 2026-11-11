@@ -178,6 +178,18 @@ and key; without one, the main view is focused.
   walk quick find while its bar is open, otherwise the search's matches.
 - `Space` (`RELEASE_FOCUS`) moves focus from the main view to the filtered view
   and back (`MainView.focusView`).
+- Go Back and Go Forward move the shown document's main view whichever view has
+  focus.
+
+### Command palette
+
+View > Command Palette (`Ctrl+Shift+P`) calls `MainView.showCommandPalette`
+over `commandPalette()`. `CommandPalette.filter` lists every menu command but
+itself with its menu path (`Edit > Search`) and `CommandStates.enabled`. A
+query matches when its non-blank chars appear in order in the title, ignoring
+case, else in the menu path and title; a char scores 1, 3 more right after the
+previous match and 5 more at a word start, and rows sort by score, then menu
+order. `run` passes an enabled command to `execute` and ignores a disabled one.
 
 ### Menu state
 
@@ -191,6 +203,8 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
 | Move to New Window | - | A document shows |
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
+| Go Back, Go Forward | - | A document shows |
+| Open Recent > Open All; Recently Closed > Open All, Clear | - | The list is not empty |
 
 `CommandStates` also lists the highlighter sets (`highlightSets`), the open
 files (`openedFiles`) and a tab menu's enabled items (`tabItems`). An ArchUnit
@@ -215,6 +229,13 @@ size by one point within 4 to 72, save it as `font.zoom` and fire
 Favorites add and remove the shown file's path. `openListed` opens a recent or
 favorite path. File > Open Recent > Clean Up checks the paths on a
 `qlogg-lifecycle-` worker and drops those that are not regular files.
+
+`RecentFiles` keeps File > Recently Closed in `UiState.closedFiles`, at most 20,
+newest first. Closing a tab lists its file; closing a window or quitting does
+not. Opening the file in any tab drops it. A reopened file opens through the
+normal path, at its remembered position unless Follow New Files is on. Open All on either list checks the paths on a
+`qlogg-lifecycle-` worker, opens the regular, readable ones in list order (a
+file open already shows its tab) and names the others in one notice.
 
 `UiState` receives the search toggles, line number toggles, the Open dialog's
 directory and dialog sizes (`rememberDialogSize`). When a window closes, and at

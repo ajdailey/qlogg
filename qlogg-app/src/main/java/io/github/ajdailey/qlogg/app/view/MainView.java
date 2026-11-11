@@ -322,4 +322,9 @@ public interface MainView
       TimeContext context,
       ZoneId zone,
       FormatsListener listener);
+
+  // Command palette.
+
+  /** Shows the command palette with its filter field focused. */
+  void showCommandPalette();
 }

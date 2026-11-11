@@ -120,6 +120,34 @@ line count of the last flush, not the live index, because the caret clamps to
 the viewport, which lags the index until the next flush. `showLine` moves the
 caret to a line and centers it only when it is off screen.
 
+### Navigation history
+
+Edit > Go Back and Go Forward walk the document's `NavigationHistory`: the
+main view's caret lines that jumps left, at most 100, oldest dropped first. A
+jump records the caret's line unless it is the newest entry. A jump after Go
+Back drops the entries ahead. Go Back from the newest end records the caret's
+line first, so Go Forward returns to it.
+
+| Jump | Records through |
+|---|---|
+| Go to Line, `+line:N`, Find Next and Previous over search matches | `jumpToLine` |
+| Next and previous mark, a Marks List row, Go to Time (not a time sync move) | `recordJump` before `showLine` |
+| Go to Top and Bottom, a quick find match | `LineViewController.jump` |
+| A click or `Enter` (`GO_TO_RESULT`) on a filtered-view row | `FilteredController.rowChosen` |
+
+Scrolling and caret moves are not jumps. The filtered view moves the main view
+on every caret move; the first such move keeps the main view's line as the
+departure, the next click or `Enter` records it, and a main-view move of its
+own drops it. While typing in quick find with incremental find on, only the
+first match is a jump.
+
+Entries are lines, so appends leave them in place. A reload or reopen copies
+them to the new controller (`takeOver`); once indexing ends, `clamp` moves
+entries past the last line onto it and merges neighbors that became equal. Go
+Back and Go Forward are enabled whenever a document shows and do nothing
+without an entry: a disabled item's accelerator does not fire, and a jump does
+not sync the menu.
+
 ### Marks
 
 - `]` and `[` go to the next and previous mark; with none, a notice shows.
@@ -223,8 +251,9 @@ visible rows.
 the shown result set's lines, the marks, or both. Its rows change when the
 search flushes, the marks change or the mode changes. A mode change keeps the
 caret on its line or the next listed one. Moving the caret to a row shows its
-line in the main view. Its line numbers are the source lines' and toggle apart
-from the main view's.
+line in the main view; a click or `Enter` makes that a jump of the
+[navigation history](#navigation-history). Its line numbers are the source
+lines' and toggle apart from the main view's.
 
 In marks and matches mode, the marks outside the matches come from a snapshot
 built on a `qlogg-search-` worker (`FilteredView.buildExtras`), at most one at

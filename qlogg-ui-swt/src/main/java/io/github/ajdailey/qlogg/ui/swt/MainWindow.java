@@ -156,6 +156,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Label prefix;
   private final BusyCounter busy;
   private final SwtUiDispatcher dispatcher;
+  // Command palette.
+  private CommandPaletteWindow paletteWindow;
   private ApplicationController controller;
   private QuickFindBar quickFindBar;
   private LogCanvas canvas;
@@ -2414,5 +2416,29 @@ public final class MainWindow implements MainView, ApplicationListener {
       ZoneId zone,
       FormatsListener listener) {
     new TimestampFormatsDialog(shell, formats, caretLine, context, zone, listener).open();
+  }
+
+  // Command palette.
+
+  @Override
+  public void showCommandPalette() {
+    if (shell.isDisposed() || controller == null) {
+      return;
+    }
+    if (paletteWindow != null && !paletteWindow.shell().isDisposed()) {
+      paletteWindow.shell().dispose();
+    }
+    paletteWindow =
+        new CommandPaletteWindow(shell, controller.commandPalette(), keymap, dispatcher);
+    paletteWindow.open();
+  }
+
+  /**
+   * Returns the command palette.
+   *
+   * @return the last one opened, or null
+   */
+  CommandPaletteWindow commandPalette() {
+    return paletteWindow;
   }
 }

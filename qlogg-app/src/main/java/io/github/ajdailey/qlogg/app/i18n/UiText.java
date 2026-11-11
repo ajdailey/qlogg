@@ -1162,7 +1162,34 @@ public enum UiText {
   NOTICE_FILE_SEARCH_RERUN,
   // Failed reopen retries.
   /** Status field: a failed reopen waits for the next check of the file. */
-  STATUS_REOPEN_WAITING;
+  STATUS_REOPEN_WAITING,
+  // Navigation history, Recently Closed, Open All and the command palette.
+  /** Command label. */
+  COMMAND_GO_BACK,
+  /** Command label. */
+  COMMAND_GO_FORWARD,
+  /** Log view key description. */
+  COMMAND_GO_TO_RESULT,
+  /** Command label. */
+  COMMAND_OPEN_ALL_RECENT,
+  /** File menu cascade listing the recently closed files. */
+  MENU_RECENTLY_CLOSED,
+  /** Command label. */
+  COMMAND_OPEN_ALL_CLOSED,
+  /** Command label. */
+  COMMAND_CLEAR_CLOSED,
+  /** Disabled Recently Closed item while the list is empty. */
+  CLOSED_NONE,
+  /** Notice after Open All: the count and names of the files skipped. */
+  NOTICE_OPEN_ALL_SKIPPED,
+  /** Command label. */
+  COMMAND_COMMAND_PALETTE,
+  /** Command palette title. */
+  PALETTE_TITLE,
+  /** Command palette filter field hint. */
+  PALETTE_FILTER,
+  /** Command palette column: the menu a command sits in. */
+  PALETTE_MENU;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

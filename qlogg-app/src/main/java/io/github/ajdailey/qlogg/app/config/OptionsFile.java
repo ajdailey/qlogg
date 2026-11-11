@@ -25,6 +25,8 @@ final class OptionsFile {
   static final String FONT_ANTIALIAS = "font.antialias";
   static final String RECENT_COUNT = "recent.count";
   static final String RECENT = "recent.";
+  // Recently Closed.
+  static final String CLOSED = "closed.";
   static final String POLL = "monitor.pollMillis";
   static final String WATCH = "monitor.watchService";
   static final String ENCODING = "encoding.default";
@@ -172,7 +174,8 @@ final class OptionsFile {
         flag(p, FILTERED_LINE_NUMBERS, d.filteredLineNumbers(), file),
         p.getProperty(OPEN_DIRECTORY, ""),
         list(p, RECENT, Options.MAX_RECENT),
-        dialogs);
+        dialogs,
+        list(p, CLOSED, UiState.MAX_CLOSED));
   }
 
   /**
@@ -222,6 +225,7 @@ final class OptionsFile {
     p.setProperty(FILTERED_LINE_NUMBERS, Boolean.toString(state.filteredLineNumbers()));
     p.setProperty(OPEN_DIRECTORY, state.openDirectory());
     storeList(p, RECENT, state.recentFiles());
+    storeList(p, CLOSED, state.closedFiles());
     for (Map.Entry<String, UiState.Size> entry : state.dialogs().entrySet()) {
       p.setProperty(DIALOG + entry.getKey() + ".width", Integer.toString(entry.getValue().width()));
       p.setProperty(
