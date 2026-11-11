@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
@@ -33,7 +34,8 @@ final class Dialogs {
   }
 
   /**
-   * Creates a dialog shell with a given style.
+   * Creates a dialog shell with a given style and the owning shell's window icons. The icons stay
+   * owned by the shell that created them.
    *
    * @param parent the owning shell
    * @param title the title
@@ -43,12 +45,31 @@ final class Dialogs {
   static Shell shell(Shell parent, String title, int style) {
     Shell shell = new Shell(parent, style);
     shell.setText(title);
+    inheritIcons(shell, parent);
     GridLayout layout = new GridLayout(1, false);
     layout.marginWidth = 12;
     layout.marginHeight = 12;
     layout.verticalSpacing = 8;
     shell.setLayout(layout);
     return shell;
+  }
+
+  /**
+   * Gives a shell its owner's window icons, so the title bar and task switcher show the application
+   * icon instead of the window manager's generic one. The icons stay owned by the shell that
+   * created them.
+   *
+   * @param shell the shell to set
+   * @param owner the owning shell, or null for none
+   */
+  static void inheritIcons(Shell shell, Shell owner) {
+    if (owner == null) {
+      return;
+    }
+    Image[] icons = owner.getImages();
+    if (icons.length > 0) {
+      shell.setImages(icons);
+    }
   }
 
   /**

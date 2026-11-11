@@ -15,6 +15,10 @@ exceptions. Modal dialogs use `APPLICATION_MODAL`; Enter presses the default
 button and Escape closes. Dialogs that remember their size are listed in
 [main-window.md](main-window.md#windows-and-placement).
 
+Every dialog and tool window shell comes from `Dialogs.shell`, which gives it
+the owning window's icons (`Dialogs.inheritIcons`); a shell built another way
+calls `inheritIcons`, or the window manager shows its generic icon.
+
 ## Dialogs
 
 | Window | Contents |

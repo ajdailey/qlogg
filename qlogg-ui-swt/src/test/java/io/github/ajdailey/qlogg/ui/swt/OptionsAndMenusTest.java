@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -10,6 +11,7 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.Binding;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
+import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.FoldRulesText;
 import io.github.ajdailey.qlogg.app.config.Preferences;
@@ -157,6 +159,25 @@ class OptionsAndMenusTest {
       assertTrue(owned[0].isVisible());
     } finally {
       about.dispose();
+    }
+  }
+
+  // Regression: dialogs and secondary windows, Keyboard Shortcuts among them, showed the
+  // window manager's generic icon instead of the application icon.
+  @Test
+  void dialogsAndSecondaryWindowsCarryTheApplicationIcons() {
+    Image[] icons = window.shell().getImages();
+    assertTrue(icons.length > 0);
+    Shell modal = Dialogs.shell(window.shell(), "Modal", true);
+    ShortcutsWindow shortcuts = new ShortcutsWindow(window.shell(), Keymap.defaults(), window);
+    try {
+      assertArrayEquals(icons, modal.getImages());
+      assertArrayEquals(icons, shortcuts.shell().getImages());
+      Shell nested = Dialogs.shell(modal, "Nested", true);
+      assertArrayEquals(icons, nested.getImages());
+    } finally {
+      shortcuts.shell().dispose();
+      modal.dispose();
     }
   }
 
