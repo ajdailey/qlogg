@@ -146,11 +146,13 @@ class TableFitTest {
     }
   }
 
+  // Narrowed as above: win32's narrower font fits the palette's longest keys at 640 px.
   @Test
-  void aPaletteKeyCutOffOnASmallScreenShowsItsKeysAsATip() {
+  void aPaletteKeyCutOffInANarrowedDialogShowsItsKeysAsATip() {
     CommandPaletteWindow palette = palette();
     try {
       palette.open(SMALL);
+      palette.shell().setSize(420, palette.shell().getSize().y);
       assertCutKeysTip(palette.shell(), palette.table());
     } finally {
       palette.shell().dispose();
