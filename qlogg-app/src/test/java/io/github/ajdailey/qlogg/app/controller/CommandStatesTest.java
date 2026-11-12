@@ -82,6 +82,8 @@ class CommandStatesTest {
     row(CommandId.TIME_SPREAD_OFF, "ce ce ce");
     row(CommandId.TIME_SPREAD_ACTIVITY, "-e -e -e");
     row(CommandId.TIME_SPREAD_PAUSES, "-e -e -e");
+    // Always on Top.
+    row(CommandId.ALWAYS_ON_TOP, "-e -e -e");
     row(CommandId.MOVE_TO_NEW_WINDOW, "-- -e -e");
     row(CommandId.ADD_FAVORITE, "-- -e -e");
     row(CommandId.REMOVE_FAVORITE, "-- -- --");

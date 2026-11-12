@@ -76,6 +76,12 @@ before indexing starts, as a reload adds them; a comment on an unmarked line is
 dropped. Only the owner writes the tab list. The launcher makes an instance the
 owner when it restored the session and has no `-m`.
 
+`AlwaysOnTop` holds a window's View > Always on Top flag; `restoreSession`
+restores it and the session saves it per window. Where
+`MainView.onTopSupported` is false the item is disabled and a restored flag is
+kept for the next save without reaching the view. A new window, including one a
+tab moves to, starts with it off; handed files do not change it.
+
 ## Tabs
 
 `activate`, `moveDocument`, `closeDocument(document)` and `closeAll` change the

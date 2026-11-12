@@ -7,12 +7,14 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import org.eclipse.swt.widgets.Display;
 
 /** View classes that each break one architecture rule; never instantiated. */
 final class ViewViolations {
@@ -94,6 +96,18 @@ final class ViewViolations {
   static final class OwnsUncoloredShell {
     org.eclipse.swt.widgets.Shell open(org.eclipse.swt.widgets.Shell parent) {
       return new org.eclipse.swt.widgets.Shell(parent, org.eclipse.swt.SWT.DIALOG_TRIM);
+    }
+  }
+
+  // Always on Top.
+
+  /** Reaches an SWT internal by reflection outside the Always on Top platform classes. */
+  static final class ReflectsIntoSwt {
+    Object handle(Display display) throws ReflectiveOperationException {
+      Class.forName("org.eclipse.swt.internal.Library");
+      Field field = Display.class.getDeclaredField("mock");
+      field.setAccessible(true);
+      return field.get(display);
     }
   }
 }

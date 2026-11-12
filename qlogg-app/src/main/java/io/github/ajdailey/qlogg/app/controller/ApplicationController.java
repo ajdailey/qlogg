@@ -158,6 +158,8 @@ public final class ApplicationController implements DocumentHost {
   // Recently Closed, Open All and the command palette.
   private final RecentFiles recent;
   private CommandPalette palette;
+  // Always on Top.
+  private final AlwaysOnTop alwaysOnTop;
 
   /**
    * Creates the only window of a new {@link WindowSet} with a system setting that is always light.
@@ -238,6 +240,8 @@ public final class ApplicationController implements DocumentHost {
     this.recent = new RecentFiles(this, workers, ui, view);
     // Tab data dot.
     addListener(tabData);
+    // Always on Top.
+    this.alwaysOnTop = new AlwaysOnTop(view, this::scheduleSave);
     set.register(this);
   }
 
@@ -1505,6 +1509,8 @@ public final class ApplicationController implements DocumentHost {
       case COMMAND_PALETTE -> view.showCommandPalette();
       // Reopen Closed Tab.
       case REOPEN_CLOSED -> recent.reopenClosed();
+      // Always on Top.
+      case ALWAYS_ON_TOP -> alwaysOnTop.toggle();
       default -> {
         if (!features.execute(command) && !time.execute(command)) {
           documentCommand(command);
@@ -1965,6 +1971,8 @@ public final class ApplicationController implements DocumentHost {
   public void restoreSession(final Session session) {
     set.setSessionOwner(true);
     droppedComments = session.droppedComments();
+    // Always on Top.
+    alwaysOnTop.restore(session.onTop());
     if (session.tabs().isEmpty()) {
       noticeDroppedComments();
     } else if (!shuttingDown) {
@@ -2005,6 +2013,17 @@ public final class ApplicationController implements DocumentHost {
     } else {
       tabData.followStopped(document);
     }
+  }
+
+  // Always on Top.
+
+  /**
+   * Returns the window's Always on Top state.
+   *
+   * @return the state
+   */
+  public AlwaysOnTop alwaysOnTop() {
+    return alwaysOnTop;
   }
 
   /** Saves {@link #SAVE_DELAY_MILLIS} after the last call. */
@@ -2058,7 +2077,7 @@ public final class ApplicationController implements DocumentHost {
               set.timeSync().sessionNumber(document),
               document.document()));
     }
-    return new WindowSet.WindowDraft(tabs, shown);
+    return new WindowSet.WindowDraft(tabs, shown, alwaysOnTop.saved());
   }
 
   private void rememberPosition(DocumentController document) {

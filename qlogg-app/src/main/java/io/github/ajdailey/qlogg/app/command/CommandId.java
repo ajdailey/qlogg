@@ -234,6 +234,9 @@ public enum CommandId {
   THEME_DARK(CommandGroup.VIEW, UiText.COMMAND_THEME_DARK, false, true, UiText.MENU_THEME),
   /** The palette that follows the system setting. */
   THEME_SYSTEM(CommandGroup.VIEW, UiText.COMMAND_THEME_SYSTEM, false, true, UiText.MENU_THEME),
+  // Always on Top.
+  /** Keep the window above other windows; disabled where the platform offers no way. */
+  ALWAYS_ON_TOP(CommandGroup.VIEW, UiText.COMMAND_ALWAYS_ON_TOP, false, true),
   /** Edit the predefined filters. */
   PREDEFINED_FILTERS(CommandGroup.TOOLS, UiText.COMMAND_PREDEFINED_FILTERS, false, false),
   /** Save the search text as a predefined filter. */

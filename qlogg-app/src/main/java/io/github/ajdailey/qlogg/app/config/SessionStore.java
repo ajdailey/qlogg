@@ -18,8 +18,8 @@ import java.util.Properties;
  * not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line, a space and
  * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
  * {@code droppedComments}, written when not 0, sums the windows' {@link Session#droppedComments}
- * and loads on the first window; a missing, malformed or negative value reads as 0. Blocking;
- * workers call it.
+ * and loads on the first window; a missing, malformed or negative value reads as 0. {@code
+ * window.W.onTop} is written when true. Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -110,7 +110,13 @@ public final class SessionStore {
       } catch (NumberFormatException e) {
         // The first tab shows.
       }
-      windows.add(new Session(tabs, active, windows.isEmpty() ? dropped(p) : 0));
+      windows.add(
+          new Session(
+              tabs,
+              active,
+              windows.isEmpty() ? dropped(p) : 0,
+              // Always on Top.
+              "true".equals(p.getProperty(prefix + "onTop", "false").strip())));
     }
     return windows;
   }
@@ -143,6 +149,10 @@ public final class SessionStore {
       int tabs = Math.min(MAX_TABS - count, session.tabs().size());
       p.setProperty(
           prefix + "active", Integer.toString(session.active() < tabs ? session.active() : -1));
+      // Always on Top.
+      if (session.onTop()) {
+        p.setProperty(prefix + "onTop", "true");
+      }
       for (int i = 0; i < tabs; i++) {
         Session.Tab tab = session.tabs().get(i);
         String key = prefix + "tab." + i + ".";

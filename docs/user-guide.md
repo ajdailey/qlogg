@@ -490,8 +490,8 @@ epoch time.
 
 QLogg restores the last session at start when no file is given (Tools >
 Options, General; `-s` and `-n` decide for one run): the tabs of each window,
-the shown tab, tab names, follow, marks, mark comments, time offsets and time
-sync groups. Each file's
+the shown tab, tab names, follow, marks, mark comments, time offsets, time
+sync groups and each window's Always on Top. Each file's
 position and forced encoding are remembered; `+line:N` wins over the position.
 
 File > Open Recent lists recent files (Clean Up drops missing ones). File >
@@ -505,6 +505,11 @@ adds, removes and opens favorite files.
 ## Windows and the running instance
 
 File > New Window opens another main window.
+
+View > Always on Top keeps a window above other windows; each window has its
+own setting, and a new window starts without it. Dialogs the window opens stay
+above it. It is unavailable on Linux under Wayland or GTK 4, where the window
+manager's window menu (`Alt+Space`) offers Always on Top instead.
 
 ### Moving tabs between windows
 

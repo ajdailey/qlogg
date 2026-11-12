@@ -556,8 +556,8 @@ public final class WindowSet {
    */
   private record SaveSnapshot(long sequence, Preferences preferences, List<WindowDraft> windows) {}
 
-  /** A window's session tabs captured on the UI thread. */
-  record WindowDraft(List<DraftTab> tabs, int active) {}
+  /** A window's session tabs and Always on Top flag captured on the UI thread. */
+  record WindowDraft(List<DraftTab> tabs, int active, boolean onTop) {}
 
   /** A session tab captured on the UI thread; its marks are read on the worker. */
   record DraftTab(
@@ -641,7 +641,7 @@ public final class WindowSet {
                 draft.timeOffset(),
                 draft.syncGroup()));
       }
-      sessions.add(new Session(tabs, window.active(), dropped));
+      sessions.add(new Session(tabs, window.active(), dropped, window.onTop()));
     }
     config.sessions().saveWindows(sessions);
   }

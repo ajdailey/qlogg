@@ -57,6 +57,7 @@ import io.github.ajdailey.qlogg.core.time.TimeSearch;
 import java.beans.XMLDecoder;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.AccessibleObject;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
@@ -136,6 +137,35 @@ class ArchitectureTest {
         .dependOnClassesThat()
         .resideInAPackage("org.eclipse.swt.internal..")
         .check(classes);
+  }
+
+  // Always on Top.
+
+  /** The classes that reach SWT internals by reflection, which no import shows. */
+  private static final String[] SWT_REFLECTION = {
+    ROOT + ".ui.swt.Win32Stacking", ROOT + ".ui.swt.CocoaStacking", ROOT + ".ui.swt.GtkX11Stacking"
+  };
+
+  /** Only the Always on Top platform classes load classes by name or open members. */
+  @Test
+  void reflectionOnlyInStackingClasses() {
+    reflectionOnlyInStackingClassesRule().check(classes);
+  }
+
+  private static ArchRule reflectionOnlyInStackingClassesRule() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(SWT_REFLECTION[0])
+        .and()
+        .doNotHaveFullyQualifiedName(SWT_REFLECTION[1])
+        .and()
+        .doNotHaveFullyQualifiedName(SWT_REFLECTION[2])
+        .should()
+        .callMethodWhere(
+            call(Class.class, "forName|getDeclaredField|getDeclaredMethod|getField|getMethod"))
+        .orShould()
+        .callMethodWhere(call(AccessibleObject.class, "setAccessible|trySetAccessible"))
+        .because("SWT internals differ per platform; only these classes reach them");
   }
 
   // Log view geometry.
@@ -611,6 +641,12 @@ class ArchitectureTest {
         "!lines()");
     assertViolations(
         controllersReadNoSystemPropertiesRule(), controllers + "ReadsPlatform", "getProperty");
+    // Always on Top.
+    assertViolations(
+        reflectionOnlyInStackingClassesRule(),
+        views + "ReflectsIntoSwt",
+        "Class.forName",
+        "Field.setAccessible");
     assertViolations(
         onlyWorkersCreatesThreadsRule(), controllers + "StartsTimer", "java.util.Timer");
     assertViolations(

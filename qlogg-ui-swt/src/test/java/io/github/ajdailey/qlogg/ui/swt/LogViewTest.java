@@ -540,7 +540,8 @@ class LogViewTest {
             "Zoom Out",
             "Reset Zoom",
             "-",
-            "Theme"),
+            "Theme",
+            "Always on Top"),
         labels(bar.getItem(2).getMenu()));
     assertEquals(
         List.of(

@@ -181,6 +181,10 @@ final class MainMenuBar {
               }
             });
         items.put(command, item);
+        // Always on Top.
+        if (command == CommandId.ALWAYS_ON_TOP && WindowStacking.PLATFORM.windowManagerMenu()) {
+          item.setToolTipText(UiText.ALWAYS_ON_TOP_UNSUPPORTED.text());
+        }
         if (command == CommandId.CLEAN_RECENT) {
           recentMenu = target;
           recentGroup = group;

@@ -179,7 +179,11 @@ class CommandStatesTest {
       actual.put(entry.getKey(), states);
       table.append(String.format("    row(CommandId.%s, \"%s\");%n", entry.getKey(), states));
     }
-    assertEquals(EXPECTED, actual, "recorded:\n" + table);
+    // Always on Top: enabled where this platform supports it.
+    Map<CommandId, String> expected = new EnumMap<CommandId, String>(EXPECTED);
+    String onTop = window.onTopSupported() ? "-e" : "--";
+    expected.put(CommandId.ALWAYS_ON_TOP, onTop + " " + onTop + " " + onTop);
+    assertEquals(expected, actual, "recorded:\n" + table);
   }
 
   /** Appends each item's state after a menu sync. */

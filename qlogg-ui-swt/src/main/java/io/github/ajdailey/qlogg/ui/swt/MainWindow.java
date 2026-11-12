@@ -2541,4 +2541,16 @@ public final class MainWindow implements MainView, ApplicationListener {
   CommandPaletteWindow commandPalette() {
     return paletteWindow;
   }
+
+  // Always on Top.
+
+  @Override
+  public boolean onTopSupported() {
+    return WindowStacking.PLATFORM.supported();
+  }
+
+  @Override
+  public void setOnTop(boolean onTop) {
+    WindowStacking.PLATFORM.setOnTop(shell, onTop);
+  }
 }

@@ -1284,7 +1284,13 @@ public enum UiText {
 
   // Reopen Closed Tab.
   /** Command label. */
-  COMMAND_REOPEN_CLOSED;
+  COMMAND_REOPEN_CLOSED,
+
+  // Always on Top.
+  /** Command label. */
+  COMMAND_ALWAYS_ON_TOP,
+  /** Tool tip of the disabled Always on Top item where the window manager's menu offers it. */
+  ALWAYS_ON_TOP_UNSUPPORTED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

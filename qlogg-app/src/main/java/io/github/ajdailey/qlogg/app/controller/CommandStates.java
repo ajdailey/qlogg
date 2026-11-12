@@ -21,9 +21,10 @@ import java.util.Set;
  * from the controllers, read from an {@link ApplicationController} on every call. Call on the UI
  * thread.
  *
- * <p>A check command in {@link #APPLICATION_CHECKS} reads the settings and is always enabled; any
- * other check command reads the shown document and is enabled while one shows. The commands in
- * {@link #FILE_COMMANDS} need a document with a file, so they are disabled for clipboard text.
+ * <p>A check command in {@link #APPLICATION_CHECKS} reads the settings or the window and is enabled
+ * except Always on Top where the platform lacks it; any other check command reads the shown
+ * document and is enabled while one shows. The commands in {@link #FILE_COMMANDS} need a document
+ * with a file, so they are disabled for clipboard text.
  */
 public final class CommandStates {
   /** Check commands whose state does not depend on a document. */
@@ -46,7 +47,9 @@ public final class CommandStates {
           // Time spread.
           CommandId.TIME_SPREAD_OFF,
           CommandId.TIME_SPREAD_ACTIVITY,
-          CommandId.TIME_SPREAD_PAUSES);
+          CommandId.TIME_SPREAD_PAUSES,
+          // Always on Top.
+          CommandId.ALWAYS_ON_TOP);
 
   /** Commands that need a document with a file. */
   public static final Set<CommandId> FILE_COMMANDS =
@@ -149,6 +152,8 @@ public final class CommandStates {
       // Timestamps.
       case GO_TO_TIME, SCROLL_TABS_TO_TIME, TIME_OFFSET, TIME_ZONE ->
           document != null && document.time().format() != null;
+      // Always on Top.
+      case ALWAYS_ON_TOP -> application.alwaysOnTop().supported();
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }
@@ -257,6 +262,8 @@ public final class CommandStates {
       case TIME_SPREAD_ACTIVITY ->
           application.preferences().view().timeSpread() == SpreadMode.ACTIVITY;
       case TIME_SPREAD_PAUSES -> application.preferences().view().timeSpread() == SpreadMode.PAUSES;
+      // Always on Top.
+      case ALWAYS_ON_TOP -> application.alwaysOnTop().shown();
       default -> false;
     };
   }

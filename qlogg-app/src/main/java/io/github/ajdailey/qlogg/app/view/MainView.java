@@ -332,4 +332,21 @@ public interface MainView
 
   /** Shows the command palette with its filter field focused. */
   void showCommandPalette();
+
+  // Always on Top.
+
+  /**
+   * Reports whether {@link #setOnTop} takes effect on this platform.
+   *
+   * @return false where the window system or toolkit offers no way, or after a call failed
+   */
+  boolean onTopSupported();
+
+  /**
+   * Keeps the window above other windows, or returns it to normal stacking, without moving,
+   * resizing or activating it. Does nothing where unsupported.
+   *
+   * @param onTop true to keep it above
+   */
+  void setOnTop(boolean onTop);
 }

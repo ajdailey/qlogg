@@ -435,4 +435,24 @@ final class FakeView implements MainView {
     ui.check("showCommandPalette");
     paletteShown++;
   }
+
+  // Always on Top.
+
+  /** What {@link #onTopSupported} reports. */
+  boolean onTopSupported = true;
+
+  /** Each {@link #setOnTop} argument, in order. */
+  final List<Boolean> onTopCalls = new ArrayList<Boolean>();
+
+  @Override
+  public boolean onTopSupported() {
+    ui.check("onTopSupported");
+    return onTopSupported;
+  }
+
+  @Override
+  public void setOnTop(boolean onTop) {
+    ui.check("setOnTop");
+    onTopCalls.add(onTop);
+  }
 }

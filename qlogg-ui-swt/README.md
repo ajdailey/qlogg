@@ -11,7 +11,7 @@ against the build host's SWT fragment.
 
 | Classes | Contents | Detail |
 |---|---|---|
-| `MainWindow`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots` | The main window: top row, tab row, split body, search row, filtered view, status bar | [docs/main-window.md](docs/main-window.md) |
+| `MainWindow`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `WindowStacking` | The main window: top row, tab row, split body, search row, filtered view, status bar, Always on Top | [docs/main-window.md](docs/main-window.md) |
 | `MainMenuBar`, `TimeSyncMenu`, `AppMenu` | Menu bar, listed entries, Time Sync cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
 | `Dialogs` and the dialog classes, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
@@ -39,9 +39,11 @@ mutators, and use only the enums of `core.search` and `core.watch`.
 
 The views use only SWT's public API, so they run unchanged on GTK 3 and GTK 4;
 `ArchitectureTest` rejects `org.eclipse.swt.internal`. Platform differences go
-through `SWT.getPlatform()`. The one read of an internal name is the GDK
-backend system property `MainWindow.place` reads, which fails safe when
-absent.
+through `SWT.getPlatform()`. `MainWindow.place` and `WindowStacking` read the
+GDK backend system property, an internal name that fails safe when absent.
+View > Always on Top is the one exception: `Win32Stacking`, `CocoaStacking` and
+`GtkX11Stacking` reach SWT internals by reflection, and `ArchitectureTest`
+allows reflection nowhere else ([main window](docs/main-window.md#always-on-top)).
 
 ### GTK 4
 

@@ -131,7 +131,7 @@ own file: `<name>.invalid`, atomic owner-only writes, read-only directory.
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`; per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on); per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.
