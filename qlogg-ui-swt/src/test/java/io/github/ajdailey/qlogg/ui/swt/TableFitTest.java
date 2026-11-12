@@ -29,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -50,6 +51,9 @@ class TableFitTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
   private static final Rectangle WIDE = new Rectangle(0, 0, 1100, 700);
   private static final Rectangle SMALL = new Rectangle(0, 0, 640, 480);
+
+  /** Pixels of the Keys column left in view when a test narrows the palette. */
+  private static final int KEYS_SHOWN = 40;
 
   @TempDir Path temp;
 
@@ -146,14 +150,23 @@ class TableFitTest {
     }
   }
 
-  // Narrowed as above: win32's narrower font fits the palette's longest keys at 640 px.
+  // Narrowed so the Keys column starts in view and is cut: win32's narrower font fits the palette's
+  // longest keys at 640 px, and win32 finds no row under a point past the client area.
   @Test
   void aPaletteKeyCutOffInANarrowedDialogShowsItsKeysAsATip() {
     CommandPaletteWindow palette = palette();
     try {
       palette.open(SMALL);
-      palette.shell().setSize(420, palette.shell().getSize().y);
-      assertCutKeysTip(palette.shell(), palette.table());
+      Table table = palette.table();
+      settle(palette.shell(), table);
+      int keysStart = 0;
+      for (int column = 0; column < table.getColumnCount() - 1; column++) {
+        keysStart += table.getColumn(column).getWidth();
+      }
+      int excess = table.getClientArea().width - (keysStart + KEYS_SHOWN);
+      Point size = palette.shell().getSize();
+      palette.shell().setSize(size.x - excess, size.y);
+      assertCutKeysTip(palette.shell(), table);
     } finally {
       palette.shell().dispose();
     }
