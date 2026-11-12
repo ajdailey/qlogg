@@ -47,7 +47,8 @@ into a change event.
 
 `Dialogs.shell` calls `DialogColors.prepare` on every dialog and tool window
 shell, and `Dialogs.open` calls `DialogColors.apply` before the shell shows. A
-shell built another way calls both. `DialogColors.of` picks the class:
+shell built another way calls both. `DialogColors.of` takes the class from
+`PlatformTraits.dialogColors`:
 
 | Class | When | Colors |
 |---|---|---|
@@ -126,7 +127,8 @@ high for any width under GTK 4.14, so the tool bar lays an image-only item out
 at its padding (12 px, or 4 px for a check item) and shows no icon (measured
 under Xvfb, every QLogg tool bar). `ToolIcons.apply` calls
 `ToolItemSizing.platform().keepIconSize` before `setImage`.
-`Gtk4ToolItemSizing` turns off the picture's shrinking through SWT internals
+`PlatformTraits.toolItemSizing` returns `Gtk4ToolItemSizing` on GTK 4, which
+turns off the picture's shrinking through SWT internals
 (`ToolItem.imageHandle`, `GTK4.gtk_picture_set_can_shrink`), and the items
 measure at least 20 px each way; `NativeToolItemSizing` does nothing on the
 other backends. This is a listed Public SWT API exception, and ArchUnit

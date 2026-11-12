@@ -42,7 +42,7 @@ final class SwtKeys {
    * @return true on cocoa
    */
   static boolean mac() {
-    return "cocoa".equals(SWT.getPlatform());
+    return PlatformTraits.PLATFORM.macKeys();
   }
 
   /**

@@ -1,6 +1,5 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -15,13 +14,9 @@ import org.eclipse.swt.widgets.Shell;
  *   <tr><td>cocoa</td><td>{@link CocoaStacking}</td></tr>
  *   <tr><td>GTK 3 on X11</td><td>{@link GtkX11Stacking}</td></tr>
  *   <tr><td>GTK 3 on Wayland, GTK 4</td><td>{@link #WINDOW_MANAGER}</td></tr>
- *   <tr><td>Any other</td><td>{@link #NONE}</td></tr>
  * </table>
  */
 interface WindowStacking {
-  /** Unsupported; {@link #setOnTop} does nothing. */
-  WindowStacking NONE = new Unsupported(false);
-
   /** Unsupported on a Linux desktop, whose window manager's window menu offers the setting. */
   WindowStacking WINDOW_MANAGER = new Unsupported(true);
 
@@ -57,19 +52,10 @@ interface WindowStacking {
   /**
    * Returns the implementation for the running SWT.
    *
-   * @return the stacking
+   * @return {@link PlatformTraits#stacking}
    */
   static WindowStacking forPlatform() {
-    return switch (SWT.getPlatform()) {
-      case "win32" -> new Win32Stacking();
-      case "cocoa" -> new CocoaStacking();
-      case "gtk" ->
-          "1".equals(System.getenv("SWT_GTK4"))
-                  || !"x11".equals(System.getProperty(MainWindow.GDK_BACKEND))
-              ? WINDOW_MANAGER
-              : new GtkX11Stacking();
-      default -> NONE;
-    };
+    return PlatformTraits.PLATFORM.stacking();
   }
 
   /**

@@ -193,6 +193,7 @@ fails:
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
 | No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
+| `SWT.getPlatform()` only in `PlatformTraits`; no `System.getenv` in `ui.swt` or `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |

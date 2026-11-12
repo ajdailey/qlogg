@@ -37,7 +37,7 @@ public final class AppMenu {
    * @return true on cocoa
    */
   public static boolean present(Display display) {
-    return "cocoa".equals(SWT.getPlatform()) && display.getSystemMenu() != null;
+    return PlatformTraits.PLATFORM.systemAppMenu() && display.getSystemMenu() != null;
   }
 
   /**

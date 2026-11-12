@@ -1443,7 +1443,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     WindowGeometry.Screen primary = screen(display.getPrimaryMonitor());
     Rectangle trim = shell.computeTrim(0, 0, 100, 100);
-    boolean positionSupported = !"wayland".equals(System.getProperty(GDK_BACKEND));
+    boolean positionSupported = PlatformTraits.PLATFORM.positionsWindows();
     WindowGeometry.Placement placement =
         WindowGeometry.place(
             request,
@@ -1454,9 +1454,7 @@ public final class MainWindow implements MainView, ApplicationListener {
             trim.height - 100,
             positionSupported);
     apply(placement);
-    // On win32, computeTrim overstates the height once a menu bar is set; place again with the
-    // trim measured from the sized shell.
-    if ("win32".equals(SWT.getPlatform())) {
+    if (PlatformTraits.PLATFORM.remeasuresTrim()) {
       Point size = shell.getSize();
       Rectangle client = shell.getClientArea();
       int trimWidth = size.x - client.width;
@@ -1948,7 +1946,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public boolean launchesByExtension() {
-    return "win32".equals(SWT.getPlatform());
+    return PlatformTraits.PLATFORM.launchesByExtension();
   }
 
   @Override
@@ -2168,7 +2166,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     return "SWT "
         + SWT.getVersion()
         + " "
-        + SWT.getPlatform()
+        + PlatformTraits.PLATFORM.name()
         + (gtk == null ? "" : " (GTK " + gtk + ")");
   }
 
@@ -2484,13 +2482,12 @@ public final class MainWindow implements MainView, ApplicationListener {
   // User guide.
 
   /**
-   * Shows the user guide in a {@link GuideWindow}. Under GTK 4 ({@code SWT_GTK4=1}) it shows a
-   * notice naming the file instead and never creates a {@code Browser}: WebKitGTK 6.0 aborts the
-   * JVM when the browser starts ("Failed to fully launch dbus-proxy").
+   * Shows the user guide in a {@link GuideWindow}, or a notice naming the file, with no {@code
+   * Browser} created, where {@link PlatformTraits#opensBrowser} is false.
    */
   @Override
   public boolean showGuide(Path file) {
-    if (gtk4()) {
+    if (!PlatformTraits.PLATFORM.opensBrowser()) {
       showNotice(UiText.NOTICE_GUIDE_AT.format(file));
       return true;
     }
@@ -2508,10 +2505,6 @@ public final class MainWindow implements MainView, ApplicationListener {
       remember(created.shell(), "guide");
     }
     return true;
-  }
-
-  private static boolean gtk4() {
-    return "gtk".equals(SWT.getPlatform()) && "1".equals(System.getenv("SWT_GTK4"));
   }
 
   private void guideFailed(Path file) {

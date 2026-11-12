@@ -17,6 +17,7 @@ against the build host's SWT fragment.
 | `Dialogs` and the dialog classes, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
 | `SwtThemeService`, `CocoaChrome`, `DialogColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |
+| `PlatformTraits`, `Win32Traits`, `CocoaTraits`, `GtkTraits`, `Gtk3Traits`, `Gtk4Traits` | Every view-layer platform difference | [docs/main-window.md](docs/main-window.md#platform-traits) |
 
 ## UI thread
 
@@ -39,11 +40,14 @@ mutators, and use only the enums of `core.search` and `core.watch`.
 
 The views use only SWT's public API, so they run unchanged on GTK 3 and GTK 4;
 `ArchitectureTest` rejects `org.eclipse.swt.internal`. Platform differences go
-through `SWT.getPlatform()`. `MainWindow.place` and `WindowStacking` read the
-GDK backend system property, an internal name that fails safe when absent.
-View > Always on Top is the one exception: `Win32Stacking`, `CocoaStacking` and
-`GtkX11Stacking` reach SWT internals by reflection, and `ArchitectureTest`
-allows reflection nowhere else ([main window](docs/main-window.md#always-on-top)).
+through `PlatformTraits` ([main window](docs/main-window.md#platform-traits)).
+`GtkTraits` and `Gtk3Traits` read the GDK backend system property, an internal
+name that fails safe when absent. View > Always on Top and GTK 4 tool item
+sizing are the exceptions: `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`
+and `Gtk4ToolItemSizing` reach SWT internals by reflection, and
+`ArchitectureTest` allows reflection nowhere else
+([main window](docs/main-window.md#always-on-top),
+[theme](docs/theme.md#gtk-4-tool-item-size)).
 
 ### GTK 4
 

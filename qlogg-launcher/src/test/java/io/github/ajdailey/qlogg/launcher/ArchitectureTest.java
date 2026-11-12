@@ -89,6 +89,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import org.eclipse.swt.SWT;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -176,6 +177,47 @@ class ArchitectureTest {
         .orShould()
         .callMethodWhere(call(AccessibleObject.class, "setAccessible|trySetAccessible"))
         .because("SWT internals differ per platform; only these classes reach them");
+  }
+
+  // Platform traits.
+
+  /**
+   * Only {@code PlatformTraits} reads {@code SWT.getPlatform()}, and no other view or launcher
+   * class reads the environment, where SWT takes {@code SWT_GTK4}.
+   */
+  @Test
+  void platformOnlyInTraits() {
+    platformOnlyInTraitsRule().check(classes);
+  }
+
+  @Test
+  void platformRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        platformOnlyInTraitsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$ReadsPlatform",
+        "SWT.getPlatform",
+        "System.getenv");
+  }
+
+  private static ArchRule platformOnlyInTraitsRule() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(ROOT + ".ui.swt.PlatformTraits")
+        .should()
+        .callMethodWhere(call(SWT.class, "getPlatform"))
+        .orShould()
+        .callMethodWhere(
+            new DescribedPredicate<JavaMethodCall>("call System.getenv in ui.swt or launcher") {
+              @Override
+              public boolean test(JavaMethodCall call) {
+                return call.getTarget().getName().equals("getenv")
+                    && call.getTarget().getOwner().isEquivalentTo(System.class)
+                    && call.getOriginOwner()
+                        .getPackageName()
+                        .matches(".*\\.(ui\\.swt|launcher)(\\..*)?");
+              }
+            })
+        .because("each view-layer platform difference is a PlatformTraits method");
   }
 
   // Log view geometry.

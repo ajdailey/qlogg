@@ -12,9 +12,10 @@ and a restored session.
 
 - `place` reads every monitor's bounds and work area and the shell trim
   (`computeTrim`), and applies `WindowGeometry.place`. It skips the position
-  when SWT reports the GDK backend `wayland`
-  (`org.eclipse.swt.internal.gdk.backend`, a system property read that fails
-  safe when absent).
+  where `PlatformTraits.positionsWindows` is false: GTK under the GDK backend
+  `wayland` (`org.eclipse.swt.internal.gdk.backend`, a system property read
+  that fails safe when absent). On win32 it places again with the trim
+  measured from the sized shell (`remeasuresTrim`).
 - `windowBounds` and `windowMaximized` report the normal bounds kept from the
   last unmaximized move or resize, and the maximized state.
 - `SWT.Activate` reports the window to `ApplicationController.windowActivated`.
@@ -253,8 +254,8 @@ call replaces its text and activates it.
 ## Always on Top
 
 `MainWindow.onTopSupported` and `setOnTop` pass to `WindowStacking.PLATFORM`,
-one implementation chosen on first use, after the Display exists (GTK reads the
-backend the Display records). SWT has no public call, so each implementation
+the `PlatformTraits.stacking` implementation chosen on first use, after the
+Display exists (GTK reads the backend the Display records). SWT has no public call, so each implementation
 reaches SWT internals by reflection and the product compiles against every
 platform's SWT jar. `ArchitectureTest.reflectionOnlyInExceptionClasses` allows
 reflection in these three classes and `Gtk4ToolItemSizing` only;
@@ -285,6 +286,35 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
 - Where `WindowStacking.windowManagerMenu` is true, the disabled item's tool
   tip names the window manager's window menu. SWT keeps no menu item tool tip
   on GTK 4.
+
+## Platform traits
+
+Every platform difference in the view layer is a method of `PlatformTraits`,
+answered by `Win32Traits`, `CocoaTraits`, `Gtk3Traits` and `Gtk4Traits`; the
+GTK pair share `GtkTraits`. `PlatformTraits.PLATFORM` is chosen from
+`SWT.getPlatform()` and `SWT_GTK4=1` when the interface is first used.
+`PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
+checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
+on a `SWT.getPlatform()` call outside `PlatformTraits` and on a
+`System.getenv` call anywhere in `ui.swt` or the launcher.
+
+| Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
+|---|---|---|---|---|---|
+| `name` | `win32` | `cocoa` | `gtk` | `gtk` | `MainWindow.toolkitDescription` |
+| `monospaceFamily`, `monospaceSize` | Consolas 10 | Menlo 12 | Monospace 10 | Monospace 10 | `Dialogs.monospaceName`, `monospaceSize` |
+| `macKeys` | - | yes | - | - | `SwtKeys.mac`: key names and the keymap's platform |
+| `systemAppMenu` | - | yes | - | - | `AppMenu.present` |
+| `positionsWindows` | yes | yes | Not under Wayland | Not under Wayland | `MainWindow.place` |
+| `remeasuresTrim` | yes | - | - | - | `MainWindow.place` |
+| `launchesByExtension` | yes | - | - | - | `MainWindow.launchesByExtension` |
+| `opensBrowser` | yes | yes | yes | - | `MainWindow.showGuide`: otherwise a notice names the guide's file |
+| `switchesThemeLive` | - | - | yes | yes | `SwtThemeService.preferDark`, `showsNow` |
+| `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome` and polling, `open`, `showsNow` |
+| `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
+| `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
+| `dialogColors` | `Win32DialogColors` when started dark | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
+| `stacking` | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
+| `toolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
 
 ## Platform services
 

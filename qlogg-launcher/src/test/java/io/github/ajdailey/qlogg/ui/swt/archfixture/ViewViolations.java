@@ -14,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 
 /** View classes that each break one architecture rule; never instantiated. */
@@ -108,6 +109,15 @@ final class ViewViolations {
       Field field = Display.class.getDeclaredField("mock");
       field.setAccessible(true);
       return field.get(display);
+    }
+  }
+
+  // Platform traits.
+
+  /** Reads the SWT platform and the GTK 4 environment outside {@code PlatformTraits}. */
+  static final class ReadsPlatform {
+    boolean gtk4() {
+      return "gtk".equals(SWT.getPlatform()) && System.getenv("SWT_GTK4") != null;
     }
   }
 }

@@ -77,8 +77,8 @@ in a group. `&` in a title is escaped.
 
 ## macOS application menu
 
-`AppMenu` connects the application menu when `SWT.getPlatform()` is `cocoa`
-and `Display.getSystemMenu()` is not null; elsewhere `present` is false and
+`AppMenu` connects the application menu when `PlatformTraits.systemAppMenu`
+is true (cocoa) and `Display.getSystemMenu()` is not null; elsewhere `present` is false and
 the menu bar keeps About, Options and Exit.
 
 | Event | Action |

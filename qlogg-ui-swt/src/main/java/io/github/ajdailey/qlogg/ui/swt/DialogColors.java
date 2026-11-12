@@ -1,6 +1,5 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -30,10 +29,7 @@ interface DialogColors {
     if (held instanceof DialogColors colors) {
       return colors;
     }
-    DialogColors colors =
-        "win32".equals(SWT.getPlatform()) && SwtThemeService.nativeDark(display)
-            ? new Win32DialogColors(display)
-            : new NativeDialogColors();
+    DialogColors colors = PlatformTraits.PLATFORM.dialogColors(display);
     display.setData(KEY, colors);
     return colors;
   }
