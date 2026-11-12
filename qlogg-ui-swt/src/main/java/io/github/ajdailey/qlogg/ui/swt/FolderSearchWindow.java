@@ -28,7 +28,7 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Edit > Search in Folder: a modeless window with the folder, file name globs, subfolders, search
+ * Search > Search in Folder: a modeless window with the folder, file name globs, subfolders, search
  * text and toggles, a summary and progress bar, a table of the listed files and a table of the
  * chosen file's matching lines. Choosing a line (double-click or Enter) shows it in a tab through
  * {@link FolderSearchController#open}. Both tables are virtual. Closing the window stops the search

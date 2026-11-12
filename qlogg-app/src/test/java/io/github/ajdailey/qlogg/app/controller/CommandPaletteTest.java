@@ -54,7 +54,7 @@ class CommandPaletteTest {
     assertEquals(CommandId.values()[0], entries.get(0).command());
     assertEquals(null, find(entries, CommandId.COMMAND_PALETTE));
     assertEquals(null, find(entries, CommandId.LINE_UP));
-    assertEquals("Edit > Search", find(entries, CommandId.TOGGLE_CASE).menu());
+    assertEquals("Search > Search Options", find(entries, CommandId.TOGGLE_CASE).menu());
     assertEquals(
         "View > Timestamps > Time Spread", find(entries, CommandId.TIME_SPREAD_PAUSES).menu());
   }

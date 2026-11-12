@@ -8,7 +8,6 @@ import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.LineViewController;
-import io.github.ajdailey.qlogg.app.highlight.ColorLabel;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
@@ -93,13 +92,18 @@ public final class LogCanvas {
   private final Canvas canvas;
   private final Slider vertical;
 
-  /** Commands of the right-click menu, in order; null is a separator. */
+  /**
+   * Commands of the right-click menu, in order; null is a separator. Consecutive commands with a
+   * {@link #contextCascade} form one cascade. Time Sync follows the last command, then Highlighters
+   * and Color Label after a separator.
+   */
   static final CommandId[] CONTEXT_MENU = {
-    CommandId.TOGGLE_MARK,
-    CommandId.EDIT_MARK_COMMENT,
-    null,
     CommandId.COPY,
     CommandId.COPY_LINE,
+    CommandId.COPY_WITH_LINE_NUMBERS,
+    null,
+    CommandId.TOGGLE_MARK,
+    CommandId.EDIT_MARK_COMMENT,
     null,
     CommandId.FIND_SELECTION_FORWARD,
     CommandId.FIND_SELECTION_BACKWARD,
@@ -107,7 +111,6 @@ public final class LogCanvas {
     CommandId.ADD_TO_SEARCH,
     CommandId.EXCLUDE_FROM_SEARCH,
     CommandId.REPLACE_SEARCH,
-    null,
     CommandId.SET_SEARCH_START,
     CommandId.SET_SEARCH_END,
     CommandId.CLEAR_SEARCH_LIMITS,
@@ -115,15 +118,11 @@ public final class LogCanvas {
     CommandId.SET_SELECTION_START,
     CommandId.SET_SELECTION_END,
     null,
-    CommandId.SAVE_SPLIT,
-    // Copy variants, save, scratchpad and folding.
-    null,
-    CommandId.COPY_WITH_LINE_NUMBERS,
     CommandId.SAVE_SELECTION,
     CommandId.SEND_TO_SCRATCHPAD,
-    CommandId.TOGGLE_FOLD,
-    // Time sync.
+    CommandId.REPLACE_SCRATCHPAD,
     null,
+    CommandId.TOGGLE_FOLD,
     CommandId.SCROLL_TABS_TO_TIME
   };
 
@@ -265,15 +264,39 @@ public final class LogCanvas {
     canvas.redraw();
   }
 
-  private Menu contextMenu(Keymap keymap) {
+  /**
+   * Returns the cascade a context menu command sits in.
+   *
+   * @param command a command of {@link #CONTEXT_MENU}
+   * @return Search Limits for the search limit commands, or null
+   */
+  static UiText contextCascade(CommandId command) {
+    return switch (command) {
+      case SET_SEARCH_START, SET_SEARCH_END, CLEAR_SEARCH_LIMITS -> UiText.MENU_SEARCH_LIMITS;
+      default -> null;
+    };
+  }
+
+  private Menu contextMenu(final Keymap keymap) {
     Menu menu = new Menu(canvas);
     boolean mac = SwtKeys.mac();
+    Menu cascade = null;
     for (final CommandId command : CONTEXT_MENU) {
       if (command == null) {
         new MenuItem(menu, SWT.SEPARATOR);
+        cascade = null;
         continue;
       }
-      MenuItem item = new MenuItem(menu, SWT.PUSH);
+      UiText cascadeLabel = contextCascade(command);
+      if (cascadeLabel == null) {
+        cascade = null;
+      } else if (cascade == null) {
+        MenuItem holder = new MenuItem(menu, SWT.CASCADE);
+        holder.setText(cascadeLabel.text());
+        cascade = new Menu(menu);
+        holder.setMenu(cascade);
+      }
+      MenuItem item = new MenuItem(cascade == null ? menu : cascade, SWT.PUSH);
       String keys = keymap.menuKeyText(command, mac);
       item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
       item.setData(command);
@@ -286,6 +309,19 @@ public final class LogCanvas {
             }
           });
     }
+    // Time sync.
+    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
+    timeSync.setText(UiText.MENU_TIME_SYNC.text());
+    final Menu timeSyncMenu = new Menu(menu);
+    timeSync.setMenu(timeSyncMenu);
+    timeSyncMenu.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            TimeSyncMenu.fill(timeSyncMenu, application.windowSet().timeSync(), document.owner());
+          }
+        });
     new MenuItem(menu, SWT.SEPARATOR);
     MenuItem sets = new MenuItem(menu, SWT.CASCADE);
     sets.setText(UiText.GROUP_HIGHLIGHT.text());
@@ -308,20 +344,7 @@ public final class LogCanvas {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            fillLabels(labelsMenu);
-          }
-        });
-    // Time sync.
-    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
-    timeSync.setText(UiText.MENU_TIME_SYNC.text());
-    final Menu timeSyncMenu = new Menu(menu);
-    timeSync.setMenu(timeSyncMenu);
-    timeSyncMenu.addListener(
-        SWT.Show,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            TimeSyncMenu.fill(timeSyncMenu, application.windowSet().timeSync(), document.owner());
+            ColorLabelMenu.fill(labelsMenu, application, keymap, document);
           }
         });
     return menu;
@@ -358,47 +381,6 @@ public final class LogCanvas {
             }
           });
     }
-  }
-
-  /** Lists None and the color labels by name. */
-  void fillLabels(Menu menu) {
-    for (MenuItem item : menu.getItems()) {
-      item.dispose();
-    }
-    MenuItem none = new MenuItem(menu, SWT.PUSH);
-    none.setText(UiText.MENU_NONE.text());
-    none.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            application.setFocusedView(document);
-            application.removeColorLabel();
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR);
-    List<ColorLabel> labels = application.highlightSettings().labels();
-    boolean mac = SwtKeys.mac();
-    for (int i = 0; i < labels.size(); i++) {
-      final int index = i;
-      MenuItem item = new MenuItem(menu, SWT.PUSH);
-      CommandId command = CommandId.values()[CommandId.COLOR_LABEL_1.ordinal() + i];
-      String keys = keymapText(command, mac);
-      item.setText(keys.isEmpty() ? labels.get(i).name() : labels.get(i).name() + "\t" + keys);
-      item.addListener(
-          SWT.Selection,
-          new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-              application.setFocusedView(document);
-              application.applyColorLabel(index);
-            }
-          });
-    }
-  }
-
-  private String keymapText(CommandId command, boolean mac) {
-    return keymapRef.menuKeyText(command, mac);
   }
 
   /**

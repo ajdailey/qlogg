@@ -19,7 +19,7 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Tools > Marks List: a modeless window listing the shown tab's marks from a {@link
+ * Go > Marks List: a modeless window listing the shown tab's marks from a {@link
  * MarksListController}, one virtual table row per mark with its line number, comment and line text.
  * {@code Enter} or a double click goes to the line, {@code Delete} removes the selected marks, and
  * {@code F2} edits the selected row's comment in place ({@code Enter} or leaving the field saves

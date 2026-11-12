@@ -118,13 +118,13 @@ tab is dropped.
 
 ### Search All Open Files
 
-`MultiSearchWindow` (Edit > Search All Open Files) lists one row per file group
+`MultiSearchWindow` (Search > Search All Open Files) lists one row per file group
 with its match count and state under a summary line. Choosing a row shows that
 tab with its search's results. Stop cancels every search of the group.
 
 ### Search in Folder
 
-`FolderSearchWindow` (Edit > Search in Folder) holds the folder (Browse opens
+`FolderSearchWindow` (Search > Search in Folder) holds the folder (Browse opens
 a `DirectoryDialog`), the file name globs, Include subfolders, the search text
 and the toggles, then a summary, a progress bar and two virtual tables: the
 listed files with their match count and status, and the selected file's
@@ -133,7 +133,7 @@ cancels the run; closing the window clears it.
 
 ### Marks List
 
-`MarksWindow` (Tools > Marks List) shows a `MarksListController`'s rows in a
+`MarksWindow` (Go > Marks List) shows a `MarksListController`'s rows in a
 virtual table of line, comment and text under a summary line, following the
 shown tab.
 

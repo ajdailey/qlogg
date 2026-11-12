@@ -49,8 +49,8 @@ and caret time, each after a separator.
   and time update on the views' `timeChanged`.
 - The path field shows the shown file's full path, or a clipboard document's
   tab name; with no file it is empty and disabled. Its context menu holds Copy
-  Full Path, Copy File Name and Open Containing Folder (the Edit menu's
-  commands, disabled for clipboard text), then Copy and Select All for the
+  Full Path, Copy File Name and Open Containing Folder (the Edit and File
+  menus' commands, disabled for clipboard text), then Copy and Select All for the
   field's text.
 
 ## Tab row
@@ -120,10 +120,10 @@ accessible names come from the command titles with their keys and from
 The results strip (`ResultsPane`) carries the list button alone: 11 kept
 searches of short patterns overflow it at 1100 px.
 
-The tab menu is one menu refilled on each call: Close This, Close Others, Close
-to the Left, Close to the Right, Close All; Copy Full Path, Copy File Name,
-Open Containing Folder; Rename Tab, Reset Tab Name; Move to New Window; the
-Time Sync cascade ([menus.md](menus.md#time-sync-menus)). The side items are
+The tab menu is one menu refilled on each call: Close, Close Others, Close to
+the Left, Close to the Right, Close All; Copy Full Path, Copy File Name, Open
+Containing Folder; Rename Tab, Reset Tab Name; the Time Sync cascade
+([menus.md](menus.md#time-sync-menus)), Move to New Window. The side items are
 disabled at the ends, the path and name items for clipboard text.
 
 ### Ampersands in tab text
@@ -169,7 +169,7 @@ The body is a vertical `SashForm`: the main log view, with the `OverviewBar`
 between its text and its vertical scroll bar, over the bottom pane, split by
 `view.splitPercent`. The sash is 7 px and paints a dotted grip. View > Overview
 Bar shows or hides the bar. `+` and `-` move the split by 5 points between 10%
-and 90%; View > Save Splitter Position stores it.
+and 90%; View > Filtered View > Save Splitter Position stores it.
 
 The bottom pane holds the `SearchBar`, then the `ResultsPane`. Showing a tab
 binds the `SearchBar` to its document.

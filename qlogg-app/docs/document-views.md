@@ -122,7 +122,7 @@ caret to a line and centers it only when it is off screen.
 
 ### Navigation history
 
-Edit > Go Back and Go Forward walk the document's `NavigationHistory`: the
+Go > Go Back and Go Forward walk the document's `NavigationHistory`: the
 main view's caret lines that jumps left, at most 100, oldest dropped first. A
 jump records the caret's line unless it is the newest entry. A jump after Go
 Back drops the entries ahead. Go Back from the newest end records the caret's
@@ -280,7 +280,7 @@ set's), so a kept set keeps its counts.
 
 ## Marks list
 
-`MarksListController` backs Tools > Marks List: the shown tab's first 10,000
+`MarksListController` backs Go > Marks List: the shown tab's first 10,000
 marks as rows of line, comment and the line's first 160 chars. It reads them on
 a `qlogg-read-` worker under `LogDocument.enter`, one read at a time.
 

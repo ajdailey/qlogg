@@ -406,14 +406,16 @@ class LogViewTest {
         List.of(
             "&File",
             "&Edit",
+            "&Search",
+            "G&o",
             "&View",
-            "&Tools",
             "Hi&ghlighters",
             "E&ncoding",
-            "F&avorites",
+            "&Tools",
+            "&Window",
             "&Help"),
         List.of(titles));
-    MenuItem open = bar.getItem(0).getMenu().getItem(1);
+    MenuItem open = bar.getItem(0).getMenu().getItem(0);
     assertEquals("&Open...\t" + MOD1 + "O", open.getText());
     assertEquals(SWT.MOD1 | 'O', open.getAccelerator());
     MenuItem copy = bar.getItem(1).getMenu().getItem(0);
@@ -449,18 +451,23 @@ class LogViewTest {
     assertEquals(
         onThisPlatform(
             List.of(
-                "New Window",
                 "Open",
                 "Open from Clipboard",
+                "-",
                 "Open Recent",
                 "Recently Closed",
+                "Reopen Closed Tab",
+                "Favorites",
+                "-",
+                "Open Containing Folder",
+                "Open in Editor",
                 "-",
                 "Save Selection to File",
                 "Save Filtered Results to File",
                 "-",
                 "Close",
                 "Close All",
-                "Reopen Closed Tab",
+                "Close Multiple Tabs",
                 "-",
                 "Exit")),
         labels(bar.getItem(0).getMenu()));
@@ -468,20 +475,60 @@ class LogViewTest {
         List.of(
             "Copy",
             "Copy This Line",
+            "Copy with Line Numbers",
             "Select All",
             "-",
             "Set Selection Start",
             "Set Selection End",
+            "Block Selection",
             "-",
+            "Copy Full Path",
+            "Copy File Name"),
+        labels(bar.getItem(1).getMenu()));
+    Menu search = bar.getItem(2).getMenu();
+    assertEquals(
+        List.of(
             "Find",
             "Find Next",
             "Find Previous",
             "-",
+            "Search Field",
+            "Search All Open Files",
+            "Search in Folder",
+            "-",
+            "Add Selection to Search",
+            "Exclude Selection from Search",
+            "Replace Search with Selection",
+            "Select Range Around Line",
+            "-",
+            "Search Options",
+            "Search Limits",
+            "-",
+            "Edit Search History",
+            "Clear Search History"),
+        labels(search));
+    assertEquals(
+        List.of(
+            "Match Case",
+            "Regular Expression",
+            "Inverse Match",
+            "Combine Expressions",
+            "Range Search",
+            "-",
+            "Auto-Refresh",
+            "Keep Results",
+            "Search After Add, Exclude or Replace"),
+        labels(search.getItem(13).getMenu()));
+    assertEquals(
+        List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
+        labels(search.getItem(14).getMenu()));
+    assertEquals(
+        List.of(
             "Go to Line",
             "Go to Time",
-            "Scroll All Tabs to This Time",
             "Go to Top",
             "Go to Bottom",
+            "-",
             "Go Back",
             "Go Forward",
             "-",
@@ -489,34 +536,13 @@ class LogViewTest {
             "Next Mark",
             "Previous Mark",
             "Edit Mark Comment",
+            "Marks List",
             "-",
-            "Copy Full Path",
-            "Copy File Name",
-            "Open Containing Folder",
-            "-",
-            "Open in Editor",
-            "-",
-            "Search",
-            "-",
-            "Copy with Line Numbers",
-            "Block Selection",
-            "Search All Open Files",
-            // Search in a folder.
-            "Search in Folder"),
-        labels(bar.getItem(1).getMenu()));
-    MenuItem search = bar.getItem(1).getMenu().getItem(30);
-    assertEquals(SWT.CASCADE, search.getStyle() & SWT.CASCADE);
-    assertEquals("Search Field", labels(search.getMenu()).get(0));
+            "Scroll All Tabs to This Time"),
+        labels(bar.getItem(3).getMenu()));
+    Menu view = bar.getItem(4).getMenu();
     assertEquals(
         List.of(
-            "Opened Files",
-            "Switch to File",
-            "Next Tab",
-            "Previous Tab",
-            "Move to New Window",
-            "-",
-            "Command Palette",
-            "-",
             "Follow File",
             "Follow New Files",
             "Follow on Overscroll",
@@ -525,8 +551,6 @@ class LogViewTest {
             "Stop Loading",
             "-",
             "Overview Bar",
-            "Highlight Search Matches",
-            "-",
             "Line Numbers",
             "Line Numbers in Filtered View",
             "-",
@@ -534,25 +558,26 @@ class LogViewTest {
             "Wrap New Files",
             "Show Whitespace",
             "Hide ANSI Colors",
-            "Toggle Fold",
-            "Collapse All Folds",
-            "Expand All Folds",
             "-",
+            "Folding",
             "Timestamps",
-            "-",
-            "Visibility",
-            "-",
-            "Grow Main View",
-            "Shrink Main View",
-            "Save Splitter Position",
+            "Filtered View",
             "-",
             "Zoom In",
             "Zoom Out",
             "Reset Zoom",
             "-",
             "Theme",
-            "Always on Top"),
-        labels(bar.getItem(2).getMenu()));
+            "Always on Top",
+            "-",
+            "Command Palette"),
+        labels(view));
+    assertEquals(
+        List.of("Toggle Fold", "Collapse All Folds", "Expand All Folds"),
+        labels(view.getItem(16).getMenu()));
+    assertEquals(
+        List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
+        labels(view.getItem(17).getMenu()));
     assertEquals(
         List.of(
             "Marks and Matches",
@@ -560,28 +585,45 @@ class LogViewTest {
             "Matches",
             "-",
             "Next Filtered View Mode",
-            "Previous Filtered View Mode"),
-        labels(bar.getItem(2).getMenu().getItem(31).getMenu()));
+            "Previous Filtered View Mode",
+            "-",
+            "Grow Main View",
+            "Shrink Main View",
+            "Save Splitter Position"),
+        labels(view.getItem(18).getMenu()));
+    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(24).getMenu()));
     assertEquals(
-        List.of("Light Theme", "Dark Theme", "System Theme"),
-        labels(bar.getItem(2).getMenu().getItem(41).getMenu()));
+        List.of(
+            "Configure Highlighters",
+            "Automatic Highlighters",
+            "-",
+            "None",
+            "-",
+            "Highlight Search Matches",
+            "-",
+            "Next Color Label",
+            "Clear Color Labels",
+            "Color Label"),
+        labels(bar.getItem(5).getMenu()));
     assertEquals(
         onThisPlatform(
-            List.of(
-                "Predefined Filters",
-                "Save as Filter",
-                "-",
-                "Marks List",
-                "-",
-                "Scratchpad",
-                "-",
-                "Options")),
-        labels(bar.getItem(3).getMenu()));
+            List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Options")),
+        labels(bar.getItem(7).getMenu()));
+    assertEquals(
+        List.of(
+            "New Window",
+            "-",
+            "Move to New Window",
+            "-",
+            "Next Tab",
+            "Previous Tab",
+            "Switch to File",
+            "Opened Files"),
+        labels(bar.getItem(8).getMenu()));
     assertEquals(
         onThisPlatform(
             List.of(
                 "Documentation",
-                "-",
                 "Keyboard Shortcuts",
                 "Command-Line Options",
                 "-",
@@ -589,10 +631,101 @@ class LogViewTest {
                 "Debug Log File",
                 "Open Log Folder",
                 "Open Settings Folder",
+                "-",
                 "Report an Issue",
                 "-",
                 "About QLogg")),
-        labels(bar.getItem(7).getMenu()));
+        labels(bar.getItem(9).getMenu()));
+  }
+
+  @Test
+  void theLogViewContextMenuFollowsTheLayoutOrder() {
+    window.canvas().menuAt(10, 1);
+    Menu menu = window.canvas().control().getMenu();
+    menu.setVisible(false);
+    assertEquals(
+        List.of(
+            "Copy",
+            "Copy This Line",
+            "Copy with Line Numbers",
+            "-",
+            "Mark or Unmark",
+            "Edit Mark Comment",
+            "-",
+            "Find Selection Forward",
+            "Find Selection Backward",
+            "-",
+            "Add Selection to Search",
+            "Exclude Selection from Search",
+            "Replace Search with Selection",
+            "Search Limits",
+            "-",
+            "Set Selection Start",
+            "Set Selection End",
+            "-",
+            "Save Selection to File",
+            "Send Selection to Scratchpad",
+            "Replace Scratchpad with Selection",
+            "-",
+            "Toggle Fold",
+            "Scroll All Tabs to This Time",
+            "Time Sync",
+            "-",
+            "Highlighters",
+            "Color Label"),
+        labels(menu));
+    assertEquals(
+        List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
+        labels(menu.getItem(13).getMenu()));
+  }
+
+  /** Every menu, cascade and context menu gives each mnemonic letter to one item. */
+  @Test
+  void mnemonicsAreUniqueInEveryMenu() {
+    List<String> repeated = new ArrayList<String>();
+    mnemonics("menu bar", window.shell().getMenuBar(), repeated);
+    window.canvas().menuAt(10, 1);
+    Menu context = window.canvas().control().getMenu();
+    context.setVisible(false);
+    mnemonics("log view", context, repeated);
+    Menu tab = window.showTabMenu(controller.activeDocument(), 0, 0);
+    tab.setVisible(false);
+    mnemonics("tab", tab, repeated);
+    mnemonics("path field", window.pathField().getMenu(), repeated);
+    mnemonics("search field", window.searchBar().pattern().getMenu(), repeated);
+    assertEquals(List.of(), repeated);
+  }
+
+  /** Records each letter a menu repeats, then walks its cascades, each filled as when shown. */
+  private static void mnemonics(String name, Menu menu, List<String> repeated) {
+    menu.notifyListeners(SWT.Show, new Event());
+    List<Character> seen = new ArrayList<Character>();
+    for (MenuItem item : menu.getItems()) {
+      String text = item.getText();
+      int tab = text.indexOf('\t');
+      text = tab < 0 ? text : text.substring(0, tab);
+      char key = mnemonic(text);
+      if (key != 0 && seen.contains(key)) {
+        repeated.add(name + ": '" + key + "' again in " + text);
+      }
+      seen.add(key);
+      if (item.getMenu() != null) {
+        mnemonics(name + " > " + text, item.getMenu(), repeated);
+      }
+    }
+  }
+
+  /** Returns the lower-case letter after the first single {@code &}, or 0. */
+  private static char mnemonic(String text) {
+    for (int i = 0; i < text.length() - 1; i++) {
+      if (text.charAt(i) == '&') {
+        if (text.charAt(i + 1) != '&') {
+          return Character.toLowerCase(text.charAt(i + 1));
+        }
+        i++;
+      }
+    }
+    return 0;
   }
 
   /** Menu labels without mnemonics, accelerator text or ellipses; "-" for a separator. */

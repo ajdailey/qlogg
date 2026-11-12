@@ -31,9 +31,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * {@link CommandStates} over {@code Preferences.DEFAULTS}: every check command, the file commands,
- * Move to New Window and the favorites, with no document, with a document and with its filtered
- * view focused, in the notation of the SWT menu bar's {@code CommandStatesTest}; then the states
- * following the controllers, clipboard text, a forced encoding and the listed entries.
+ * Move to New Window, the favorites and Close Multiple Tabs, with no document, with a document and
+ * with its filtered view focused, in the notation of the SWT menu bar's {@code CommandStatesTest};
+ * then the states following the controllers, clipboard text, a forced encoding and the listed
+ * entries.
  */
 class CommandStatesTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
@@ -87,6 +88,10 @@ class CommandStatesTest {
     row(CommandId.MOVE_TO_NEW_WINDOW, "-- -e -e");
     row(CommandId.ADD_FAVORITE, "-- -e -e");
     row(CommandId.REMOVE_FAVORITE, "-- -- --");
+    // Close Multiple Tabs.
+    row(CommandId.CLOSE_OTHERS, "-- -- --");
+    row(CommandId.CLOSE_LEFT, "-- -- --");
+    row(CommandId.CLOSE_RIGHT, "-- -- --");
   }
 
   @TempDir Path temp;

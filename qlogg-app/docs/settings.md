@@ -59,14 +59,14 @@ continuation patterns and at least one pattern in all are allowed.
 
 | Key | Values | Default | Set from |
 |---|---|---|---|
-| `ui.theme` | `light`, `dark`, `system` | `light` | View > Light, Dark or System Theme |
-| `search.historySize` | 1 to 1000 | 50 | Edit > Search > Edit Search History; Tools > Options |
-| `search.history.N` | Search text, most recent first | none | Each search; Edit > Search > Clear Search History |
+| `ui.theme` | `light`, `dark`, `system` | `light` | View > Theme |
+| `search.historySize` | 1 to 1000 | 50 | Search > Edit Search History; Tools > Options |
+| `search.history.N` | Search text, most recent first | none | Each search; Search > Clear Search History |
 | `search.maxResults` | 0 (no limit) or the match count that stops a search; read at startup | 0 | Tools > Options, Advanced |
-| `search.runOnAdd` | `true`, `false` | `true` | Edit > Search > Search After Add, Exclude or Replace |
+| `search.runOnAdd` | `true`, `false` | `true` | Search > Search Options > Search After Add, Exclude or Replace |
 | `filter.N.name`, `filter.N.pattern`, `filter.N.regex` | A predefined filter | none | Tools > Predefined Filters, Save as Filter |
 | `quickFind.incremental`, `quickFind.regex` | `true`, `false` | `true`, `false` | The quick find bar |
-| `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Save Splitter Position |
+| `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Filtered View > Save Splitter Position |
 | `view.overview` | `true`, `false` | `true` | View > Overview Bar |
 | `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
 | `view.colors` | `follow`, `light`, `dark`, a bundled scheme id (`sandstone`, `nightwater`, `garden-light`, `garden-dark`, `legal-pad`, `paper`, `midnight`, `phosphor`, `graphite`), or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. `light` and `dark` pin `Palette.LIGHT` and `Palette.DARK`. An id that names no scheme follows the theme and stays saved | `follow` | Tools > Options, View |
@@ -75,7 +75,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Options, Advanced |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |
 | `label.N.name`, `.fore`, `.back`, `.cycle` | Color label N, 0 to 8 | 9 labels, all in the cycle | Configure Highlighters, Color Labels tab |
-| `matchHighlight.enabled`, `.color`, `.variance` | Match highlight; an empty color is the theme's | `true`, theme, 0 | View > Highlight Search Matches; Configure Highlighters |
+| `matchHighlight.enabled`, `.color`, `.variance` | Match highlight; an empty color is the theme's | `true`, theme, 0 | Highlighters > Highlight Search Matches; Configure Highlighters |
 | `view.wrapOnOpen` | `true`, `false`: files open with text wrap on | `false` | View > Wrap New Files |
 | `view.showWhitespace` | `true`, `false` | `false` | View > Show Whitespace |
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
@@ -87,7 +87,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `recent.count` | 1 to 50: files File > Open Recent keeps | 20 | Tools > Options, General |
 | `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Open Recent > Clean Up |
 | `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear |
-| `favorite.N` | Favorite file paths, at most 100 | none | Favorites menu |
+| `favorite.N` | Favorite file paths, at most 100 | none | File > Favorites |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Options, File |
 | `encoding.default` | The charset detection falls back to | `ISO-8859-1` | Tools > Options, File |
 | `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Options, General |

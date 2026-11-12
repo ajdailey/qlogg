@@ -1,7 +1,8 @@
 # Menus
 
 `MainMenuBar` builds a window's menu bar; `TimeSyncMenu` fills the Time Sync
-cascades and `AppMenu` connects the macOS application menu. Command order,
+cascades, `ColorLabelMenu` the Color Label cascades, and `AppMenu` connects the
+macOS application menu. Command order,
 labels and checked and enabled state come from `qlogg-app` (`CommandId`,
 `MenuTable`, `CommandStates`); these classes only apply them. Module overview:
 [../README.md](../README.md).
@@ -9,9 +10,10 @@ labels and checked and enabled state come from `qlogg-app` (`CommandId`,
 ## Menu bar
 
 `MainWindow.attach(controller)` creates the `MainMenuBar` from the controller's
-`keymap()`: one menu per `CommandGroup` (File, Edit, View, Tools,
-Highlighters, Encoding, Favorites, Help), items in `MenuTable.commands` order.
-Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
+`keymap()`: one menu per `CommandGroup` (File, Edit, Search, Go, View,
+Highlighters, Encoding, Tools, Window, Help), items in `MenuTable.commands`
+order. Consecutive commands with the same `submenu()` form one cascade (File >
+Favorites, Search > Search Options, View > Folding).
 
 - Each item's text shows one key after the tab, `Keymap.menuKeyText`: the
   command's first single-stroke binding, none when it has only sequences. GTK 3
@@ -23,6 +25,8 @@ Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
 - Only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys such
   as `Ctrl+C` reach the log view and never a text field.
 - A `check()` command is a check item.
+- No two items of a menu, cascade or context menu share a mnemonic
+  (`LogViewTest.mnemonicsAreUniqueInEveryMenu` walks the built menus).
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.
 - `syncEnablement` applies every item's enablement on each document open,
@@ -37,18 +41,18 @@ Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
 | Menu | Entries |
 |---|---|
 | Highlighters | The sets after None, as check items |
-| View > Opened Files | The open files as radio items; choosing one shows its tab |
+| Highlighters > Color Label | Filled on show: None, then the label names with their keys; acts on the focused view |
+| Window > Opened Files | The open files as radio items; choosing one shows its tab |
 | File > Open Recent | The recent paths before Open All and Clean Up, refilled on show |
 | File > Recently Closed | The closed paths before Open All and Clear, refilled on show; choosing one opens it |
-| Favorites | The favorites after Add to Favorites and Remove from Favorites, refilled on show |
+| File > Favorites | The favorites after Add to Favorites and Remove from Favorites, refilled on show |
 | Encoding | Auto, the common charsets as radio items, then Other with every other charset the runtime supports (`EncodingChoices`) |
 | View > Timestamps > Format | Filled on show from `CommandStates.timeFormats`: the built-ins, the user formats and None as radio items, the shown file's checked |
 | View > Timestamps > Time Spread | The `MenuTable.radio` commands, in the cascade `MenuTable.nestedCascade` names |
 
 A `&` in a path or title is doubled so it shows.
 
-Reload and the Edit menu's path commands are disabled for text opened from the
-clipboard.
+Reload and the path commands are disabled for text opened from the clipboard.
 
 ### Encoding menu
 

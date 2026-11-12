@@ -823,8 +823,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Opens a tab's context menu: the close variants, then the path commands, then the tab name. One
-   * menu serves every tab; each call replaces its items.
+   * Opens a tab's context menu: the close variants, the path commands, the tab name, then Time Sync
+   * and Move to New Window. One menu serves every tab; each call replaces its items.
    *
    * @param document the tab's controller
    * @param x display x
@@ -951,7 +951,6 @@ public final class MainWindow implements MainView, ApplicationListener {
     timeSync.setMenu(timeSyncMenu);
     TimeSyncMenu.fill(timeSyncMenu, controller.windowSet().timeSync(), document);
     // Tab move between windows.
-    new MenuItem(menu, SWT.SEPARATOR);
     tabMenuItem(
         menu,
         UiText.TAB_MOVE_TO_NEW_WINDOW,
@@ -1403,9 +1402,9 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Returns View > Opened Files.
+   * Returns Window > Opened Files.
    *
-   * @return the submenu, filled when the View menu shows
+   * @return the submenu, filled when the Window menu shows
    */
   Menu openedFilesMenu() {
     return menuBar.openedFilesMenu();
@@ -2465,9 +2464,9 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Returns the Favorites menu.
+   * Returns File > Favorites.
    *
-   * @return the menu, filled when it shows
+   * @return the cascade, filled when the File menu shows
    */
   Menu favoritesMenu() {
     return menuBar.favoritesMenu();

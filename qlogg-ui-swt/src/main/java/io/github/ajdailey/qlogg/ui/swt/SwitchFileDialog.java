@@ -17,7 +17,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * View > Switch to File: the open files by full path, narrowed by a filter field that matches any
+ * Window > Switch to File: the open files by full path, narrowed by a filter field that matches any
  * part of the path, ignoring case. Enter or a double click shows the chosen tab; Escape cancels.
  * The first match is selected after each filter change.
  */

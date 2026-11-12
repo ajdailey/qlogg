@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.controller.CommandPalette;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
@@ -487,7 +488,7 @@ final class OptionsDialog {
             overrides.bindings(command) == null
                 ? command.title()
                 : UiText.SHORTCUTS_OVERRIDDEN.format(command.title());
-        String[] row = {group.title(), title, current.keysText(command, mac)};
+        String[] row = {CommandPalette.menuPath(command), title, current.keysText(command, mac)};
         if (!String.join(" ", row).toLowerCase(Locale.ROOT).contains(needle)) {
           continue;
         }

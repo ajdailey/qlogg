@@ -24,9 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Edit > Search in Folder: the request taken from the shown tab, the result model, opening a listed
- * line in a new tab or the tab that shows the file, the failures before the search thread, Stop,
- * and the results' reservation returned by a new run.
+ * Search > Search in Folder: the request taken from the shown tab, the result model, opening a
+ * listed line in a new tab or the tab that shows the file, the failures before the search thread,
+ * Stop, and the results' reservation returned by a new run.
  */
 class FolderSearchControllerTest {
   private static final SearchOptions LITERAL =

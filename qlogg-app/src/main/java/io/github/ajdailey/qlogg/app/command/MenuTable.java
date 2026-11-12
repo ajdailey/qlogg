@@ -36,17 +36,27 @@ public final class MenuTable {
   }
 
   /**
-   * Returns the cascade listed just before a command: View > Opened Files, filled from the open
-   * documents, or View > Timestamps > Format, filled from the timestamp formats.
+   * Returns the listed cascade just before a command: View > Timestamps > Format, filled from the
+   * timestamp formats.
    *
    * @param command a command
    * @return the cascade's label, or null
    */
   public static UiText cascadeBefore(CommandId command) {
+    return command == CommandId.TIMESTAMP_FORMATS ? UiText.MENU_TIME_FORMAT : null;
+  }
+
+  /**
+   * Returns the listed cascade just after a command: Window > Opened Files, filled from the open
+   * documents, or Highlighters > Color Label, filled from the color labels.
+   *
+   * @param command a command
+   * @return the cascade's label, or null
+   */
+  public static UiText cascadeAfter(CommandId command) {
     return switch (command) {
       case SWITCH_FILE -> UiText.MENU_OPENED_FILES;
-      // Timestamps.
-      case TIMESTAMP_FORMATS -> UiText.MENU_TIME_FORMAT;
+      case CLEAR_COLOR_LABELS -> UiText.MENU_COLOR_LABEL;
       default -> null;
     };
   }

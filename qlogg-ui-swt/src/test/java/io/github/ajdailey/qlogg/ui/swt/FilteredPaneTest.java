@@ -311,6 +311,11 @@ class FilteredPaneTest {
         if (item.getData() instanceof CommandId command) {
           found.add(command);
         }
+        if (item.getText().equals(UiText.MENU_SEARCH_LIMITS.text())) {
+          for (MenuItem limit : item.getMenu().getItems()) {
+            found.add((CommandId) limit.getData());
+          }
+        }
       }
       assertEquals(expected, found);
     }

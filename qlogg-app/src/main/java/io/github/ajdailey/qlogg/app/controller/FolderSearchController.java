@@ -30,7 +30,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Edit > Search in Folder: runs a {@link FolderSearch} over a folder's files without opening them
+ * Search > Search in Folder: runs a {@link FolderSearch} over a folder's files without opening them
  * as tabs, and opens a listed line in a tab. Confined to the UI thread; the search's events reach
  * it through the {@link UiDispatcher}.
  *

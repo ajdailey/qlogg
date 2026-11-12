@@ -27,7 +27,7 @@ Options, Shortcuts changes them.
 ## Opening files
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
-File > Open Recent or the Favorites menu, or on the command line. Each file
+File > Open Recent or File > Favorites, or on the command line. Each file
 opens in its own tab; a dropped folder is not opened. The first lines show at
 once while indexing continues in the background; `Esc` or the Stop button
 stops it. File > Open from Clipboard (`Ctrl+V` in a log view) opens the
@@ -49,9 +49,10 @@ Encoding menu forces another one, and the choice is remembered for the file.
   changed.
 - A tab row appears while a file is open. A tab's menu closes tabs, copies the
   path, opens the folder, renames the tab or moves it to a new window; a middle
-  click closes it. Closing the last tab leaves an empty window, unless Close
-  the window with its last tab is on in Tools > Options, General; in the last
-  window that quits QLogg. View > Opened Files and Switch to File
+  click closes it. File > Close Multiple Tabs closes the tabs around the shown
+  one. Closing the last tab leaves an empty window, unless Close the window
+  with its last tab is on in Tools > Options, General; in the last window that
+  quits QLogg. Window > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the tabs.
 - The buttons at the right end of the tab row open files (+), list every tab
   (the arrow, with the number of tabs the row cannot show) and close the
@@ -66,8 +67,8 @@ Encoding menu forces another one, and the choice is remembered for the file.
 - The overview bar beside the main view marks matches and marks across the
   whole file; a click goes there.
 - Below the splitter: the search row, the result tabs and the filtered view.
-  `+` and `-` resize the main view; View > Save Splitter Position keeps the
-  split.
+  `+` and `-` resize the main view; View > Filtered View > Save Splitter
+  Position keeps the split.
 - The status bar shows indexing, follow and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
 
@@ -89,7 +90,7 @@ Encoding menu forces another one, and the choice is remembered for the file.
 | `Alt`+wheel, `Shift`+wheel | Scroll sideways, scroll by pages |
 | `Ctrl+Shift+P` | Command palette |
 
-Edit > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
+Go > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
 `+line:N`, Go to Time, Go to Top and Bottom, Find Next and Previous, the next or
 previous mark, a Marks List row, a quick find match, and a click or `Enter` on
 a filtered-view row. Scrolling and moving the current line are not jumps. A
@@ -122,8 +123,8 @@ The icon toggles beside the field, also on keys `4` to `9` in a log view:
 
 ### Limits, views and filters
 
-- Edit > Search > Set Search Start and Set Search End limit every search to
-  the lines between; Clear Search Limits removes the limit.
+- Search > Search Limits > Set Search Start and Set Search End limit every
+  search to the lines between; Clear Search Limits removes the limit.
 - The filtered view lists matches, marks or both (`1`, `2`, `3`; `v` and `V`
   cycle).
 - The history drop-down recalls earlier patterns. Tools > Predefined Filters
@@ -154,19 +155,19 @@ matching the end, both lines included.
   Auto-refresh, extends as the file grows.
 - Inverse lists the lines outside the ranges.
 - The search start, end and In selection limits apply as for any search.
-- Edit > Search > Select Range Around Line (`Ctrl+R` in a log view) selects
+- Search > Select Range Around Line (`Ctrl+R` in a log view) selects
   the range around the current line of the main view: the nearest line above
   that matches the pattern, through the next line matching the end.
 
 ### Searching all open files
 
-Edit > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
+Search > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
 each tab's filtered view gets the results for its file. It ignores In
 selection; each tab's search start and end lines apply.
 
 ### Searching a folder
 
-Edit > Search in Folder searches the files of a folder without opening a tab
+Search > Search in Folder searches the files of a folder without opening a tab
 for each. It starts with the folder, file names and Include subfolders of
 the last folder search, kept between runs of QLogg, and the shown tab's search
 text and toggles.
@@ -189,7 +190,7 @@ gutter, the overview bar and the filtered view.
 
 ### Mark comments
 
-`M` (Edit > Edit Mark Comment) asks for a comment on the current line and
+`M` (Go > Edit Mark Comment) asks for a comment on the current line and
 marks the line when it has no mark; an empty comment keeps the mark without
 one. A commented mark has a square bullet, and the pointer over it shows the
 comment. Unmarking a line drops its comment. A comment is one line of at most
@@ -197,7 +198,7 @@ comment. Unmarking a line drops its comment. A comment is one line of at most
 
 ### Marks list
 
-Tools > Marks List lists the shown tab's marks with line number, comment and
+Go > Marks List lists the shown tab's marks with line number, comment and
 the start of the line, and follows the tab you show. `Enter` or a double
 click goes to the line, `Delete` removes the selected marks and `F2` edits a
 comment in the list. It lists the first 10,000 marks.
@@ -221,7 +222,9 @@ import and export from the Configure Highlighters dialog.
 
 Color labels color every occurrence of the selected text: `Ctrl+D` takes the
 next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0` or
-`Ctrl+Shift+D` clears them. View > Highlight Search Matches colors the last search's matches.
+`Ctrl+Shift+D` clears them; Highlighters > Color Label and the log view
+context menu list the labels by name. Highlighters > Highlight Search Matches
+colors the last search's matches.
 
 ### Keyword triggers
 
@@ -330,7 +333,7 @@ reload keeps it.
 
 ### Go to Time
 
-Go to Time (`Ctrl+Shift+L`, Edit menu) takes `yyyy-MM-dd HH:mm:ss`, or
+Go to Time (`Ctrl+Shift+L`, Go menu) takes `yyyy-MM-dd HH:mm:ss`, or
 `HH:mm:ss` on the current line's date, with an optional fraction. QLogg goes to
 the first line with that time, else the last line before it, and stops
 following. A time before the first line goes to the first line.
@@ -345,7 +348,7 @@ loading goes on until a second `Esc`.
 
 ### Scroll All Tabs to This Time
 
-Scroll All Tabs to This Time (Edit menu, log view context menu) moves every
+Scroll All Tabs to This Time (Go menu, log view context menu) moves every
 other tab with a timestamp format, in every window, to the current line's time
 and stops its following. Each tab applies its own time offset.
 
@@ -507,12 +510,12 @@ Recently Closed lists the last 20 files whose tabs you closed; a reopened file
 returns to its position. Open All on either list opens every listed file and
 names any it could not open; Clear empties Recently Closed. File > Reopen
 Closed Tab (`Ctrl+Shift+T`) takes the newest file off
-Recently Closed and opens it. The Favorites menu
-adds, removes and opens favorite files.
+Recently Closed and opens it. File > Favorites adds, removes and opens
+favorite files.
 
 ## Windows and the running instance
 
-File > New Window opens another main window.
+Window > New Window opens another main window.
 
 View > Always on Top keeps a window above other windows; each window has its
 own setting, and a new window starts without it. Dialogs the window opens stay
@@ -529,7 +532,7 @@ stay, and the file is not read again.
   it is dropped; anywhere else in that window, after the last tab.
 - Drag a tab outside every QLogg window: a new window opens at the drop point,
   where the window system allows placing it.
-- The tab menu and View > Move to New Window move a tab to a new window. A
+- The tab menu and Window > Move to New Window move a tab to a new window. A
   window left without tabs stays open.
 
 A tab does not move into a window that already shows the same file, or while

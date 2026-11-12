@@ -124,7 +124,7 @@ class MainMenuBarTest {
   void showingATopMenuSyncsThatMenuOnly() {
     attach();
     Menu file = window.recentMenu().getParentItem().getParent();
-    Menu view = window.openedFilesMenu().getParentItem().getParent();
+    Menu view = topMenu(CommandGroup.VIEW);
     Menu highlighters = topMenu(CommandGroup.HIGHLIGHT);
     MenuItem overview = item(view, CommandId.TOGGLE_OVERVIEW);
     show(view);

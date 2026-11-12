@@ -64,6 +64,26 @@ class TabCommandsTest {
   }
 
   @Test
+  void closeMultipleTabsActsOnTheActiveTab() throws Exception {
+    List<DocumentController> tabs = openThree();
+    CommandStates states = new CommandStates(fixture.application);
+    fixture.application.activate(tabs.get(1));
+    assertTrue(states.enabled(CommandId.CLOSE_LEFT) && states.enabled(CommandId.CLOSE_RIGHT));
+    fixture.application.execute(CommandId.CLOSE_RIGHT);
+    assertEquals(List.of(tabs.get(0), tabs.get(1)), fixture.application.documents());
+    assertFalse(states.enabled(CommandId.CLOSE_RIGHT));
+    fixture.application.execute(CommandId.CLOSE_LEFT);
+    assertEquals(List.of(tabs.get(1)), fixture.application.documents());
+    assertFalse(states.enabled(CommandId.CLOSE_OTHERS));
+    assertFalse(states.enabled(CommandId.CLOSE_LEFT));
+    fixture.open(fixture.lines("d.log", 3));
+    assertTrue(states.enabled(CommandId.CLOSE_OTHERS));
+    fixture.application.execute(CommandId.CLOSE_OTHERS);
+    assertEquals(1, fixture.application.documents().size());
+    assertTrue(tabs.get(1).isClosed());
+  }
+
+  @Test
   void renameKeepsTheNamePerPathUntilReset() throws Exception {
     List<DocumentController> tabs = openThree();
     DocumentController first = tabs.get(0);

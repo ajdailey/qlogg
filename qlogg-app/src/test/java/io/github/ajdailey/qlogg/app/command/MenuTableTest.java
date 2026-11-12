@@ -30,9 +30,12 @@ class MenuTableTest {
   }
 
   @Test
-  void openedFilesComesBeforeSwitchToFile() {
-    assertEquals(UiText.MENU_OPENED_FILES, MenuTable.cascadeBefore(CommandId.SWITCH_FILE));
+  void listedCascadesSitBesideTheirCommands() {
+    assertEquals(UiText.MENU_TIME_FORMAT, MenuTable.cascadeBefore(CommandId.TIMESTAMP_FORMATS));
+    assertEquals(UiText.MENU_OPENED_FILES, MenuTable.cascadeAfter(CommandId.SWITCH_FILE));
+    assertEquals(UiText.MENU_COLOR_LABEL, MenuTable.cascadeAfter(CommandId.CLEAR_COLOR_LABELS));
     assertNull(MenuTable.cascadeBefore(CommandId.OPEN));
+    assertNull(MenuTable.cascadeAfter(CommandId.OPEN));
   }
 
   @Test
@@ -48,11 +51,6 @@ class MenuTableTest {
     assertFalse(MenuTable.radio(CommandId.THEME_LIGHT));
     assertNull(MenuTable.nestedCascade(CommandId.TIME_OFFSET));
   }
-
-  /**
-   * Mnemonics the Edit menu repeats; a letter for each of its 26 items would move existing ones.
-   */
-  private static final String EDIT_REPEATS = "abefnst";
 
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
@@ -74,9 +72,7 @@ class MenuTableTest {
           continue;
         }
         char key = label.toLowerCase(Locale.ROOT).charAt(at + 1);
-        boolean known =
-            menu.getKey().equals(CommandGroup.EDIT.label()) && EDIT_REPEATS.indexOf(key) >= 0;
-        if (seen.contains(key) && !known) {
+        if (seen.contains(key)) {
           repeated.add(menu.getKey() + ": '" + key + "' again in " + label);
         }
         seen.add(key);
@@ -91,20 +87,32 @@ class MenuTableTest {
     List<String> top = new ArrayList<String>();
     menus.put(group.label(), top);
     for (CommandId command : MenuTable.commands(group, false)) {
-      UiText cascade = MenuTable.cascadeBefore(command);
-      if (cascade != null) {
-        top.add(cascade.text());
-      }
       String submenu = command.submenu();
-      if (submenu == null) {
-        top.add(command.label());
-        continue;
+      List<String> target = top;
+      if (submenu != null) {
+        if (!menus.containsKey(submenu)) {
+          top.add(submenu);
+          menus.put(submenu, new ArrayList<String>());
+        }
+        target = menus.get(submenu);
       }
-      if (!menus.containsKey(submenu)) {
-        top.add(submenu);
-        menus.put(submenu, new ArrayList<String>());
+      UiText before = MenuTable.cascadeBefore(command);
+      if (before != null) {
+        target.add(before.text());
       }
-      menus.get(submenu).add(command.label());
+      UiText nested = MenuTable.nestedCascade(command);
+      if (nested != null) {
+        if (!menus.containsKey(nested.text())) {
+          target.add(nested.text());
+          menus.put(nested.text(), new ArrayList<String>());
+        }
+        target = menus.get(nested.text());
+      }
+      target.add(command.label());
+      UiText after = MenuTable.cascadeAfter(command);
+      if (after != null) {
+        target.add(after.text());
+      }
     }
     return menus;
   }

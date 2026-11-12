@@ -1535,6 +1535,17 @@ public final class ApplicationController implements DocumentHost {
       case REOPEN_CLOSED -> recent.reopenClosed();
       // Always on Top.
       case ALWAYS_ON_TOP -> alwaysOnTop.toggle();
+      // Close Multiple Tabs.
+      case CLOSE_OTHERS -> {
+        if (active != null) {
+          closeOthers(active);
+        }
+      }
+      case CLOSE_LEFT, CLOSE_RIGHT -> {
+        if (active != null) {
+          closeSide(active, command == CommandId.CLOSE_LEFT);
+        }
+      }
       default -> {
         if (!features.execute(command) && !time.execute(command)) {
           documentCommand(command);

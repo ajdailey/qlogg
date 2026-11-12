@@ -20,7 +20,7 @@ public final class CommandPalette {
    *
    * @param command the command
    * @param title the command's title
-   * @param menu the menu path, for example {@code Edit > Search}
+   * @param menu the menu path, for example {@code Search > Search Options}
    * @param enabled true when {@link CommandStates#enabled} allows the command now
    */
   public record Entry(CommandId command, String title, String menu, boolean enabled) {}
@@ -86,7 +86,7 @@ public final class CommandPalette {
    * @param command a menu command
    * @return for example {@code View > Timestamps > Time Spread}
    */
-  static String menuPath(CommandId command) {
+  public static String menuPath(CommandId command) {
     StringBuilder path = new StringBuilder(command.group().title());
     if (command.submenu() != null) {
       path.append(" > ").append(command.submenu().replace("&", ""));

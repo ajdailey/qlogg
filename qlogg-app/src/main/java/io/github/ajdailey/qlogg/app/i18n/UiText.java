@@ -637,8 +637,8 @@ public enum UiText {
   /** Toolbar button. */
   TOOLBAR_STOP,
   EXPRESSION_TOO_DEEP,
-  /** Edit menu cascade holding the search commands. */
-  MENU_SEARCH,
+  /** Search menu. */
+  GROUP_SEARCH,
   /** Command label. */
   COMMAND_COPY_FILE_NAME,
   /** Command label. */
@@ -854,12 +854,12 @@ public enum UiText {
   // Options dialog, sessions, recent files, favorites, encoding and zoom.
   /** Encoding menu. */
   GROUP_ENCODING,
-  /** Favorites menu. */
-  GROUP_FAVORITES,
+  /** File menu cascade of the favorite files. */
+  MENU_FAVORITES,
   /** File menu cascade listing the recent files. */
   MENU_OPEN_RECENT,
-  /** View submenu of the filtered-view visibility modes. */
-  MENU_VISIBILITY,
+  /** View submenu of the filtered view's modes and the split. */
+  MENU_FILTERED_VIEW,
   /** View submenu of the light, dark and system themes. */
   MENU_THEME,
   /** Command label. */
@@ -1298,7 +1298,21 @@ public enum UiText {
   /** Tab list button tool tip with the hidden tab count. */
   TAB_LIST_HIDDEN,
   /** Options check box: closing the last tab closes the window. */
-  OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB;
+  OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB,
+
+  // Menu structure.
+  /** Go menu. */
+  GROUP_GO,
+  /** Window menu. */
+  GROUP_WINDOW,
+  /** Search menu cascade of the search toggles. */
+  MENU_SEARCH_OPTIONS,
+  /** Search menu and log view cascade of the search limits. */
+  MENU_SEARCH_LIMITS,
+  /** View menu cascade of the fold commands. */
+  MENU_FOLDING,
+  /** File menu cascade closing the tabs around the active one. */
+  MENU_CLOSE_MULTIPLE;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

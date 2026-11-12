@@ -18,10 +18,10 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 
 /**
- * Edit > Search > Search All Open Files: a modeless window with one row per file group of the
- * {@link MultiSearchController}, its match count and state, under a summary line. Choosing a row
- * shows that file's tab with its search's results in the filtered view, where a row goes to its
- * line. Stop cancels every search of the group.
+ * Search > Search All Open Files: a modeless window with one row per file group of the {@link
+ * MultiSearchController}, its match count and state, under a summary line. Choosing a row shows
+ * that file's tab with its search's results in the filtered view, where a row goes to its line.
+ * Stop cancels every search of the group.
  */
 final class MultiSearchWindow {
   private final Shell shell;

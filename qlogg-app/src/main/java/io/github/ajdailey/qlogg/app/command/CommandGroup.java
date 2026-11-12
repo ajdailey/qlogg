@@ -2,23 +2,26 @@ package io.github.ajdailey.qlogg.app.command;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 
-/** Where a command appears: a menu, or the log view's own keys, which have no menu. */
+/** Where a command appears: a menu-bar menu in bar order, or the log view's own keys. */
 public enum CommandGroup {
   /** File menu. */
   FILE(UiText.GROUP_FILE, true),
   /** Edit menu. */
   EDIT(UiText.GROUP_EDIT, true),
+  /** Search menu. */
+  SEARCH(UiText.GROUP_SEARCH, true),
+  /** Go menu. */
+  GO(UiText.GROUP_GO, true),
   /** View menu. */
   VIEW(UiText.GROUP_VIEW, true),
-  /** Tools menu. */
-  TOOLS(UiText.GROUP_TOOLS, true),
-  /** Highlighters menu. */
+  /** Highlighters menu; the menu lists the highlighter sets after None. */
   HIGHLIGHT(UiText.GROUP_HIGHLIGHT, true),
-  // Encoding and Favorites menus.
   /** Encoding menu; the menu lists the encodings after Auto. */
   ENCODING(UiText.GROUP_ENCODING, true),
-  /** Favorites menu; the menu lists the favorite files after its commands. */
-  FAVORITES(UiText.GROUP_FAVORITES, true),
+  /** Tools menu. */
+  TOOLS(UiText.GROUP_TOOLS, true),
+  /** Window menu. */
+  WINDOW(UiText.GROUP_WINDOW, true),
   /** Help menu. */
   HELP(UiText.GROUP_HELP, true),
   /** Keys of the focused log view; listed in Keyboard Shortcuts only. */

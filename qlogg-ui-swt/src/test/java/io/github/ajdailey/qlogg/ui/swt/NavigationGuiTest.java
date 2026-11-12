@@ -276,7 +276,7 @@ class NavigationGuiTest {
     shoot(palette.shell(), "palette.png");
     palette.filter().setText("previous tab");
     assertEquals("Previous Tab", palette.table().getItem(0).getText(0));
-    assertEquals("View", palette.table().getItem(0).getText(1));
+    assertEquals("Window", palette.table().getItem(0).getText(1));
     assertTrue(palette.table().getItem(0).getText(2).contains("PgUp"));
     shoot(palette.shell(), "palette-filtered.png");
     palette.filter().notifyListeners(SWT.DefaultSelection, new Event());

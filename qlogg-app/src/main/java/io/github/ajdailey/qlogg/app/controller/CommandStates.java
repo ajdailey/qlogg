@@ -70,7 +70,7 @@ public final class CommandStates {
   public record SetChoice(HighlightSet set, boolean active) {}
 
   /**
-   * An open document as View > Opened Files lists it.
+   * An open document as Window > Opened Files lists it.
    *
    * @param document its controller
    * @param text its path, or its tab title when it has no file
@@ -79,8 +79,8 @@ public final class CommandStates {
   public record OpenedFile(DocumentController document, String text, boolean shown) {}
 
   /**
-   * The enabled items of a tab's context menu; Close This, Close All and Move to New Window are
-   * always enabled.
+   * The enabled items of a tab's context menu; Close, Close All and Move to New Window are always
+   * enabled.
    *
    * @param closeOthers another tab is open
    * @param closeLeft a tab is open to the left
@@ -128,8 +128,8 @@ public final class CommandStates {
    * Reports whether a command's item is enabled. A disabled menu item's accelerator does not fire.
    *
    * @param command any command
-   * @return true unless the command needs a document, a file, a favorite state, a navigation entry
-   *     or a closed file it lacks
+   * @return true unless the command needs a document, a file, a favorite state, a navigation entry,
+   *     a tab to close or a closed file it lacks
    */
   public boolean enabled(CommandId command) {
     DocumentController document = application.activeDocument();
@@ -139,6 +139,10 @@ public final class CommandStates {
     }
     return switch (command) {
       case MOVE_TO_NEW_WINDOW -> document != null;
+      // Close Multiple Tabs.
+      case CLOSE_OTHERS -> document != null && tabItems(document).closeOthers();
+      case CLOSE_LEFT -> document != null && tabItems(document).closeLeft();
+      case CLOSE_RIGHT -> document != null && tabItems(document).closeRight();
       // Navigation history.
       case GO_BACK -> document != null && document.canGoBack();
       case GO_FORWARD -> document != null && document.canGoForward();

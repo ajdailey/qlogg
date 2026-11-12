@@ -118,17 +118,26 @@ and Go Forward: `Alt+Left` and `Alt+Right`, or `Control+Command+Left` and
 ### Commands and menus
 
 `CommandId` lists every command in menu order with its menu (`CommandGroup`),
-label, section break and cascade (`submenu()`, Edit > Search). A `CommandId`
-with `check()` shows as a check item. The menus are File, Edit, View, Tools,
-Highlighters, Encoding, Favorites and Help.
+label, section break and cascade (`submenu()`, Search > Search Options). A
+`CommandId` with `check()` shows as a check item. The menus are File, Edit,
+Search, Go, View, Highlighters, Encoding, Tools, Window and Help. `LOG_VIEW`
+commands have no menu-bar item; some of them are in the log view's context
+menu.
 
 `MenuTable.commands(group, appMenu)` lists a menu's commands. With the macOS
 application menu present it leaves out About, Options and Exit, which that menu
-holds as About, Preferences and Quit. In the menu bar, each menu and each
-cascade, no two items share a mnemonic (`MenuTableTest`), except that Edit
-repeats seven letters (`a`, `b`, `e`, `f`, `n`, `s`, `t`). View has more
-items than letters, so Text Wrap, Wrap New Files, Toggle Fold, Save Splitter
-Position and Command Palette have none.
+holds as About, Preferences and Quit. `MenuTable` also names the cascades
+filled from state (`cascadeBefore`, `cascadeAfter`) and the Time Spread radio
+cascade (`nestedCascade`, `radio`).
+
+No two items of a menu, cascade or context menu share a mnemonic
+(`MenuTableTest` for the menu bar's commands, `LogViewTest` for every built
+menu). The log view's context menu shows `CommandId.label()`, so a command in
+both keeps one letter free in both; Wrap New Files and Toggle Fold have none.
+
+File > Close Multiple Tabs runs `CLOSE_OTHERS`, `CLOSE_LEFT` and `CLOSE_RIGHT`
+on the active tab, enabled from `CommandStates.tabItems`; the tab menu runs
+the same controller calls on the clicked tab.
 
 ### Keystrokes and scopes
 

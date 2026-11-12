@@ -126,7 +126,7 @@ uses its document's encoding and result set and is charged to `RESULTS`.
 
 ## Search in a folder
 
-`FolderSearchController` (Edit > Search in Folder) runs a `FolderSearch` over a
+`FolderSearchController` (Search > Search in Folder) runs a `FolderSearch` over a
 folder's files without opening tabs; core detail is in
 [qlogg-core Search](../../qlogg-core/docs/search.md#search-in-a-folder).
 

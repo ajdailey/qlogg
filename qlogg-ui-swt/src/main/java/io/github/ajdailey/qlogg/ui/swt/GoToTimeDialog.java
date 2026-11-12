@@ -16,8 +16,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Edit > Go to Time: asks for a time that {@link TimeText#parseTarget} reads; OK stays disabled
- * until it does. Enter confirms, Escape cancels.
+ * Go > Go to Time: asks for a time that {@link TimeText#parseTarget} reads; OK stays disabled until
+ * it does. Enter confirms, Escape cancels.
  */
 final class GoToTimeDialog {
   private final Shell shell;

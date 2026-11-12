@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Edit > Search in Folder driven through its widgets: a run from the fields, the file rows with
+ * Search > Search in Folder driven through its widgets: a run from the fields, the file rows with
  * their counts and statuses, a file's lines, and a chosen line opened in a tab. With {@code
  * -Dqlogg.shots=<dir>} it also writes PNGs of the window and of the opened line.
  */

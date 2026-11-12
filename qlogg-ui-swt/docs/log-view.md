@@ -123,13 +123,14 @@ and selection and hands focus back to the canvas.
 
 ### Context menu
 
-The right-click menu lists Mark or Unmark, Edit Mark Comment, Copy, Copy This
-Line, find the selection forward and backward, add, exclude and replace
-search, search start, end and clear, selection start and end, Save Splitter
-Position, Copy with Line Numbers, Save Selection to File, Send Selection to
-Scratchpad, Toggle Fold, Scroll All Tabs to This Time, and the Highlighters
-(None and the sets), Color Label (None and the label names) and Time Sync
-submenus. A right click outside the selection first moves the caret to that
+The right-click menu (`LogCanvas.CONTEXT_MENU`) lists Copy, Copy This Line,
+Copy with Line Numbers; Mark or Unmark, Edit Mark Comment; Find Selection
+Forward and Backward; Add Selection to Search, Exclude Selection from Search,
+Replace Search with Selection and the Search Limits cascade; Set Selection
+Start and End; Save Selection to File, Send Selection to Scratchpad, Replace
+Scratchpad with Selection; Toggle Fold, Scroll All Tabs to This Time and the
+Time Sync cascade; then the Highlighters (None and the sets) and Color Label
+(None and the label names) cascades. A right click outside the selection first moves the caret to that
 row.
 
 The menu is built on the canvas's first `MenuDetect`, not with the canvas: it

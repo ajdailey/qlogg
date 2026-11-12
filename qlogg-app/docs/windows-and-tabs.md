@@ -92,8 +92,9 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
 - `Ctrl+PageDown` and `Ctrl+PageUp` show the next and previous tab.
 - The tab context menu calls `closeOthers`, `closeSide`, `copyPath`,
   `copyFileName`, `openContainingFolder`, `renameTab` and `resetTabName`. A tab
-  name is kept per path for the session and saved with it.
-- View > Switch to File (`Ctrl+Shift+O`) calls `MainView.showOpenedFiles`.
+  name is kept per path for the session and saved with it. File > Close
+  Multiple Tabs calls `closeOthers` and `closeSide` on the active tab.
+- Window > Switch to File (`Ctrl+Shift+O`) calls `MainView.showOpenedFiles`.
 
 Closing a tab detaches its controllers on the UI thread, which cancels the
 search, quick find, mark toggle, overview, copy and save. `LogDocument.close`
@@ -112,7 +113,7 @@ opening it: an executable file, or an extension in `WINDOWS_EXECUTABLE` where
 ### Moving a tab between windows
 
 `WindowSet.moveDocument` moves a tab to another window at a tab position, or to
-a new window through the `Factory` at a display point (View > Move to New
+a new window through the `Factory` at a display point (Window > Move to New
 Window, the tab menu, a tab drag). The `DocumentController` and its
 `LogDocument` move as they are; nothing is reopened.
 
@@ -193,7 +194,7 @@ and key; without one, the main view is focused.
 
 View > Command Palette (`Ctrl+Shift+P`) calls `MainView.showCommandPalette`
 over `commandPalette()`. `CommandPalette.filter` lists every menu command but
-itself with its menu path (`Edit > Search`) and `CommandStates.enabled`. A
+itself with its menu path (`Search > Search Options`) and `CommandStates.enabled`. A
 query matches when its non-blank chars appear in order in the title, ignoring
 case, else in the menu path and title; a char scores 1, 3 more right after the
 previous match and 5 more at a word start, and rows sort by score, then menu
@@ -210,6 +211,7 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | Other checks | The shown document | A document shows |
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
 | Move to New Window | - | A document shows |
+| Close Others, Close to the Left, Close to the Right | - | The active tab has a tab on that side (`tabItems`) |
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
 | Go Back, Go Forward | - | The shown document's history has an entry in that direction |
 | Open Recent > Open All; Recently Closed > Open All, Clear | - | The list is not empty |

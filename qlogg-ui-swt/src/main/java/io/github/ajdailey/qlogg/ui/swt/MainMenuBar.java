@@ -29,9 +29,9 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * The main window's menu bar: one menu per {@link CommandGroup} with its {@link MenuTable}
- * commands, View > Opened Files, File > Open Recent and Recently Closed, the highlighter sets, the
- * favorites and the encodings. Item state comes from {@link CommandStates}; this class only applies
- * it.
+ * commands, Window > Opened Files, File > Open Recent, Recently Closed and Favorites, the
+ * highlighter sets, Highlighters > Color Label and the encodings. Item state comes from {@link
+ * CommandStates}; this class only applies it.
  *
  * <p>Showing a top menu syncs that menu's items and its listed entries only. Enablement of every
  * item also follows each document event ({@link #syncEnablement}), because a disabled item's
@@ -68,6 +68,11 @@ final class MainMenuBar {
   private CommandGroup timeFormatGroup;
   // Time spread.
   private Menu nestedMenu;
+  // Menu structure.
+  private Menu favoritesMenu;
+  private CommandGroup favoritesGroup;
+  private Menu colorLabelMenu;
+  private Keymap keymap;
 
   /**
    * Creates the menu bar's owner; {@link #build} creates the menus.
@@ -110,6 +115,9 @@ final class MainMenuBar {
     closedMenu = null;
     timeFormatMenu = null;
     nestedMenu = null;
+    favoritesMenu = null;
+    colorLabelMenu = null;
+    this.keymap = keymap;
     Menu bar = new Menu(shell, SWT.BAR);
     boolean mac = SwtKeys.mac();
     boolean appMenu = AppMenu.present(shell.getDisplay());
@@ -142,20 +150,10 @@ final class MainMenuBar {
         if (command.separatorBefore() && target.getItemCount() > 0) {
           new MenuItem(target, SWT.SEPARATOR);
         }
-        UiText cascadeBefore = MenuTable.cascadeBefore(command);
-        if (cascadeBefore != null) {
-          MenuItem opened = new MenuItem(target, SWT.CASCADE);
-          opened.setText(cascadeBefore.text());
-          Menu listed = new Menu(shell, SWT.DROP_DOWN);
-          opened.setMenu(listed);
-          if (cascadeBefore == UiText.MENU_TIME_FORMAT) {
-            timeFormatMenu = listed;
-            timeFormatGroup = group;
-            new MenuItem(target, SWT.SEPARATOR);
-          } else {
-            openedFilesMenu = listed;
-            openedFilesGroup = group;
-          }
+        if (MenuTable.cascadeBefore(command) != null) {
+          timeFormatMenu = listedCascade(target, MenuTable.cascadeBefore(command));
+          timeFormatGroup = group;
+          new MenuItem(target, SWT.SEPARATOR);
         }
         final boolean radio = MenuTable.radio(command);
         MenuItem item =
@@ -194,6 +192,27 @@ final class MainMenuBar {
           closedMenu = target;
           closedGroup = group;
         }
+        // Menu structure.
+        if (command == CommandId.REMOVE_FAVORITE) {
+          favoritesMenu = target;
+          favoritesGroup = group;
+        }
+        UiText after = MenuTable.cascadeAfter(command);
+        if (after == UiText.MENU_OPENED_FILES) {
+          openedFilesMenu = listedCascade(target, after);
+          openedFilesGroup = group;
+        } else if (after == UiText.MENU_COLOR_LABEL) {
+          colorLabelMenu = listedCascade(target, after);
+          final Menu labels = colorLabelMenu;
+          labels.addListener(
+              SWT.Show,
+              new Listener() {
+                @Override
+                public void handleEvent(Event event) {
+                  ColorLabelMenu.fill(labels, controller, MainMenuBar.this.keymap, null);
+                }
+              });
+        }
       }
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
@@ -212,6 +231,15 @@ final class MainMenuBar {
       old.dispose();
     }
     syncEnablement();
+  }
+
+  /** Adds a cascade whose items are filled from the controller's state. */
+  private Menu listedCascade(Menu parent, UiText label) {
+    MenuItem holder = new MenuItem(parent, SWT.CASCADE);
+    holder.setText(label.text());
+    Menu listed = new Menu(shell, SWT.DROP_DOWN);
+    holder.setMenu(listed);
+    return listed;
   }
 
   /** Returns the menu an item goes in: the cascade, created at its first item, or the target. */
@@ -268,7 +296,7 @@ final class MainMenuBar {
     if (group == CommandGroup.HIGHLIGHT) {
       syncHighlightSets();
     }
-    if (group == CommandGroup.FAVORITES) {
+    if (group == favoritesGroup) {
       syncFavorites();
     }
     if (group == CommandGroup.ENCODING) {
@@ -447,7 +475,7 @@ final class MainMenuBar {
 
   /** Lists the favorites after Add and Remove, or a disabled placeholder. */
   private void syncFavorites() {
-    Menu menu = menus.get(CommandGroup.FAVORITES);
+    Menu menu = favoritesMenu;
     if (menu == null || menu.isDisposed()) {
       return;
     }
@@ -571,7 +599,7 @@ final class MainMenuBar {
   }
 
   /**
-   * Returns View > Opened Files.
+   * Returns Window > Opened Files.
    *
    * @return the cascade, filled when its top menu shows
    */
@@ -589,12 +617,21 @@ final class MainMenuBar {
   }
 
   /**
-   * Returns the Favorites menu.
+   * Returns File > Favorites.
    *
-   * @return the menu, its listed entries filled when it shows
+   * @return the cascade, its listed entries filled when its top menu shows
    */
   Menu favoritesMenu() {
-    return menus.get(CommandGroup.FAVORITES);
+    return favoritesMenu;
+  }
+
+  /**
+   * Returns Highlighters > Color Label.
+   *
+   * @return the cascade, filled when it shows
+   */
+  Menu colorLabelMenu() {
+    return colorLabelMenu;
   }
 
   /**
