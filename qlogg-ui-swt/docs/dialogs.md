@@ -25,6 +25,12 @@ Windows start ([theme.md](theme.md#dialog-colors));
 `ArchitectureTest.ownedShellsTakeDialogColors` fails an owned `Shell` created
 without `prepare`.
 
+Keyboard Shortcuts, without a remembered size, and Command Palette open wide
+enough for every packed column, within the monitor's client area
+(`TableFit.dialogWidth`). A cell still cut off, on a small screen or in a
+narrowed dialog, shows its full text as the table's tool tip while the pointer
+is over it (`TableFit.cellTips`).
+
 ## Dialogs
 
 | Window | Contents |

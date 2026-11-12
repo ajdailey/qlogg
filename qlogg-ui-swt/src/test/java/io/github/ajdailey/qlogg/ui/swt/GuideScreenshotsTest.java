@@ -471,10 +471,14 @@ class GuideScreenshotsTest {
     }
   }
 
-  /** Colors per rule: ERROR line, WARN text, ID background, component text. */
-  private static final int[] LIGHT_COLORS = {0xf2b8b5, 0x7a4f00, 0x9fd3ff, 0x2f7d32};
+  /**
+   * Colors per rule: ERROR line, WARN text, ID text, component text. The ID text, varied 25%, keeps
+   * 4.5:1 on the view background of Light and every light bundled scheme ({@code LIGHT_COLORS}), or
+   * of Dark and every dark one ({@code DARK_COLORS}).
+   */
+  private static final int[] LIGHT_COLORS = {0xf2b8b5, 0x7a4f00, 0x0b4f9c, 0x2f7d32};
 
-  private static final int[] DARK_COLORS = {0x6e2522, 0xe0b04a, 0x1f4a6b, 0x7fc77f};
+  private static final int[] DARK_COLORS = {0x6e2522, 0xe0b04a, 0x9fd3ff, 0x7fc77f};
 
   private static HighlightSettings highlights(int[] c) {
     HighlightSet set =
@@ -485,8 +489,8 @@ class GuideScreenshotsTest {
                 new HighlightRule(
                     "ERROR", MatchMode.LITERAL, true, true, null, Rgb.of(c[0]), 160, 0, true),
                 HighlightRule.matchOnly("WARN", MatchMode.LITERAL, Rgb.of(c[1]), null),
-                HighlightRule.matchOnly("ID-(\\d{3})", MatchMode.REGEX, null, Rgb.of(c[2]))
-                    .withAlphaAndVariance(200, 25),
+                HighlightRule.matchOnly("ID-(\\d{3})", MatchMode.REGEX, Rgb.of(c[2]), null)
+                    .withAlphaAndVariance(255, 25),
                 HighlightRule.matchOnly("\\[(\\w+)", MatchMode.REGEX, Rgb.of(c[3]), null)));
     return HighlightSettings.DEFAULTS.withSets(List.of(set)).withActive(List.of(set.id()));
   }

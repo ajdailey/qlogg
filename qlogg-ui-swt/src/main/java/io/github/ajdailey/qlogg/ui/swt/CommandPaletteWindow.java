@@ -8,6 +8,7 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import java.util.List;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
@@ -22,7 +23,8 @@ import org.eclipse.swt.widgets.Text;
  * and keys, refilled from {@link CommandPalette#filter} on each change with the first row selected.
  * Up, Down, Page Up and Page Down in the field move the selection. Enter or a double click closes
  * the dialog and runs the row's command on the next UI turn, after the main window has its focus
- * back. A disabled command's row is gray and does not run. Escape closes the dialog.
+ * back. A disabled command's row is gray and does not run. Escape closes the dialog. A cell cut off
+ * shows its full text as a tool tip.
  */
 final class CommandPaletteWindow {
   /** Rows Page Up and Page Down move. */
@@ -87,6 +89,7 @@ final class CommandPaletteWindow {
     for (TableColumn column : table.getColumns()) {
       column.pack();
     }
+    TableFit.cellTips(table);
   }
 
   /** Up, Down, Page Up and Page Down in the filter field move the table's selection. */
@@ -149,8 +152,18 @@ final class CommandPaletteWindow {
         });
   }
 
+  /** Opens the dialog wide enough for every column, within the screen. */
   void open() {
-    Dialogs.open(shell, SWT.DEFAULT, SWT.DEFAULT);
+    open(shell.getParent().getMonitor().getClientArea());
+  }
+
+  /**
+   * Opens the dialog sized to fit an area.
+   *
+   * @param screen the area the dialog width must fit in
+   */
+  void open(Rectangle screen) {
+    Dialogs.open(shell, TableFit.dialogWidth(shell, table, SWT.DEFAULT, screen), SWT.DEFAULT);
     filter.setFocus();
   }
 
