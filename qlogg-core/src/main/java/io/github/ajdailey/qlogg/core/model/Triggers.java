@@ -180,7 +180,7 @@ public final class Triggers {
       String comment = null;
       for (int r = 0; r < matchers.length; r++) {
         Entry entry = entries.get(r);
-        if (!matches(matchers[r], chars, text)) {
+        if (!chars.find(matchers[r], text)) {
           continue;
         }
         RuleTrigger trigger = entry.rule().trigger();
@@ -241,15 +241,6 @@ public final class Triggers {
         quietLines != null && quietCount > 0 && !quietLines.addSorted(quieted, quietCount);
     return new Batch(
         from, line, loud, stopRule, stopLine, added, refused, quietRefused, List.copyOf(failures));
-  }
-
-  private static boolean matches(Matcher matcher, BoundedChars chars, CharSequence text) {
-    matcher.reset(chars.reset(text, BoundedChars.lineLimit(text)));
-    try {
-      return matcher.find();
-    } catch (BoundedChars.LimitReached | StackOverflowError e) {
-      return false;
-    }
   }
 
   private static String expand(

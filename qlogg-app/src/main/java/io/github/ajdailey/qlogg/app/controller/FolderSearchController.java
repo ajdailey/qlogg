@@ -220,11 +220,18 @@ public final class FolderSearchController {
   }
 
   /**
-   * Shows a set: the window lists its files and the step keys go through its lines.
+   * Shows a set: the window lists its files and the step keys go through its lines. A set not in
+   * {@link #sets}, or one whose results a refused run closed and the UI thread has yet to drop, is
+   * ignored.
    *
    * @param set a set of {@link #sets}
    */
   public void show(FolderResultSet set) {
+    synchronized (sets) {
+      if (!sets.contains(set) || set.results().isClosed()) {
+        return;
+      }
+    }
     shown = set;
     refused = null;
     stepFile = null;
@@ -357,7 +364,7 @@ public final class FolderSearchController {
    * Shows a listed line: selects the tab that shows the file, by the path searched or its real
    * path, or opens the file in a new tab, and goes to the line. The next step starts there. While
    * the file opens, a later line of the same file replaces the line the new tab goes to instead of
-   * opening the file again, for {@link #OPEN_WAIT_NANOS}.
+   * opening the file again, for {@link #OPEN_WAIT_NANOS} or until that open fails.
    *
    * @param file a listed file
    * @param hit the listed line, from 0 to {@link FileHits#size} - 1
@@ -397,7 +404,10 @@ public final class FolderSearchController {
   private Opening opening;
   private boolean watching;
 
-  /** Moves a tab {@link #open} started to the newest line asked for it. */
+  /**
+   * Moves a tab {@link #open} started to the newest line asked for it; a failed open of that file
+   * ends the wait, so the next {@link #open} of it opens again.
+   */
   private final class Opened implements ApplicationListener {
     @Override
     public void documentOpened(final DocumentController document) {
@@ -424,6 +434,13 @@ public final class FolderSearchController {
     @Override
     public void documentClosed(DocumentController document) {
       // Nothing to move.
+    }
+
+    @Override
+    public void documentOpenFailed(Path path) {
+      if (opening != null && opening.path().equals(path)) {
+        opening = null;
+      }
     }
   }
 

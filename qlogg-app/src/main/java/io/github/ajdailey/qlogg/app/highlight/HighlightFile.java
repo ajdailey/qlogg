@@ -3,17 +3,15 @@ package io.github.ajdailey.qlogg.app.highlight;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
-import io.github.ajdailey.qlogg.core.util.Streams;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -90,13 +88,9 @@ public final class HighlightFile {
     if (Files.size(file) > FilterFile.MAX_BYTES) {
       throw new FilterFile.FormatException(UiText.FILTER_FILE_TOO_LARGE.text());
     }
-    byte[] bytes;
-    try (InputStream in = Files.newInputStream(file)) {
-      bytes = Streams.readLimited(in, FilterFile.MAX_BYTES);
-    }
-    Properties properties = new Properties();
+    Properties properties;
     try {
-      properties.load(new ByteArrayInputStream(bytes));
+      properties = PropertiesFiles.read(file, FilterFile.MAX_BYTES);
     } catch (IllegalArgumentException e) {
       throw new FilterFile.FormatException(UiText.FILTER_FILE_NOT_PROPERTIES.text());
     }
@@ -122,18 +116,18 @@ public final class HighlightFile {
   }
 
   /**
-   * Writes sets to a file atomically, replacing it.
+   * Writes sets to a file through {@link AtomicFiles#writeUserFile}, replacing it.
    *
    * @param path the user's file
    * @param sets the sets
-   * @throws IOException when the path is rejected or the write fails; the file is then unchanged
+   * @throws IOException when the path is rejected or the write fails
    */
   public static void write(Path path, List<HighlightSet> sets) throws IOException {
     Path file = SafePaths.logFile(path);
     Properties properties = new Properties();
     properties.setProperty(VERSION_KEY, VERSION);
     storeSets(sets, properties);
-    AtomicFiles.write(file, format(properties));
+    AtomicFiles.writeUserFile(file, format(properties));
   }
 
   /**

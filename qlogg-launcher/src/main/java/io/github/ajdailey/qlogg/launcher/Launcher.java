@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
  * settings, configures the platform, runs the single-instance handoff, opens the debug log file
  * with {@code -l} or {@code log.file}, then hands over to {@link Gui}. All of it runs before the
  * Display exists, so the UI thread never waits on it. Exit statuses: 0 normal or files handed to
- * the running instance, 1 bad command line or settings directory, 3 SWT failed to load.
+ * the running instance, 1 bad command line or settings directory, 3 SWT failed to load, 4 UI-thread
+ * failures quit the application ({@link UiFailures}).
  *
  * <p>Without {@code -m}, a launch that takes the instance lock becomes the primary and {@link Gui}
  * accepts handoffs; otherwise it hands its files to the primary, waiting for a primary still
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
 public final class Launcher {
   static final int EXIT_USAGE = 1;
   static final int EXIT_SWT = 3;
+  static final int EXIT_UI_FAILURE = 4;
 
   private static final Logger LOG = LoggerFactory.getLogger(Launcher.class);
 
@@ -52,7 +54,8 @@ public final class Launcher {
   }
 
   /**
-   * Runs QLogg to completion. A nonzero status is returned only before the Display exists.
+   * Runs QLogg to completion. A nonzero status is returned before the Display exists, or after
+   * {@link UiFailures} ran the quit.
    *
    * @param args the command line
    * @return the exit status

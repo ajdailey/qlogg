@@ -40,10 +40,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +71,7 @@ class LogDocumentFollowTest {
   private FileMonitor monitor;
 
   /** Records file changes and index outcomes. */
-  private static final class Events implements DocumentListener {
+  private static class Events implements DocumentListener {
     final List<FileChange> changes = new CopyOnWriteArrayList<FileChange>();
     final CountDownLatch firstIndex = new CountDownLatch(1);
 
@@ -641,6 +644,103 @@ class LogDocumentFollowTest {
       assertTrue(Poll.until(reported(events, FileChange.APPENDED), BOUND));
       assertEquals(1, document.index().lineCount());
       assertTrue(document.status().loadingStopped());
+    }
+  }
+
+  /**
+   * Regression: a pass ended by Stop Loading recorded no tail digest, so a rewrite that kept the
+   * first 4 KiB and grew past the indexed bytes was reported APPENDED, and the indexed lines showed
+   * the new bytes. A task that holds the single CPU thread 20 ms before each 64 KiB block keeps the
+   * pass running past its first progress event, where the listener stops it.
+   */
+  @Test
+  void aRewriteAfterStopLoadingIsNotAnAppend() throws Exception {
+    final Workers paced =
+        new Workers(
+            1,
+            new Thread.UncaughtExceptionHandler() {
+              @Override
+              public void uncaughtException(Thread thread, Throwable error) {
+                failures.add(error);
+              }
+            });
+    final AtomicBoolean pacing = new AtomicBoolean(true);
+    paced.executeCpu(
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              Thread.sleep(20);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              return;
+            }
+            if (pacing.get()) {
+              paced.executeCpu(this);
+            }
+          }
+        });
+    DocumentServices slow =
+        new DocumentServices(
+            paced,
+            new Indexer(paced, new IndexSettings(64 << 10, 1, budget)),
+            new SearchEngine(paced, StandardMatchers.INSTANCE, SearchSettings.defaults(1, budget)),
+            new BlockCache(65536, 1 << 20),
+            budget,
+            StandardCharsets.ISO_8859_1);
+    String header = "H".repeat(5000) + "\n";
+    StringBuilder old = new StringBuilder(header);
+    while (old.length() < (1 << 20)) {
+      old.append("old line ").append(old.length()).append('\n');
+    }
+    Path file = Files.writeString(dir.resolve("stopped.log"), old, StandardCharsets.ISO_8859_1);
+    final AtomicReference<OperationOutcome> outcome = new AtomicReference<OperationOutcome>();
+    final CountDownLatch finished = new CountDownLatch(1);
+    final LogDocument document = LogDocument.open(file, null, slow);
+    Events events =
+        new Events() {
+          @Override
+          public void indexProgressed(IndexProgress progress) {
+            document.stopIndexing();
+          }
+
+          @Override
+          public void indexFinished(OperationOutcome result, IOException failure) {
+            outcome.set(result);
+            finished.countDown();
+          }
+        };
+    try {
+      document.addListener(events);
+      document.startIndexing();
+      assertTrue(finished.await(BOUND.toMillis(), TimeUnit.MILLISECONDS));
+      pacing.set(false);
+      assertEquals(OperationOutcome.CANCELED, outcome.get());
+      long indexed = document.index().indexedBytes();
+      long size = Files.size(file);
+      assertTrue(indexed > header.length() && indexed < size, indexed + " of " + size);
+      ByteBuffer rewrite = ByteBuffer.allocate((int) size + 4096);
+      rewrite.put(header.getBytes(StandardCharsets.ISO_8859_1));
+      while (rewrite.remaining() > 32) {
+        rewrite.put("NEW CONTENT AFTER ROTATION....\n".getBytes(StandardCharsets.ISO_8859_1));
+      }
+      rewrite.flip();
+      try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+        while (rewrite.hasRemaining()) {
+          channel.write(rewrite, rewrite.position());
+        }
+      }
+      document.startWatching(monitor);
+      assertTrue(
+          Poll.until(reported(events, FileChange.REPLACED), BOUND),
+          "reported " + new TreeSet<FileChange>(events.changes));
+      assertFalse(
+          events.changes.contains(FileChange.APPENDED),
+          "reported " + new TreeSet<FileChange>(events.changes));
+    } finally {
+      pacing.set(false);
+      assertTrue(document.close(LogDocument.CLOSE_BOUND));
+      assertTrue(paced.close(Workers.CLOSE_BOUND));
     }
   }
 

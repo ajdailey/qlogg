@@ -80,7 +80,12 @@ final class ResultsPane {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            document.search().show(sets.getSelectionIndex() - 1);
+            CTabItem item = sets.getSelection();
+            if (item != null && item.getData() instanceof SearchController.KeptResults set) {
+              document.search().show(set);
+            } else {
+              document.search().show(-1);
+            }
           }
         });
     sets.addCTabFolder2Listener(
@@ -88,9 +93,8 @@ final class ResultsPane {
           @Override
           public void close(CTabFolderEvent event) {
             event.doit = false;
-            int index = sets.indexOf((CTabItem) event.item);
-            if (index > 0) {
-              document.search().removeKept(index - 1);
+            if (event.item.getData() instanceof SearchController.KeptResults set) {
+              document.search().removeKept(set);
             }
           }
         });
@@ -148,6 +152,8 @@ final class ResultsPane {
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);
+      // Selection and close match the set by identity.
+      item.setData(set);
       item.setText(
           UiText.RESULTS_TAB
               .format(shorten(label(set.text(), set.options())), set.lineCount())

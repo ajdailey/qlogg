@@ -41,16 +41,34 @@ collection, and on Windows a live mapping blocks the writer's truncation.
 `AtomicFiles.write` puts the content in a temporary file in the target's
 directory (POSIX `rw-------`), then moves it over the target with
 `ATOMIC_MOVE`. On failure the target is unchanged and the temporary file is
-deleted. Nothing goes to `java.io.tmpdir`. Where POSIX permissions do not exist
-(Windows), a move that throws a `FileSystemException` is tried up to 10 times,
-25 ms apart: a target another process holds open without delete sharing
-refuses the move for that moment. Any other `IOException` throws at once.
+deleted. Nothing goes to `java.io.tmpdir`. A target that is a symbolic link is
+resolved first, dangling or not, so the link stays and the file it names is
+replaced. Where POSIX permissions do not exist (Windows), a move that throws a
+`FileSystemException` is tried up to 10 times, 25 ms apart: a target another
+process holds open without delete sharing refuses the move for that moment.
+Any other `IOException` throws at once.
 
 - `write(Path, InputStream)` streams the content through a 64 KiB buffer.
 - `writeOwnerOnly`, for a secret, also replaces the temporary file's ACL with
   one entry for the current user where there are ACLs but no POSIX
   permissions (Windows). The file's owner is the fallback when no account
   name resolves.
+
+`write` and `writeOwnerOnly` are for QLogg's own files. `writeUserFile` writes
+a file the user names (Save Selection, Save Filtered Results, filter and
+highlighter exports) and keeps its group and mode:
+
+| Target | Write |
+|---|---|
+| New | Temporary file with the default mode (umask), forced, then moved |
+| Existing | Temporary file owner-only while written, then given the target's group and POSIX permissions (Windows: hidden and system attributes), forced, then moved |
+| Not writable | `AccessDeniedException`; nothing written |
+| More than one hard link, another owner, a group the temporary file cannot take, a directory that is not writable, or a move still refused after its tries | Written in place: truncate, write, force. A failure partway leaves the target partly written |
+
+`PropertiesFiles.read` reads every properties file QLogg loads, its own and
+imported ones: at most a given size, one leading UTF-8 BOM dropped, then UTF-8,
+or ISO-8859-1 when the bytes hold a malformed UTF-8 sequence. QLogg writes
+ASCII with Unicode escapes, which reads the same either way.
 
 ## Encoding detection
 
@@ -88,6 +106,10 @@ removing CR and LF.
 `BoundedChars` is the `CharSequence` a user regex runs over outside a search.
 `charAt` throws `BoundedChars.LimitReached` past the limit given to `reset`,
 and `used()` counts the reads. `lineLimit(line)` is `8 * length + 65,536`.
-`Highlighter`, `Triggers`, `UserFormat` and the app's `HighlightSelector` use
-it, so a backtracking pattern ends at the bound instead of stalling the
-reading thread.
+Built with a `CancellationToken`, it checks the token every 4,096 reads.
+`find(matcher, line)` runs `find` at the line limit and returns false when the
+limit is reached or the regex stack overflows. `FoldRules`, `Triggers`,
+`UserFormat` and the app's `HighlightSelector` run through `find`;
+`Highlighter` and `CommentTemplate` use the chars directly, for a per-matcher
+budget and a failure message. A backtracking pattern ends at the bound instead
+of stalling the reading thread.

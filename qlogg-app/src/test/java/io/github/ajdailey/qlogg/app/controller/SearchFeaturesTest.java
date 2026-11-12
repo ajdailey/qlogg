@@ -79,8 +79,13 @@ class SearchFeaturesTest {
     fixture.runUntilEnded(search);
     assertEquals(2, search.kept().size());
     assertEquals(-1, search.shown());
-    search.removeKept(0);
+    search.removeKept(kept);
     assertEquals("line 1", search.kept().get(0).text());
+    // A removed set is ignored, by identity.
+    search.show(kept);
+    assertEquals(-1, search.shown());
+    search.removeKept(kept);
+    assertEquals(1, search.kept().size());
     assertEquals(
         retained(search.kept().get(0)) + ((MutableLineSet) search.results()).retainedBytes(),
         fixture.budget.reserved(MemoryShare.RESULTS));

@@ -37,7 +37,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
@@ -54,8 +56,9 @@ import java.util.regex.PatternSyntaxException;
  *
  * <p>Walk: subfolders only when {@code recursive}; a file name must match {@code names} and not
  * {@code exclude} ({@link NamePattern#excludes}). A symbolic link to a file is searched, as an open
- * follows it; a link to a folder is not entered. A file or folder the walk cannot read is listed
- * {@code UNREADABLE}.
+ * follows it; a link to a folder is not entered. A folder whose real path the walk has entered is
+ * skipped: Windows reports a directory junction as a folder, and one naming an ancestor would recur
+ * until the path is too long. A file or folder the walk cannot read is listed {@code UNREADABLE}.
  *
  * <p>A file that does not open or index is listed {@code UNREADABLE}; one with a one-byte code unit
  * and a NUL byte in its first {@link EncodingDetector#SAMPLE_BYTES} is listed {@code NOT_TEXT}
@@ -63,16 +66,16 @@ import java.util.regex.PatternSyntaxException;
  * FAILED} and the walk goes on. A regex that does not compile ends the whole search {@code FAILED}.
  *
  * <p>Memory: each walked file reserves {@link #ENTRY_BYTES} plus 2 bytes per path char from {@code
- * RESULTS}, and each listed line {@link #HIT_BYTES} plus 2 bytes per char; the line text is cut at
- * {@link #MAX_TEXT_CHARS}. {@link FolderResults} holds these reservations until it closes. A
- * refused reservation, in this class or in the file's search, first calls {@link
- * FolderListener#resultsRefused}: on true the reservation is retried, or the file searched again.
- * Otherwise it stops the search: the current file keeps the lines listed so far, {@link
- * FolderResults#limited} turns true and the search ends {@code COMPLETED} with {@code MEMORY}. A
- * run indexes through its own {@link Indexer} of {@link #INDEX_BLOCK_BYTES} blocks, which keeps its
- * buffer pool until the run ends: a pool trimmed after each file frees its direct memory only at a
- * later GC. Listed lines are read through the run's own small cache, not the shared {@code
- * BlockCache}.
+ * RESULTS}, each entered folder the same until the walk ends, and each listed line {@link
+ * #HIT_BYTES} plus 2 bytes per char; the line text is cut at {@link #MAX_TEXT_CHARS}. {@link
+ * FolderResults} holds these reservations until it closes. A refused reservation, in this class or
+ * in the file's search, first calls {@link FolderListener#resultsRefused}: on true the reservation
+ * is retried, or the file searched again. Otherwise it stops the search: the current file keeps the
+ * lines listed so far, {@link FolderResults#limited} turns true and the search ends {@code
+ * COMPLETED} with {@code MEMORY}. A run indexes through its own {@link Indexer} of {@link
+ * #INDEX_BLOCK_BYTES} blocks, which keeps its buffer pool until the run ends: a pool trimmed after
+ * each file frees its direct memory only at a later GC. Listed lines are read through the run's own
+ * small cache, not the shared {@code BlockCache}.
  *
  * <p>Cancellation is checked at every walked entry, every 50 ms while a file indexes or searches,
  * and at every listed line; the current file's indexing and search are canceled and the file closed
@@ -242,7 +245,19 @@ public final class FolderSearch {
       }
     }
 
+    /** Lists the candidates; the entered folders' real paths are held until the walk ends. */
     private void walk(Path root) throws IOException {
+      final Set<Path> visited = new HashSet<Path>();
+      final long[] visitedReserved = new long[1];
+      try {
+        walkTree(root, visited, visitedReserved);
+      } finally {
+        budget.release(MemoryShare.RESULTS, visitedReserved[0]);
+      }
+    }
+
+    private void walkTree(Path root, final Set<Path> visited, final long[] visitedReserved)
+        throws IOException {
       Files.walkFileTree(
           root,
           EnumSet.noneOf(FileVisitOption.class),
@@ -251,6 +266,22 @@ public final class FolderSearch {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
               token.check();
+              Path real = dir;
+              try {
+                real = dir.toRealPath();
+              } catch (IOException e) {
+                // The walk reports the folder when it cannot read it.
+              }
+              if (visited.contains(real)) {
+                return FileVisitResult.SKIP_SUBTREE;
+              }
+              long cost = entryBytes(real);
+              if (!reserve(cost)) {
+                results.setLimited();
+                return FileVisitResult.TERMINATE;
+              }
+              visitedReserved[0] += cost;
+              visited.add(real);
               return FileVisitResult.CONTINUE;
             }
 

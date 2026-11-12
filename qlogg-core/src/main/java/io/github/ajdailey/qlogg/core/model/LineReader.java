@@ -15,7 +15,8 @@ import java.util.function.BooleanSupplier;
  * Reads and decodes lines of one document through the block cache. Only the first {@link
  * #MAX_LINE_BYTES} of a line are read, so a longer line shows and copies its first MiB. Display
  * columns count each char as one column, except a tab, which advances to the next multiple of
- * {@link #TAB_WIDTH}, and the low half of a surrogate pair, which takes none.
+ * {@link #TAB_WIDTH}, and the low half of a surrogate pair, which takes none. A column window or
+ * selection keeps or drops a surrogate pair whole.
  *
  * <p>While {@code hideAnsi} reports true, ANSI SGR color sequences are removed at decode ({@link
  * AnsiCodes}), so display, copy, highlighting and columns all see the stripped text.
@@ -226,12 +227,27 @@ public final class LineReader {
         for (long s = Math.max(column, from); s < Math.min(next, to); s++) {
           out.append(' ');
         }
-      } else if (column >= from && column < to) {
-        out.append(c);
+      } else {
+        long at = charColumn(text, k, column);
+        if (at >= from && at < to) {
+          out.append(c);
+        }
       }
       column = next;
     }
     return column;
+  }
+
+  /**
+   * Returns the display column of the char at {@code k}: a low surrogate after its high surrogate
+   * takes the high surrogate's column, so a column edge never splits the pair.
+   */
+  private static long charColumn(CharBuffer text, int k, long column) {
+    boolean paired =
+        k > text.position()
+            && Character.isLowSurrogate(text.get(k))
+            && Character.isHighSurrogate(text.get(k - 1));
+    return paired ? column - 1 : column;
   }
 
   /** How the line last decoded ends; the CR check needs the whole line read. */
@@ -261,13 +277,16 @@ public final class LineReader {
           out.append(' ');
           marks.append(s == column ? LineBlock.TAB_MARK : ' ');
         }
-      } else if (column >= from && column < to) {
-        if (c == '\r') {
-          out.append(' ');
-          marks.append(LineBlock.CR_MARK);
-        } else {
-          out.append(c);
-          marks.append(c == ' ' && k >= trailing ? LineBlock.SPACE_MARK : ' ');
+      } else {
+        long at = charColumn(text, k, column);
+        if (at >= from && at < to) {
+          if (c == '\r') {
+            out.append(' ');
+            marks.append(LineBlock.CR_MARK);
+          } else {
+            out.append(c);
+            marks.append(c == ' ' && k >= trailing ? LineBlock.SPACE_MARK : ' ');
+          }
         }
       }
       column = next;
@@ -291,9 +310,13 @@ public final class LineReader {
       throws IOException {
     CharBuffer text = decode(index, line);
     long column = 0;
-    for (int k = text.position(); k < text.limit() && column < toColumn; k++) {
+    for (int k = text.position(); k < text.limit(); k++) {
       char c = text.get(k);
-      if (column >= fromColumn) {
+      long at = charColumn(text, k, column);
+      if (at >= toColumn) {
+        break;
+      }
+      if (at >= fromColumn) {
         out.append(c);
       }
       column = advance(column, c);
@@ -317,14 +340,18 @@ public final class LineReader {
       throws IOException {
     CharBuffer text = decode(index, line);
     long column = 0;
-    for (int k = text.position(); k < text.limit() && column < toColumn; k++) {
+    for (int k = text.position(); k < text.limit(); k++) {
       char c = text.get(k);
+      long at = charColumn(text, k, column);
+      if (at >= toColumn) {
+        break;
+      }
       long next = advance(column, c);
       if (c == '\t' && (column < fromColumn || next > toColumn)) {
         for (long s = Math.max(column, fromColumn); s < Math.min(next, toColumn); s++) {
           out.append(' ');
         }
-      } else if (column >= fromColumn) {
+      } else if (at >= fromColumn) {
         out.append(c);
       }
       column = next;

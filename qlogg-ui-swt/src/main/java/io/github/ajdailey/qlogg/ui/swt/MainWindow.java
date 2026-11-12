@@ -179,6 +179,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   // Tab drag and tab context menu.
   private boolean movingTab;
   private Menu tabMenu;
+  // Tab close: the controller picks the tab shown next.
+  private boolean removingTab;
   private PointerProbe pointer =
       new PointerProbe() {
         @Override
@@ -789,7 +791,10 @@ public final class MainWindow implements MainView, ApplicationListener {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (!movingTab && event.item instanceof CTabItem item && !item.isDisposed()) {
+            if (!movingTab
+                && !removingTab
+                && event.item instanceof CTabItem item
+                && !item.isDisposed()) {
               controller.activate((DocumentController) item.getData());
             }
           }
@@ -1611,11 +1616,21 @@ public final class MainWindow implements MainView, ApplicationListener {
     removeTab(document);
   }
 
-  /** Removes a tab, and the views when they show its document. */
+  /**
+   * Removes a tab, and the views when they show its document. Disposing the selected item makes
+   * {@code CTabFolder} select a neighbor and send {@code SWT.Selection}; the tab listener ignores
+   * it, so a Close All does not show each remaining tab in turn and the controller picks the tab
+   * shown next.
+   */
   private void removeTab(DocumentController document) {
     CTabItem item = tabOf(document);
     if (item != null) {
-      item.dispose();
+      removingTab = true;
+      try {
+        item.dispose();
+      } finally {
+        removingTab = false;
+      }
     }
     showTabs();
     if (canvas != null && canvas.document() == document) {

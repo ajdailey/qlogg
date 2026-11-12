@@ -719,7 +719,8 @@ public final class ApplicationController implements DocumentHost {
       shown.time().setOffset(opening.timeOffset());
       set.timeSync().restore(opening.syncGroup(), shown);
     }
-    present(shown, line, follow);
+    // A burst builds the views for its last tab only, and for its first in an empty window.
+    present(shown, line, follow, active == null || opening.last());
   }
 
   /**
@@ -732,8 +733,11 @@ public final class ApplicationController implements DocumentHost {
     }
 
     @Override
-    public void openFailed(String message) {
+    public void openFailed(Path path, String message) {
       view.showError(UiText.OPEN_FAILED_TITLE.text(), message);
+      for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+        listener.documentOpenFailed(path);
+      }
     }
 
     @Override
@@ -744,6 +748,11 @@ public final class ApplicationController implements DocumentHost {
     @Override
     public void foldersSkipped() {
       view.showNotice(UiText.NOTICE_FOLDERS_NOT_OPENED.text());
+    }
+
+    @Override
+    public void openEnded(Path path) {
+      restoredActive(path);
     }
 
     @Override
@@ -779,10 +788,15 @@ public final class ApplicationController implements DocumentHost {
     }
   }
 
-  /** Shows a tab, at a line when given, following when asked or by {@code follow.onLoad}. */
-  private void present(DocumentController shown, long line, boolean follow) {
+  /**
+   * Shows a tab, at a line when given, following when asked or by {@code follow.onLoad}; with
+   * {@code show} false the tab takes the line, position and follow state without being shown.
+   */
+  private void present(DocumentController shown, long line, boolean follow, boolean show) {
     LogDocument document = shown.document();
-    activate(shown);
+    if (show) {
+      activate(shown);
+    }
     boolean following = follow || preferences.get().follow().onLoad();
     if (line > 0) {
       shown.jumpToLine(line);
@@ -929,10 +943,10 @@ public final class ApplicationController implements DocumentHost {
    * @param kept the tab left open
    */
   public void closeOthers(DocumentController kept) {
-    for (DocumentController document : new ArrayList<DocumentController>(documents)) {
-      if (document != kept) {
-        closeDocument(document);
-      }
+    List<DocumentController> others = new ArrayList<DocumentController>(documents);
+    others.remove(kept);
+    if (removeDocuments(others)) {
+      closeWindowAfterLastTab();
     }
   }
 
@@ -951,8 +965,8 @@ public final class ApplicationController implements DocumentHost {
         left
             ? new ArrayList<DocumentController>(documents.subList(0, index))
             : new ArrayList<DocumentController>(documents.subList(index + 1, documents.size()));
-    for (DocumentController document : side) {
-      closeDocument(document);
+    if (removeDocuments(side)) {
+      closeWindowAfterLastTab();
     }
   }
 
@@ -1305,13 +1319,28 @@ public final class ApplicationController implements DocumentHost {
    * Closes every tab; with {@code tabs.closeWindowWithLastTab} on and a tab open, then the window.
    */
   public void closeAll() {
-    boolean closed = false;
-    for (DocumentController document : new ArrayList<DocumentController>(documents)) {
-      closed |= removeDocument(document);
-    }
-    if (closed) {
+    if (removeDocuments(new ArrayList<DocumentController>(documents))) {
       closeWindowAfterLastTab();
     }
+  }
+
+  /**
+   * Removes tabs as {@link #removeDocument} does, the shown one last, so no other tab is shown on
+   * the way: showing one builds its views on the UI thread.
+   *
+   * @return true when any was open
+   */
+  private boolean removeDocuments(List<DocumentController> closing) {
+    DocumentController shown = active;
+    boolean last = closing.remove(shown);
+    boolean closed = false;
+    for (DocumentController document : closing) {
+      closed |= removeDocument(document);
+    }
+    if (last) {
+      closed |= removeDocument(shown);
+    }
+    return closed;
   }
 
   /**
@@ -2332,7 +2361,8 @@ public final class ApplicationController implements DocumentHost {
 
   /**
    * Forces a tab's encoding, or returns it to detection, remembers the choice for the file and
-   * reopens it on a worker, which indexes it again.
+   * reopens it on a worker, which indexes it again. A charset that is not {@link Options#supported}
+   * shows a notice; nothing is stored or reopened.
    *
    * @param document an open document's controller
    * @param charset the charset, or null for detection
@@ -2340,6 +2370,10 @@ public final class ApplicationController implements DocumentHost {
   public void setEncoding(DocumentController document, Charset charset) {
     if (document.document().inMemory()) {
       view.showNotice(UiText.NOTICE_NO_FILE.text());
+      return;
+    }
+    if (charset != null && !Options.supported(charset)) {
+      view.showNotice(UiText.NOTICE_ENCODING_UNSUPPORTED.format(charset.name()));
       return;
     }
     config.positions().setEncoding(document.document().path(), charset);
@@ -2550,7 +2584,7 @@ public final class ApplicationController implements DocumentHost {
     if (shuttingDown || shown == null) {
       return;
     }
-    present(shown, line, follow);
+    present(shown, line, follow, true);
     view.toFront();
   }
 

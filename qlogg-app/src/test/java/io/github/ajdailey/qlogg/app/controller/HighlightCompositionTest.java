@@ -17,12 +17,17 @@ import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * The rules {@link DocumentController#refreshHighlights} composes, recorded against today's output:
@@ -144,6 +149,32 @@ class HighlightCompositionTest {
     assertSame(Highlighter.NONE, document.highlighter());
     search("hit", LITERAL);
     assertEquals(List.of("hit"), patterns());
+  }
+
+  /**
+   * Regression: the match highlight of a case-folded literal folded ASCII letters only, while the
+   * search ran it as a regex with {@code UNICODE_CASE} on a UTF-16 file and with Hide ANSI Colors
+   * on, so a U+212A KELVIN SIGN result line showed no match color for {@code k}.
+   */
+  @ParameterizedTest
+  @CsvSource({"UTF-16LE, false, 2", "UTF-8, true, 2", "UTF-8, false, 1"})
+  void aCaseFoldedLiteralHighlightsTheLinesItsSearchFound(
+      String charset, boolean hideAnsi, long results) throws Exception {
+    String text = "line \u212a\nline K\nline x\n";
+    byte[] body = text.getBytes(Charset.forName(charset));
+    byte[] bom = charset.equals("UTF-16LE") ? new byte[] {(byte) 0xff, (byte) 0xfe} : new byte[0];
+    byte[] bytes = Arrays.copyOf(bom, bom.length + body.length);
+    System.arraycopy(body, 0, bytes, bom.length, body.length);
+    DocumentController kelvin = fixture.open(Files.write(temp.resolve("kelvin.log"), bytes));
+    assertEquals(charset, kelvin.document().encoding().charset().name());
+    kelvin.document().setHideAnsi(hideAnsi);
+    kelvin.search().run("k", LITERAL.withCaseSensitive(false));
+    fixture.runUntilEnded(kelvin.search());
+    assertEquals(results, kelvin.search().state().matchCount());
+    List<HighlightRule> rules = kelvin.highlighter().rules();
+    HighlightRule match = rules.get(rules.size() - 1);
+    assertEquals(results == 2, Highlighter.compile(match).matcher("line \u212a").find());
+    assertTrue(Highlighter.compile(match).matcher("line K").find());
   }
 
   @Test

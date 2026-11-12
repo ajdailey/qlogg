@@ -3,31 +3,49 @@ package io.github.ajdailey.qlogg.core.io;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemException;
+import java.nio.file.FileSystemLoopException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.AclEntry;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.DosFileAttributes;
+import java.nio.file.attribute.GroupPrincipal;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.nio.file.attribute.UserPrincipalLookupService;
+import java.security.SecureRandom;
 import java.util.EnumSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 
 /**
  * Replaces a file in one step: the content goes to a temporary file in the target's directory,
- * owner-only where POSIX permissions exist, which then moves over the target with {@code
- * ATOMIC_MOVE}. A reader sees the old file or the new one, never a partial write. Nothing goes to
- * {@code java.io.tmpdir}. Where POSIX permissions do not exist (Windows), a move that throws a
- * {@code FileSystemException} is tried up to {@value #MOVE_ATTEMPTS} times, {@value
- * #MOVE_RETRY_MILLIS} ms apart: a target another process holds open without delete sharing refuses
- * the move for that moment.
+ * which then moves over the target with {@code ATOMIC_MOVE}. A reader sees the old file or the new
+ * one, never a partial write. Nothing goes to {@code java.io.tmpdir}. A target that is a symbolic
+ * link is resolved first, dangling or not, so the link stays a link and the file it names is
+ * replaced. Where POSIX permissions do not exist (Windows), a move that throws a {@code
+ * FileSystemException} is tried up to {@value #MOVE_ATTEMPTS} times, {@value #MOVE_RETRY_MILLIS} ms
+ * apart: a target another process holds open without delete sharing refuses the move for that
+ * moment.
+ *
+ * <p>{@link #write} and {@link #writeOwnerOnly} write QLogg's own files, owner-only where POSIX
+ * permissions exist. {@link #writeUserFile} writes a file the user names and keeps the target's
+ * group and mode.
  */
 public final class AtomicFiles {
   private static final Set<PosixFilePermission> OWNER_FILE =
@@ -41,6 +59,11 @@ public final class AtomicFiles {
 
   /** Milliseconds between tries of a refused move. */
   static final long MOVE_RETRY_MILLIS = 25;
+
+  /** Most symbolic links followed from a target. */
+  private static final int MAX_LINKS = 40;
+
+  private static final SecureRandom RANDOM = new SecureRandom();
 
   /** The step {@link #tryMove} repeats. */
   interface Move {
@@ -92,14 +115,94 @@ public final class AtomicFiles {
     write(file, content, null, true);
   }
 
-  private static void write(Path file, byte[] content, InputStream source, boolean restrict)
+  /**
+   * Writes a file the user names. Replacing a file, the temporary file is owner-only while it is
+   * written, takes the target's group, then its POSIX permissions or DOS hidden and system
+   * attributes before the move; a new file is created with the default mode. The data is forced to
+   * disk before the move.
+   *
+   * <p>The target is written in place (truncate, write, force) instead when it has more than one
+   * hard link, its owner is not the temporary file's owner, the temporary file cannot take its
+   * group, its directory is not writable, or the move is still refused after its tries. An in-place
+   * write that fails partway leaves the target partly written.
+   *
+   * @param target the file as the user named it, in an existing directory
+   * @param content the bytes
+   * @throws AccessDeniedException when the target exists and is not writable; nothing is written
+   * @throws IOException when the write fails; an atomic write leaves the target unchanged and
+   *     deletes the temporary file
+   */
+  public static void writeUserFile(Path target, byte[] content) throws IOException {
+    Path file = linkEnd(target);
+    Path dir = file.getParent();
+    if (dir == null) {
+      throw new IOException("No parent directory");
+    }
+    boolean replacing = Files.exists(file);
+    if (replacing) {
+      if (!Files.isWritable(file)) {
+        throw new AccessDeniedException(file.toString(), null, "The file is not writable");
+      }
+      if (hardLinked(file) || !Files.isWritable(dir)) {
+        writeInPlace(file, content);
+        return;
+      }
+    }
+    Path temp = dir.resolve(".qlogg-" + randomHex() + ".tmp");
+    if (replacing && posix(dir)) {
+      Files.createFile(temp, PosixFilePermissions.asFileAttribute(OWNER_FILE));
+    } else {
+      Files.createFile(temp);
+    }
+    boolean moved = false;
+    try {
+      if (replacing && !(sameOwner(file, temp) && sameGroup(file, temp))) {
+        writeInPlace(file, content);
+        return;
+      }
+      writeForced(temp, content, StandardOpenOption.WRITE);
+      if (replacing) {
+        copyAttributes(file, temp);
+      }
+      moved = moveUserFile(temp, file);
+      if (!moved) {
+        writeInPlace(file, content);
+      }
+    } finally {
+      if (!moved) {
+        Files.deleteIfExists(temp);
+      }
+    }
+  }
+
+  /**
+   * Returns where a target's symbolic links end, the absolute target when it is not a link.
+   *
+   * @param target the target
+   * @return the path the last link names
+   * @throws IOException when a link cannot be read; {@link FileSystemLoopException} past {@value
+   *     #MAX_LINKS} links
+   */
+  static Path linkEnd(Path target) throws IOException {
+    Path end = target.toAbsolutePath();
+    for (int links = 0; Files.isSymbolicLink(end); links++) {
+      if (links == MAX_LINKS) {
+        throw new FileSystemLoopException(target.toString());
+      }
+      end = end.resolveSibling(Files.readSymbolicLink(end));
+    }
+    return end;
+  }
+
+  private static void write(Path target, byte[] content, InputStream source, boolean restrict)
       throws IOException {
-    Path dir = file.toAbsolutePath().getParent();
+    Path file = linkEnd(target);
+    Path dir = file.getParent();
     if (dir == null) {
       throw new IOException("No parent directory");
     }
     Path temp;
-    if (dir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+    if (posix(dir)) {
       temp =
           Files.createTempFile(
               dir, ".qlogg-", ".tmp", PosixFilePermissions.asFileAttribute(OWNER_FILE));
@@ -131,8 +234,11 @@ public final class AtomicFiles {
     }
   }
 
+  private static boolean posix(Path path) {
+    return path.getFileSystem().supportedFileAttributeViews().contains("posix");
+  }
+
   private static void replace(final Path temp, final Path file) throws IOException {
-    boolean posix = temp.getFileSystem().supportedFileAttributeViews().contains("posix");
     tryMove(
         new Move() {
           @Override
@@ -141,7 +247,7 @@ public final class AtomicFiles {
                 temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
           }
         },
-        posix ? 1 : MOVE_ATTEMPTS);
+        posix(temp) ? 1 : MOVE_ATTEMPTS);
   }
 
   /**
@@ -173,9 +279,98 @@ public final class AtomicFiles {
     }
   }
 
+  /**
+   * Moves a user file's temporary file over the target.
+   *
+   * @return false when every try was refused; on an interrupted thread the refusal is thrown
+   *     instead, so no in-place write starts
+   */
+  private static boolean moveUserFile(Path temp, Path file) throws IOException {
+    try {
+      replace(temp, file);
+      return true;
+    } catch (FileSystemException e) {
+      if (Thread.currentThread().isInterrupted()) {
+        throw e;
+      }
+      return false;
+    }
+  }
+
+  private static void writeInPlace(Path file, byte[] content) throws IOException {
+    writeForced(file, content, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  private static void writeForced(Path file, byte[] content, StandardOpenOption... options)
+      throws IOException {
+    try (FileChannel channel = FileChannel.open(file, options)) {
+      ByteBuffer buffer = ByteBuffer.wrap(content);
+      while (buffer.hasRemaining()) {
+        channel.write(buffer);
+      }
+      channel.force(true);
+    }
+  }
+
+  private static boolean hardLinked(Path file) throws IOException {
+    if (!file.getFileSystem().supportedFileAttributeViews().contains("unix")) {
+      return false;
+    }
+    Object links = Files.getAttribute(file, "unix:nlink");
+    return links instanceof Integer count && count > 1;
+  }
+
+  private static boolean sameOwner(Path file, Path temp) throws IOException {
+    if (!file.getFileSystem().supportedFileAttributeViews().contains("owner")) {
+      return true;
+    }
+    return Files.getOwner(file).equals(Files.getOwner(temp));
+  }
+
+  /** Gives the temporary file the target's group; false when it cannot. True without POSIX. */
+  private static boolean sameGroup(Path file, Path temp) throws IOException {
+    PosixFileAttributeView view = Files.getFileAttributeView(temp, PosixFileAttributeView.class);
+    if (view == null) {
+      return true;
+    }
+    GroupPrincipal group = Files.readAttributes(file, PosixFileAttributes.class).group();
+    if (group.equals(view.readAttributes().group())) {
+      return true;
+    }
+    try {
+      view.setGroup(group);
+      return true;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  /** Gives the temporary file the target's POSIX permissions, or its DOS hidden and system bits. */
+  private static void copyAttributes(Path file, Path temp) throws IOException {
+    PosixFileAttributeView posix =
+        Files.getFileAttributeView(file, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+    if (posix != null) {
+      Files.setPosixFilePermissions(temp, posix.readAttributes().permissions());
+      return;
+    }
+    DosFileAttributeView dos = Files.getFileAttributeView(temp, DosFileAttributeView.class);
+    if (dos != null) {
+      DosFileAttributes from = Files.readAttributes(file, DosFileAttributes.class);
+      dos.setHidden(from.isHidden());
+      dos.setSystem(from.isSystem());
+      dos.setArchive(true);
+    }
+  }
+
+  private static String randomHex() {
+    byte[] bytes = new byte[6];
+    RANDOM.nextBytes(bytes);
+    return HexFormat.of().formatHex(bytes);
+  }
+
   /** Leaves one ACL entry, full access for the user, where POSIX permissions do not exist. */
   private static void ownerOnlyAcl(Path temp) throws IOException {
-    if (temp.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+    if (posix(temp)) {
       return;
     }
     AclFileAttributeView view = Files.getFileAttributeView(temp, AclFileAttributeView.class);

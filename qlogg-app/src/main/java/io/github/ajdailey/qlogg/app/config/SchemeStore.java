@@ -4,13 +4,11 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightFile;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.text.LogText;
-import io.github.ajdailey.qlogg.core.util.Streams;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -141,12 +139,7 @@ public final class SchemeStore {
         skip(fileName, "not a regular file");
         return null;
       }
-      byte[] bytes;
-      try (InputStream in = Files.newInputStream(file)) {
-        bytes = Streams.readLimited(in, MAX_BYTES);
-      }
-      Properties properties = new Properties();
-      properties.load(new ByteArrayInputStream(bytes));
+      Properties properties = PropertiesFiles.read(file, MAX_BYTES);
       String problem = problem(properties);
       if (problem != null) {
         skip(fileName, problem);

@@ -1,9 +1,12 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.config.Options;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -24,6 +27,19 @@ class EncodingChoicesTest {
   }
 
   @Test
+  void aDecodeOnlyCharsetIsNotListed() {
+    Charset decodeOnly = Charset.forName("x-JISAutoDetect");
+    assertFalse(decodeOnly.canEncode());
+    EncodingChoices choices =
+        EncodingChoices.of(List.of(decodeOnly, StandardCharsets.UTF_8, Charset.forName("IBM437")));
+    assertEquals(List.of(Charset.forName("IBM437")), choices.other());
+    for (Charset charset : EncodingChoices.available().other()) {
+      assertTrue(charset.canEncode(), charset.name());
+    }
+    assertNull(Options.charset(decodeOnly.name()));
+  }
+
+  @Test
   void theRuntimeListsEverySupportedCharsetOnce() {
     EncodingChoices choices = EncodingChoices.available();
     assertSame(choices, EncodingChoices.available());
@@ -40,8 +56,13 @@ class EncodingChoicesTest {
       }
     }
     assertEquals(supported, common);
-    assertEquals(
-        Charset.availableCharsets().size(), choices.common().size() + choices.other().size());
+    int encodable = 0;
+    for (Charset charset : Charset.availableCharsets().values()) {
+      if (charset.canEncode()) {
+        encodable++;
+      }
+    }
+    assertEquals(encodable, choices.common().size() + choices.other().size());
     for (Charset charset : choices.common()) {
       assertTrue(!choices.other().contains(charset), charset.name());
     }

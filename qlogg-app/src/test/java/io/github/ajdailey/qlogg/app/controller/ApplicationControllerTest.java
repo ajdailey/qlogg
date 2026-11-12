@@ -23,6 +23,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.testkit.Poll;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -140,6 +141,114 @@ class ApplicationControllerTest {
     assertEquals("QLogg", view.title);
     shutDown(controller, ui, view, workers);
     assertEquals(0, budget.reserved(MemoryShare.LINE_INDEX));
+  }
+
+  @Test
+  void aBurstOfOpenedFilesShowsOnlyItsLastTab() throws Exception {
+    final FakeView view = new FakeView();
+    final ManualUiDispatcher ui = new ManualUiDispatcher();
+    MemoryBudget budget = MemoryBudget.of(1L << 28);
+    final Workers workers = new Workers(1, RETHROW);
+    final ApplicationController controller = controller(workers, ui, view, budget);
+    controller.openFile(Files.writeString(temp.resolve("shown.log"), "0\n"), 0);
+    assertTrue(ui.runUntil(titled(view, "shown.log - QLogg"), BOUND));
+    assertTrue(
+        ui.runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return !controller.activeDocument().state().indexing() && ui.queued() == 0;
+              }
+            },
+            BOUND));
+    final List<String> shown = new ArrayList<String>();
+    controller.addListener(
+        ui.confined(
+            ApplicationListener.class,
+            new ApplicationListener() {
+              @Override
+              public void documentOpened(DocumentController document) {
+                // Counted through documents().
+              }
+
+              @Override
+              public void documentClosed(DocumentController document) {
+                // None closes.
+              }
+
+              @Override
+              public void activeDocumentChanged(DocumentController document) {
+                shown.add(document.state().title());
+              }
+            }));
+    List<FileRequest> files = new ArrayList<FileRequest>();
+    for (int i = 0; i < 5; i++) {
+      files.add(new FileRequest(Files.writeString(temp.resolve(i + ".log"), i + "\n"), 0));
+    }
+    controller.open(files);
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return ui.queued() >= 5 && !workers.liveThreadNames().contains("qlogg-index-");
+              }
+            },
+            BOUND),
+        "every file opened before the UI queue runs");
+    ui.runPending();
+    assertEquals(6, controller.documents().size());
+    assertEquals(List.of("4.log"), shown, "the views are built once, for the last tab");
+    assertEquals("4.log - QLogg", view.title);
+    shutDown(controller, ui, view, workers);
+  }
+
+  /**
+   * Regression: a burst's last tab was shown only when no other opened document waited for
+   * delivery, so a reload delivered after it left the burst's tabs unshown.
+   */
+  @Test
+  void aReloadPendingDuringABurstLeavesItsLastTabShown() throws Exception {
+    final FakeView view = new FakeView();
+    final ManualUiDispatcher ui = new ManualUiDispatcher();
+    MemoryBudget budget = MemoryBudget.of(1L << 28);
+    final Workers workers = new Workers(1, RETHROW);
+    final ApplicationController controller = controller(workers, ui, view, budget);
+    controller.openFile(Files.writeString(temp.resolve("shown.log"), "0\n"), 0);
+    assertTrue(ui.runUntil(titled(view, "shown.log - QLogg"), BOUND));
+    assertTrue(
+        ui.runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return !controller.activeDocument().state().indexing() && ui.queued() == 0;
+              }
+            },
+            BOUND));
+    DocumentController reloaded = controller.activeDocument();
+    List<FileRequest> files = new ArrayList<FileRequest>();
+    for (int i = 0; i < 2; i++) {
+      files.add(new FileRequest(Files.writeString(temp.resolve(i + ".log"), i + "\n"), 0));
+    }
+    controller.open(files);
+    assertTrue(Poll.until(deliveriesQueued(ui, workers, 2), BOUND), "the burst opened");
+    controller.reload(reloaded);
+    assertTrue(Poll.until(deliveriesQueued(ui, workers, 3), BOUND), "the reload opened");
+    ui.runPending();
+    assertEquals(3, controller.documents().size());
+    assertEquals("1.log - QLogg", view.title);
+    shutDown(controller, ui, view, workers);
+  }
+
+  /** True once {@code count} tasks wait on the UI queue and no open runs on a worker. */
+  private static BooleanSupplier deliveriesQueued(
+      final ManualUiDispatcher ui, final Workers workers, final int count) {
+    return new BooleanSupplier() {
+      @Override
+      public boolean getAsBoolean() {
+        return ui.queued() >= count && !workers.liveThreadNames().contains("qlogg-index-");
+      }
+    };
   }
 
   @Test

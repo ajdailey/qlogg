@@ -126,7 +126,8 @@ tab is dropped.
 
 `MultiSearchWindow` (Search > Search All Open Files) lists one row per file group
 with its match count and state under a summary line. Choosing a row shows that
-tab with its search's results. Stop cancels every search of the group.
+tab with its search's results. Stop cancels every search of the group. A tab
+closed during the search drops its row; the selected row stays on its file.
 
 ### Search in Folder
 

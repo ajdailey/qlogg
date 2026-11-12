@@ -52,6 +52,9 @@ The rows apply in order; the first match decides:
 - `LogDocument` passes the tail digest only when it ends at the covered bytes;
   otherwise both tail rows are skipped for that check. An indexing pass
   publishes its last snapshot before it records the new tail.
+- A completed or canceled pass records the tail, so after Stop Loading growth
+  whose last 4 KiB before the indexed end changed is `REPLACED`, not
+  `APPENDED`.
 - The growth row with the tail digest catches a copy-truncate rotation that
   regrows past the covered bytes between two checks: the file key stays the
   same, and the head digest of a file opened short covers only the bytes

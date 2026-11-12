@@ -5,13 +5,11 @@ import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
-import io.github.ajdailey.qlogg.core.util.Streams;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -151,13 +149,12 @@ public final class ConfigStore {
         disableSaving();
       }
       Path file = SafePaths.child(dir, SettingsLocation.MARKER);
-      byte[] bytes;
-      try (InputStream in = Files.newInputStream(file)) {
-        bytes = Streams.readLimited(in, MAX_BYTES);
+      Properties properties;
+      try {
+        properties = parse(file);
       } catch (NoSuchFileException e) {
         return Preferences.DEFAULTS;
       }
-      Properties properties = parse(bytes);
       if (properties == null) {
         malformed(file);
         return Preferences.DEFAULTS;
@@ -216,11 +213,11 @@ public final class ConfigStore {
     }
   }
 
-  /** Returns the properties, or null when the bytes do not parse or name another version. */
-  private static Properties parse(byte[] bytes) throws IOException {
-    Properties properties = new Properties();
+  /** Returns the properties, or null when the file does not parse or names another version. */
+  private static Properties parse(Path file) throws IOException {
+    Properties properties;
     try {
-      properties.load(new ByteArrayInputStream(bytes));
+      properties = PropertiesFiles.read(file, MAX_BYTES);
     } catch (IllegalArgumentException e) {
       return null;
     }

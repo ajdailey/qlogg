@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.text.BoundedChars;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -28,7 +29,7 @@ public final class FoldClassifier {
    * @param rules the compiled rules
    * @param from the region's first line
    * @param to the line after the region; lines past the index are left out
-   * @param token checked per line
+   * @param token checked per line and while a pattern reads a line
    * @return {@code [start0, end0, start1, end1, ...]} in line order, each end exclusive
    * @throws IOException on a read error
    * @throws java.util.concurrent.CancellationException when canceled
@@ -46,11 +47,12 @@ public final class FoldClassifier {
     if (from >= end || from < 0) {
       return new long[0];
     }
+    BoundedChars chars = new BoundedChars(token);
     long start = from;
-    while (start > 0 && continues(reader, index, rules, start)) {
+    while (start > 0 && continues(reader, index, rules, chars, start)) {
       token.check();
       if (from - start >= MAX_ENTRY_LINES) {
-        start = nextStart(reader, index, rules, from, end, token);
+        start = nextStart(reader, index, rules, chars, from, end, token);
         break;
       }
       start--;
@@ -61,12 +63,12 @@ public final class FoldClassifier {
       long line = start + 1;
       while (line < count
           && line - start <= MAX_ENTRY_LINES
-          && continues(reader, index, rules, line)) {
+          && continues(reader, index, rules, chars, line)) {
         token.check();
         line++;
       }
       if (line - start > MAX_ENTRY_LINES) {
-        start = nextStart(reader, index, rules, line, end, token);
+        start = nextStart(reader, index, rules, chars, line, end, token);
         continue;
       }
       if (line - start >= 2) {
@@ -86,13 +88,14 @@ public final class FoldClassifier {
       LineReader reader,
       LineIndex index,
       FoldRules.Compiled rules,
+      BoundedChars chars,
       long from,
       long end,
       CancellationToken token)
       throws IOException {
     for (long line = from; line < end; line++) {
       token.check();
-      if (!continues(reader, index, rules, line)) {
+      if (!continues(reader, index, rules, chars, line)) {
         return line;
       }
     }
@@ -100,7 +103,8 @@ public final class FoldClassifier {
   }
 
   private static boolean continues(
-      LineReader reader, LineIndex index, FoldRules.Compiled rules, long line) throws IOException {
-    return line > 0 && rules.continues(reader.decodedLine(index, line));
+      LineReader reader, LineIndex index, FoldRules.Compiled rules, BoundedChars chars, long line)
+      throws IOException {
+    return line > 0 && rules.continues(reader.decodedLine(index, line), chars);
   }
 }

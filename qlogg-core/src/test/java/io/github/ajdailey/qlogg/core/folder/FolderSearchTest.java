@@ -370,6 +370,27 @@ class FolderSearchTest {
   }
 
   @Test
+  void aLinkToAnAncestorFolderIsWalkedOnce() throws Exception {
+    assumeTrue(File.separatorChar == '/', "symbolic links without a privilege");
+    start(MemoryBudget.of(1L << 30));
+    write("a.log", "flagword\n");
+    Path sub = Files.createDirectory(dir.resolve("sub"));
+    write("sub/b.log", "flagword\n");
+    Files.createSymbolicLink(sub.resolve("up"), dir);
+    FolderResults results = new FolderResults(budget);
+    Recording recording = run(NamePattern.DEFAULT, true, literal("flagword"), results);
+    assertEquals(OperationOutcome.COMPLETED, recording.outcome);
+    Path real = dir.toRealPath();
+    List<String> searched = new ArrayList<String>();
+    for (FileHits file : results.files()) {
+      searched.add(real.relativize(file.path()).toString().replace(File.separatorChar, '/'));
+    }
+    assertEquals(List.of("a.log", "sub/b.log"), searched);
+    results.close();
+    assertReleased();
+  }
+
+  @Test
   void aFolderThatDoesNotValidateOrABadRegexFailsTheSearch() throws Exception {
     start(MemoryBudget.of(1L << 30));
     Path file = write("a.log", "flagword\n");

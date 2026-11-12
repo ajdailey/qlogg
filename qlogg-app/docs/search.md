@@ -41,7 +41,9 @@ still returns its reservation.
 
 With `keepResults` on, a run moves a finished current set into `kept()` instead
 of emptying it. A kept set stays charged to `RESULTS` until `removeKept` or
-`detach`. `show(index)` picks the set the filtered view shows.
+`detach`. `show(index)` picks the set the filtered view shows. `show(set)` and
+`removeKept(set)` match a set by identity and ignore one not in `kept()`;
+`ResultsPane` calls them with the set its tab holds.
 
 - A search still running is replaced as usual, because its set is still
   growing.
@@ -101,8 +103,9 @@ default. A new document in any window starts with the saved toggles.
 occurrences in the focused view without a result set. It matches fixed text by
 default (`quickFind.regex`), with ignore case from the bar's box.
 
-- A find compiles the pattern and runs `LineFinder` on a `qlogg-search-` worker
-  over the view's `rows()`, holding the `ActivityIndicator` active.
+- A find compiles the pattern with the search's flags
+  (`StandardMatchers.regexFlags`) and runs `LineFinder` on a `qlogg-search-`
+  worker over the view's `rows()`, holding the `ActivityIndicator` active.
 - A newer find cancels the older one, and a result from an older generation is
   dropped.
 - The match becomes the view's selection. With no occurrence left in the
@@ -151,12 +154,14 @@ over a folder's files without opening tabs; core detail is in
 - `open(file, hit)` selects the tab whose path or real path is the file and
   goes to the line, else opens the file at that line. Another line of a file
   still opening, within 5 s, moves the new tab there instead of opening the
-  file again, so fast steps do not race two opens.
+  file again, so fast steps do not race two opens. A failed open of the file
+  (`ApplicationListener.documentOpenFailed`) ends that wait.
 
 ### Kept result sets
 
 `sets()` lists the runs newest first; `show(set)` picks the set the window
-lists and the step keys walk.
+lists and the step keys walk, and ignores a set not in `sets()` or whose
+results a refused run closed.
 
 | Operation | Effect |
 |---|---|
@@ -196,4 +201,4 @@ once, named after the pattern when the name is blank.
 | `SearchHistory` | `add` puts a search first, drops an equal earlier entry and cuts the list to the size; `completions(prefix, caseSensitive)` lists the entries that extend a prefix, most recent first |
 | `FilterPatterns` | `compose` joins filters as regex alternatives (`a\|b`, a `LITERAL` filter escaped), or as quoted terms joined with `or` with combining; `present` reports which filters stand in a text between separators |
 | `SearchEdits` | `add` (`text\|sel`, or `text or "sel"`), `exclude` (`"text" and not "sel"`) and `replace`; the selection is escaped for the mode, and add to a literal search or exclude turn combining on |
-| `FilterFile` | Filters as `filter.N.name`, `filter.N.pattern`, `filter.N.regex`; an export adds `version=1`. `read` validates the path through `SafePaths.logFile` and refuses a file over 1 MiB, without `version=1`, with an incomplete entry or with over 1,000 filters (`FormatException`); `write` replaces the file through `AtomicFiles` |
+| `FilterFile` | Filters as `filter.N.name`, `filter.N.pattern`, `filter.N.regex`; an export adds `version=1`. `read` validates the path through `SafePaths.logFile` and refuses a file over 1 MiB, without `version=1`, with an incomplete entry or with over 1,000 filters (`FormatException`); `read` decodes through `PropertiesFiles` (UTF-8 BOM, UTF-8, ISO-8859-1); `write` replaces the file through `AtomicFiles.writeUserFile` |

@@ -71,10 +71,10 @@ term takes one of these forms:
 | Term | Runs as |
 |---|---|
 | Literal, case-sensitive | Byte search for the pattern encoded in the document charset |
-| Literal, case folded, ASCII pattern, ASCII-compatible encoding | Byte search folding `A`-`Z` |
+| Literal, case folded, ASCII pattern, byte-aligned ASCII-compatible encoding, no `hideAnsi` (`foldsAsciiOnly`) | Byte search folding `A`-`Z` |
 | Any other literal, or one whose pattern does not encode | `Pattern.quote` regex on decoded text |
 | Case-sensitive regex with no metacharacter (`\ ^ $ . \| ? * + ( ) [ ] { }`) and no U+FFFD | As a case-sensitive literal |
-| Any other regex | `java.util.regex.Pattern` on decoded text with `UNIX_LINES`, plus `CASE_INSENSITIVE \| UNICODE_CASE` when case folds |
+| Any other regex | `java.util.regex.Pattern` on decoded text with `StandardMatchers.regexFlags`: `UNIX_LINES`, plus `CASE_INSENSITIVE \| UNICODE_CASE` when case folds |
 
 - A byte search finds candidates eight bytes per `getLong` (`ByteScan`) by the
   pattern's first byte and its last nonzero byte together, then compares the
@@ -98,7 +98,9 @@ Byte search and regex differ in what they see:
 - A byte search sees the file's bytes; a regex sees malformed input as
   U+FFFD.
 - Byte folding folds ASCII letters only, so `k` does not match U+212A KELVIN
-  SIGN, which a case-folded regex matches.
+  SIGN, which a case-folded regex matches. `StandardMatchers.foldsAsciiOnly`
+  reports which a case-folded literal gets; the match highlight
+  (`HighlightComposer.matchRule`) uses it to fold as the search did.
 
 Line and option rules:
 
@@ -203,6 +205,10 @@ runs a coordinator on a `qlogg-search-` virtual thread:
 
 - A symbolic link to a file is searched, because an open follows it. A link
   to a folder is not entered.
+- A folder whose real path the walk has entered is skipped: Windows reports a
+  directory junction as a folder, and one naming an ancestor would recur until
+  the path is too long. Each entered folder's real path holds `RESULTS` as a
+  walked file does until the walk ends.
 - A regex that does not compile ends the search `FAILED` with the
   `PatternSyntaxException`.
 - `FolderListener.progressed` runs at most every 100 ms and once at the end,

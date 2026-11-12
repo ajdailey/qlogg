@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.text.BoundedChars;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -18,12 +19,12 @@ import java.util.zip.CRC32;
  * match-only rule adds a span per match, or per captured group when the pattern has groups.
  * Thread-safe; each {@link LineMatcher} it creates is not.
  *
- * <p>Regexes compile on first use, on the worker that reads lines, with {@code UNIX_LINES} and,
- * when case folds, {@code CASE_INSENSITIVE | UNICODE_CASE}; a literal compiles quoted. A rule whose
- * pattern does not compile is skipped. A rule that reads more than {@code 8 * length + 65,536}
- * chars on one line is abandoned for that line, and a line matcher stops coloring after {@link
- * #BLOCK_STEPS} chars, so a backtracking pattern bounds the cost of a read instead of stalling it.
- * A line keeps at most {@link #MAX_SPANS} spans; later spans are dropped.
+ * <p>Regexes compile on first use, on the worker that reads lines, with {@link
+ * StandardMatchers#regexFlags}; a literal compiles quoted. A rule whose pattern does not compile is
+ * skipped. A rule that reads more than {@code 8 * length + 65,536} chars on one line is abandoned
+ * for that line, and a line matcher stops coloring after {@link #BLOCK_STEPS} chars, so a
+ * backtracking pattern bounds the cost of a read instead of stalling it. A line keeps at most
+ * {@link #MAX_SPANS} spans; later spans are dropped.
  */
 public final class Highlighter {
   /** No rules. */
@@ -84,12 +85,8 @@ public final class Highlighter {
    * @throws PatternSyntaxException when a regex does not compile
    */
   public static Pattern compile(HighlightRule rule) {
-    int flags = Pattern.UNIX_LINES;
-    if (!rule.caseSensitive()) {
-      flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
-    }
     String source = rule.mode() == MatchMode.REGEX ? rule.pattern() : Pattern.quote(rule.pattern());
-    return Pattern.compile(source, flags);
+    return Pattern.compile(source, StandardMatchers.regexFlags(rule.caseSensitive()));
   }
 
   /**

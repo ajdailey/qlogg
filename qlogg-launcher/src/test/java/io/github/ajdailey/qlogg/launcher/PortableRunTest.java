@@ -36,8 +36,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A portable run writes its settings, session and positions inside the bundle and nothing else: two
- * runs over a bundle with a {@code qlogg.conf} marker, the second restoring the first's session,
- * leave every other file under the test tree as it was and the home directory empty.
+ * runs over a bundle with a {@code qlogg.conf} marker, in the bundle or in its {@code bin} folder,
+ * the second restoring the first's session, leave every file outside the marker's folder as it was
+ * and the home directory empty.
  */
 @Tag("swt")
 class PortableRunTest {
@@ -48,7 +49,18 @@ class PortableRunTest {
   @Test
   void aPortableRunWritesOnlyInsideItsBundle() throws Exception {
     Path bundle = Files.createDirectories(temp.resolve("bundle"));
-    Files.createFile(bundle.resolve(SettingsLocation.MARKER));
+    assertRunsWriteOnlyIn(bundle, bundle);
+  }
+
+  @Test
+  void aRunWithTheMarkerBesideTheLinuxScriptWritesOnlyInsideBin() throws Exception {
+    Path bundle = Files.createDirectories(temp.resolve("bundle"));
+    assertRunsWriteOnlyIn(bundle, Files.createDirectories(bundle.resolve("bin")));
+  }
+
+  /** Runs twice with the marker in {@code settings} and checks every write landed there. */
+  private void assertRunsWriteOnlyIn(Path bundle, Path settings) throws Exception {
+    Files.createFile(settings.resolve(SettingsLocation.MARKER));
     Path home = Files.createDirectories(temp.resolve("home"));
     Path log = Files.createDirectories(temp.resolve("logs")).resolve("app.log");
     Files.writeString(log, "one\ntwo\nthree\n");
@@ -60,6 +72,7 @@ class PortableRunTest {
             Map.<String, String>of(),
             home.toString());
     assertEquals(SettingsMode.PORTABLE, location.mode());
+    assertEquals(settings, location.directory());
     Map<Path, Long> before = files(temp);
     String userHome = System.getProperty("user.home");
     try {
@@ -73,16 +86,16 @@ class PortableRunTest {
     List<Path> outside = new ArrayList<Path>();
     for (Map.Entry<Path, Long> entry : after.entrySet()) {
       Long old = before.get(entry.getKey());
-      if (!entry.getKey().startsWith(bundle) && !entry.getValue().equals(old)) {
+      if (!entry.getKey().startsWith(settings) && !entry.getValue().equals(old)) {
         outside.add(entry.getKey());
       }
     }
     assertEquals(List.of(), outside);
     assertEquals(List.of(), List.copyOf(files(home).keySet()));
-    assertTrue(Files.isRegularFile(bundle.resolve(SessionStore.FILE)));
-    assertTrue(Files.isRegularFile(bundle.resolve(PositionStore.FILE)));
+    assertTrue(Files.isRegularFile(settings.resolve(SessionStore.FILE)));
+    assertTrue(Files.isRegularFile(settings.resolve(PositionStore.FILE)));
     assertTrue(
-        Files.readString(bundle.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
+        Files.readString(settings.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
             .contains("favorite.0="));
   }
 

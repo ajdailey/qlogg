@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
+import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.log.RecentLog;
@@ -248,6 +249,34 @@ class WindowSetTest {
         });
     assertTrue(first.documents().get(0).following());
     assertEquals(1, firstView.raised);
+  }
+
+  private void awaitWorkers() throws InterruptedException {
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return workers.liveThreads() == 0;
+              }
+            },
+            BOUND));
+  }
+
+  @Test
+  void aFailedSettingsSaveIsRetriedByTheNextSave() throws Exception {
+    // A non-empty folder where the save moves its file makes the move fail on every OS.
+    Path blocker = Files.createDirectories(temp.resolve(SettingsLocation.MARKER));
+    Files.writeString(blocker.resolve("keep.txt"), "mock\n");
+    set.preferencesChanged(Preferences.DEFAULTS.withSplitPercent(42));
+    set.flushSettings();
+    awaitWorkers();
+    ui.runPending();
+    Files.delete(blocker.resolve("keep.txt"));
+    Files.delete(blocker);
+    set.flushSettings();
+    awaitWorkers();
+    assertEquals(42, config.load().splitPercent());
   }
 
   @Test

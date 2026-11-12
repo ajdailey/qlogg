@@ -457,7 +457,8 @@ between two chosen lines.
 
 `Ctrl+C` copies the selection, or the current line without one. Edit > Copy
 with Line Numbers puts each line's number in front. File > Save Selection and
-Save Filtered Results write the lines to a file in UTF-8. `Esc` stops a copy or
+Save Filtered Results write the lines to a file in UTF-8; a file they replace
+keeps its permissions. `Esc` stops a copy or
 save that is still running; a stopped save writes no file. One copy or save
 runs at a time. Both take the first MiB of a longer line, and the saved notice
 counts the lines cut. A copy or save fails when the file became shorter while
@@ -679,7 +680,9 @@ qlogg [options] [[+line:N] file]...
 QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
 `~/.config/qlogg`, Windows `%APPDATA%\QLogg`, macOS
 `~/Library/Application Support/QLogg`, or the installation directory when a
-`qlogg.conf` exists there (portable mode). On Linux in portable mode and with
+`qlogg.conf` exists there (portable mode). On Linux a `qlogg.conf` beside the
+`bin/qlogg` script also selects portable mode, with the settings in `bin/`,
+unless the installation directory has one. On Linux in portable mode and with
 `--settings`, Help > User Guide opens this guide in your system browser,
 because the embedded browser keeps its cache in your home folder. GTK's input
 method support still creates an empty `~/.config/ibus/bus` folder there, and

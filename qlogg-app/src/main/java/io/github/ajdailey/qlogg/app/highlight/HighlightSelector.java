@@ -75,12 +75,7 @@ public record HighlightSelector(String fileNameGlob, String firstLinePattern, St
     if (pattern == null) {
       return false;
     }
-    try {
-      BoundedChars chars = new BoundedChars().reset(line, BoundedChars.lineLimit(line));
-      return pattern.matcher(chars).find();
-    } catch (BoundedChars.LimitReached | StackOverflowError e) {
-      return false;
-    }
+    return new BoundedChars().find(pattern.matcher(""), line);
   }
 
   /**

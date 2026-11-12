@@ -17,7 +17,7 @@ text on a worker, then change the document's labels.
 | Class | Contract |
 |---|---|
 | `HighlightSettings` | The sets (at most 256, distinct ids), the active ids (unknown ids dropped), 9 `ColorLabel`s and the `MatchHighlight`. `rulesInApplyOrder` lists the active sets' rules so the top rule of the first active set applies last and wins; `withImported` appends only sets with new ids |
-| `HighlightFile` | The keys are in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. A malformed trigger value (flag not `true` or `false`, template over 1,000 chars) turns only that action off in `load` and `read`, with one WARN per call; a file without trigger keys loads with `RuleTrigger.NONE`. `read` takes the user's path through `SafePaths.logFile` and refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `write` replaces the file through `AtomicFiles` |
+| `HighlightFile` | The keys are in its Javadoc. `load` skips a malformed set or rule and keeps the default for a malformed label. A malformed trigger value (flag not `true` or `false`, template over 1,000 chars) turns only that action off in `load` and `read`, with one WARN per call; a file without trigger keys loads with `RuleTrigger.NONE`. `read` takes the user's path through `SafePaths.logFile` and refuses a file over 1 MiB, without `version=1`, with over 256 sets or a malformed set or rule (`FilterFile.FormatException`); `read` decodes through `PropertiesFiles`; `write` replaces the file through `AtomicFiles.writeUserFile` |
 | `HighlightSetsEditor` | The Configure Highlighters list model over a copy of the sets: add, remove, move and rename sets; add, remove and move rules; at most `MAX_SETS` sets and `MAX_RULES` rules per set. Each edit returns the index to select next; an index out of range changes nothing; removing a set drops its active id. `setRule` keeps a rule that does not compile and returns `validate`'s message, which also reports a comment template whose regex does not compile; `importSets` appends the sets with new ids |
 | `LabelState` | One document's labeled texts. `apply(n, text)` moves a text to label n, or removes it when it has n; `next` steps the cycle (labels with `cycle`) and removes a labeled text's label, still advancing; `EMPTY` clears and restarts the cycle. At most 256 texts; cost 56 bytes per text plus 2 per char |
 
@@ -34,9 +34,20 @@ first:
 `matchRule` returns null when the match highlight is off, for empty text, for a
 combined or inverse search, and for a pattern over `MAX_PATTERN_CHARS`. The
 length counts the whole-word wrap `(?<!\w)(?:...)(?!\w)` that
-`StandardMatchers.wholeWord` puts around the quoted or regex text. `LastSearch`
-carries the search toggles the match rule reads, so `app.highlight` does not
-depend on `app.view`; that dependency forms a package cycle.
+`StandardMatchers.wholeWord` puts around the quoted or regex text, and the
+`(?i)` prefix of a case-folded literal the search ran as a byte search.
+
+The match rule folds case as the search did. `LastSearch` carries the
+document's encoding and the Hide ANSI Colors state the search ran with
+(`DocumentController` reads it when the search state changes, because the
+toggle reruns no search). A case-folded literal for which
+`StandardMatchers.foldsAsciiOnly` holds runs as a quoted regex behind `(?i)`,
+folding ASCII letters only, so `k` does not color U+212A KELVIN SIGN. Any
+other case-folded search (UTF-16, UTF-32, a multi-byte charset such as
+Shift_JIS, Hide ANSI Colors on, a non-ASCII literal, a regex) folds with
+`UNICODE_CASE`. `LastSearch` carries the search toggles itself, so
+`app.highlight` does not depend on `app.view`; that dependency forms a package
+cycle.
 
 `triggerRules` returns the active or automatic set's rules, highest priority
 first, for `TriggerController`.

@@ -12,7 +12,7 @@ display.
 | Package | Contents | Detail |
 |---|---|---|
 | `core.concurrent` | `Workers`, background operations, `OperationGate`, `MemoryBudget` | [Threads and memory budget](docs/threads-and-memory.md) |
-| `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles` | [File access and text](docs/files-and-text.md) |
+| `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
 | `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars` | [File access and text](docs/files-and-text.md) |
 | `core.index` | `GrowableLineIndex` (full and sparse), the parallel `Indexer` | [Line index](docs/line-index.md) |
 | `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet` | [Search](docs/search.md) |
@@ -65,7 +65,8 @@ Every operation on a document's file holds a `LogDocument` entry
 
 - Every path from outside the process goes through `SafePaths`.
 - `AtomicFiles` replaces a file through a temporary file in the target's
-  directory; nothing goes to `java.io.tmpdir`.
+  directory; nothing goes to `java.io.tmpdir`. `writeUserFile` keeps a user
+  file's group and mode.
 - Nothing is memory mapped.
 - A value that did not originate in QLogg's code passes `LogText.oneLine`
   before it reaches a logger.
@@ -93,7 +94,7 @@ system's answers from `OsTraits.of(name)`.
 |---|---|---|---|---|
 | `opensDeviceNames` | true | false | false | `SafePaths` refuses device forms |
 | `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
-| `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` portable marker beside `bin/qlogg` |
+| `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` ([portable mode](../qlogg-app/docs/settings.md#settings-directory)) |
 | `confinesToSettings` | false | false | true | `PlatformSetup` moves `user.home`; `UserGuide.embedded` |
 | `webView2` | true | false | false | `PlatformSetup` sets the WebView2 data folder |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |

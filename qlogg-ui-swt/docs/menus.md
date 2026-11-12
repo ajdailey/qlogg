@@ -54,7 +54,7 @@ Favorites, Search > Search Options, View > Folding).
 | File > Recent Files | The recent paths before Open All, Clean Up and Clear Recent Files, refilled on show |
 | File > Recently Closed | The closed paths before Open All and Clear Recently Closed, refilled on show; choosing one opens it |
 | File > Favorites | The favorites after Add to Favorites and Remove from Favorites, refilled on show |
-| Encoding | Auto, the common charsets as radio items, then Other with every other charset the runtime supports (`EncodingChoices`) |
+| Encoding | Auto, the common charsets as radio items, then Other with every other charset the runtime can encode with (`EncodingChoices`) |
 | View > Timestamps > Format | Filled on show from `CommandStates.timeFormats`: the built-ins, the user formats and None as radio items, the shown file's checked |
 | View > Timestamps > Time Spread | The `MenuTable.radio` commands, in the cascade `MenuTable.nestedCascade` names |
 

@@ -107,6 +107,20 @@ class HighlightFileTest {
     assertRejected(escape);
   }
 
+  @Test
+  void anExportWithAUtf8ByteOrderMarkImports() throws Exception {
+    Path file = temp.resolve("sets.conf");
+    HighlightFile.write(file, List.of(sample("a")));
+    byte[] written = Files.readAllBytes(file);
+    byte[] marked = new byte[written.length + 3];
+    marked[0] = (byte) 0xEF;
+    marked[1] = (byte) 0xBB;
+    marked[2] = (byte) 0xBF;
+    System.arraycopy(written, 0, marked, 3, written.length);
+    Files.write(file, marked);
+    assertEquals(List.of(sample("a")), HighlightFile.read(file));
+  }
+
   private static void assertRejected(final Path file) {
     assertThrows(
         FilterFile.FormatException.class,

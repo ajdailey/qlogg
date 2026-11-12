@@ -28,9 +28,11 @@ the UI thread; the launcher loads before the Display exists.
 | File missing, or empty | Defaults, no warning |
 | No `version` key | Read as version 1 |
 | Unreadable, over 1 MiB, unparsable, or another `version` | Malformed: defaults, one WARN; the first save copies the file to `qlogg.conf.invalid`, then replaces it |
+| A leading UTF-8 BOM, UTF-8 or ISO-8859-1 text | Read through `PropertiesFiles`: the BOM dropped, UTF-8 unless a sequence is malformed, then ISO-8859-1 |
 | A value that does not parse (`ui.theme=purple`) | That setting's default, one WARN; the file is not malformed |
 | Directory read-only at load or at a failed save | Saving disabled, one WARN |
-| A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | That save returns false with one WARN; the next save runs |
+| A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | That save returns false with one WARN; the settings stay marked changed, so the next save writes them |
+| `qlogg.conf` is a symbolic link | The file it names is replaced; the link stays |
 | `PER_USER` directory missing at save | Created owner-only through `SafePaths.settingsDirectory` |
 
 Saves write sorted keys with no date comment through `AtomicFiles`. Logs name
@@ -98,7 +100,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear |
 | `favorite.N` | Favorite file paths, at most 100 | none | File > Favorites |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Preferences, File |
-| `encoding.default` | The charset detection falls back to | `ISO-8859-1` | Tools > Preferences, File |
+| `encoding.default` | The charset detection falls back to; one that can encode | `ISO-8859-1` | Tools > Preferences, File |
 | `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Preferences, General |
 | `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
 | `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Preferences, Shortcuts |
@@ -136,7 +138,9 @@ KiB or does not parse; or when `dark` or a color is missing or invalid. At most
 
 `ConfigStore` also holds two stores in the same directory. Both read and write
 through `SettingsFile`, which applies the settings-file cases above to their
-own file: `<name>.invalid`, atomic owner-only writes, read-only directory.
+own file: `<name>.invalid`, atomic owner-only writes, read-only directory. A
+save whose content is over the file's limit is refused with one WARN and the
+last saved file stays, so a load never finds a file over its cap.
 
 | Store | File | Contents | Limits |
 |---|---|---|---|

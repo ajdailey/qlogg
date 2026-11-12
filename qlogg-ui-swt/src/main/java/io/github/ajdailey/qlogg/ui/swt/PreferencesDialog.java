@@ -236,8 +236,10 @@ final class PreferencesDialog {
     new Label(page, SWT.NONE).setText(UiText.PREFERENCES_ENCODING.text());
     encoding = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
     encoding.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    for (String name : Charset.availableCharsets().keySet()) {
-      encoding.add(name);
+    for (Charset charset : Charset.availableCharsets().values()) {
+      if (Options.supported(charset)) {
+        encoding.add(charset.name());
+      }
     }
     encoding.setText(options.defaultEncoding());
     watch = check(page, UiText.PREFERENCES_WATCH, options.useWatchService());

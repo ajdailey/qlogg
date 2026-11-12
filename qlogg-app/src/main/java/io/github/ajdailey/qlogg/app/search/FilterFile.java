@@ -2,13 +2,11 @@ package io.github.ajdailey.qlogg.app.search;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
-import io.github.ajdailey.qlogg.core.util.Streams;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,13 +65,9 @@ public final class FilterFile {
     if (Files.size(file) > MAX_BYTES) {
       throw new FormatException(UiText.FILTER_FILE_TOO_LARGE.text());
     }
-    byte[] bytes;
-    try (InputStream in = Files.newInputStream(file)) {
-      bytes = Streams.readLimited(in, MAX_BYTES);
-    }
-    Properties properties = new Properties();
+    Properties properties;
     try {
-      properties.load(new ByteArrayInputStream(bytes));
+      properties = PropertiesFiles.read(file, MAX_BYTES);
     } catch (IllegalArgumentException e) {
       throw new FormatException(UiText.FILTER_FILE_NOT_PROPERTIES.text());
     }
@@ -100,11 +94,11 @@ public final class FilterFile {
   }
 
   /**
-   * Writes the filters to a file atomically, replacing it.
+   * Writes the filters to a file through {@link AtomicFiles#writeUserFile}, replacing it.
    *
    * @param path the user's file
    * @param filters the filters
-   * @throws IOException when the path is rejected or the write fails; the file is then unchanged
+   * @throws IOException when the path is rejected or the write fails
    */
   public static void write(Path path, List<PredefinedFilter> filters) throws IOException {
     Path file = SafePaths.logFile(path);
@@ -119,7 +113,7 @@ public final class FilterFile {
         kept.append(line).append('\n');
       }
     }
-    AtomicFiles.write(file, kept.toString().getBytes(StandardCharsets.ISO_8859_1));
+    AtomicFiles.writeUserFile(file, kept.toString().getBytes(StandardCharsets.ISO_8859_1));
   }
 
   /**

@@ -11,7 +11,10 @@ import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -137,5 +140,32 @@ class QuickFindControllerTest {
     assertEquals(10, document.selection().caret().line());
     execute(CommandId.FIND_NEXT);
     assertEquals(range(2, 4, 5), filtered.selection());
+  }
+
+  /**
+   * Regression: quick find compiled without {@code UNIX_LINES}, so {@code .} stopped at U+0085 and
+   * a lone CR, which a search matches.
+   */
+  @Test
+  void quickFindAndSearchAgreeOnNextLineAndALoneCarriageReturn() throws Exception {
+    Path file =
+        Files.write(
+            temp.resolve("nel.log"), "start\na\u0085b\nx\ry\n".getBytes(StandardCharsets.UTF_8));
+    DocumentController nel = fixture.open(file);
+    nel.search()
+        .run(
+            "a.b|x.y",
+            new SearchOptions(MatchMode.REGEX, true, false, false, false, false, false, false));
+    fixture.runUntilEnded(nel.search());
+    assertEquals(List.of(1L, 2L), ControllerFixture.toList(nel.search().results()));
+    fixture.application.setFocusedView(nel);
+    fixture.application.setQuickFindOptions(false, true);
+    quickFind.open(true);
+    quickFind.setText("a.b|x.y");
+    quickFind.submit();
+    fixture.runUntilIdle();
+    assertEquals(range(1, 0, 3), nel.selection());
+    execute(CommandId.FIND_NEXT);
+    assertEquals(range(2, 0, 3), nel.selection());
   }
 }

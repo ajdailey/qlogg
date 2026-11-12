@@ -159,6 +159,37 @@ xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=OpenStallProbe \
   -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.file=<file>
 ```
 
+## Many tabs
+
+`TabsProbe` in `qlogg-ui-swt` writes, for each count in `qlogg.bench.tabs`,
+that many files of `qlogg.bench.lines` lines (2,000 by default) and times in
+the main window: one open of all of them until every tab is indexed, Search
+All Open Files until every search is done, and Close All. Each phase prints its
+wall time and the largest lateness of a 10 ms UI timer (`openStall`,
+`searchAllStall`, `closeAllStall`); `idleStall` is the same over 2 s with
+nothing running, the stall the host load alone causes. A sampler reads the UI
+thread's stack every millisecond during the open and Close All and prints the
+most frequent frames and call chains, and for the open the chains sampled
+during its largest stall (`probe.open.stall`). Run a small count first: the
+first count carries class loading.
+
+`FolderWindowProbe` writes, for each count in `qlogg.bench.folderFiles`, that
+many files of `qlogg.bench.lines` lines (200 by default) and times `FolderSearch`
+alone against the same search run from the Search in Folder window, with the
+window run's largest UI stall.
+
+Both run only when their property is set, and a run can outlast the 120 s
+hang bound:
+
+```sh
+xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=TabsProbe \
+  -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.tabs=5,25,100 \
+  -Dqlogg.test.hangSeconds=1800
+xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=FolderWindowProbe \
+  -Dsurefire.failIfNoSpecifiedTests=false -Dqlogg.bench.folderFiles=500,2000 \
+  -Dqlogg.test.hangSeconds=1800
+```
+
 ## Row paint time
 
 `RowPaintProbe` in `qlogg-ui-swt` writes two 2,000-line files of about 150

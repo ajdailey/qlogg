@@ -1358,7 +1358,10 @@ public enum UiText {
   ACCESSIBLE_OVERVIEW,
   // Clear Recent Files.
   /** Command label. */
-  COMMAND_CLEAR_RECENT;
+  COMMAND_CLEAR_RECENT,
+  // Decode-only encoding choice.
+  /** Notice: the encoding name. */
+  NOTICE_ENCODING_UNSUPPORTED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

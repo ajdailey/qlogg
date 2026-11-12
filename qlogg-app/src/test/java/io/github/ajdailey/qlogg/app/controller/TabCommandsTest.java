@@ -11,6 +11,8 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
@@ -81,6 +83,59 @@ class TabCommandsTest {
     fixture.application.execute(CommandId.CLOSE_OTHERS);
     assertEquals(1, fixture.application.documents().size());
     assertTrue(tabs.get(1).isClosed());
+  }
+
+  /** Records each document shown, from now on. */
+  private List<DocumentController> recordShown() {
+    final List<DocumentController> shown = new ArrayList<DocumentController>();
+    fixture.application.addListener(
+        new ApplicationListener() {
+          @Override
+          public void documentOpened(DocumentController document) {
+            // Not recorded.
+          }
+
+          @Override
+          public void documentClosed(DocumentController document) {
+            // Not recorded.
+          }
+
+          @Override
+          public void activeDocumentChanged(DocumentController document) {
+            shown.add(document);
+          }
+        });
+    return shown;
+  }
+
+  @Test
+  void closeAllShowsNoTabOnTheWay() throws Exception {
+    List<DocumentController> tabs = openThree();
+    fixture.application.activate(tabs.get(0));
+    List<DocumentController> shown = recordShown();
+    fixture.application.closeAll();
+    assertTrue(fixture.application.documents().isEmpty());
+    assertEquals(Collections.singletonList(null), shown);
+  }
+
+  @Test
+  void closeOthersShowsOnlyTheTabLeft() throws Exception {
+    List<DocumentController> tabs = openThree();
+    fixture.application.activate(tabs.get(0));
+    List<DocumentController> shown = recordShown();
+    fixture.application.closeOthers(tabs.get(2));
+    assertEquals(List.of(tabs.get(2)), shown);
+    assertEquals(List.of(tabs.get(2)), fixture.application.documents());
+  }
+
+  @Test
+  void closeSideShowsOnlyTheTabLeft() throws Exception {
+    List<DocumentController> tabs = openThree();
+    fixture.application.activate(tabs.get(0));
+    List<DocumentController> shown = recordShown();
+    fixture.application.closeSide(tabs.get(2), true);
+    assertEquals(List.of(tabs.get(2)), shown);
+    assertEquals(List.of(tabs.get(2)), fixture.application.documents());
   }
 
   @Test

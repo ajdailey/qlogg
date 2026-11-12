@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.controller.TextExporter.Output;
 import io.github.ajdailey.qlogg.app.controller.TextExporter.Request;
@@ -29,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -148,6 +150,32 @@ class TextExporterTest {
         (index.lineEnd(3) - index.lineStart(0)) * TextExporter.SAVE_BYTES_PER_FILE_BYTE,
         result.charged());
     budget.release(MemoryShare.COPY, result.charged());
+  }
+
+  @Test
+  void aSaveTakesTheModeOfANewFileOrKeepsTheReplacedFilesMode() throws IOException {
+    assumeTrue(dir.getFileSystem().supportedFileAttributeViews().contains("posix"));
+    Path plain = Files.createFile(dir.resolve("plain.txt"));
+    Path target = dir.resolve("saved.log");
+    Result result =
+        export(
+            rows(0, 1),
+            new Request(lines(0, 1), false, Output.FILE, target),
+            new CancellationToken());
+    budget.release(MemoryShare.COPY, result.charged());
+    assertNull(result.refusal());
+    assertEquals(
+        PosixFilePermissions.toString(Files.getPosixFilePermissions(plain)),
+        PosixFilePermissions.toString(Files.getPosixFilePermissions(target)));
+    Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rw-rw----"));
+    result =
+        export(
+            rows(2, 3),
+            new Request(lines(2, 3), false, Output.FILE, target),
+            new CancellationToken());
+    budget.release(MemoryShare.COPY, result.charged());
+    assertEquals("gamma" + NL + "delta", Files.readString(target, StandardCharsets.UTF_8));
+    assertEquals("rw-rw----", PosixFilePermissions.toString(Files.getPosixFilePermissions(target)));
   }
 
   @Test

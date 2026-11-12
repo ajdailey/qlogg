@@ -82,11 +82,13 @@ final class MultiSearchWindow {
     sync();
   }
 
-  /** Rewrites the summary and one row per group. */
+  /** Rewrites the summary and one row per group; the selected row stays on its file. */
   void sync() {
     if (shell.isDisposed()) {
       return;
     }
+    int selectedAt = groups.getSelectionIndex();
+    Object selected = selectedAt < 0 ? null : groups.getItem(selectedAt).getData();
     List<MultiSearchController.FileResults> results = search.results();
     summary.setText(
         UiText.MULTI_SUMMARY.format(search.text(), search.totalMatches(), results.size()));
@@ -101,6 +103,12 @@ final class MultiSearchWindow {
       TableItem item = groups.getItem(i);
       item.setData(group.document());
       item.setText(text(group));
+    }
+    groups.deselectAll();
+    for (int i = 0; selected != null && i < results.size(); i++) {
+      if (results.get(i).document() == selected) {
+        groups.select(i);
+      }
     }
   }
 

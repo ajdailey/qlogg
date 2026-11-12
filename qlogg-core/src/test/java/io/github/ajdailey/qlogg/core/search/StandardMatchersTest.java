@@ -132,6 +132,30 @@ class StandardMatchersTest {
     return line.substring(from, random.nextInt(from + 1, line.length() + 1));
   }
 
+  /** {@code foldsAsciiOnly} holds exactly where a case-folded literal runs as a byte search. */
+  @Test
+  void foldsAsciiOnlyHoldsWhereACaseFoldedLiteralRunsAsBytes() {
+    String[] charsets = {"windows-1252", "UTF-8", "UTF-16LE", "UTF-32BE", "Shift_JIS"};
+    String[] literals = {"k", "\u00e9"};
+    for (String name : charsets) {
+      TextEncoding encoding = TextEncoding.of(Charset.forName(name), 0);
+      for (String literal : literals) {
+        SearchExpression.Term term = new SearchExpression.Term(literal, MatchMode.LITERAL);
+        for (boolean hideAnsi : new boolean[] {false, true}) {
+          for (boolean word : new boolean[] {false, true}) {
+            SearchQuery query = new SearchQuery(term, false, word, false, null, hideAnsi);
+            assertEquals(
+                StandardMatchers.bytewise(term, query, encoding),
+                StandardMatchers.foldsAsciiOnly(literal, encoding, hideAnsi),
+                name + " " + literal + " hideAnsi " + hideAnsi + " word " + word);
+          }
+        }
+      }
+    }
+    TextEncoding utf8 = TextEncoding.of(StandardCharsets.UTF_8, 0);
+    assertTrue(StandardMatchers.foldsAsciiOnly("k", utf8, false));
+  }
+
   @Test
   void aCaseSensitiveRegexWithoutMetacharactersRunsAsBytes() {
     TextEncoding utf8 = TextEncoding.of(StandardCharsets.UTF_8, 0);

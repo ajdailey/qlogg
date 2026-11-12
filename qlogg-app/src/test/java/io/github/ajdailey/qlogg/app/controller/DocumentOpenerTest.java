@@ -76,8 +76,29 @@ class DocumentOpenerTest {
     assertEquals(first, recorder.documents.get(0).path());
     assertEquals(second, recorder.documents.get(1).path());
     assertEquals(
-        new DocumentOpener.Opening(3, true, false, true, false, 0, 0), recorder.openings.get(0));
+        new DocumentOpener.Opening(3, true, false, true, false, 0, 0, false),
+        recorder.openings.get(0));
+    assertTrue(recorder.openings.get(1).last());
     assertEquals(0, opener.unclaimedCount());
+  }
+
+  @Test
+  void anOpenWhoseFinalFileFailsEndsOnTheLastFileOpened() throws Exception {
+    Path first = Files.writeString(temp.resolve("a.log"), "one\n");
+    opener.open(
+        List.of(new FileRequest(first, 0), new FileRequest(temp.resolve("missing.log"), 0)),
+        false,
+        false,
+        services);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return recorder.events.contains("ended a.log");
+          }
+        });
+    assertEquals(List.of("opened a.log", "failed", "ended a.log"), recorder.events);
+    assertFalse(recorder.openings.get(0).last());
   }
 
   @Test
@@ -140,8 +161,25 @@ class DocumentOpenerTest {
         List.of("opened a.log", "name a.log first", "opened b.log", "active a.log"),
         recorder.events);
     assertEquals(
-        new DocumentOpener.Opening(0, true, true, true, false, 0, 0), recorder.openings.get(1));
+        new DocumentOpener.Opening(0, true, true, true, false, 0, 0, false),
+        recorder.openings.get(1));
     assertTrue(recorder.documents.get(1).marks().contains(0));
+  }
+
+  @Test
+  void aRestoreWithoutAnActiveTabEndsOnTheLastRestoredTab() throws Exception {
+    List<Session.Tab> tabs = new ArrayList<Session.Tab>();
+    tabs.add(new Session.Tab(log("a.log").toString(), "", false, new long[0]));
+    tabs.add(new Session.Tab(log("b.log").toString(), "", false, new long[0]));
+    opener.restore(new Session(tabs, -1), services);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return recorder.events.contains("active b.log");
+          }
+        });
+    assertEquals(List.of("opened a.log", "opened b.log", "active b.log"), recorder.events);
   }
 
   @Test
@@ -284,7 +322,7 @@ class DocumentOpenerTest {
     }
 
     @Override
-    public void openFailed(String message) {
+    public void openFailed(Path path, String message) {
       events.add("failed");
       failures.add(message);
     }
@@ -317,6 +355,11 @@ class DocumentOpenerTest {
     @Override
     public void restoredActive(Path path) {
       events.add("active " + path.getFileName());
+    }
+
+    @Override
+    public void openEnded(Path path) {
+      events.add("ended " + path.getFileName());
     }
   }
 }

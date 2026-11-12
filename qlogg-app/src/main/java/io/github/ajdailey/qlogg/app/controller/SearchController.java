@@ -317,6 +317,18 @@ public final class SearchController {
   }
 
   /**
+   * Shows a kept set, matched by identity; a set not in {@link #kept} is ignored.
+   *
+   * @param set a set of {@link #kept}
+   */
+  public void show(KeptResults set) {
+    int index = kept.indexOf(set);
+    if (index >= 0) {
+      show(index);
+    }
+  }
+
+  /**
    * Returns the kept result sets, oldest first.
    *
    * @return an unmodifiable view
@@ -341,6 +353,19 @@ public final class SearchController {
       shown--;
     }
     fireResults();
+  }
+
+  /**
+   * Removes a kept set, matched by identity, and returns its reservation; a set not in {@link
+   * #kept} is ignored.
+   *
+   * @param set a set of {@link #kept}
+   */
+  public void removeKept(KeptResults set) {
+    int index = kept.indexOf(set);
+    if (index >= 0) {
+      removeKept(index);
+    }
   }
 
   /**

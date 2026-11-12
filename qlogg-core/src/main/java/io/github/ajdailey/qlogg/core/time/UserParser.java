@@ -52,13 +52,10 @@ final class UserParser implements TimestampParser {
             : line;
     String text;
     try {
-      matcher.reset(bounded.reset(prefix, BoundedChars.lineLimit(prefix)));
-      if (!matcher.find()) {
+      if (!bounded.find(matcher, prefix)) {
         return NONE;
       }
       text = matcher.group("ts");
-    } catch (BoundedChars.LimitReached | StackOverflowError e) {
-      return NONE;
     } finally {
       matcher.reset("");
     }

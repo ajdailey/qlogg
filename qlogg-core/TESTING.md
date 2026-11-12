@@ -42,7 +42,7 @@ Regression cases:
 | `RangeSearchTest` | Range searches against a sequential scan at chunk sizes that cut ranges at every partition; a file cut below its index fails the search and `RangeFinder` with an `IOException` |
 | `MutableLineSetTest` | Random adds, toggles, batches and `removeFrom` against a `TreeSet`: `select` and `rank` at every member; `ceiling`, `floor`, `contains` and `rank` around every member and bucket edge, over 4 buckets and over 2^40 lines. The array-to-bitmap switch at 4,097 entries and the return at 2,048; `retainedBytes()` against the formula and equal to the `RESULTS` reservation |
 | `LargeFileSearchTest` | A 2.2 GB sparse file of 1 MiB lines with matches at the first line, just past 2^31 bytes and in the partial last line; a second line longer than `MAX_LINE_BYTES` skipped with the lines after it matched |
-| `FolderSearchTest` | The walk: name globs, path order, subfolders, exclude globs, a NUL byte listed as not text and a UTF-16LE file with a BOM searched. A 64 MiB file under a 32 MiB budget searched with the match count of a line-by-line reference. The `RESULTS` share of a 4 MiB budget stopping the search with the lines listed so far and no later file, and a refusal the listener frees by `resultsRefused` retried to a complete listing. Cancel while a runaway regex runs ending within 1 s with every reservation returned. POSIX only: an unreadable file and folder and a dangling link listed, a linked file searched, a linked folder not entered. A missing folder, a file given as the folder and a regex that does not compile failing the search |
+| `FolderSearchTest` | The walk: name globs, path order, subfolders, exclude globs, a NUL byte listed as not text and a UTF-16LE file with a BOM searched. A 64 MiB file under a 32 MiB budget searched with the match count of a line-by-line reference. The `RESULTS` share of a 4 MiB budget stopping the search with the lines listed so far and no later file, and a refusal the listener frees by `resultsRefused` retried to a complete listing. Cancel while a runaway regex runs ending within 1 s with every reservation returned. POSIX only: an unreadable file and folder and a dangling link listed, a linked file searched, a linked folder not entered, a link to an ancestor walked once. A missing folder, a file given as the folder and a regex that does not compile failing the search |
 | `SearchLifecycleTest` | 25 rounds of open, index, search and close with cancels and closes at random points; then no thread survives `Workers.close()`, every file is closed, and `LINE_INDEX` and `RESULTS` are back to 0 |
 
 - Catastrophic backtracking uses `(.*a){25}x` on 60 `a`s. Java's regex
@@ -72,11 +72,11 @@ Regression cases:
 | `LogDocumentTest` | Real files: tab expansion, CR handling, column windows, UTF-16 by BOM, the 1 MiB line cap, a line read past 2^31 bytes in a sparse file, close releasing `LINE_INDEX`, close during indexing, close dropping the document's `BlockCache` blocks, a read after close throwing `ClosedChannelException`, timestamp format detection (ISO, UTF-16 by BOM, none, skipped on request) and `newTimeReader` |
 | `InMemoryDocumentTest` | Pasted text, including its format detection |
 | `BlockCacheTest` | `concurrentMissesReadTheirOwnBytesWhileArraysAreReused`: four threads of random two-block reads through a four-block cache, every byte checked; fails when a hit is copied after the lock is released, because the array is refilled for another block in between |
-| `LogDocumentFollowTest` | Real files with a 20 ms poll: appended lines indexed, including a last line that grew; truncation reported once; rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) with the old content still readable; stop loading; close keeping the file open until an admitted operation exits. Failed reopen, symbolic links and `keepClosed`, below |
+| `LogDocumentFollowTest` | Real files with a 20 ms poll: appended lines indexed, including a last line that grew; truncation reported once; rename-rotation and delete-then-recreate (`MISSING`, then `REPLACED`) with the old content still readable; stop loading, then a rewrite grown past the indexed bytes reading as `REPLACED`; close keeping the file open until an admitted operation exits. Failed reopen, symbolic links and `keepClosed`, below |
 | `ReopeningByteSourceTest` | Appended bytes read; a rename over the path lands and the next read fails; a rewritten head, a rewritten or truncated tail, a replaced file and a link at the real path throw `FileChangedException`; a deleted file throws `NoSuchFileException`; a retargeted link keeps reading the file opened |
 | `FilteredViewTest` | Rows in each `Visibility` over sets past one bucket and at line 2^40: `sourceLine` and `rowOf` agree, the union follows mark toggles and a growing result set once a snapshot is installed, a stale snapshot stays in place and one built for other matches is dropped, `sourceLines` and the cursor agree with `select`, the snapshot is charged and released, a share too small gives a partial snapshot |
 | `HighlighterTest` | Spans per rule: overlap (the later rule wins), whole line dropping earlier spans, capture groups including an unmatched group, case folding and literal mode, opacity, disabled and empty rules, variance stable per string, tab columns and window clipping, the 256-span cap and its cost, a backtracking pattern abandoned within the bound, a pattern that does not compile |
-| `BoundedCharsTest` | The limit, `used()` and `reset` |
+| `BoundedCharsTest` | The limit, `used()` and `reset`; `find` taking the limit and a stack overflow as no match; a canceled token ending a run |
 | `OverviewBinsTest` | `lineAt` against `BigInteger` up to `Long.MAX_VALUE` lines, `rowOf` past 2^31 lines, bins for dense, sparse, fewer-lines-than-pixels and uneven-span cases |
 | `MarkToggleTest` | A contiguous range marked and unmarked, listed rows, unmarking the marks view while walking it, cancel from the progress callback, the results share stop over 2^32 lines |
 | `LineFinderTest` | Quick find over a tab and a CRLF line: columns after tab expansion, forward and backward from a column, no match either way, the CR excluded, rows limited by a cursor, reads through `readRows`, a canceled token |
@@ -112,6 +112,12 @@ Regression cases:
   compared the file's end with the previous pass's tail digest and reported
   `MODIFIED`, which stopped following. It is a stress test and fails only
   intermittently without the fix.
+- `aRewriteAfterStopLoadingIsNotAnAppend` stops the first pass from its first
+  progress event, held past 100 ms by a task that takes the single CPU thread
+  for 20 ms before each 64 KiB block. A rewrite with the same first 4 KiB, grown
+  past the indexed bytes, must read as `REPLACED`: the canceled pass recorded
+  no tail, and the check reported `APPENDED` with the old lines showing new
+  bytes.
 - `truncateAndRegrowBetweenChecksIsReplaced` opens an empty file, appends,
   then truncates and writes longer content through one channel. It must report
   `REPLACED` (or `TRUNCATED` when a check lands between the two calls) and no
@@ -130,7 +136,7 @@ missing.
 | Class | Covers |
 |---|---|
 | `FoldMapTest` | `rowOf` and `lineAt` against hand-computed rows on both sides of two entries, refusal of overlapping and one-line entries, cursor snapshots, the `FOLDS` charge up to a full share and back to 0 |
-| `ViewFeaturesReadTest` | `FoldClassifier` over a stack trace from inside an entry and with an entry-start rule, block columns through a tab, whitespace markers with CRLF, a lone CR and a last line without LF, hidden ANSI colors in reads and copy |
+| `ViewFeaturesReadTest` | `FoldClassifier` over a stack trace from inside an entry and with an entry-start rule, a backtracking rule ending on cancel, a continuation rule overflowing the stack on a 400,000-char line finding no match, an entry-start rule that reaches its bound or overflows starting an entry; block columns through a tab; window, copy, block and marked-row edges after a surrogate pair; whitespace markers with CRLF, a lone CR and a last line without LF; hidden ANSI colors in reads and copy |
 | `AnsiSearchTest` | A literal search with `hideAnsi` matches across removed sequences, which a byte search would miss |
 
 ## Timestamps
@@ -180,7 +186,7 @@ missing.
 
 | Class | Covers |
 |---|---|
-| `AtomicFilesTest` | Write and replace leaving no temporary file; a failed move or read keeping the target. The Windows move retry runs on every host through `AtomicFiles.tryMove` with a `Move` that throws: access denied and a sharing-violation `FileSystemException` tried again, a move refused every time throwing after the last attempt, `NoSuchFileException` tried to the last attempt and a plain `IOException` thrown at once |
+| `AtomicFilesTest` | Write and replace leaving no temporary file; a failed move or read keeping the target. The Windows move retry runs on every host through `AtomicFiles.tryMove` with a `Move` that throws: access denied and a sharing-violation `FileSystemException` tried again, a move refused every time throwing after the last attempt, `NoSuchFileException` tried to the last attempt and a plain `IOException` thrown at once. `writeUserFile`: a replaced file keeping its mode and a new one taking the default (POSIX); a symbolic link, dangling or not, staying a link for both writes; written in place for a hard-linked file (`unix` view) and in a folder that is not writable (POSIX, not root); a read-only file refused unchanged |
 
 ## Operating system seam
 

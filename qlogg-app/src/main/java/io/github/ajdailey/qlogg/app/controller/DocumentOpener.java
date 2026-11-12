@@ -48,8 +48,8 @@ final class DocumentOpener {
     /** A file or pasted text opened; the listener owns the document and must close it. */
     void opened(LogDocument document, Opening opening);
 
-    /** A file did not open. */
-    void openFailed(String message);
+    /** A file did not open; {@code path} is the path as requested. */
+    void openFailed(Path path, String message);
 
     /** Pasted text did not open. */
     void pasteFailed(String message);
@@ -64,7 +64,10 @@ final class DocumentOpener {
     /** A restored tab carries a Rename Tab name. */
     void restoredName(Path path, String name);
 
-    /** The session's active tab opened; called after every restored tab's {@link #opened}. */
+    /**
+     * Shows the tab a restore ends on: the session's active tab, else the last restored one; called
+     * after every restored tab's {@link #opened}.
+     */
     void restoredActive(Path path);
 
     /** The session's last tab was handled; called after {@link #restoredActive}. */
@@ -72,6 +75,12 @@ final class DocumentOpener {
 
     /** A drop held folders, which were not opened; called after the drop's files. */
     default void foldersSkipped() {}
+
+    /**
+     * The final file of a multi-file open did not open; {@code path} is the last one that did,
+     * delivered with {@link Opening#last} false. Called after that file's {@link #opened}.
+     */
+    default void openEnded(Path path) {}
   }
 
   /**
@@ -84,6 +93,8 @@ final class DocumentOpener {
    * @param handed true when another launch handed the file over
    * @param timeOffset the restored tab's time offset in nanoseconds, else 0
    * @param syncGroup the restored tab's time sync group number, else 0
+   * @param last true for the final file of an open and for pasted text; false for the earlier files
+   *     of a multi-file open and for a restored tab
    */
   record Opening(
       long line,
@@ -92,7 +103,8 @@ final class DocumentOpener {
       boolean marksComplete,
       boolean handed,
       long timeOffset,
-      int syncGroup) {}
+      int syncGroup,
+      boolean last) {}
 
   private static final Logger LOG = LoggerFactory.getLogger(DocumentOpener.class);
 
@@ -177,15 +189,41 @@ final class DocumentOpener {
               @Override
               public void run() {
                 boolean skipped = false;
-                for (FileRequest request : requests) {
-                  if (closed) {
-                    break;
-                  }
+                LogDocument delivered = null;
+                boolean lastDelivered = false;
+                for (int i = 0; i < requests.size() && !closed; i++) {
+                  FileRequest request = requests.get(i);
                   if (dropped && Files.isDirectory(request.path())) {
                     skipped = true;
                     continue;
                   }
-                  load(request.path(), request.line(), follow, null, null, 0, 0, services, handed);
+                  boolean last = i == requests.size() - 1;
+                  LogDocument document =
+                      load(
+                          request.path(),
+                          request.line(),
+                          follow,
+                          null,
+                          null,
+                          0,
+                          0,
+                          services,
+                          handed,
+                          last);
+                  if (document != null) {
+                    delivered = document;
+                    lastDelivered = last;
+                  }
+                }
+                if (delivered != null && !lastDelivered) {
+                  final Path shown = delivered.path();
+                  post(
+                      new Runnable() {
+                        @Override
+                        public void run() {
+                          listener.openEnded(shown);
+                        }
+                      });
                 }
                 if (skipped) {
                   post(
@@ -315,6 +353,7 @@ final class DocumentOpener {
               @Override
               public void run() {
                 LogDocument activeDocument = null;
+                LogDocument delivered = null;
                 for (int i = 0; i < tabs.size() && !closed; i++) {
                   Session.Tab tab = tabs.get(i);
                   long[] marks = tab.marks().length > 0 ? tab.marks() : null;
@@ -328,7 +367,11 @@ final class DocumentOpener {
                           tab.timeOffset(),
                           tab.syncGroup(),
                           services,
+                          false,
                           false);
+                  if (document != null) {
+                    delivered = document;
+                  }
                   if (document != null && !tab.name().isEmpty()) {
                     final Path opened = document.path();
                     final String name = tab.name();
@@ -343,6 +386,9 @@ final class DocumentOpener {
                   if (tab == shown) {
                     activeDocument = document;
                   }
+                }
+                if (activeDocument == null) {
+                  activeDocument = delivered;
                 }
                 if (activeDocument != null) {
                   final Path target = activeDocument.path();
@@ -410,6 +456,7 @@ final class DocumentOpener {
    * @param comments the marks' comments, or null
    * @param timeOffset the restored tab's time offset, or 0
    * @param syncGroup the restored tab's time sync group number, or 0
+   * @param last the delivered {@link Opening#last}
    * @return the document, or null when it did not open or the window closed
    */
   @WorkerThread
@@ -422,7 +469,8 @@ final class DocumentOpener {
       long timeOffset,
       int syncGroup,
       DocumentServices services,
-      boolean handed) {
+      boolean handed,
+      boolean last) {
     try {
       final LogDocument document = openRemembered(path, services);
       if (!register(document)) {
@@ -433,7 +481,8 @@ final class DocumentOpener {
         marksComplete &= document.markComments().addAll(comments, document.marks());
       }
       final Opening opening =
-          new Opening(line, follow, marks != null, marksComplete, handed, timeOffset, syncGroup);
+          new Opening(
+              line, follow, marks != null, marksComplete, handed, timeOffset, syncGroup, last);
       deliver(
           document,
           new Runnable() {
@@ -450,7 +499,7 @@ final class DocumentOpener {
           new Runnable() {
             @Override
             public void run() {
-              listener.openFailed(message);
+              listener.openFailed(path, message);
             }
           });
       return null;
@@ -464,7 +513,7 @@ final class DocumentOpener {
       if (!register(document)) {
         return;
       }
-      final Opening opening = new Opening(0, false, false, true, false, 0, 0);
+      final Opening opening = new Opening(0, false, false, true, false, 0, 0, true);
       deliver(
           document,
           new Runnable() {

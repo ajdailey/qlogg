@@ -596,12 +596,23 @@ public final class WindowSet {
     }
   }
 
-  /** Writes the parts of a snapshot no later capture has written; holds {@link #saveLock}. */
+  /**
+   * Writes the parts of a snapshot no later capture has written; holds {@link #saveLock}. A failed
+   * settings write marks the settings changed again, so the next save retries it.
+   */
   @WorkerThread
   private void write(SaveSnapshot snapshot) {
     if (snapshot.preferences() != null && snapshot.sequence() > preferencesWritten) {
       preferencesWritten = snapshot.sequence();
-      config.save(snapshot.preferences());
+      if (!config.save(snapshot.preferences()) && !config.saveDisabled()) {
+        ui.asyncExec(
+            new Runnable() {
+              @Override
+              public void run() {
+                preferencesDirty = true;
+              }
+            });
+      }
     }
     config.positions().save();
     if (snapshot.windows() == null || snapshot.sequence() <= sessionWritten) {

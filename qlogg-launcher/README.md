@@ -16,6 +16,7 @@ module except the bootstrap, so it holds the architecture rules.
 | `PlatformSetup` | `user.home` and the WebView2 data folder |
 | `Gui` | Composition and the event loop on the UI thread |
 | `ShutdownHook` | Quit on SIGTERM, logoff or a parent ending the process |
+| `UiFailures` | The Display's runtime-exception and error handlers |
 | `LogConfigurator`, `StderrHandler`, `RecentHandler`, `LogFileHandler`, `LineFormatter`, `RetainingLogManager` | Logging |
 | `FileLog` | The debug log file (`LogFiles`) and pruning |
 
@@ -28,10 +29,10 @@ module except the bootstrap, so it holds the architecture rules.
 | 0 | Help, version, the files went to the running instance, or the last window closed |
 | 1 | Bad command line, or a `--settings` path that cannot be a directory |
 | 3 | SWT failed to load (`UnsatisfiedLinkError` or `SWTError` from `new Display()`), typically missing GTK 3 libraries |
+| 4 | UI-thread failures ran the quit (`UiFailures`) |
 
-`Main` calls `System.exit` only for a nonzero status, which arises only before
-the Display exists. After a normal close `main` returns and the JVM exits on
-its own.
+`Main` calls `System.exit` only for a nonzero status. After a normal close
+`main` returns and the JVM exits on its own.
 
 ## Before the Display
 
@@ -115,6 +116,15 @@ through the dispatcher and waits up to 3 s for the quit's finish listener. On
 timeout it logs the surviving `qlogg-` threads at WARN. It then closes the
 handoff listener, which deletes the endpoint file.
 
+### UI-thread failures
+
+`Gui` sets `UiFailures` as the Display's runtime-exception and error handlers,
+which SWT calls for a failure of a listener, `asyncExec` or timer task. Each
+failure is logged at ERROR with its stack, so the recent-log warning marker
+shows, and the event loop continues. More than 10 runtime exceptions within
+1 s, or any `Error`, runs `WindowSet.quit` once, which saves the session, and
+`Gui.run` returns status 4. No dialog is shown.
+
 ### Event loop watchdog
 
 At `-d 2` and above `Gui` starts an `EventLoopWatchdog` (`qlogg-app`) on a
@@ -167,7 +177,7 @@ no line and a slow disk holds the thread that logs. It writes no lock file. The
 | Event | Action |
 |---|---|
 | A write would take `qlogg.log` past 10 MiB | Moves the file to `qlogg.log.1` and starts a new one |
-| The move fails | Reopens `qlogg.log` and keeps appending; the next line over the size tries again. The first failure after a successful move logs a WARN |
+| The move fails | Reopens `qlogg.log` and keeps appending; the move is tried again once the file has grown another 10 MiB, or at the next start. The first failure after a successful move logs a WARN |
 | A write or open fails | Detaches the file and logs an ERROR |
 
 ### Pruning
@@ -212,7 +222,7 @@ fails:
 | `java.util.logging` and `org.slf4j.jul` only in `launcher` | Everything else logs through slf4j; only the launcher sets handlers, levels or the `LogManager` |
 | No `java.net.http`, `URLConnection`, `Socket` or `URL.openStream`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |
 | No `ProcessBuilder`, `Runtime.exec`, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
-| `System.exit` and `Runtime.halt` only in `launcher.Main` | Exit only before the Display exists |
+| `System.exit` and `Runtime.halt` only in `launcher.Main` | `main` exits only for a nonzero status, after `Gui.run` has disposed the Display |
 | No `Display.syncExec`; `Display.asyncExec` and `timerExec` only in `SwtUiDispatcher` | A worker never waits on the UI thread; submissions after disposal are dropped |
 | No `Future.get`, `Thread.join`, `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`, `Semaphore.acquire`, `BlockingQueue.put` or `take`, `CountDownLatch.await`, `OperationHandle.await` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
 | No `Future.get`, `Thread.join`, `Thread.sleep`, `OperationHandle.await` or `CountDownLatch.await` in `app.controller` and `app.command` | Controllers run on the UI thread |
@@ -230,10 +240,11 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 
 | Class | Covers |
 |---|---|
-| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives |
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved |
+| `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits |
 | `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
-| `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies inside the bundle and the home directory is empty |
+| `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it, once with the marker in the bundle and once in its `bin/`: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies in the marker's folder and the home directory is empty |
 | `PortableGuideTest` (`swt`, Linux, not GTK 4) | `PortableGuideMain` as a child process in portable mode with `HOME` an empty folder and no application for HTML: Help > User Guide writes the copy and opens no guide window, and no `QLogg` folder under `.cache` or `.local/share` and no `.cache/mesa_shader_cache` appears. GTK 4's renderer writes the Mesa cache in every run |
 | `WindowsGuiTest` (`swt`) | `Gui` as a primary: New Window opens a second window, a handoff from a worker opens its file in the window activated last, quit closes both windows, the workers and the endpoint file; a handoff sent before `Gui` runs opens as a tab |
 | `StoreFaultsTest` (`swt`) | `Gui` over a malformed, an oversized and an unknown-version session file: each opens an empty window, exits 0 and logs a WARN. A remembered encoding the runtime does not support opens the file with detection |
@@ -243,5 +254,5 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |
-| `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN and rolling once the directory is gone; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
+| `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN, not tried again before the file grows by the size, and rolling then; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
 | `ArchitectureTest` | The rules above, and the fixture tests |

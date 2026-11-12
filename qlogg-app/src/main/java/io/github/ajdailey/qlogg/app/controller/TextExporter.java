@@ -23,9 +23,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Builds the text of a copy, save or selected-text read on the calling worker. Stateless. Each
  * method holds a {@link LogDocument#enter} entry while it reads, checks its {@link
- * CancellationToken} before every row and before {@link AtomicFiles#write}, and returns an empty
- * result once canceled, so a canceled save writes no file. A file shorter than the index snapshot
- * after the rows are read fails the export: a read past the end returns less text, not an error.
+ * CancellationToken} before every row and before {@link AtomicFiles#writeUserFile}, and returns an
+ * empty result once canceled, so a canceled save writes no file. A file shorter than the index
+ * snapshot after the rows are read fails the export: a read past the end returns less text, not an
+ * error.
  *
  * <p>A copy is charged to {@link MemoryShare#COPY} at {@link #COPY_BYTES_PER_FILE_BYTE} per
  * selected file byte, a save at {@link #SAVE_BYTES_PER_FILE_BYTE}; a selection the share cannot
@@ -159,7 +160,7 @@ final class TextExporter {
         String text = out.toString();
         if (output == Output.FILE) {
           token.check();
-          AtomicFiles.write(request.file(), text.getBytes(StandardCharsets.UTF_8));
+          AtomicFiles.writeUserFile(request.file(), text.getBytes(StandardCharsets.UTF_8));
         }
         result = new Result(text, null, charged, taken.rows(), taken.cutLines());
       }

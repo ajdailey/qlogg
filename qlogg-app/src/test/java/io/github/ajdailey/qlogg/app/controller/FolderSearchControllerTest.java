@@ -285,6 +285,27 @@ class FolderSearchControllerTest {
   }
 
   @Test
+  void showIgnoresASetNotKeptOrWhoseResultsAreClosed() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Path dir = logs();
+      FolderSearchController search = fixture.application.folderSearch();
+      runAndWait(fixture, search, hits(dir));
+      FolderResultSet dropped = search.shown();
+      runAndWait(fixture, search, hits(dir));
+      FolderResultSet reclaimed = search.shown();
+      runAndWait(fixture, search, hits(dir));
+      FolderResultSet newest = search.shown();
+      search.drop(dropped);
+      search.show(dropped);
+      assertSame(newest, search.shown());
+      // As a refused run's thread closes it, before the UI thread drops it.
+      reclaimed.results().close();
+      search.show(reclaimed);
+      assertSame(newest, search.shown());
+    }
+  }
+
+  @Test
   void aRunTheShareRefusesDropsTheOldestUnpinnedSetWithOneNotice() throws Exception {
     try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
       Path dir = Files.createDirectory(temp.resolve("many"));
@@ -403,6 +424,42 @@ class FolderSearchControllerTest {
       fixture.runUntilIdle();
       assertEquals(1, fixture.application.documents().size());
       assertEquals(24, fixture.application.activeDocument().selection().caret().line());
+    }
+  }
+
+  @Test
+  void anOpenAfterAFailedOpenOfTheSameFileOpensIt() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("logs"));
+    Path log = dir.resolve("app.log");
+    Files.writeString(log, "line\nhit 1\nline\nhit 3\n", StandardCharsets.US_ASCII);
+    try (final ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      final FolderSearchController search = fixture.application.folderSearch();
+      search.run(new FolderRequest(dir.toString(), NamePattern.DEFAULT, false, "hit", LITERAL, ""));
+      runUntilEnded(fixture, search);
+      FileHits app = search.files().get(0);
+      byte[] saved = Files.readAllBytes(log);
+      // Rotated away between the search and the open: the open fails.
+      Files.delete(log);
+      search.open(app, 0);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return !fixture.view.errors.isEmpty();
+            }
+          });
+      // Back again, and opened within OPEN_WAIT_NANOS of the failed open.
+      Files.write(log, saved);
+      search.open(app, 1);
+      fixture.runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              DocumentController shown = fixture.application.activeDocument();
+              return shown != null && shown.selection().caret().line() == 3;
+            }
+          });
+      assertEquals(1, fixture.application.documents().size());
     }
   }
 }

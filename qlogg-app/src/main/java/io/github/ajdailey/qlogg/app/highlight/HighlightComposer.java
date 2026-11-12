@@ -5,6 +5,8 @@ import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.text.TextEncoding;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -26,6 +28,8 @@ public final class HighlightComposer {
    * @param wholeWord terms match only between non-word characters
    * @param combining the text is a combined expression
    * @param inverse the search lists the lines the text does not match
+   * @param encoding the searched document's encoding
+   * @param hideAnsi the search ran with ANSI color sequences removed
    */
   public record LastSearch(
       String text,
@@ -33,15 +37,25 @@ public final class HighlightComposer {
       boolean caseSensitive,
       boolean wholeWord,
       boolean combining,
-      boolean inverse) {
+      boolean inverse,
+      TextEncoding encoding,
+      boolean hideAnsi) {
     /** No search. */
     public static final LastSearch NONE =
-        new LastSearch("", MatchMode.LITERAL, true, false, false, false);
+        new LastSearch(
+            "",
+            MatchMode.LITERAL,
+            true,
+            false,
+            false,
+            false,
+            TextEncoding.of(StandardCharsets.UTF_8, 0),
+            false);
 
     /** Checks the components. */
     public LastSearch {
-      if (text == null || mode == null) {
-        throw new IllegalArgumentException("text and mode are required");
+      if (text == null || mode == null || encoding == null) {
+        throw new IllegalArgumentException("text, mode and encoding are required");
       }
     }
   }
@@ -101,7 +115,10 @@ public final class HighlightComposer {
 
   /**
    * Returns the rule coloring a search's matches. Whole word wraps the quoted or regex pattern in
-   * word-boundary lookarounds and matches as a regex.
+   * word-boundary lookarounds and matches as a regex. A case-folded literal the search ran as a
+   * byte search ({@link StandardMatchers#foldsAsciiOnly}) matches as a quoted regex behind {@code
+   * (?i)}, which folds ASCII letters only; any other case-folded search folds with {@code
+   * UNICODE_CASE}, as the search did.
    *
    * @param match the match highlight settings
    * @param search the search
@@ -120,6 +137,10 @@ public final class HighlightComposer {
     }
     String pattern = text;
     MatchMode mode = search.mode();
+    boolean asciiFold =
+        mode == MatchMode.LITERAL
+            && !search.caseSensitive()
+            && StandardMatchers.foldsAsciiOnly(text, search.encoding(), search.hideAnsi());
     if (search.wholeWord()) {
       String inner = mode == MatchMode.REGEX ? pattern : Pattern.quote(pattern);
       try {
@@ -129,14 +150,18 @@ public final class HighlightComposer {
         pattern = inner;
       }
       mode = MatchMode.REGEX;
-      if (pattern.length() > HighlightRule.MAX_PATTERN_CHARS) {
-        return null;
-      }
+    }
+    if (asciiFold) {
+      pattern = "(?i)" + (mode == MatchMode.REGEX ? pattern : Pattern.quote(pattern));
+      mode = MatchMode.REGEX;
+    }
+    if (pattern.length() > HighlightRule.MAX_PATTERN_CHARS) {
+      return null;
     }
     return new HighlightRule(
         pattern,
         mode,
-        search.caseSensitive(),
+        search.caseSensitive() || asciiFold,
         false,
         null,
         match.color() == null ? themeColor : match.color(),

@@ -1,13 +1,11 @@
 package io.github.ajdailey.qlogg.app.config;
 
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
-import io.github.ajdailey.qlogg.core.util.Streams;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -22,8 +20,9 @@ import org.slf4j.LoggerFactory;
  * One properties file in the settings directory with {@code version=1}, read and written as {@link
  * ConfigStore} treats {@code qlogg.conf}: a file that cannot be read, is over its size cap, does
  * not parse or names another version is malformed, logged once and copied to {@code <name>.invalid}
- * before the first save replaces it; writes are atomic and owner-only; a read-only directory
- * disables saving with one WARN. Blocking; a lock serializes the I/O, so only workers call it.
+ * before the first save replaces it; writes are atomic and owner-only; a save over the size cap is
+ * refused with one WARN and leaves the file as it was; a read-only directory disables saving with
+ * one WARN. Blocking; a lock serializes the I/O, so only workers call it.
  */
 final class SettingsFile {
   private static final Logger LOG = LoggerFactory.getLogger(SettingsFile.class);
@@ -46,15 +45,11 @@ final class SettingsFile {
     lock.lock();
     try {
       Path file = SafePaths.child(location.directory(), name);
-      byte[] bytes;
-      try (InputStream in = Files.newInputStream(file)) {
-        bytes = Streams.readLimited(in, maxBytes);
+      Properties properties;
+      try {
+        properties = PropertiesFiles.read(file, maxBytes);
       } catch (NoSuchFileException e) {
         return new Properties();
-      }
-      Properties properties = new Properties();
-      try {
-        properties.load(new ByteArrayInputStream(bytes));
       } catch (IllegalArgumentException e) {
         return malformed(file);
       }
@@ -85,7 +80,10 @@ final class SettingsFile {
     return new Properties();
   }
 
-  /** Writes the properties with {@code version=1}; false when saving is disabled or failed. */
+  /**
+   * Writes the properties with {@code version=1}; false when saving is disabled, the content is
+   * over the size cap, or the write failed.
+   */
   boolean save(Properties properties) {
     lock.lock();
     try {
@@ -96,6 +94,16 @@ final class SettingsFile {
       if (location.mode() == SettingsMode.PER_USER && !Files.isDirectory(dir)) {
         SafePaths.settingsDirectory(dir);
       }
+      properties.setProperty("version", ConfigStore.VERSION);
+      byte[] content = format(properties);
+      if (content.length > maxBytes) {
+        LOG.warn(
+            "{} not saved: {} bytes is over the {} bytes a load reads; the last save stays",
+            LogText.oneLine(name),
+            content.length,
+            maxBytes);
+        return false;
+      }
       Path file = SafePaths.child(dir, name);
       if (keepInvalid && Files.exists(file)) {
         Files.copy(
@@ -104,8 +112,7 @@ final class SettingsFile {
             StandardCopyOption.REPLACE_EXISTING);
       }
       keepInvalid = false;
-      properties.setProperty("version", ConfigStore.VERSION);
-      AtomicFiles.write(file, format(properties));
+      AtomicFiles.write(file, content);
       return true;
     } catch (IOException e) {
       // A refused move says nothing about the directory: on Windows a file open elsewhere is

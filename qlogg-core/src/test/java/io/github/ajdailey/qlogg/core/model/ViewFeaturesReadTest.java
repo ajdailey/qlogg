@@ -32,9 +32,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-/** Fold classification, block columns, whitespace markers and hidden ANSI colors over files. */
+/**
+ * Fold classification, column windows and block columns, whitespace markers and hidden ANSI colors
+ * over files.
+ */
 class ViewFeaturesReadTest {
+  /** U+1F600, two chars at display column 2 of {@code "ab" + EMOJI + "c"}. */
+  private static final String EMOJI = new String(Character.toChars(0x1F600));
+
   @TempDir Path dir;
 
   private final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
@@ -148,6 +156,112 @@ class ViewFeaturesReadTest {
                 document.newReader(), document.index(), FoldRules.DEFAULTS.compile(), 0, 3, token);
           }
         });
+  }
+
+  /**
+   * Regression: a fold rule ran with plain {@code find} and the token was checked only between
+   * lines, so a backtracking rule kept its worker busy after cancel until the process ended.
+   */
+  @Test
+  void aBacktrackingFoldRuleEndsOnCancel() throws Exception {
+    open("start\n" + "a".repeat(60) + "\n");
+    final FoldRules.Compiled rules = new FoldRules("(.*a){25}x", List.of()).compile();
+    final CancellationToken token = new CancellationToken();
+    token.cancel();
+    final LineReader reader = document.newReader();
+    final CountDownLatch done = new CountDownLatch(1);
+    Thread classify =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  FoldClassifier.entries(reader, document.index(), rules, 0, 2, token);
+                } catch (IOException | CancellationException e) {
+                  // Either ending is correct; only a run that does not end fails.
+                } finally {
+                  done.countDown();
+                }
+              }
+            });
+    classify.setDaemon(true);
+    classify.start();
+    assertTrue(done.await(5, TimeUnit.SECONDS), "classification still running 5 s after cancel");
+  }
+
+  /**
+   * Regression: a fold rule that overflowed the regex engine's stack threw {@code
+   * StackOverflowError} out of the classification. It now finds no match on that line.
+   */
+  @Test
+  void aFoldRuleThatOverflowsTheStackFindsNoMatch() throws Exception {
+    open("start\n" + "a".repeat(400_000) + "\n");
+    long[] found =
+        FoldClassifier.entries(
+            document.newReader(),
+            document.index(),
+            new FoldRules("", List.of("(a|b)*c")).compile(),
+            0,
+            2,
+            new CancellationToken());
+    assertArrayEquals(new long[0], found);
+  }
+
+  /**
+   * An entry-start rule that reaches its read bound (the first rule) or overflows the stack (the
+   * second) on a line starts an entry there, so the line stays unfolded instead of folding into the
+   * entry above.
+   */
+  @ParameterizedTest
+  @CsvSource({"'(.*a){25}x', 60", "'(a|b)*c', 400000"})
+  void anEntryStartRuleThatDoesNotFinishStartsAnEntry(String rule, int length) throws Exception {
+    open("start\n" + "a".repeat(length) + "\n");
+    long[] found =
+        FoldClassifier.entries(
+            document.newReader(),
+            document.index(),
+            new FoldRules(rule, List.of()).compile(),
+            0,
+            2,
+            new CancellationToken());
+    assertArrayEquals(new long[0], found);
+  }
+
+  /**
+   * Regression: a low surrogate took the column after its high surrogate, so an edge there split
+   * the pair: a copy ending after an emoji held a lone high surrogate, and a window starting there
+   * drew a lone low one.
+   */
+  @Test
+  void columnEdgesKeepSurrogatePairsWhole() throws Exception {
+    open("ab" + EMOJI + "c\n");
+    LineReader reader = document.newReader();
+    StringBuilder out = new StringBuilder();
+    reader.appendText(document.index(), 0, 2, 3, out);
+    assertEquals(EMOJI, out.toString());
+    out.setLength(0);
+    reader.appendText(document.index(), 0, 3, 4, out);
+    assertEquals("c", out.toString());
+    assertEquals("ab" + EMOJI, reader.read(document.index(), 0, 1, 0, 3).text(0));
+    assertEquals("c", reader.read(document.index(), 0, 1, 3, 1).text(0));
+  }
+
+  @Test
+  void blockColumnsAndMarkedRowsKeepSurrogatePairsWhole() throws Exception {
+    open("ab" + EMOJI + "c\n");
+    LineReader reader = document.newReader();
+    StringBuilder out = new StringBuilder();
+    reader.appendColumns(document.index(), 0, 2, 3, out);
+    assertEquals(EMOJI, out.toString());
+    out.setLength(0);
+    reader.appendColumns(document.index(), 0, 3, 4, out);
+    assertEquals("c", out.toString());
+    LineBlock left = reader.readRows(document.index(), 0, new long[] {0}, 1, 0, 3, null, true);
+    assertEquals("ab" + EMOJI, left.text(0));
+    assertEquals(left.text(0).length(), left.whitespace(0).length());
+    LineBlock right = reader.readRows(document.index(), 0, new long[] {0}, 1, 3, 1, null, true);
+    assertEquals("c", right.text(0));
+    assertEquals(" ", right.whitespace(0));
   }
 
   @Test

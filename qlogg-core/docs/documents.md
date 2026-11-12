@@ -127,7 +127,8 @@ and copies its first MiB.
 | `decodedLine(index, line)` | The decoded line, tabs kept, valid until the next call; quick find matches on it |
 
 - Display columns: one per char, a tab advances to the next multiple of 8, and
-  the low half of a surrogate pair takes none.
+  the low half of a surrogate pair takes none. A window or selection edge
+  keeps or drops a surrogate pair whole.
 - A lookup in a sparse index reads the file and can throw
   `UncheckedIOException`.
 - After `LogDocument.setHideAnsi(true)` every reader of the document removes

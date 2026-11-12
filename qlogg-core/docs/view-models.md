@@ -21,12 +21,17 @@ end arrays with a prefix sum of hidden lines, so `rowOf(line)` and
 `FoldClassifier.entries(reader, index, rules, from, to, token)` returns the
 entries of two or more lines that overlap `[from, to)`, reading only that
 region plus the entry around its edges. It blocks and checks the token per
-line. An entry longer than 10,000 lines is not reported, so it stays unfolded.
+line and every 4,096 chars a rule reads. An entry longer than 10,000 lines is
+not reported, so it stays unfolded.
 
 `FoldRules` decides continuation lines. With `entryStart` set, every line it
 finds no match in continues the entry; otherwise a line a `continuation`
 pattern finds a match in does (defaults: `^\s`, `^at `, `^Caused by:`,
-`^\.\.\. \d+ more`). Line 0 always starts an entry.
+`^\.\.\. \d+ more`). Line 0 always starts an entry. A rule runs through
+`BoundedChars.find`. A run that reads more than `8 * length + 65,536` chars of
+a line, or overflows the regex stack, counts as a match for `entryStart` (the
+line starts an entry and stays unfolded) and as no match for a `continuation`
+pattern.
 
 ## Highlighting
 

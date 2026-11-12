@@ -31,13 +31,11 @@ import java.util.regex.PatternSyntaxException;
  *
  * <p>Byte search runs only where a byte match is a character match: UTF-8, US-ASCII, single-byte
  * charsets, and UTF-16 or UTF-32 at unit-aligned offsets. Whole word on bytes needs an
- * ASCII-compatible encoding, else the term runs as a regex. Regexes compile with {@code
- * UNIX_LINES}, so {@code ^}, {@code $} and {@code .} treat the line as one line, plus {@code
- * CASE_INSENSITIVE | UNICODE_CASE} when case folds; whole word wraps the pattern with {@link
- * #wholeWord}. A case-sensitive regex whose {@link #requiredPrefix} encodes to at least {@link
- * #MIN_PREFILTER_BYTES} bytes, where byte search runs and ANSI sequences are not hidden, decodes
- * and matches only lines whose bytes contain that prefix. Thread-safe; each matcher it creates is
- * not.
+ * ASCII-compatible encoding, else the term runs as a regex. Regexes compile with {@link
+ * #regexFlags}; whole word wraps the pattern with {@link #wholeWord}. A case-sensitive regex whose
+ * {@link #requiredPrefix} encodes to at least {@link #MIN_PREFILTER_BYTES} bytes, where byte search
+ * runs and ANSI sequences are not hidden, decodes and matches only lines whose bytes contain that
+ * prefix. Thread-safe; each matcher it creates is not.
  */
 public final class StandardMatchers implements MatcherFactory {
   /** The shared instance. */
@@ -53,6 +51,37 @@ public final class StandardMatchers implements MatcherFactory {
   private static final String[] CLOSERS = {"", "\\E", "\n", "\\E\n"};
 
   private StandardMatchers() {}
+
+  /**
+   * Returns the flags a search, the match highlight, a highlighter and quick find compile a regex
+   * with: {@code UNIX_LINES}, so {@code ^}, {@code $} and {@code .} treat the line as one line,
+   * plus {@code CASE_INSENSITIVE | UNICODE_CASE} when case folds.
+   *
+   * @param caseSensitive false folds case
+   * @return the {@link Pattern} flags
+   */
+  public static int regexFlags(boolean caseSensitive) {
+    int flags = Pattern.UNIX_LINES;
+    if (!caseSensitive) {
+      flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    }
+    return flags;
+  }
+
+  /**
+   * Reports whether a case-folded literal runs as a byte search, which folds ASCII letters only;
+   * otherwise it runs as a quoted regex with {@code UNICODE_CASE}, which also folds U+212A KELVIN
+   * SIGN with {@code k}. True for an ASCII literal in a byte-aligned, ASCII-compatible encoding
+   * without {@code hideAnsi}.
+   *
+   * @param literal the literal
+   * @param encoding the document's encoding
+   * @param hideAnsi the query's {@link SearchQuery#hideAnsi}
+   * @return true when case folds ASCII letters only
+   */
+  public static boolean foldsAsciiOnly(String literal, TextEncoding encoding, boolean hideAnsi) {
+    return !hideAnsi && byteAligned(encoding) && encoding.asciiCompatible() && ascii(literal);
+  }
 
   /**
    * Wraps a regex in {@code (?<!\w)(?:...)(?!\w)}, so a match needs a non-word char or the line
@@ -239,7 +268,7 @@ public final class StandardMatchers implements MatcherFactory {
       return null;
     }
     if (!query.caseSensitive()) {
-      if (!enc.asciiCompatible() || !ascii(pattern)) {
+      if (!foldsAsciiOnly(pattern, enc, query.hideAnsi())) {
         return null;
       }
       byte[] bytes = pattern.getBytes(StandardCharsets.US_ASCII);
@@ -296,12 +325,8 @@ public final class StandardMatchers implements MatcherFactory {
   }
 
   private static Node regex(String pattern, SearchQuery query, final ByteLiteral required) {
-    int flags = Pattern.UNIX_LINES;
-    if (!query.caseSensitive()) {
-      flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
-    }
     String source = query.wholeWord() ? wholeWord(pattern) : pattern;
-    final Matcher matcher = Pattern.compile(source, flags).matcher("");
+    final Matcher matcher = Pattern.compile(source, regexFlags(query.caseSensitive())).matcher("");
     return new Node() {
       @Override
       public boolean test(LineText line) {

@@ -13,14 +13,18 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Records what the controllers do to the window. Used on the test thread, the UI thread here,
- * except the activity count, which workers change. A call from another thread is recorded and
- * thrown by {@link #assertConfined}.
+ * except the activity count, which workers change. A call from another thread, or any call after
+ * {@link #dispose} other than the activity count, is recorded and thrown by {@link
+ * #assertConfined}.
  */
 final class FakeView implements MainView {
   private final UiThreadCheck ui = new UiThreadCheck();
+  private final AtomicReference<AssertionError> afterDispose =
+      new AtomicReference<AssertionError>();
   String title = "QLogg";
   boolean hidden;
   boolean disposed;
@@ -54,19 +58,19 @@ final class FakeView implements MainView {
 
   @Override
   public void setTitle(String title) {
-    ui.check("setTitle");
+    check("setTitle");
     this.title = title;
   }
 
   @Override
   public void hide() {
-    ui.check("hide");
+    check("hide");
     hidden = true;
   }
 
   @Override
   public void dispose() {
-    ui.check("dispose");
+    check("dispose");
     disposed = true;
   }
 
@@ -83,56 +87,67 @@ final class FakeView implements MainView {
 
   @Override
   public void askLineNumber(long lineCount, LineNumberListener listener) {
-    ui.check("askLineNumber");
+    check("askLineNumber");
     askedLineCount = lineCount;
     lineListener = listener;
   }
 
   @Override
   public void focusSearch() {
-    ui.check("focusSearch");
+    check("focusSearch");
     searchFocused++;
   }
 
   @Override
   public void focusQuickFind() {
-    ui.check("focusQuickFind");
+    check("focusQuickFind");
     quickFindFocused++;
   }
 
   @Override
   public void resizeMainView(int deltaPercent) {
-    ui.check("resizeMainView");
+    check("resizeMainView");
     split += deltaPercent;
   }
 
   @Override
   public int splitPercent() {
-    ui.check("splitPercent");
+    check("splitPercent");
     return split;
   }
 
   @Override
   public void showHistoryDialog() {
-    ui.check("showHistoryDialog");
+    check("showHistoryDialog");
     historyDialogs++;
   }
 
   @Override
   public void showFiltersDialog() {
-    ui.check("showFiltersDialog");
+    check("showFiltersDialog");
     filterDialogs++;
   }
 
   @Override
   public void showNotice(String message) {
-    ui.check("showNotice");
+    check("showNotice");
     notices.add(message);
   }
 
-  /** Throws the first {@code MainView} call made off the UI thread. */
+  /** Throws the first {@code MainView} call made off the UI thread or after {@link #dispose}. */
   void assertConfined() {
     ui.assertConfined();
+    AssertionError error = afterDispose.get();
+    if (error != null) {
+      throw error;
+    }
+  }
+
+  private void check(String call) {
+    ui.check(call);
+    if (disposed) {
+      afterDispose.compareAndSet(null, new AssertionError(call + " ran after dispose"));
+    }
   }
 
   /** Returns the last notice, or null. */
@@ -142,86 +157,86 @@ final class FakeView implements MainView {
 
   @Override
   public void focusView(boolean filtered) {
-    ui.check("focusView");
+    check("focusView");
     focusedView = filtered ? "filtered" : "main";
   }
 
   @Override
   public void showOverview(boolean shown) {
-    ui.check("showOverview");
+    check("showOverview");
     overview = shown;
   }
 
   @Override
   public void showHighlightersDialog() {
-    ui.check("showHighlightersDialog");
+    check("showHighlightersDialog");
     highlighterDialogs++;
   }
 
   @Override
   public void askFilterName(String suggested, NameListener listener) {
-    ui.check("askFilterName");
+    check("askFilterName");
     suggestedName = suggested;
     nameListener = listener;
   }
 
   @Override
   public void showKeyboardShortcuts() {
-    ui.check("showKeyboardShortcuts");
+    check("showKeyboardShortcuts");
     shortcuts = true;
   }
 
   @Override
   public void showText(String title, String text) {
-    ui.check("showText");
+    check("showText");
     texts.add(title + ": " + text);
   }
 
   @Override
   public void showAbout(AboutInfo info) {
-    ui.check("showAbout");
+    check("showAbout");
     about = info;
   }
 
   @Override
   public String toolkitDescription() {
-    ui.check("toolkitDescription");
+    check("toolkitDescription");
     return "Fake toolkit";
   }
 
   @Override
   public List<Path> chooseFilesToOpen(Path initialDirectory) {
-    ui.check("chooseFilesToOpen");
+    check("chooseFilesToOpen");
     return chosen;
   }
 
   @Override
   public void setText(String text) {
-    ui.check("setText");
+    check("setText");
     clipboard = text;
   }
 
   @Override
   public String clipboardText() {
-    ui.check("clipboardText");
+    check("clipboardText");
     return clipboard;
   }
 
   @Override
   public void showError(String title, String message) {
-    ui.check("showError");
+    check("showError");
     errors.add(title + ": " + message);
   }
 
   @Override
   public void showInfo(String title, String message) {
-    ui.check("showInfo");
+    check("showInfo");
     infos.add(title + ": " + message);
   }
 
   @Override
   public void showOpenedFiles() {
-    ui.check("showOpenedFiles");
+    check("showOpenedFiles");
     openedFilesShown++;
   }
 
@@ -231,7 +246,7 @@ final class FakeView implements MainView {
 
   @Override
   public void askMarkComment(long line, String current, NameListener listener) {
-    ui.check("askMarkComment");
+    check("askMarkComment");
     commentLine = line;
     suggestedName = current;
     nameListener = listener;
@@ -239,20 +254,20 @@ final class FakeView implements MainView {
 
   @Override
   public void showMarks() {
-    ui.check("showMarks");
+    check("showMarks");
     marksShown++;
   }
 
   @Override
   public void askTabName(String current, NameListener listener) {
-    ui.check("askTabName");
+    check("askTabName");
     suggestedName = current;
     nameListener = listener;
   }
 
   @Override
   public boolean launch(Path target) {
-    ui.check("launch");
+    check("launch");
     launched.add(target);
     return launchResult;
   }
@@ -262,7 +277,7 @@ final class FakeView implements MainView {
 
   @Override
   public boolean launchesByExtension() {
-    ui.check("launchesByExtension");
+    check("launchesByExtension");
     return byExtension;
   }
 
@@ -273,13 +288,13 @@ final class FakeView implements MainView {
 
   @Override
   public Path chooseSaveFile(String suggestedName) {
-    ui.check("chooseSaveFile");
+    check("chooseSaveFile");
     return saveTarget;
   }
 
   @Override
   public void showScratchpad(String text, boolean replace) {
-    ui.check("showScratchpad");
+    check("showScratchpad");
     if (text != null) {
       if (replace) {
         scratchpad.clear();
@@ -290,7 +305,7 @@ final class FakeView implements MainView {
 
   @Override
   public void showMultiSearch() {
-    ui.check("showMultiSearch");
+    check("showMultiSearch");
     multiSearchShown++;
   }
 
@@ -300,36 +315,36 @@ final class FakeView implements MainView {
 
   @Override
   public void showFolderSearch() {
-    ui.check("showFolderSearch");
+    check("showFolderSearch");
     folderSearchShown++;
   }
 
   @Override
   public void showSelectorsDialog() {
-    ui.check("showSelectorsDialog");
+    check("showSelectorsDialog");
   }
 
   @Override
   public void showPreferences() {
-    ui.check("showPreferences");
+    check("showPreferences");
     preferencesShown++;
   }
 
   @Override
   public int platformFontSize() {
-    ui.check("platformFontSize");
+    check("platformFontSize");
     return 10;
   }
 
   @Override
   public WindowGeometry.Request windowBounds() {
-    ui.check("windowBounds");
+    check("windowBounds");
     return new WindowGeometry.Request(window.x(), window.y(), window.width(), window.height());
   }
 
   @Override
   public boolean windowMaximized() {
-    ui.check("windowMaximized");
+    check("windowMaximized");
     return window.maximized();
   }
 
@@ -341,25 +356,25 @@ final class FakeView implements MainView {
 
   @Override
   public void toFront() {
-    ui.check("toFront");
+    check("toFront");
     raised++;
   }
 
   @Override
   public void showWarningMarker(boolean shown) {
-    ui.check("showWarningMarker");
+    check("showWarningMarker");
     warningMarker = shown;
   }
 
   @Override
   public void showLog(String text) {
-    ui.check("showLog");
+    check("showLog");
     logs.add(text);
   }
 
   @Override
   public boolean launchUrl(String url) {
-    ui.check("launchUrl");
+    check("launchUrl");
     urls.add(url);
     return launchResult;
   }
@@ -370,7 +385,7 @@ final class FakeView implements MainView {
 
   @Override
   public boolean showGuide(Path file) {
-    ui.check("showGuide");
+    check("showGuide");
     guides.add(file);
     return browser;
   }
@@ -389,7 +404,7 @@ final class FakeView implements MainView {
 
   @Override
   public void askGoToTime(String initial, ZoneId zone, LocalDate date, TimeListener listener) {
-    ui.check("askGoToTime");
+    check("askGoToTime");
     timeInitial = initial;
     timeZone = zone;
     caretDate = date;
@@ -399,7 +414,7 @@ final class FakeView implements MainView {
   @Override
   public void askTimeOffset(
       long offset, long caret, int caretDigits, ZoneId zone, TimeListener listener) {
-    ui.check("askTimeOffset");
+    check("askTimeOffset");
     askedOffset = offset;
     askedCaret = caret;
     timeZone = zone;
@@ -408,7 +423,7 @@ final class FakeView implements MainView {
 
   @Override
   public void askTimeZone(String current, ZoneId defaultZone, NameListener listener) {
-    ui.check("askTimeZone");
+    check("askTimeZone");
     zoneCurrent = current;
     nameListener = listener;
   }
@@ -420,7 +435,7 @@ final class FakeView implements MainView {
       TimeContext context,
       ZoneId zone,
       FormatsListener listener) {
-    ui.check("showTimestampFormats");
+    check("showTimestampFormats");
     formatsShown = formats;
     formatSample = caretLine;
     formatsListener = listener;
@@ -432,7 +447,7 @@ final class FakeView implements MainView {
 
   @Override
   public void showCommandPalette() {
-    ui.check("showCommandPalette");
+    check("showCommandPalette");
     paletteShown++;
   }
 
@@ -446,13 +461,13 @@ final class FakeView implements MainView {
 
   @Override
   public boolean onTopSupported() {
-    ui.check("onTopSupported");
+    check("onTopSupported");
     return onTopSupported;
   }
 
   @Override
   public void setOnTop(boolean onTop) {
-    ui.check("setOnTop");
+    check("setOnTop");
     onTopCalls.add(onTop);
   }
 }

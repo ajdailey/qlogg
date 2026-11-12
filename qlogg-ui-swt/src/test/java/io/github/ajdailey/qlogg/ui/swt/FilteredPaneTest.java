@@ -441,6 +441,7 @@ class FilteredPaneTest {
     searchFor("line 1");
     assertEquals(2, window.results().sets().getItemCount());
     assertEquals("event (20)", window.results().sets().getItem(1).getText());
+    assertSame(document().search().kept().get(0), window.results().sets().getItem(1).getData());
     window.results().sets().setSelection(1);
     window.results().sets().notifyListeners(SWT.Selection, new Event());
     assertEquals(0, document().search().shown());

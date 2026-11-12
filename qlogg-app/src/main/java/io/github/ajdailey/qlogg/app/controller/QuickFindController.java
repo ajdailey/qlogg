@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
+import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -347,8 +348,9 @@ public final class QuickFindController {
         canceled = true;
         return;
       }
-      int flags = ignoreCase ? Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE : 0;
-      Pattern pattern = Pattern.compile(regex ? text : Pattern.quote(text), flags);
+      Pattern pattern =
+          Pattern.compile(
+              regex ? text : Pattern.quote(text), StandardMatchers.regexFlags(!ignoreCase));
       match = LineFinder.find(reader, index, rows, pattern, line, column, forward, token);
     } catch (PatternSyntaxException e) {
       error =

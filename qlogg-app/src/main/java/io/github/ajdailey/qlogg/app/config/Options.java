@@ -145,14 +145,27 @@ public record Options(
    * Returns a supported charset.
    *
    * @param name the charset name
-   * @return the charset, or null when the name is not supported
+   * @return the charset, or null when the name is not {@link #supported}
    */
   public static Charset charset(String name) {
     try {
-      return Charset.forName(name);
+      Charset charset = Charset.forName(name);
+      return supported(charset) ? charset : null;
     } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
       return null;
     }
+  }
+
+  /**
+   * Returns whether a document can use a charset: it must encode as well as decode, since the index
+   * and the search encode line feeds and patterns. {@code x-JISAutoDetect} and {@code ISO-2022-CN}
+   * decode only.
+   *
+   * @param charset the charset
+   * @return true when the charset can encode
+   */
+  public static boolean supported(Charset charset) {
+    return charset.canEncode();
   }
 
   /**

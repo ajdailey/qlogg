@@ -125,7 +125,8 @@ public final class SessionStore {
    * Writes one window's session atomically. Blocking.
    *
    * @param session the session
-   * @return false when the write failed or saving is disabled
+   * @return false when the write failed, saving is disabled, or the file would be over the 4 MiB a
+   *     load reads; the last saved file then stays
    */
   public boolean save(Session session) {
     return saveWindows(List.of(session));
@@ -135,7 +136,8 @@ public final class SessionStore {
    * Writes every window's session atomically. Blocking.
    *
    * @param windows one session per window, in order
-   * @return false when the write failed or saving is disabled
+   * @return false when the write failed, saving is disabled, or the file would be over the 4 MiB a
+   *     load reads; the last saved file then stays
    */
   public boolean saveWindows(List<Session> windows) {
     Properties p = new Properties();

@@ -196,6 +196,16 @@ class StateStoresTest {
   }
 
   @Test
+  void aSessionOverTheLoadCapIsNotSavedAndTheLastOneStays() {
+    SessionStore store = new SessionStore(location());
+    Session small = new Session(List.of(new Session.Tab("/mock/a.log", "", false, new long[0])), 0);
+    assertTrue(store.save(small));
+    String path = "/mock/" + "x".repeat(SessionStore.MAX_BYTES);
+    assertFalse(store.save(new Session(List.of(new Session.Tab(path, "", false, new long[0])), 0)));
+    assertEquals("/mock/a.log", new SessionStore(location()).load().tabs().get(0).path());
+  }
+
+  @Test
   void sessionRoundTripsTheTimeOffset() throws Exception {
     SessionStore store = new SessionStore(location());
     Session.Tab tab =

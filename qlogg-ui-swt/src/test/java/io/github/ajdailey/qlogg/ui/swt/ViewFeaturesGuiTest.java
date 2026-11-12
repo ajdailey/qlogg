@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
@@ -49,6 +50,7 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -494,6 +496,42 @@ class ViewFeaturesGuiTest {
     select.item = results.groups().getItem(0);
     results.groups().notifyListeners(SWT.Selection, select);
     assertEquals(first, controller.activeDocument());
+    results.shell().dispose();
+  }
+
+  @Test
+  void aTabClosedDuringTheSearchAcrossFilesDropsItsRowAndKeepsTheSelectedRow() throws Exception {
+    DocumentController first = document();
+    controller.openFile(write("second.log"), 0);
+    waitForDocument("second.log");
+    final DocumentController second = document();
+    controller.openFile(write("third.log"), 0);
+    waitForDocument("third.log");
+    final DocumentController third = document();
+    third.search().setFieldText("hit");
+    controller.execute(CommandId.SEARCH_ALL_FILES);
+    final MultiSearchWindow results = window.multiSearch();
+    Table rows = results.groups();
+    assertEquals(3, rows.getItemCount());
+    rows.setSelection(1);
+    controller.closeDocument(first);
+    assertEquals(2, rows.getItemCount());
+    assertSame(second, rows.getItem(0).getData());
+    assertSame(third, rows.getItem(1).getData());
+    assertEquals(0, rows.getSelectionIndex(), "the selected row stays on its file");
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return second.search().state().phase() == SearchViewState.Phase.DONE
+                    && third.search().state().phase() == SearchViewState.Phase.DONE;
+              }
+            }));
+    assertEquals(2, rows.getItemCount());
+    assertTrue(rows.getItem(0).getText().startsWith("second.log"), rows.getItem(0).getText());
+    assertTrue(rows.getItem(1).getText().startsWith("third.log"), rows.getItem(1).getText());
+    assertEquals(0, rows.getSelectionIndex());
     results.shell().dispose();
   }
 

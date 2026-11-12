@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
@@ -25,6 +26,7 @@ import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +46,9 @@ import org.junit.jupiter.api.io.TempDir;
 /** Settings, the session, positions and UI state written by one run and read by the next. */
 class RememberedStateTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
+
+  /** A charset that decodes but cannot encode. */
+  private static final Charset DECODE_ONLY = Charset.forName("x-JISAutoDetect");
 
   @TempDir Path temp;
 
@@ -65,6 +70,10 @@ class RememberedStateTest {
     final ApplicationController application;
 
     Run() throws IOException {
+      this(StandardCharsets.ISO_8859_1);
+    }
+
+    Run(Charset fallback) throws IOException {
       Files.createDirectories(temp.resolve("settings"));
       Preferences preferences = config.load();
       config.positions().load();
@@ -73,7 +82,7 @@ class RememberedStateTest {
               workers,
               ui,
               view,
-              ApplicationControllerTest.services(workers, MemoryBudget.of(1L << 28)),
+              ApplicationControllerTest.services(workers, MemoryBudget.of(1L << 28), fallback),
               config,
               preferences);
     }
@@ -402,6 +411,76 @@ class RememberedStateTest {
       List<String> logged = warnings.messages();
       assertEquals(1, logged.size(), logged.toString());
       assertTrue(logged.get(0).contains("x-mock-unsupported"), logged.get(0));
+    }
+  }
+
+  /**
+   * Regression: a decode-only charset passed to {@code setEncoding} was stored for the file and the
+   * tab reopened, with the choice then ignored as unsupported.
+   */
+  @Test
+  void aDecodeOnlyEncodingChoiceIsRefusedWithANotice() throws Exception {
+    assertFalse(DECODE_ONLY.canEncode());
+    Path file = lines("plain.log", 3);
+    try (Run run = new Run()) {
+      run.application.open(List.of(new FileRequest(file, 0)));
+      run.untilOpen(1);
+      DocumentController before = run.application.activeDocument();
+      run.application.setEncoding(before, DECODE_ONLY);
+      assertEquals(
+          UiText.NOTICE_ENCODING_UNSUPPORTED.format(DECODE_ONLY.name()),
+          run.view.notices.get(run.view.notices.size() - 1));
+      assertFalse(run.application.isReopening(before));
+      assertSame(before, run.application.activeDocument());
+      assertEquals("", run.config.positions().get(file).encoding());
+    }
+  }
+
+  @Test
+  void aRememberedDecodeOnlyEncodingOpensWithDetectionAndKeepsTheSession() throws Exception {
+    Path first = lines("first.log", 3);
+    Path second = lines("second.log", 3);
+    try (Run run = new Run()) {
+      run.application.restoreSession(Session.EMPTY);
+      run.application.open(List.of(new FileRequest(first, 0), new FileRequest(second, 0)));
+      run.untilOpen(2);
+      final DocumentController detected = run.tab("first.log");
+      run.application.setEncoding(detected, StandardCharsets.ISO_8859_1);
+      run.until(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              DocumentController now = run.tab("first.log");
+              return now != detected && now.state().encodingForced() && !now.state().indexing();
+            }
+          });
+    }
+    Path positions = temp.resolve("settings").resolve(PositionStore.FILE);
+    Files.writeString(
+        positions, Files.readString(positions).replace("ISO-8859-1", DECODE_ONLY.name()));
+    try (Run run = new Run()) {
+      run.application.restoreSession(run.config.sessions().load());
+      run.untilOpen(2);
+      assertFalse(run.tab("first.log").state().encodingForced());
+    }
+  }
+
+  @Test
+  void aDecodeOnlyFallbackEncodingReportsTheFailedOpen() throws Exception {
+    Path file = temp.resolve("latin1.log");
+    Files.write(file, new byte[] {'c', 'a', 'f', (byte) 0xE9, '\n'});
+    try (Run run = new Run(DECODE_ONLY)) {
+      final FakeView view = run.view;
+      run.application.open(List.of(new FileRequest(file, 0)));
+      run.until(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return !view.errors.isEmpty();
+            }
+          });
+      assertTrue(view.errors.toString().contains(DECODE_ONLY.name()), view.errors.toString());
+      assertTrue(run.application.documents().isEmpty());
     }
   }
 

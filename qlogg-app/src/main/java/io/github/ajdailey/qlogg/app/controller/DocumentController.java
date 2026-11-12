@@ -120,6 +120,7 @@ public final class DocumentController extends LineViewController {
   private CancellationToken marking;
   private String highlightedText = "";
   private SearchOptions highlightedOptions;
+  private boolean highlightedHideAnsi;
   private PendingMove pending;
   private boolean following;
   private long overscroll;
@@ -1199,7 +1200,9 @@ public final class DocumentController extends LineViewController {
         options.caseSensitive(),
         options.wholeWord(),
         options.combining(),
-        options.inverse());
+        options.inverse(),
+        document.encoding(),
+        highlightedHideAnsi);
   }
 
   private void searchStateChanged(SearchViewState state) {
@@ -1208,10 +1211,14 @@ public final class DocumentController extends LineViewController {
             && state.phase() != SearchViewState.Phase.FAILED;
     String text = shown ? state.text() : "";
     SearchOptions options = shown ? state.options() : null;
+    // A Hide ANSI Colors toggle reruns no search, so the flag a search ran with is read here.
+    boolean hideAnsi = document.hideAnsi();
     if (!text.equals(highlightedText)
-        || (options == null ? highlightedOptions != null : !options.equals(highlightedOptions))) {
+        || (options == null ? highlightedOptions != null : !options.equals(highlightedOptions))
+        || hideAnsi != highlightedHideAnsi) {
       highlightedText = text;
       highlightedOptions = options;
+      highlightedHideAnsi = hideAnsi;
       refreshHighlights();
     }
   }

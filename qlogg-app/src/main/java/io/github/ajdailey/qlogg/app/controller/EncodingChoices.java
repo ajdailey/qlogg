@@ -7,9 +7,10 @@ import java.util.List;
 
 /**
  * The charsets the Encoding menu lists: the common ones first, then every other charset the runtime
- * supports. The runtime's charset set is fixed, so {@link #available()} computes the lists once.
- * Listing every charset loads each provider (130 to 230 ms cold, measured), so {@link #available()}
- * runs on a worker; {@link #commonCharsets()} looks up the common names only.
+ * supports ({@link Options#supported}: a decode-only charset is left out). The runtime's charset
+ * set is fixed, so {@link #available()} computes the lists once. Listing every charset loads each
+ * provider (130 to 230 ms cold, measured), so {@link #available()} runs on a worker; {@link
+ * #commonCharsets()} looks up the common names only.
  *
  * @param common the supported entries of {@link #COMMON_NAMES}, in that order
  * @param other every other supported charset, in {@link Charset#availableCharsets()} order
@@ -100,7 +101,7 @@ public record EncodingChoices(List<Charset> common, List<Charset> other) {
   /**
    * Splits charsets into the common ones and the rest.
    *
-   * @param all every charset to list
+   * @param all the charsets to list; those not {@link Options#supported} are left out
    * @return the choices
    */
   static EncodingChoices of(List<Charset> all) {
@@ -113,7 +114,7 @@ public record EncodingChoices(List<Charset> common, List<Charset> other) {
     }
     List<Charset> other = new ArrayList<Charset>();
     for (Charset charset : all) {
-      if (!common.contains(charset)) {
+      if (!common.contains(charset) && Options.supported(charset)) {
         other.add(charset);
       }
     }

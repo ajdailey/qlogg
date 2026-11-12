@@ -57,10 +57,10 @@ import org.slf4j.LoggerFactory;
  * instance's {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the
  * command-line files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit
  * closes it before the workers, and so does a run that ends before the first window. A JVM shutdown
- * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. A primary with
- * the debug log file attached deletes other processes' old log files on a lifecycle worker ({@link
- * FileLog#prune}). The loop ends when every window is disposed, then the Display is disposed and
- * {@link #run} returns.
+ * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. {@link
+ * UiFailures} handles a failure of a UI-thread task. A primary with the debug log file attached
+ * deletes other processes' old log files on a lifecycle worker ({@link FileLog#prune}). The loop
+ * ends when every window is disposed, then the Display is disposed and {@link #run} returns.
  */
 final class Gui {
   private static final Logger LOG = LoggerFactory.getLogger(Gui.class);
@@ -122,7 +122,8 @@ final class Gui {
   /**
    * Runs until the main window closes.
    *
-   * @return 0, or {@link Launcher#EXIT_SWT} when the Display cannot be created
+   * @return 0, {@link Launcher#EXIT_SWT} when the Display cannot be created, or {@link
+   *     Launcher#EXIT_UI_FAILURE} when {@link UiFailures} ran the quit
    */
   int run() {
     Workers workers =
@@ -150,8 +151,7 @@ final class Gui {
         LOG.debug("SWT failed to start", e);
         return Launcher.EXIT_SWT;
       }
-      runWindows(display, workers, options, restore, sessions);
-      return 0;
+      return runWindows(display, workers, options, restore, sessions);
     } finally {
       if (server != null) {
         server.close();
@@ -163,8 +163,12 @@ final class Gui {
     }
   }
 
-  /** Composes the application on the Display and runs the event loop until every window closes. */
-  private void runWindows(
+  /**
+   * Composes the application on the Display and runs the event loop until every window closes.
+   *
+   * @return the exit status
+   */
+  private int runWindows(
       final Display display,
       Workers workers,
       Options options,
@@ -197,6 +201,9 @@ final class Gui {
     final SwtUiDispatcher ui = new SwtUiDispatcher(display);
     final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
     set.setLogging(LogConfigurator.RECENT, logFiles);
+    UiFailures failures = new UiFailures(System::nanoTime, set::quit);
+    display.setRuntimeExceptionHandler(failures::runtime);
+    display.setErrorHandler(failures::error);
     set.setEmbeddedGuide(UserGuide.embedded(config.location().mode(), OsTraits.current()));
     set.setFactory(
         new WindowSet.Factory() {
@@ -291,6 +298,7 @@ final class Gui {
           display.sleep();
         }
       }
+      return failures.failed() ? Launcher.EXIT_UI_FAILURE : 0;
     } finally {
       removeHook(hook);
     }

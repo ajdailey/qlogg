@@ -26,6 +26,16 @@ class FilterFileTest {
 
   @TempDir Path temp;
 
+  /** Returns the bytes after a UTF-8 byte order mark, as an editor saves them. */
+  private static byte[] withBom(byte[] content) {
+    byte[] marked = new byte[content.length + 3];
+    marked[0] = (byte) 0xEF;
+    marked[1] = (byte) 0xBB;
+    marked[2] = (byte) 0xBF;
+    System.arraycopy(content, 0, marked, 3, content.length);
+    return marked;
+  }
+
   @Test
   void exportThenImportRoundTrips() throws IOException {
     Path file = temp.resolve("filters.conf");
@@ -86,5 +96,26 @@ class FilterFileTest {
     Path file = temp.resolve("empty.conf");
     FilterFile.write(file, List.of());
     assertEquals(List.of(), FilterFile.read(file));
+  }
+
+  @Test
+  void anExportWithAUtf8ByteOrderMarkImports() throws IOException {
+    Path file = temp.resolve("filters.conf");
+    FilterFile.write(file, FILTERS);
+    Files.write(file, withBom(Files.readAllBytes(file)));
+    assertEquals(FILTERS, FilterFile.read(file));
+  }
+
+  @Test
+  void anExportEditedAsUtf8OrLatin1KeepsItsNonAsciiText() throws IOException {
+    Path file = temp.resolve("filters.conf");
+    FilterFile.write(file, FILTERS);
+    String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+    assertTrue(text.contains("\\u00E9"), text);
+    String typed = text.replace("\\u00E9", "\u00e9");
+    Files.writeString(file, typed, StandardCharsets.UTF_8);
+    assertEquals(FILTERS, FilterFile.read(file));
+    Files.writeString(file, typed, StandardCharsets.ISO_8859_1);
+    assertEquals(FILTERS, FilterFile.read(file));
   }
 }

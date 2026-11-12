@@ -71,7 +71,9 @@ import java.util.function.BooleanSupplier;
  * fails calls {@link #reopenFailed}, which resumes the checks, so the next one reports what it
  * finds at the path and the owner reopens again. {@code MISSING} is reported once; a file that
  * reappears is reported as {@code REPLACED}. {@link #stopIndexing} cancels indexing and leaves
- * later growth unindexed.
+ * later growth unindexed. A completed or canceled pass records the head and tail digests at the
+ * indexed end, so after a stopped load, growth whose last 4 KiB before the indexed end changed
+ * reports {@code REPLACED}, not {@code APPENDED}.
  *
  * <p>Keep file closed: a document opened with {@code keepClosed} reads through a {@link
  * ReopeningByteSource}. Nothing holds the file between reads, so a read after a rotation or a
@@ -193,8 +195,8 @@ public final class LogDocument implements LineSource, Closeable {
    * @param detectTimeFormat false when the owner has a remembered format
    * @param keepClosed true to open the file only for each read ({@link ReopeningByteSource})
    * @return the open document; the caller closes it
-   * @throws IOException when the path is rejected, the file cannot be read, or the line index share
-   *     cannot hold an empty index
+   * @throws IOException when the path is rejected, the file cannot be read, the forced or fallback
+   *     charset has no encoder, or the line index share cannot hold an empty index
    */
   public static LogDocument open(
       Path path,
@@ -209,10 +211,16 @@ public final class LogDocument implements LineSource, Closeable {
       // Read through the held channel: a rotation here must not fail the open.
       ByteBuffer head = readHead(held);
       ByteSource source = keepClosed ? ReopeningByteSource.of(held) : held;
-      EncodingDetection detection =
-          forcedEncoding == null
-              ? EncodingDetector.detect(head, services.fallbackCharset())
-              : EncodingDetector.forced(forcedEncoding, head);
+      Charset given = forcedEncoding == null ? services.fallbackCharset() : forcedEncoding;
+      EncodingDetection detection;
+      try {
+        detection =
+            forcedEncoding == null
+                ? EncodingDetector.detect(head, given)
+                : EncodingDetector.forced(given, head);
+      } catch (IllegalArgumentException e) {
+        throw new IOException("Unsupported encoding " + given.name(), e);
+      }
       BuiltInFormat timeFormat =
           detectTimeFormat ? detectTimeFormat(head, detection, source.identity()) : null;
       GrowableLineIndex index =
@@ -698,7 +706,7 @@ public final class LogDocument implements LineSource, Closeable {
     @Override
     public void finished(OperationOutcome outcome, IOException failure) {
       try {
-        if (outcome == OperationOutcome.COMPLETED) {
+        if (outcome == OperationOutcome.COMPLETED || outcome == OperationOutcome.CANCELED) {
           recordTail();
         }
         indexRunning.set(false);

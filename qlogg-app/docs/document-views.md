@@ -81,7 +81,7 @@ Copy holds the `ActivityIndicator` active until it ends.
 
 - One copy or save runs per view; another shows a notice.
 - `TextExporter` checks a `CancellationToken` before every row and before
-  `AtomicFiles.write`. `Esc` (`DocumentController.stop`) cancels the running
+  `AtomicFiles.writeUserFile`. `Esc` (`DocumentController.stop`) cancels the running
   copies of both views, and `detachView` cancels them on tab close, so the
   worker leaves its document entry within one row and `LogDocument.close`
   releases the line index.
@@ -92,8 +92,9 @@ Copy holds the `ActivityIndicator` active until it ends.
 ### Saving to a file
 
 Save Selection writes the selected lines, or the block's columns; Save Filtered
-Results writes every filtered row. Both write UTF-8 through `AtomicFiles` on
-the copy worker. A line over `LineReader.MAX_LINE_BYTES` is saved cut, and the
+Results writes every filtered row. Both write UTF-8 through
+`AtomicFiles.writeUserFile` on the copy worker, so a new file takes the default
+mode and a replaced one keeps its group and mode. A line over `LineReader.MAX_LINE_BYTES` is saved cut, and the
 saved notice counts those lines; a block save does not count them.
 
 The chosen path passes `SafePaths.logFile` on a `qlogg-lifecycle-` worker. A

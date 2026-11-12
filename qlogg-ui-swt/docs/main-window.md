@@ -79,7 +79,8 @@ document's controllers, which hold the viewport, selection and rows.
 
 Disposing the selected item makes `CTabFolder` select a neighbor and send
 `SWT.Selection`; the tab listener ignores it during a move, so the dragged
-document stays shown. Pressing a tab selects it, so a dragged tab always ends
+document stays shown, and during `removeTab`, so the controller picks the tab
+shown after a close. Pressing a tab selects it, so a dragged tab always ends
 selected.
 
 Closing the last tab leaves an empty window, as File > Close does. With

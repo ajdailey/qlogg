@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
+import java.nio.file.Path;
+
 /** Receives application events on the UI thread. */
 public interface ApplicationListener {
   /**
@@ -15,6 +17,13 @@ public interface ApplicationListener {
    * @param document its controller, already detached
    */
   void documentClosed(DocumentController document);
+
+  /**
+   * A file did not open; its error is shown. Does nothing by default.
+   *
+   * @param path the path as requested
+   */
+  default void documentOpenFailed(Path path) {}
 
   /**
    * Another document is shown, or none. Does nothing by default.

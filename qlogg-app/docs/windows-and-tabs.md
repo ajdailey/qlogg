@@ -36,10 +36,12 @@ or by `closeUnclaimed`, never delivered.
 
 `open(files, follow)` runs `LogDocument.open` for each file on one
 `qlogg-index-` worker, in the order given. Each file opens a tab after the
-others and is shown, so the last one ends shown, at its `+line:N`. File > Open
-and `openDropped` (files dropped on the window) use the same path;
-`openDropped` skips folders on the worker and then shows the notice "Folders
-are not opened".
+others, and the last one ends shown, at its `+line:N`. A delivered tab is
+shown only when the window shows none or no later document waits for delivery
+(`DocumentOpener.unclaimedCount`), so a burst of opens builds the views at
+most twice. File > Open and `openDropped` (files dropped on the window) use
+the same path; `openDropped` skips folders on the worker and then shows the
+notice "Folders are not opened".
 
 - A file already open shows its tab.
 - `LogDocument.path()` is the path as given, with symbolic links kept. It keys
@@ -89,6 +91,8 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
 `activeDocumentChanged`, `documentReplaced` and `tabRenamed`.
 
 - Closing the shown tab shows the one after it, else the one before.
+  `closeAll`, `closeOthers` and `closeSide` close the shown tab last, so no
+  other tab is shown, and its views built, on the way.
 - Closing the last tab, or Close All, leaves an empty window. With
   `tabs.closeWindowWithLastTab` on, the window closes through `closeWindow`, so
   the last window quits. Close All in an empty window does nothing.
@@ -171,12 +175,20 @@ reload does, indexed again with the forced charset.
 
 `EncodingChoices.available()` computes the menu's lists once: the supported
 entries of `COMMON_NAMES` in order, then every other charset of
-`Charset.availableCharsets()`. That call takes 130 to 230 ms cold, so it runs
-on a worker: `ApplicationController.loadEncodingChoices` delivers the lists on
-the UI thread, at once when computed, else from a `qlogg-lifecycle-` worker.
+`Charset.availableCharsets()` that can encode (`Options.supported`). That call
+takes 130 to 230 ms cold, so it runs on a worker:
+`ApplicationController.loadEncodingChoices` delivers the lists on the UI
+thread, at once when computed, else from a `qlogg-lifecycle-` worker.
 `commonCharsets()` looks up the common names only. `forced(document)` is the
 charset the menu checks: the forced one of a document with a file, else empty
 for Auto.
+
+The index and search encode, so a decode-only charset (`x-JISAutoDetect`,
+`ISO-2022-CN`) is not listed, and `Options.charset` reads its name as
+unsupported: a remembered override logs a WARN and opens with detection, and
+an `encoding.default` naming one is invalid. `LogDocument.open` throws an
+`IOException` naming a forced or fallback charset that has no encoder.
+`setEncoding` refuses such a charset with a notice and stores nothing.
 
 ## Command dispatch
 
@@ -276,7 +288,8 @@ a tab's follow state or marks (`DocumentHost.documentStateChanged`) restarts a
    `LogDocument.enter`.
 
 Each capture takes a sequence number, and a writer skips a part a later capture
-has written.
+has written. A failed `qlogg.conf` write marks the settings changed again on the
+UI thread, so the next save writes them; a read-only directory does not.
 
 ## Closing a window and quitting
 

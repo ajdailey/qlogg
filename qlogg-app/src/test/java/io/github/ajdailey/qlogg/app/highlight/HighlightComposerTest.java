@@ -9,8 +9,12 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightComposer.LastSearch;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.text.TextEncoding;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -40,12 +44,24 @@ class HighlightComposerTest {
           .withSets(List.of(FIRST, SECOND))
           .withActive(List.of(SECOND.id(), FIRST.id()));
 
+  private static final TextEncoding UTF_8 = TextEncoding.of(StandardCharsets.UTF_8, 0);
+
+  private static LastSearch search(
+      String text,
+      MatchMode mode,
+      boolean caseSensitive,
+      boolean wholeWord,
+      boolean combining,
+      boolean inverse) {
+    return new LastSearch(text, mode, caseSensitive, wholeWord, combining, inverse, UTF_8, false);
+  }
+
   private static LastSearch literal(String text) {
-    return new LastSearch(text, MatchMode.LITERAL, true, false, false, false);
+    return search(text, MatchMode.LITERAL, true, false, false, false);
   }
 
   private static LastSearch wholeWord(String text) {
-    return new LastSearch(text, MatchMode.LITERAL, true, true, false, false);
+    return search(text, MatchMode.LITERAL, true, true, false, false);
   }
 
   private static List<HighlightRule> compose(
@@ -85,12 +101,55 @@ class HighlightComposerTest {
     HighlightRule literal = match(wholeWord("a.b"));
     assertEquals("(?<!\\w)(?:\\Qa.b\\E)(?!\\w)", literal.pattern());
     assertEquals(MatchMode.REGEX, literal.mode());
-    HighlightRule regex = match(new LastSearch("l.ne", MatchMode.REGEX, false, true, false, false));
+    HighlightRule regex = match(search("l.ne", MatchMode.REGEX, false, true, false, false));
     assertEquals("(?<!\\w)(?:l.ne)(?!\\w)", regex.pattern());
     assertFalse(regex.caseSensitive());
-    HighlightRule quoted =
-        match(new LastSearch("\\Qa.b", MatchMode.REGEX, true, true, false, false));
+    HighlightRule quoted = match(search("\\Qa.b", MatchMode.REGEX, true, true, false, false));
     assertEquals("(?<!\\w)(?:\\Qa.b\\E)(?!\\w)", quoted.pattern());
+  }
+
+  /**
+   * Regression: a case-folded literal search folds ASCII letters only, but its match highlight ran
+   * with {@code UNICODE_CASE}, so a line with U+212A KELVIN SIGN showed the match color for {@code
+   * k} without being a result.
+   */
+  @Test
+  void aCaseFoldedLiteralHighlightFoldsAsciiOnlyAsTheSearchDoes() {
+    for (boolean word : new boolean[] {false, true}) {
+      HighlightRule rule = match(search("k", MatchMode.LITERAL, false, word, false, false));
+      assertTrue(Highlighter.compile(rule).matcher("line K").find());
+      assertFalse(Highlighter.compile(rule).matcher("line \u212a").find());
+    }
+    HighlightRule regex = match(search("k", MatchMode.REGEX, false, false, false, false));
+    assertTrue(Highlighter.compile(regex).matcher("line \u212a").find());
+    HighlightRule accented = match(search("\u00e9", MatchMode.LITERAL, false, false, false, false));
+    assertTrue(Highlighter.compile(accented).matcher("line \u00c9").find());
+  }
+
+  /**
+   * A case-folded literal folds ASCII letters only where the search ran it as a byte search, and
+   * with {@code UNICODE_CASE} where the search ran it as a regex: UTF-16, UTF-32, a multi-byte
+   * charset, or Hide ANSI Colors on.
+   */
+  @Test
+  void aCaseFoldedLiteralHighlightFoldsAsTheSearchDidInEveryCharset() {
+    String[] charsets = {"windows-1252", "UTF-8", "UTF-16LE", "UTF-32BE", "Shift_JIS"};
+    for (String name : charsets) {
+      TextEncoding encoding = TextEncoding.of(Charset.forName(name), 0);
+      boolean bytewise = encoding.unitWidth() == 1 && !name.equals("Shift_JIS");
+      for (boolean hideAnsi : new boolean[] {false, true}) {
+        for (boolean word : new boolean[] {false, true}) {
+          HighlightRule rule =
+              match(
+                  new LastSearch(
+                      "k", MatchMode.LITERAL, false, word, false, false, encoding, hideAnsi));
+          String at = name + " hideAnsi " + hideAnsi + " word " + word;
+          assertTrue(Highlighter.compile(rule).matcher("line K").find(), at);
+          assertEquals(
+              !bytewise || hideAnsi, Highlighter.compile(rule).matcher("line \u212a").find(), at);
+        }
+      }
+    }
   }
 
   @Test
@@ -117,9 +176,8 @@ class HighlightComposerTest {
 
   @Test
   void combinedAndInverseSearchesHaveNoMatchRule() {
-    assertNull(match(new LastSearch("hit", MatchMode.LITERAL, true, false, false, true)));
-    assertNull(
-        match(new LastSearch("\"hit\" or \"line\"", MatchMode.LITERAL, true, false, true, false)));
+    assertNull(match(search("hit", MatchMode.LITERAL, true, false, false, true)));
+    assertNull(match(search("\"hit\" or \"line\"", MatchMode.LITERAL, true, false, true, false)));
     assertEquals("hit", match(literal("hit")).pattern());
   }
 

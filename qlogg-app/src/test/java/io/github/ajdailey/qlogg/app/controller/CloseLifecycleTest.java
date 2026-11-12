@@ -3,19 +3,24 @@ package io.github.ajdailey.qlogg.app.controller;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
+import io.github.ajdailey.qlogg.app.view.FolderRequest;
+import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.folder.NamePattern;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
@@ -27,6 +32,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +42,9 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Interleaves open, paste, reload, search, copy, mark toggle, quick find, tab close, tab move,
@@ -43,6 +53,10 @@ import org.junit.jupiter.api.io.TempDir;
  * survives, and the {@code RESULTS}, {@code LINE_INDEX}, {@code HIGHLIGHT}, {@code COPY} and {@code
  * PASTED} reservations and the activity counters are 0. A document an open finished but no window
  * claimed never reaches a tab; its {@code LINE_INDEX} reservation exposes it.
+ *
+ * <p>{@link #closeWithWorkInFlightLeavesNothingOpen} closes a tab or a window right after starting
+ * one operation, before the UI queue drains, then makes the same checks; {@link FakeView} fails a
+ * view call after its window was disposed.
  *
  * <p>The seed is random per run and is in every failure message; {@code
  * -Dqlogg.closeLifecycle.seed=N} replays one.
@@ -53,6 +67,8 @@ class CloseLifecycleTest {
   private static final int ACTIONS = 14;
   private static final SearchOptions REGEX =
       new SearchOptions(MatchMode.REGEX, true, false, false, false, false, true, false);
+  private static final SearchOptions LITERAL =
+      new SearchOptions(MatchMode.LITERAL, true, false, false, false, false, false, false);
 
   @TempDir Path temp;
 
@@ -75,6 +91,46 @@ class CloseLifecycleTest {
           }
         },
         "seed " + seed);
+  }
+
+  /** Work started just before the close, with no drain of the UI queue between. */
+  enum Work {
+    FOLDER_RUN,
+    FOLDER_STEP,
+    REOPEN_CLOSED,
+    OPEN_ALL_CLOSED,
+    SAVE_SELECTION,
+    GO_TO_TIME,
+    SESSION_RESTORE
+  }
+
+  /** The shown tab, its window, or every tab of the window with {@code closeWindowWithLastTab}. */
+  enum Close {
+    TAB,
+    WINDOW,
+    LAST_TAB
+  }
+
+  static List<Arguments> workAndClose() {
+    List<Arguments> cases = new ArrayList<Arguments>();
+    for (Work work : Work.values()) {
+      for (Close close : Close.values()) {
+        cases.add(Arguments.of(work, close));
+      }
+    }
+    return cases;
+  }
+
+  @ParameterizedTest(name = "{0}, close {1}")
+  @MethodSource("workAndClose")
+  void closeWithWorkInFlightLeavesNothingOpen(Work work, Close close) throws Exception {
+    List<Path> files = new ArrayList<Path>();
+    files.add(lines("big.log", 60_000));
+    for (int i = 0; i < 3; i++) {
+      files.add(lines("small-" + i + ".log", 2_000));
+    }
+    new Round(temp.resolve("settings"), files, new SplittableRandom(0))
+        .closeDuring(work, close, temp.resolve("saved.txt"));
   }
 
   private Path lines(String name, int count) throws IOException {
@@ -193,6 +249,11 @@ class CloseLifecycleTest {
           ui.runPending();
         }
       }
+      quitAndCheck();
+    }
+
+    /** Quits, then checks that every file is closed and every thread and reservation is gone. */
+    void quitAndCheck() throws Exception {
       set.quit();
       assertTrue(
           ui.runUntil(
@@ -219,6 +280,7 @@ class CloseLifecycleTest {
               },
               BOUND),
           "threads alive: " + workers.liveThreadNames());
+      ui.runPending();
       assertEquals(List.of(), failures);
       for (FileByteSource source : sources) {
         assertFalse(source.isOpen(), source.path().toString());
@@ -232,6 +294,137 @@ class CloseLifecycleTest {
         assertEquals(0, view.active.get(), "activity counter");
         view.assertConfined();
       }
+    }
+
+    /**
+     * Starts {@code work} in the first of two windows, closes as {@code close} says before the UI
+     * queue drains, lets the work end, then quits and checks.
+     */
+    void closeDuring(Work work, Close close, Path saveTarget) throws Exception {
+      set.newWindow();
+      final ApplicationController window = set.windows().get(0);
+      final FakeView view = views.get(0);
+      Path big = files.get(0);
+      if (work == Work.REOPEN_CLOSED || work == Work.OPEN_ALL_CLOSED) {
+        window.closeDocument(openAndWait(window, files.get(2)));
+        window.closeDocument(openAndWait(window, files.get(3)));
+      }
+      boolean onBig = work == Work.SAVE_SELECTION || work == Work.GO_TO_TIME;
+      final DocumentController shown = openAndWait(window, onBig ? big : files.get(1));
+      final FolderSearchController folder = window.folderSearch();
+      FolderRequest request =
+          new FolderRequest(
+              big.getParent().toString(), NamePattern.DEFAULT, false, "hit", LITERAL, "");
+      switch (work) {
+        case FOLDER_RUN -> folder.run(request);
+        case FOLDER_STEP -> {
+          folder.run(request);
+          runUntil(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return folder.state().phase() != FolderSearchState.Phase.RUNNING;
+                }
+              });
+          window.execute(CommandId.NEXT_FOLDER_MATCH);
+        }
+        case REOPEN_CLOSED -> window.execute(CommandId.REOPEN_CLOSED);
+        case OPEN_ALL_CLOSED -> window.execute(CommandId.OPEN_ALL_CLOSED);
+        case SAVE_SELECTION -> {
+          view.saveTarget = saveTarget;
+          window.setFocusedView(shown);
+          shown.selectAll();
+          window.execute(CommandId.SAVE_SELECTION);
+        }
+        case GO_TO_TIME -> {
+          runUntil(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return shown.time().format() != null;
+                }
+              });
+          window.setFocusedView(shown);
+          window.execute(CommandId.GO_TO_TIME);
+          assertNotNull(view.timeListener, "Go to Time asked for a time");
+          view.timeListener.timeChosen(
+              LocalDateTime.of(2026, 3, 1, 12, 0).toEpochSecond(ZoneOffset.UTC) * 1_000_000_000L);
+        }
+        default -> {
+          List<Session.Tab> tabs = new ArrayList<Session.Tab>();
+          for (Path file : files) {
+            tabs.add(new Session.Tab(file.toString(), "", false, new long[0], List.of()));
+          }
+          window.restoreSession(new Session(tabs, 0));
+        }
+      }
+      if (close == Close.LAST_TAB) {
+        window.setOptions(window.preferences().options().withCloseWindowWithLastTab(true));
+      }
+      switch (close) {
+        case TAB -> window.closeDocument(shown);
+        case WINDOW -> window.closeWindow();
+        default -> {
+          for (DocumentController tab : new ArrayList<DocumentController>(window.documents())) {
+            window.closeDocument(tab);
+          }
+        }
+      }
+      final boolean opens = work != Work.FOLDER_RUN && !onBig;
+      final boolean tabClosed = close == Close.TAB;
+      runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              if (view.active.get() != 0
+                  || folder.state().phase() == FolderSearchState.Phase.RUNNING) {
+                return false;
+              }
+              if (!tabClosed) {
+                return view.disposed;
+              }
+              if (!opens) {
+                return true;
+              }
+              List<DocumentController> tabs = window.documents();
+              for (DocumentController tab : tabs) {
+                if (tab.state().indexing()) {
+                  return false;
+                }
+              }
+              return !tabs.isEmpty();
+            }
+          });
+      if (!tabClosed) {
+        assertEquals(1, set.windows().size(), "the other window stays");
+        assertFalse(set.windows().contains(window), "the window closed");
+      }
+      quitAndCheck();
+    }
+
+    private DocumentController openAndWait(ApplicationController window, Path file)
+        throws InterruptedException {
+      window.open(List.of(new FileRequest(file, 0)), false);
+      final String name = file.getFileName().toString();
+      final List<DocumentController> found = new ArrayList<DocumentController>();
+      runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              for (DocumentController tab : window.documents()) {
+                if (tab.state().title().equals(name) && !tab.state().indexing()) {
+                  found.add(tab);
+                  return true;
+                }
+              }
+              return false;
+            }
+          });
+      return found.get(0);
+    }
+
+    private void runUntil(BooleanSupplier condition) throws InterruptedException {
+      assertTrue(ui.runUntil(condition, BOUND));
     }
 
     private void act() {

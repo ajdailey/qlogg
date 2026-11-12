@@ -248,6 +248,8 @@ class CommandStatesTest {
 
   @Test
   void encodingChoicesArriveOnTheUiThread() throws Exception {
+    // Computed here, so the result does not depend on which earlier test filled the cache.
+    EncodingChoices computed = EncodingChoices.available();
     final List<EncodingChoices> received = new CopyOnWriteArrayList<EncodingChoices>();
     application.loadEncodingChoices(
         new EncodingChoices.Listener() {
@@ -266,7 +268,7 @@ class CommandStatesTest {
               }
             },
             BOUND));
-    assertSame(EncodingChoices.loaded(), received.get(0));
+    assertSame(computed, received.get(0));
   }
 
   @Test
