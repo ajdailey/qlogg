@@ -156,6 +156,16 @@ final class ResultsPane {
     }
     sets.getItem(0).setToolTipText(label(state.text(), state.options()).replace("&", "&&"));
     sets.setSelection(search.shown() + 1);
+    // Accessible names.
+    canvas
+        .accessibleName()
+        .set(
+            state.text().isEmpty() && search.shown() < 0
+                ? UiText.ACCESSIBLE_FILTERED_VIEW.text()
+                : UiText.ACCESSIBLE_FILTERED_VIEW_COUNT.format(
+                    search.shown() < 0
+                        ? search.resultCount()
+                        : kept.get(search.shown()).lineCount()));
   }
 
   /** A search's text, with a range search's end after it. */

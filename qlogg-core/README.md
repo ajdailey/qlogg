@@ -93,6 +93,7 @@ system's answers from `OsTraits.of(name)`.
 |---|---|---|---|---|
 | `opensDeviceNames` | true | false | false | `SafePaths` refuses device forms |
 | `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
+| `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` portable marker beside `bin/qlogg` |
 | `confinesToSettings` | false | false | true | `PlatformSetup` moves `user.home`; `UserGuide.embedded` |
 | `webView2` | true | false | false | `PlatformSetup` sets the WebView2 data folder |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |

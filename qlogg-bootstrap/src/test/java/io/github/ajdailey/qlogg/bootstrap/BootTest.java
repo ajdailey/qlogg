@@ -86,6 +86,17 @@ class BootTest {
         settings.resolve("cache").resolve("swt").resolve("3.135.0-linux-x86_64"),
         NativesLocation.resolve(home, settings, Target.LINUX_X86_64, "3.135.0", env, "/u").dir());
 
+    // On Linux, a marker beside bin/qlogg; the installation directory's wins.
+    Path bin = Files.createDirectory(home.resolve("bin"));
+    Files.createFile(bin.resolve("qlogg.conf"));
+    assertEquals(
+        bin.resolve("cache").resolve("swt").resolve("3.135.0-linux-x86_64"),
+        NativesLocation.resolve(home, null, Target.LINUX_X86_64, "3.135.0", env, "/u").dir());
+    assertEquals(
+        Path.of(
+            "/u", "Library", "Caches", "io.github.ajdailey.qlogg", "swt", "3.135.0-macos-aarch64"),
+        NativesLocation.resolve(home, null, Target.MACOS_AARCH64, "3.135.0", env, "/u").dir());
+
     Files.createFile(home.resolve("qlogg.conf"));
     assertEquals(
         home.resolve("cache").resolve("swt").resolve("3.135.0-linux-x86_64"),

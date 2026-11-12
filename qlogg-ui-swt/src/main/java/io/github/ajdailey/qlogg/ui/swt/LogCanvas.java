@@ -92,6 +92,9 @@ public final class LogCanvas {
   private final Canvas canvas;
   private final Slider vertical;
 
+  // Accessible names.
+  private final AccessibleName accessibleName;
+
   /**
    * Commands of the right-click menu, in order; null is a separator. Consecutive commands with a
    * {@link #contextCascade} form one cascade. Time Sync follows the last command, then Highlighters
@@ -203,6 +206,7 @@ public final class LogCanvas {
     frame.setLayout(layout);
     canvas = new Canvas(frame, SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
     canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    accessibleName = AccessibleName.attach(canvas, UiText.ACCESSIBLE_LOG_VIEW.text());
     vertical = new Slider(frame, SWT.VERTICAL);
     vertical.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true));
     FontSettings settings = application.preferences().options().font();
@@ -412,6 +416,11 @@ public final class LogCanvas {
   void run(CommandId command) {
     application.setFocusedView(document);
     application.execute(command);
+  }
+
+  /** The canvas's accessible name: the main view's until the filtered view replaces it. */
+  AccessibleName accessibleName() {
+    return accessibleName;
   }
 
   /**

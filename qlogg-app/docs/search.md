@@ -14,6 +14,9 @@ search and holds its field text, toggles and result sets.
 
 `run(text, options)` cancels a running search and starts a new generation with
 a new `MutableLineSet` charged to `RESULTS`. Empty text only clears.
+`clear()` (Search > Clear Results, enabled while the search state is not
+`IDLE`) cancels a running search and empties the current set; kept sets, the
+field text and the toggles stay.
 
 - The search covers the lines indexed when it starts, narrowed by the search
   start and end lines and, with `inSelection`, the selected lines.

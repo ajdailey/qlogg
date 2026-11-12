@@ -4,7 +4,10 @@ package io.github.ajdailey.qlogg.app.config;
 public enum SettingsMode {
   /** {@code --settings <dir>}. */
   EXPLICIT,
-  /** {@code <qlogg.home>/qlogg.conf} exists, so the installation directory holds the settings. */
+  /**
+   * {@code qlogg.conf} exists in the installation directory or, on Linux, beside the launcher
+   * script; that directory holds the settings.
+   */
   PORTABLE,
   /** The per-user configuration directory of the OS. */
   PER_USER

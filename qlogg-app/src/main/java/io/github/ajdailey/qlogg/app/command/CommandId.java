@@ -82,6 +82,9 @@ public enum CommandId {
   FIND_PREVIOUS(CommandGroup.SEARCH, UiText.COMMAND_FIND_PREVIOUS, false, false),
   /** Move focus to the search field. */
   FOCUS_SEARCH(CommandGroup.SEARCH, UiText.COMMAND_FOCUS_SEARCH, true, false),
+  // Clear Results.
+  /** Cancel the shown tab's search and empty its results; kept sets stay. */
+  CLEAR_RESULTS(CommandGroup.SEARCH, UiText.COMMAND_CLEAR_RESULTS, false, false),
   /** Run the search in every open file. */
   SEARCH_ALL_FILES(CommandGroup.SEARCH, UiText.COMMAND_SEARCH_ALL_FILES, false, false),
   /** Search the files of a folder without opening them. */

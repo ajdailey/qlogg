@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Visibility;
@@ -129,7 +130,7 @@ public final class CommandStates {
    *
    * @param command any command
    * @return true unless the command needs a document, a file, a favorite state, a navigation entry,
-   *     a tab to close or a closed file it lacks
+   *     a tab to close, a closed file or a search it lacks
    */
   public boolean enabled(CommandId command) {
     DocumentController document = application.activeDocument();
@@ -158,6 +159,9 @@ public final class CommandStates {
           document != null && document.time().format() != null;
       // Always on Top.
       case ALWAYS_ON_TOP -> application.alwaysOnTop().supported();
+      // Clear Results.
+      case CLEAR_RESULTS ->
+          document != null && document.search().state().phase() != SearchViewState.Phase.IDLE;
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }

@@ -280,6 +280,27 @@ class SearchFeaturesTest {
     assertTrue(failed.get(0).contains("version=1"), failed.get(0));
   }
 
+  // Clear Results.
+  @Test
+  void clearResultsEmptiesTheCurrentSetAndKeepsKeptSets() throws Exception {
+    CommandStates states = new CommandStates(fixture.application);
+    assertFalse(states.enabled(CommandId.CLEAR_RESULTS));
+    search.run("hit", LITERAL);
+    fixture.runUntilEnded(search);
+    fixture.application.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    search.run("line 1", search.options());
+    fixture.runUntilEnded(search);
+    assertEquals(1, search.kept().size());
+    assertTrue(search.resultCount() > 0);
+    assertTrue(states.enabled(CommandId.CLEAR_RESULTS));
+    fixture.application.execute(CommandId.CLEAR_RESULTS);
+    assertEquals(0, search.resultCount());
+    assertEquals(SearchViewState.Phase.IDLE, search.state().phase());
+    assertEquals(1, search.kept().size());
+    assertEquals("line 1", search.fieldText());
+    assertFalse(states.enabled(CommandId.CLEAR_RESULTS));
+  }
+
   private static BooleanSupplier sized(final List<?> list, final int size) {
     return new BooleanSupplier() {
       @Override

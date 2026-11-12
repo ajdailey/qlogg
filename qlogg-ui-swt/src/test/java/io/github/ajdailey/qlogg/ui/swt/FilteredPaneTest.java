@@ -47,6 +47,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.accessibility.ACC;
+import org.eclipse.swt.accessibility.AccessibleEvent;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.graphics.GC;
@@ -222,6 +224,44 @@ class FilteredPaneTest {
               }
             }),
         bar.statusText());
+  }
+
+  // Accessible names.
+  private static String nameOf(Control control, AccessibleName listener) {
+    AccessibleEvent event = new AccessibleEvent(control.getAccessible());
+    event.childID = ACC.CHILDID_SELF;
+    listener.getName(event);
+    return event.result;
+  }
+
+  @Test
+  void viewsCarryAccessibleNamesAndTheFilteredViewItsCount() {
+    assertEquals(
+        UiText.ACCESSIBLE_LOG_VIEW.text(), nameOf(mainCanvas(), window.canvas().accessibleName()));
+    assertEquals(
+        UiText.ACCESSIBLE_OVERVIEW.text(),
+        nameOf(window.overviewBar().control(), window.overviewBar().accessibleName()));
+    assertEquals(
+        UiText.ACCESSIBLE_FILTERED_VIEW.text(),
+        nameOf(filteredCanvas(), window.results().canvas().accessibleName()));
+    searchFor("event");
+    assertFilteredName(UiText.ACCESSIBLE_FILTERED_VIEW_COUNT.format(20L));
+    controller.execute(CommandId.CLEAR_RESULTS);
+    assertFilteredName(UiText.ACCESSIBLE_FILTERED_VIEW.text());
+    assertEquals(0, document().search().resultCount());
+  }
+
+  private void assertFilteredName(final String expected) {
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return expected.equals(
+                    nameOf(filteredCanvas(), window.results().canvas().accessibleName()));
+              }
+            }),
+        nameOf(filteredCanvas(), window.results().canvas().accessibleName()));
   }
 
   @Test

@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.OverviewController;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
@@ -40,6 +41,9 @@ final class OverviewBar {
   private final OverviewController overview;
   private PaletteColors colors;
   private boolean dragging;
+
+  // Accessible names.
+  private final AccessibleName accessibleName;
   private final OverviewListener binsListener =
       new OverviewListener() {
         @Override
@@ -68,6 +72,8 @@ final class OverviewBar {
     this.document = document;
     this.overview = document.overview();
     canvas = new Canvas(parent, SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
+    // Accessible names.
+    accessibleName = AccessibleName.attach(canvas, UiText.ACCESSIBLE_OVERVIEW.text());
     colors = new PaletteColors(canvas.getDisplay(), palette);
     overview.addListener(binsListener);
     document.addListener(viewListener);
@@ -131,6 +137,10 @@ final class OverviewBar {
 
   Canvas control() {
     return canvas;
+  }
+
+  AccessibleName accessibleName() {
+    return accessibleName;
   }
 
   /** Reports the bar's height and visibility to the controller. */

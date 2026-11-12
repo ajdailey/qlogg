@@ -81,6 +81,7 @@ itself (its own extraction runs `chmod` through `Runtime.exec`).
 | Linux or Windows bundle: `<qlogg.home>/lib/swt/` exists | `<qlogg.home>/lib/swt/` | Verify; never write |
 | `--settings <dir>` | `<dir>/cache/swt/<swt version>-<target>/` | Verify; extract when missing or mismatched |
 | Portable: `<qlogg.home>/qlogg.conf` exists | `<qlogg.home>/cache/swt/<swt version>-<target>/` | Verify; extract |
+| Portable on Linux: only `<qlogg.home>/bin/qlogg.conf` exists | `<qlogg.home>/bin/cache/swt/<swt version>-<target>/` | Verify; extract |
 | Linux | `${XDG_CACHE_HOME:-~/.cache}/qlogg/swt/<swt version>-<target>/` | Verify; extract |
 | Windows | `%LOCALAPPDATA%\QLogg\cache\swt\<swt version>-<target>\` | Verify; extract |
 | macOS | `~/Library/Caches/io.github.ajdailey.qlogg/swt/<swt version>-<target>/` | Verify; extract |

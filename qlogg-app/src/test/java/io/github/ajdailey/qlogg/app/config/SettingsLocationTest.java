@@ -32,6 +32,25 @@ class SettingsLocationTest {
   }
 
   @Test
+  void onLinuxAMarkerBesideTheLauncherScriptSelectsPortable() throws IOException {
+    Path home = Files.createDirectory(temp.resolve("home"));
+    Path bin = Files.createDirectory(home.resolve("bin"));
+    Files.createFile(bin.resolve("qlogg.conf"));
+    assertEquals(
+        new SettingsLocation(SettingsMode.PORTABLE, bin),
+        resolve(null, home, OsTraits.of("Linux"), Map.of()));
+    assertEquals(
+        SettingsMode.PER_USER, resolve(null, home, OsTraits.of("Windows 11"), Map.of()).mode());
+    assertEquals(
+        SettingsMode.PER_USER, resolve(null, home, OsTraits.of("Mac OS X"), Map.of()).mode());
+    // With both markers, the installation directory wins.
+    Files.createFile(home.resolve("qlogg.conf"));
+    assertEquals(
+        new SettingsLocation(SettingsMode.PORTABLE, home),
+        resolve(null, home, OsTraits.of("Linux"), Map.of()));
+  }
+
+  @Test
   void withoutTheMarkerTheDirectoryIsPerUser() throws IOException {
     Path home = Files.createDirectory(temp.resolve("home"));
     Files.createDirectory(home.resolve("qlogg.conf"));

@@ -199,6 +199,8 @@ toggle and Stop; and the search status. With no document the row is disabled.
   controller's keymap from `attach` on and change with it
   (`SearchBar.setKeymap`).
 - Enter searches and Escape stops.
+- Clear empties the field and focuses it; the results stay until the next
+  search or Search > Clear Results.
 - Typing completes inline with the most recent history entry that extends the
   text, compared under the Match case rule. Backspace and Delete do not
   complete.
@@ -217,6 +219,12 @@ left edge, over a `LogCanvas` on the `FilteredController`. The strip holds the
 current search and one closable tab per kept set, labeled with the text and
 count; a range search's label shows the start and end expressions. Selecting a
 tab shows that set; closing one removes it.
+
+The main view's canvas, the filtered view's canvas and the overview bar carry
+accessible names through `AccessibleName` (`UiText.ACCESSIBLE_*`): Log,
+Overview, and Filtered results, which adds the shown set's match count once a
+search has run. A screen reader reads the name on request; no name-change event
+is sent.
 
 ### Quick find bar
 

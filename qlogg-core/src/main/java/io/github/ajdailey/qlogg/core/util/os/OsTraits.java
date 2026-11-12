@@ -70,6 +70,16 @@ public interface OsTraits {
   Path userSettings(Map<String, String> env, Path userHome);
 
   /**
+   * Returns the launcher's directory, whose {@code qlogg.conf} also selects portable mode when the
+   * installation directory has none.
+   *
+   * @param home the installation directory, the parent of {@code lib/}
+   * @return {@code <home>/bin}, beside the {@code bin/qlogg} script, on Linux; null elsewhere,
+   *     where the launcher sits in the installation directory
+   */
+  Path launcherDirectory(Path home);
+
+  /**
    * Reports whether explicit and portable mode keep QLogg's files out of the user's home: GTK SWT
    * writes under {@code user.home} and WebKitGTK under the XDG directories, so {@code user.home}
    * moves to the settings directory and the user guide opens outside the process.

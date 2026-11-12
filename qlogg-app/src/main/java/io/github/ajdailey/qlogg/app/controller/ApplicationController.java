@@ -1700,6 +1700,8 @@ public final class ApplicationController implements DocumentHost {
         rememberSearchOptions(search.options());
       }
       case SELECT_RANGE -> search.selectRange();
+      // Clear Results.
+      case CLEAR_RESULTS -> search.clear();
       case SHOW_MARKS_AND_MATCHES ->
           document.filtered().setVisibility(Visibility.MARKS_AND_MATCHES);
       case SHOW_MARKS -> document.filtered().setVisibility(Visibility.MARKS);

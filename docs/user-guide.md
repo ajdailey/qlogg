@@ -140,6 +140,11 @@ The icon toggles beside the field; the keys work in a log view:
   stores named patterns, with import and export.
 - `Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
   exclude it, or replace the search with it.
+- Search > Clear Results stops the shown tab's search and empties its
+  results; kept result tabs stay.
+- Each search that runs, including selected log text added with `Shift+A`,
+  `Shift+E` or `Shift+R`, is saved to the search history in `qlogg.conf`.
+  Search > Clear Search History removes the history.
 
 ### Context lines
 
@@ -263,6 +268,9 @@ A comment template expands these placeholders:
 | `{regex}{replacement}` | The line with every match of `regex` replaced; `$1` is the first group, so `{.*user=(\w+).*}{$1}` gives the user name |
 
 A template whose regular expression fails is kept as typed.
+A comment keeps its first 200 characters. The session file
+(`qlogg_session.conf`) saves trigger comments with the other mark comments,
+so a `{regex}{replacement}` template writes log text there.
 
 ## Following a growing file
 
@@ -572,7 +580,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 |---|---|
 | File | Open, Open from Clipboard; Open Recent (the files, Open All, Clean Up), Recently Closed (the files, Open All, Clear), Reopen Closed Tab, Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
-| Search | Find, Find Next, Find Previous; Search Field, Search All Open Files, Search in Folder; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
+| Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
 | View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format, Edit Formats; Time Zone, Time Offset; Time Spread: Off, Activity, Pauses), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |

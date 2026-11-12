@@ -24,6 +24,11 @@ final class LinuxTraits implements OsTraits {
   }
 
   @Override
+  public Path launcherDirectory(Path home) {
+    return home.resolve("bin");
+  }
+
+  @Override
   public boolean confinesToSettings() {
     return true;
   }

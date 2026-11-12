@@ -34,7 +34,7 @@ plugins.
 | Viewing | Line numbers, go to line and `+line:N`, Go Back and Go Forward over jumps, block selection, copy with line numbers, save of a selection or the filtered view, text wrap, whitespace and line-end markers, hidden ANSI colors, folding of multi-line entries, font zoom, light, dark and system themes, view color schemes apart from the theme (Light, Dark, nine bundled and user scheme files) | [Moving around](docs/user-guide.md#moving-around), [Selecting](docs/user-guide.md#selecting-copying-and-saving), [Folding](docs/user-guide.md#folding-multi-line-entries), [View options](docs/user-guide.md#view-options), [View colors](docs/user-guide.md#view-colors) |
 | Multiple files and windows | Movable, renamable tabs with a dot for new lines or matches, a tab menu, Open, tab list (with the hidden count) and Close buttons beside the tabs, Switch to File, and an option to close the window with its last tab; several main windows, tabs moved between them as they are, Always on Top per window | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
 | Sessions and settings | Session restore of tabs, marks, offsets and sync groups; remembered position, encoding and time format per file; remembered window state; Tools > Options with a shortcut editor | [Sessions](docs/user-guide.md#sessions-recent-files-and-favorites), [Options](docs/user-guide.md#options) |
-| Portable settings | Settings beside the installation when `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
+| Portable settings | Settings beside the installation, or on Linux beside `bin/qlogg`, when `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
 | Single instance | A second launch hands its files to the running QLogg over an authenticated loopback connection; any failure opens a window of its own. Ending the process saves settings and the session | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
 | Tools and Help | Command palette; scratchpad transforms; path commands and Open in Editor; Keyboard Shortcuts, Show Log with a warning marker, debug log file, Report an Issue, and the user guide in its own browser window (on Linux in portable and `--settings` mode, the system browser); macOS application menu | [Command palette](docs/user-guide.md#moving-around), [Scratchpad](docs/user-guide.md#scratchpad), [Help](docs/user-guide.md#help-menu-and-logs) |
 
@@ -213,9 +213,10 @@ QLogg keeps its files in the first directory that applies:
 |---|---|---|
 | Explicit | `--settings <dir>` | `<dir>` |
 | Portable | `qlogg.conf` exists in the installation directory, the parent of `lib/` | The installation directory |
+| Portable (Linux) | `qlogg.conf` exists beside the `bin/qlogg` script and not in the installation directory | `bin/` |
 | Per-user | Otherwise | Linux `$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`, macOS `~/Library/Application Support/QLogg` |
 
-An empty `qlogg.conf` in the installation directory selects portable mode.
+An empty `qlogg.conf` in either place selects portable mode.
 
 | File | Contents |
 |---|---|

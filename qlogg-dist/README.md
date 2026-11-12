@@ -43,6 +43,10 @@ the jnilib bytes, so the bootstrap extracts the natives from the jar into the
 user cache on first start, with Eclipse's signatures intact. The SWT notices
 are in `Resources/swt/`.
 
+A `qlogg.conf` in `qlogg/` selects portable mode on Linux and Windows; on Linux
+one in `qlogg/bin/`, beside the script, also does, and `qlogg/` wins when both
+exist. Modes are in the root `README.md` under "Settings directory".
+
 The runtime is linked by the build JDK's `jlink` from the target JDK's jmods
 (Temurin 21.0.12+8, downloaded and verified by SHA-256) with
 `java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,

@@ -1312,7 +1312,21 @@ public enum UiText {
   /** View menu cascade of the fold commands. */
   MENU_FOLDING,
   /** File menu cascade closing the tabs around the active one. */
-  MENU_CLOSE_MULTIPLE;
+  MENU_CLOSE_MULTIPLE,
+
+  // Clear Results.
+  /** Search menu: empty the shown tab's results. */
+  COMMAND_CLEAR_RESULTS,
+
+  // Accessible names.
+  /** Accessible name of the main log view. */
+  ACCESSIBLE_LOG_VIEW,
+  /** Accessible name of the filtered view with no search. */
+  ACCESSIBLE_FILTERED_VIEW,
+  /** Accessible name of the filtered view with the shown set's match count. */
+  ACCESSIBLE_FILTERED_VIEW_COUNT,
+  /** Accessible name of the overview bar. */
+  ACCESSIBLE_OVERVIEW;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

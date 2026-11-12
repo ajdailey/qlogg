@@ -24,6 +24,11 @@ final class WindowsTraits implements OsTraits {
   }
 
   @Override
+  public Path launcherDirectory(Path home) {
+    return null;
+  }
+
+  @Override
   public boolean confinesToSettings() {
     return false;
   }

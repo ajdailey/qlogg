@@ -92,6 +92,8 @@ class CommandStatesTest {
     row(CommandId.CLOSE_OTHERS, "-- -- --");
     row(CommandId.CLOSE_LEFT, "-- -- --");
     row(CommandId.CLOSE_RIGHT, "-- -- --");
+    // Clear Results.
+    row(CommandId.CLEAR_RESULTS, "-- -- --");
   }
 
   @TempDir Path temp;

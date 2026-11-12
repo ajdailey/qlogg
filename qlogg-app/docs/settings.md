@@ -12,7 +12,7 @@ tabs](windows-and-tabs.md#settings-saves).
 | Mode | When |
 |---|---|
 | `EXPLICIT` | `--settings` is given |
-| `PORTABLE` | `<qlogg.home>/qlogg.conf` exists |
+| `PORTABLE` | `<qlogg.home>/qlogg.conf` exists; else, on Linux, `<qlogg.home>/bin/qlogg.conf` (beside the `bin/qlogg` script), and the directory is `<qlogg.home>/bin` (`OsTraits.launcherDirectory`) |
 | `PER_USER` | Otherwise; the directory is `OsTraits.userSettings` |
 
 An environment value that is not an absolute path is ignored.
@@ -39,6 +39,15 @@ the file and key, never a value, because the settings hold search history.
 Lists use indexed keys read from 0 until the first gap. A history entry over
 4,096 chars, or a filter without a name or pattern, is dropped. A value out of
 range falls back to its default.
+
+### Log text in settings files
+
+Two settings can hold text taken from a log:
+
+| Key | File | Source | Removed by |
+|---|---|---|---|
+| `search.history.N` | `qlogg.conf` | Every search that runs records its text; after Search > Add Selection to Search, Exclude Selection from Search or Replace Search with Selection, that text holds the selected log text | Search > Clear Search History, Search > Edit Search History |
+| `window.W.tab.N.comment.K` | `qlogg_session.conf` | A keyword trigger's comment template with `{regex}{replacement}` expands the appended line's text (`CommentTemplate`, up to 1,024 chars); `MarkComments` keeps the first 200 | Unmarking the line or closing its tab |
 
 ### Preferences parts
 

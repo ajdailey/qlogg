@@ -493,6 +493,7 @@ class LogViewTest {
             "Find Previous",
             "-",
             "Search Field",
+            "Clear Results",
             "Search All Open Files",
             "Search in Folder",
             "-",
@@ -518,10 +519,10 @@ class LogViewTest {
             "Auto-Refresh",
             "Keep Results",
             "Search After Add, Exclude or Replace"),
-        labels(search.getItem(13).getMenu()));
+        labels(search.getItem(14).getMenu()));
     assertEquals(
         List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
-        labels(search.getItem(14).getMenu()));
+        labels(search.getItem(15).getMenu()));
     assertEquals(
         List.of(
             "Go to Line",
