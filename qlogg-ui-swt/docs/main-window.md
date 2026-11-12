@@ -172,6 +172,16 @@ between its text and its vertical scroll bar, over the bottom pane, split by
 Bar shows or hides the bar. `+` and `-` move the split by 5 points between 10%
 and 90%; View > Filtered View > Save Splitter Position stores it.
 
+`MainWindow.fitSplit` gives the filtered view at least `MIN_FILTERED_ROWS` (3)
+rows while the main view keeps one, on open, on resize, after a sash drag and
+after a split change; the main view takes the rest. A window too short for
+that gives the main view one row and the filtered view the remainder, at least
+one row while the space allows. The minimum is computed from the search row,
+the result strip and each view's line height and scroll bar trim, and is
+applied as pixel weights. `splitPercent` returns the split as set (by
+`view.splitPercent`, the saved split, `+`, `-` or a drag), not the applied
+one, so a saved split applies again once the window has room.
+
 The bottom pane holds the `SearchBar`, then the `ResultsPane`. Showing a tab
 binds the `SearchBar` to its document.
 

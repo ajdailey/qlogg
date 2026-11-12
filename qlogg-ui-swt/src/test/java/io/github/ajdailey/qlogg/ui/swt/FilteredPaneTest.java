@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
@@ -117,7 +118,9 @@ class FilteredPaneTest {
             window,
             services,
             new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, temp)),
-            Preferences.DEFAULTS);
+            // The setup needs 4 filtered rows; the default split keeps the minimum of 3 in a
+            // window clamped to a 640x480 screen, and an even split gives 4.
+            Preferences.DEFAULTS.withSplitPercent(50));
     window.attach(controller);
     window.place(new WindowGeometry.Request(0, 0, 900, 600), null);
     window.open();
@@ -134,7 +137,21 @@ class FilteredPaneTest {
                     && document.viewport().rows() > 3
                     && document.filtered().viewport().rows() > 3;
               }
-            }));
+            }),
+        new Supplier<String>() {
+          @Override
+          public String get() {
+            DocumentController document = controller.activeDocument();
+            return document == null
+                ? "no document"
+                : "rows "
+                    + document.viewport().rows()
+                    + ", filtered "
+                    + document.filtered().viewport().rows()
+                    + ", shell "
+                    + window.shell().getSize();
+          }
+        });
   }
 
   @AfterEach

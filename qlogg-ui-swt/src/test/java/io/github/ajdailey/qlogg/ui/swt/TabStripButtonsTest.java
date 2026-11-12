@@ -639,14 +639,17 @@ class TabStripButtonsTest {
       controller.setTheme(mode);
       settle();
       controller.execute(io.github.ajdailey.qlogg.app.command.CommandId.ABOUT);
-      settle();
-      Shell about = null;
-      for (Shell shell : display.getShells()) {
-        if (shell.getText().equals("About QLogg")) {
-          about = shell;
-        }
-      }
-      assertNotNull(about);
+      // About opens after its details are read on a worker.
+      assertTrue(
+          runUntil(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return about() != null;
+                }
+              }),
+          "About opens");
+      Shell about = about();
       Label logo = (Label) about.getChildren()[0];
       Icons.Variant expected =
           ToolIcons.dark(logo.getBackground()) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
@@ -656,6 +659,15 @@ class TabStripButtonsTest {
       about.dispose();
       assertEquals(expected, shown, mode.name());
     }
+  }
+
+  private Shell about() {
+    for (Shell shell : display.getShells()) {
+      if (!shell.isDisposed() && shell.getText().equals("About QLogg")) {
+        return shell;
+      }
+    }
+    return null;
   }
 
   @Test

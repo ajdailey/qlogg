@@ -95,7 +95,8 @@ public interface MainView
   void resizeMainView(int deltaPercent);
 
   /**
-   * Returns the main view's share of the split.
+   * Returns the main view's share of the split as last set, before a minimum height for the
+   * filtered view applies.
    *
    * @return percent of the split's height
    */

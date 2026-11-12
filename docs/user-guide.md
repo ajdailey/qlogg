@@ -68,7 +68,8 @@ Encoding menu forces another one, and the choice is remembered for the file.
   whole file; a click goes there.
 - Below the splitter: the search row, the result tabs and the filtered view.
   `+` and `-` resize the main view; View > Filtered View > Save Splitter
-  Position keeps the split.
+  Position keeps the split. The filtered view keeps at least three rows while
+  the window has room for them.
 - The status bar shows indexing, follow and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
 

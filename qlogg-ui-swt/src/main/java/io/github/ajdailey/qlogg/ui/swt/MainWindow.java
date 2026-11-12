@@ -63,6 +63,7 @@ import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.program.Program;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -132,6 +133,10 @@ public final class MainWindow implements MainView, ApplicationListener {
   /** Height of the splitter between the main view and the bottom pane, in pixels. */
   static final int SASH_WIDTH = 7;
 
+  // Filtered view minimum.
+  /** Rows the filtered view keeps while the window is tall enough for them and a main view row. */
+  static final int MIN_FILTERED_ROWS = 3;
+
   private final Shell shell;
   private Keymap keymap;
   private final Composite topRow;
@@ -150,6 +155,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   // Tab strip buttons.
   private final TabStripButtons tabButtons;
   private final SashForm split;
+  // Filtered view minimum: the main view's percent as set, before the minimum applies.
+  private int wantedSplit = Preferences.DEFAULTS.splitPercent();
   private final Composite mainHolder;
   private final Composite resultsHolder;
   private final Label status;
@@ -390,6 +397,15 @@ public final class MainWindow implements MainView, ApplicationListener {
     resultsHolder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     setSplit(Preferences.DEFAULTS.splitPercent());
     gripSashes();
+    // Filtered view minimum.
+    split.addListener(
+        SWT.Resize,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            fitSplit();
+          }
+        });
     statusBar = new Composite(shell, SWT.NONE);
     GridLayout statusLayout = new GridLayout(4, false);
     statusLayout.marginHeight = 1;
@@ -515,6 +531,17 @@ public final class MainWindow implements MainView, ApplicationListener {
           child.setData(GRIP, Boolean.TRUE);
           child.setToolTipText(UiText.SPLIT_GRIP.text());
           child.addListener(SWT.Paint, grip);
+          // Filtered view minimum: SashForm's own listener has moved the sash by now.
+          child.addListener(
+              SWT.Selection,
+              new Listener() {
+                @Override
+                public void handleEvent(Event event) {
+                  if (event.detail != SWT.DRAG) {
+                    sashDragged();
+                  }
+                }
+              });
           child.redraw();
         }
       }
@@ -1653,6 +1680,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     showTime();
     mainHolder.layout(true);
     resultsHolder.layout(true);
+    // Filtered view minimum.
+    fitSplit();
     canvas.control().setFocus();
   }
 
@@ -1821,8 +1850,59 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   private void setSplit(int mainPercent) {
-    int percent = Math.max(Preferences.MIN_SPLIT, Math.min(Preferences.MAX_SPLIT, mainPercent));
-    split.setWeights(percent, 100 - percent);
+    wantedSplit = Math.max(Preferences.MIN_SPLIT, Math.min(Preferences.MAX_SPLIT, mainPercent));
+    fitSplit();
+  }
+
+  // Filtered view minimum.
+
+  /**
+   * Applies the wanted split, giving the filtered view at least {@link #MIN_FILTERED_ROWS} rows
+   * while the main view keeps one; a window too short for both gives the main view one row and the
+   * filtered view the rest, never under one row while the space allows. Runs on open, on resize,
+   * after a sash drag and when the split changes; the wanted split stays as set.
+   */
+  private void fitSplit() {
+    int total = split.getClientArea().height - SASH_WIDTH;
+    if (results == null || canvas == null || total <= 0 || split.getMaximizedControl() != null) {
+      setWeights(wantedSplit, 100 - wantedSplit);
+      return;
+    }
+    Canvas filtered = results.canvas().control();
+    int bottomTrim =
+        searchBar.control().getSize().y
+            + results.sets().getSize().y
+            + filtered.computeTrim(0, 0, 0, 0).height;
+    int mainTrim = canvas.control().computeTrim(0, 0, 0, 0).height;
+    int bottomOne = bottomTrim + results.canvas().lineHeight();
+    int bottomMin = bottomTrim + MIN_FILTERED_ROWS * results.canvas().lineHeight();
+    int mainOne = mainTrim + canvas.lineHeight();
+    int bottom = total - Math.round(total * wantedSplit / 100f);
+    bottom = Math.max(bottom, bottomMin);
+    bottom = Math.max(bottomOne, Math.min(bottom, total - mainOne));
+    bottom = Math.min(bottom, total);
+    setWeights(total - bottom, bottom);
+  }
+
+  private void setWeights(int main, int bottom) {
+    int[] now = split.getWeights();
+    if (now.length == 2 && (long) now[0] * bottom == (long) now[1] * main) {
+      return;
+    }
+    split.setWeights(Math.max(0, main), Math.max(1, bottom));
+  }
+
+  /** Takes the split a sash drag left as the wanted split, then applies the minimum. */
+  private void sashDragged() {
+    int[] weights = split.getWeights();
+    int total = weights[0] + weights[1];
+    if (total > 0) {
+      wantedSplit =
+          Math.max(
+              Preferences.MIN_SPLIT,
+              Math.min(Preferences.MAX_SPLIT, Math.round(weights[0] * 100f / total)));
+    }
+    fitSplit();
   }
 
   @Override
@@ -1956,9 +2036,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public int splitPercent() {
-    int[] weights = split.getWeights();
-    int total = weights[0] + weights[1];
-    return total <= 0 ? Preferences.DEFAULTS.splitPercent() : Math.round(weights[0] * 100f / total);
+    return wantedSplit;
   }
 
   // Save, scratchpad, search across open files and automatic highlighter sets.
