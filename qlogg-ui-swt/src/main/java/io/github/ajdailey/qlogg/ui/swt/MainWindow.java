@@ -83,21 +83,22 @@ import org.eclipse.swt.widgets.ToolItem;
 /**
  * The main window: the menu bar built from the {@link Keymap}; a top row with the icon toolbar
  * (Open, Reload, Follow), the read-only path field, Stop, and the shown file's size, encoding and
- * position; a row of tabs, one per open file, shown while two or more are open; the main log view
- * with the {@link OverviewBar} between its text and scroll bar over the bottom pane, split by a
- * sash with a grip; the bottom pane holds the {@link SearchBar} over the {@link ResultsPane}; then
- * the {@link QuickFindBar} and a status bar with the document notes, notices and the key-prefix
- * field. The views show the active tab: switching tabs disposes them and creates them over the
- * other document's controllers, which hold the viewport, selection and rows. Tabs show file names
- * and move by dragging, within the strip or to another window ({@link #dropTab}); a tab's close
- * button or a middle click closes its file, and its context menu holds the close variants, the path
- * commands, Rename Tab and Move to New Window. The path field's context menu holds the path
- * commands, Copy and Select All. Files dropped on the window open a tab each. A palette change from
- * the theme recolors both log views and the overview bar at once; native widgets follow the system.
- * Created, placed and opened on the UI thread; a close request from the window system is vetoed and
- * forwarded to the close handler, which ends with {@link #dispose}. Every QLogg dialog returns at
- * once. The platform file and color choosers run a nested event loop, and on GTK {@link
- * #clipboardText} waits on the UI thread for the clipboard owner.
+ * position; a row of tabs, one per open file, shown while any is open, with Open, tab list and
+ * Close buttons at its right end; the main log view with the {@link OverviewBar} between its text
+ * and scroll bar over the bottom pane, split by a sash with a grip; the bottom pane holds the
+ * {@link SearchBar} over the {@link ResultsPane}; then the {@link QuickFindBar} and a status bar
+ * with the document notes, notices and the key-prefix field. The views show the active tab:
+ * switching tabs disposes them and creates them over the other document's controllers, which hold
+ * the viewport, selection and rows. Tabs show file names and move by dragging, within the strip or
+ * to another window ({@link #dropTab}); a tab's close button or a middle click closes its file, and
+ * its context menu holds the close variants, the path commands, Rename Tab and Move to New Window.
+ * The path field's context menu holds the path commands, Copy and Select All. Files dropped on the
+ * window open a tab each. A palette change from the theme recolors both log views and the overview
+ * bar at once; native widgets follow the system. Created, placed and opened on the UI thread; a
+ * close request from the window system is vetoed and forwarded to the close handler, which ends
+ * with {@link #dispose}. Every QLogg dialog returns at once. The platform file and color choosers
+ * run a nested event loop, and on GTK {@link #clipboardText} waits on the UI thread for the
+ * clipboard owner.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
@@ -146,6 +147,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final List<Image> icons;
   private final SearchBar searchBar;
   private final CTabFolder tabs;
+  // Tab strip buttons.
+  private final TabStripButtons tabButtons;
   private final SashForm split;
   private final Composite mainHolder;
   private final Composite resultsHolder;
@@ -343,6 +346,28 @@ public final class MainWindow implements MainView, ApplicationListener {
     tabsData.exclude = true;
     tabs.setLayoutData(tabsData);
     tabs.setVisible(false);
+    // Tab strip buttons.
+    tabButtons =
+        new TabStripButtons(
+            tabs,
+            palette,
+            new Runnable() {
+              @Override
+              public void run() {
+                if (controller != null) {
+                  controller.execute(CommandId.OPEN);
+                }
+              }
+            },
+            new Runnable() {
+              @Override
+              public void run() {
+                if (controller != null) {
+                  controller.execute(CommandId.CLOSE);
+                }
+              }
+            });
+    tabButtons.setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
     split = new SashForm(shell, SWT.VERTICAL);
     split.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     split.setSashWidth(SASH_WIDTH);
@@ -727,8 +752,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Tab selection, close buttons and dragging go to the controller. While one tab is open, its
-   * close button and a middle click on it do nothing; File > Close and Close All still close it.
+   * Tab selection, close buttons, middle clicks and dragging go to the controller. Closing the last
+   * tab leaves an empty window unless the window closes with it.
    */
   private void listenToTabs() {
     tabs.addListener(
@@ -1223,9 +1248,9 @@ public final class MainWindow implements MainView, ApplicationListener {
     return null;
   }
 
-  /** Shows the tab row while two or more files are open. */
+  /** Shows the tab row while a file is open. */
   private void showTabs() {
-    boolean shown = tabs.getItemCount() > 1;
+    boolean shown = tabs.getItemCount() > 0;
     GridData data = (GridData) tabs.getLayoutData();
     if (data.exclude == shown) {
       data.exclude = !shown;
@@ -1241,6 +1266,17 @@ public final class MainWindow implements MainView, ApplicationListener {
    */
   CTabFolder tabs() {
     return tabs;
+  }
+
+  // Tab strip buttons.
+
+  /**
+   * Returns the buttons at the right end of the tab strip.
+   *
+   * @return Open, the tab list and Close
+   */
+  TabStripButtons tabButtons() {
+    return tabButtons;
   }
 
   /**
@@ -1268,6 +1304,11 @@ public final class MainWindow implements MainView, ApplicationListener {
     // Tab data dot.
     recolorTabDots(next);
     colorTabs(tabs, next);
+    // Tab strip buttons.
+    tabButtons.setPalette(next);
+    if (results != null) {
+      results.tabButtons().setPalette(next);
+    }
     if (canvas != null) {
       canvas.setPalette(next);
     }
@@ -2119,10 +2160,7 @@ public final class MainWindow implements MainView, ApplicationListener {
             controller.showLicenses();
           }
         };
-    // Native chrome can differ from the palette (cocoa, win32 before a restart).
-    Icons.Variant variant =
-        ToolIcons.dark(Dialogs.background(shell)) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
-    new AboutDialog(shell, info, variant, licenses, this).open();
+    new AboutDialog(shell, info, licenses, this).open();
   }
 
   @Override
@@ -2355,6 +2393,8 @@ public final class MainWindow implements MainView, ApplicationListener {
         entry.getValue().setToolTipText(toolTip(entry.getKey()));
       }
     }
+    // Tab strip buttons.
+    tabButtons.setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
     if (shortcuts != null && !shortcuts.shell().isDisposed()) {
       shortcuts.shell().dispose();
     }

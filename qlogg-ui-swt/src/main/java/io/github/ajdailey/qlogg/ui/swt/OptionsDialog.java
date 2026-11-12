@@ -90,6 +90,8 @@ final class OptionsDialog {
   // View colors.
   private Combo viewColors;
   private final List<String> colorIds = new ArrayList<String>();
+  // Last tab.
+  private Button closeWindowWithLastTab;
 
   OptionsDialog(Shell parent, ApplicationController controller) {
     this.controller = controller;
@@ -189,6 +191,12 @@ final class OptionsDialog {
     followOnLoad = check(page, UiText.OPTIONS_FOLLOW_ON_LOAD, preferences.follow().onLoad());
     followOnOverscroll =
         check(page, UiText.OPTIONS_FOLLOW_ON_OVERSCROLL, preferences.follow().onOverscroll());
+    // Last tab.
+    closeWindowWithLastTab =
+        check(
+            page,
+            UiText.OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB,
+            preferences.options().closeWindowWithLastTab());
   }
 
   private void view(Composite page) {
@@ -593,7 +601,8 @@ final class OptionsDialog {
             loadSession.getSelection(),
             overrides,
             old.favorites(),
-            old.debugLogFile()));
+            old.debugLogFile(),
+            closeWindowWithLastTab.getSelection()));
     controller.setSearchHistory(
         controller.preferences().searchHistory(), historySize.getSelection());
     controller.setQuickFindOptions(quickIncremental.getSelection(), quickRegex.getSelection());
@@ -692,5 +701,10 @@ final class OptionsDialog {
 
   Label foldError() {
     return foldError;
+  }
+
+  // Last tab.
+  Button closeWindowWithLastTab() {
+    return closeWindowWithLastTab;
   }
 }

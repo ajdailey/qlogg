@@ -31,6 +31,9 @@ final class AboutDialog {
   /** Logical size of the logo. */
   static final int LOGO_SIZE = 48;
 
+  /** Data key on the logo label holding the {@link Icons.Variant} it shows. */
+  static final String LOGO_VARIANT = "qlogg.logoVariant";
+
   /** Width of the text column, in pixels. */
   private static final int TEXT_WIDTH = 420;
 
@@ -40,16 +43,20 @@ final class AboutDialog {
   AboutDialog(
       Shell parent,
       final AboutInfo info,
-      Icons.Variant variant,
       final Runnable showLicenses,
       final ClipboardService clipboard) {
     shell = Dialogs.shell(parent, CommandId.ABOUT.title(), true);
     GridLayout layout = (GridLayout) shell.getLayout();
     layout.numColumns = 2;
     layout.horizontalSpacing = 16;
-    final Image logo = Icons.logo(shell.getDisplay(), variant, LOGO_SIZE);
     Label picture = new Label(shell, SWT.NONE);
     picture.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
+    // The variant follows the dialog's background as it shows, which on win32 dark comes from the
+    // dialog colors applied at open, not the palette or the main shell.
+    Icons.Variant variant =
+        ToolIcons.dark(Dialogs.background(parent)) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
+    picture.setData(LOGO_VARIANT, variant);
+    final Image logo = Icons.logo(shell.getDisplay(), variant, LOGO_SIZE);
     if (logo != null) {
       picture.setImage(logo);
     }

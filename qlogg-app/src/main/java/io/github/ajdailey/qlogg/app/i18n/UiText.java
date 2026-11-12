@@ -1290,7 +1290,15 @@ public enum UiText {
   /** Command label. */
   COMMAND_ALWAYS_ON_TOP,
   /** Tool tip of the disabled Always on Top item where the window manager's menu offers it. */
-  ALWAYS_ON_TOP_UNSUPPORTED;
+  ALWAYS_ON_TOP_UNSUPPORTED,
+
+  // Tab strip buttons and the last tab.
+  /** Tab list button tool tip and accessible name. */
+  TAB_LIST,
+  /** Tab list button tool tip with the hidden tab count. */
+  TAB_LIST_HIDDEN,
+  /** Options check box: closing the last tab closes the window. */
+  OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

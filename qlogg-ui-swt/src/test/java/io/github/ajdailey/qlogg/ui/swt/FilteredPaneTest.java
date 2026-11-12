@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
@@ -382,6 +384,48 @@ class FilteredPaneTest {
     assertEquals(20, document().filtered().viewport().lineCount());
     document().search().removeKept(0);
     assertEquals(1, window.results().sets().getItemCount());
+  }
+
+  // Tab strip buttons.
+
+  @Test
+  void keptResultsPastTheStripWidthAreListed() {
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    for (int i = 0; i < 12; i++) {
+      searchFor("line " + i);
+    }
+    final CTabFolder sets = window.results().sets();
+    final TabStripButtons buttons = window.results().tabButtons();
+    assertEquals(1, buttons.buttons().size(), "the list button only");
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                int hidden = 0;
+                for (CTabItem item : sets.getItems()) {
+                  hidden += item.isShowing() ? 0 : 1;
+                }
+                return hidden > 0 && buttons.hiddenCount() == hidden;
+              }
+            }),
+        "hidden count " + buttons.hiddenCount());
+    buttons.tabList().show(buttons.listButton());
+    Menu menu = buttons.tabList().menu();
+    menu.setVisible(false);
+    int entries = 0;
+    MenuItem first = null;
+    for (MenuItem item : menu.getItems()) {
+      if ((item.getStyle() & SWT.SEPARATOR) == 0) {
+        first = first == null ? item : first;
+        entries++;
+      }
+    }
+    assertEquals(sets.getItemCount(), entries);
+    first.setSelection(true);
+    first.notifyListeners(SWT.Selection, new Event());
+    assertEquals(0, sets.getSelectionIndex());
+    assertEquals(-1, document().search().shown(), "the current search shows");
   }
 
   @Test

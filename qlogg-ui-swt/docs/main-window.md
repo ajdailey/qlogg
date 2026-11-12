@@ -57,9 +57,9 @@ and caret time, each after a separator.
 
 The tab row under the top row is a `CTabFolder` with one closable tab per open
 file: text `tabTitle` (the file name unless renamed), tooltip the path, data
-its `DocumentController`. It shows while two or more files are open and is
-excluded from the layout otherwise. Its height hint is 1 px, because the
-folder adds its tab row as trim around the hint.
+its `DocumentController`. It shows while a file is open, one included, and is
+excluded from the layout with none. Its height hint is 1 px, because the folder
+adds its tab row as trim around the hint.
 
 The items have no controls. The views below show the active tab:
 `activeDocumentChanged` disposes them and creates them over the other
@@ -69,7 +69,8 @@ document's controllers, which hold the viewport, selection and rows.
 | Input | Effect |
 |---|---|
 | Select a tab | `activate` |
-| Close button, middle click | `closeDocument` |
+| Close button, middle click | `closeDocument`, the last tab included |
+| Mouse wheel over the strip or its buttons | `TabList.scroll`; see [Tab strip buttons](#tab-strip-buttons) |
 | Drag onto another tab of the strip | Recreates the item at that position (a `CTabItem` cannot move) and calls `moveDocument` |
 | Release off the tab under the press | `dropTab`; see [Tab drag between windows](#tab-drag-between-windows) |
 | Right click | `showTabMenu` |
@@ -78,6 +79,46 @@ Disposing the selected item makes `CTabFolder` select a neighbor and send
 `SWT.Selection`; the tab listener ignores it during a move, so the dragged
 document stays shown. Pressing a tab selects it, so a dragged tab always ends
 selected.
+
+Closing the last tab leaves an empty window, as File > Close does. With
+`tabs.closeWindowWithLastTab` on, `ApplicationController.closeDocument` and
+`closeAll` then close the window, and on the last window quit through
+`WindowSet.close`. Moving the last tab to another window leaves the source
+window empty either way.
+
+### Tab strip buttons
+
+`TabStripButtons` is the folder's top-right control: Open (File > Open), the
+tab list, and Close (File > Close, the current tab). Each is a `Canvas` painting
+a `ToolIcons` image (`tab-new`, `tab-list-down`, `tab-close`) on the palette's
+`gutter`, the strip's color, in the ink that color calls for. Tool tips and
+accessible names come from the command titles with their keys and from
+`UiText.TAB_LIST`; the buttons take no focus and have no default key.
+
+- The list button shows the count of hidden tabs (`CTabItem.isShowing`), read on
+  each strip `Paint`, capped at `99+`. Its tool tip reads "Show All Tabs (N
+  hidden)".
+- `TabList.show` opens one pop-up menu refilled per show: every tab in strip
+  order as a radio item with the tab's text and dot image, the selected one
+  checked, a separator on each side of the run the strip shows, and a repeated
+  name followed by its folder. Choosing an item calls `TabList.choose`, which
+  selects the tab and sends `SWT.Selection` as a tab click does. GTK 4 SWT shows
+  no image on a radio menu item, so the dots show on GTK 3, win32 and cocoa
+  only.
+- `CTabFolder` has no public way to hide its chevron. A `CTabFolderRenderer`
+  subclass draws nothing for `PART_CHEVRON_BUTTON`, and the chevron's
+  `ToolBar` is held at zero width on every resize; the strip still reserves its
+  width. A chevron request (`CTabFolder2Listener.showList`) opens `TabList`.
+- `TabList.scroll` shifts the run of shown tabs one tab per wheel event without
+  changing the selection, and stops where the selected tab would leave the run.
+  `showItem` reorders only in MRU mode, so the shift shows the tabs from the end
+  down to the new first one in MRU mode and lays out once before MRU mode ends.
+- `TabList.showSelection` repairs an SWT 3.135 defect: a selected new last tab
+  that fits beside the run already shown keeps no width and stays hidden.
+  Turning MRU mode on and off once rebuilds the show order.
+
+The results strip (`ResultsPane`) carries the list button alone: 11 kept
+searches of short patterns overflow it at 1100 px.
 
 The tab menu is one menu refilled on each call: Close This, Close Others, Close
 to the Left, Close to the Right, Close All; Copy Full Path, Copy File Name,
@@ -215,8 +256,9 @@ call replaces its text and activates it.
 one implementation chosen on first use, after the Display exists (GTK reads the
 backend the Display records). SWT has no public call, so each implementation
 reaches SWT internals by reflection and the product compiles against every
-platform's SWT jar. `ArchitectureTest.reflectionOnlyInStackingClasses` allows
-reflection in these three classes only; `noSwtInternals` is unchanged.
+platform's SWT jar. `ArchitectureTest.reflectionOnlyInExceptionClasses` allows
+reflection in these three classes and `Gtk4ToolItemSizing` only;
+`noSwtInternals` is unchanged.
 
 | Platform | Class | Call | Verified |
 |---|---|---|---|

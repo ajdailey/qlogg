@@ -23,8 +23,8 @@ import org.eclipse.swt.widgets.ToolItem;
  * The toolbar and toggle icons, rendered at build time from the SVG set into {@code
  * icons/tool/NAME-light-16.png} (dark ink) and {@code NAME-dark-16.png} (light ink), each with a 32
  * px copy for 200% zoom. The ink follows the native widget background, not the QLogg palette,
- * because toolbars and buttons are native. Images are created on first use on the UI thread and
- * disposed with the owner control.
+ * because toolbars and buttons are native; on a palette-painted tab strip it follows the palette.
+ * Images are created on first use on the UI thread and disposed with the owner control.
  */
 final class ToolIcons {
   /** Opens files. */
@@ -91,14 +91,29 @@ final class ToolIcons {
   /** An empty box. */
   static final String UNCHECKED = "unchecked";
 
+  // Tab strip buttons.
+  /** Opens files from the tab strip. */
+  static final String TAB_NEW = "tab-new";
+
+  /** Closes the current tab. */
+  static final String TAB_CLOSE = "tab-close";
+
+  /** Lists every tab. */
+  static final String TAB_LIST = "tab-list-down";
+
   /** Background luminance, 0-255, below which the light ink is used. */
   private static final int DARK_BACKGROUND = 128;
+
+  /** Gives each item room for its icon on GTK 4. */
+  private static final ToolItemSizing SIZING = ToolItemSizing.platform();
 
   private final Display display;
   private final Control owner;
   private final Map<String, Image> images = new HashMap<String, Image>();
   private final Map<ToolItem, String> items = new LinkedHashMap<ToolItem, String>();
   private boolean darkBackground;
+  // Tab strip buttons.
+  private final boolean fixedInk;
 
   /**
    * Creates the set for controls with the owner's background; the images are disposed with it.
@@ -106,9 +121,28 @@ final class ToolIcons {
    * @param owner a control whose background the icons are drawn on
    */
   ToolIcons(Control owner) {
+    this(owner, false, dark(owner.getBackground()));
+  }
+
+  // Tab strip buttons.
+
+  /**
+   * Creates the set for a surface QLogg paints from the palette, such as a tab strip. The ink
+   * changes only through {@link #follow}, not with native settings. The images are disposed with
+   * the owner.
+   *
+   * @param owner the control that disposes the images
+   * @param background the surface's color
+   */
+  ToolIcons(Control owner, Color background) {
+    this(owner, true, dark(background));
+  }
+
+  private ToolIcons(Control owner, boolean fixedInk, boolean dark) {
     this.display = owner.getDisplay();
     this.owner = owner;
-    this.darkBackground = dark(owner.getBackground());
+    this.fixedInk = fixedInk;
+    this.darkBackground = dark;
     final Listener settings =
         new Listener() {
           @Override
@@ -141,6 +175,7 @@ final class ToolIcons {
     if (image == null) {
       return false;
     }
+    SIZING.keepIconSize(item);
     item.setImage(image);
     items.put(item, name);
     return true;
@@ -148,13 +183,31 @@ final class ToolIcons {
 
   /**
    * Reads the owner's background again and, when it calls for the other ink, replaces the image of
-   * every item given to {@link #apply}. Native controls change background with the theme.
+   * every item given to {@link #apply}. Native controls change background with the theme. A set
+   * created for a palette-painted surface keeps its ink.
    */
   void reink() {
-    if (owner.isDisposed()) {
+    if (fixedInk || owner.isDisposed()) {
       return;
     }
-    boolean now = dark(owner.getBackground());
+    swap(dark(owner.getBackground()));
+  }
+
+  // Tab strip buttons.
+
+  /**
+   * Takes the ink a palette-painted surface's new color calls for; call when the palette changes.
+   *
+   * @param background the surface's color
+   */
+  void follow(Color background) {
+    if (!owner.isDisposed()) {
+      swap(dark(background));
+    }
+  }
+
+  /** Replaces the image of every applied item when the ink changes. */
+  private void swap(boolean now) {
     if (now == darkBackground) {
       return;
     }

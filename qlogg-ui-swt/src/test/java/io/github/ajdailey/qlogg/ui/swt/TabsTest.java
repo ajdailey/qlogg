@@ -213,19 +213,21 @@ class TabsTest {
   }
 
   @Test
-  void aMiddleClickClosesATabAndOneFileHidesTheTabRow() {
+  void aMiddleClickClosesTabsAndNoFileHidesTheTabRow() {
     CTabFolder tabs = window.tabs();
     assertTrue(tabs.getVisible(), "two files show the tab row");
     DocumentController second = documentOf(tabs.getItem(1));
     middleClick(tabs, 1);
     assertEquals(1, tabs.getItemCount());
     assertTrue(second.isClosed());
-    assertFalse(tabs.getVisible(), "one file hides the tab row");
+    assertTrue(tabs.getVisible(), "one file shows the tab row");
     DocumentController last = documentOf(tabs.getItem(0));
     assertEquals(last.state().path(), window.pathField().getText());
-    controller.execute(CommandId.CLOSE);
+    middleClick(tabs, 0);
     assertEquals(0, tabs.getItemCount());
-    assertTrue(last.isClosed());
+    assertTrue(last.isClosed(), "a middle click closes the last tab");
+    assertFalse(tabs.getVisible(), "no file hides the tab row");
+    assertFalse(window.shell().isDisposed(), "the window stays open");
     assertEquals("", window.pathField().getText());
     assertFalse(window.pathField().getEnabled());
   }
@@ -239,18 +241,20 @@ class TabsTest {
     Rectangle row = window.toolBar().getParent().getBounds();
     assertTrue(tabs.getBounds().y >= row.y + row.height, "tab row under the top row");
     controller.closeDocument(documentOf(tabs.getItem(1)));
-    assertFalse(tabs.getVisible());
+    assertTrue(tabs.getVisible(), "one file shows the tab row");
     assertEquals("first.log", tabs.getItem(0).getText());
+    controller.closeDocument(documentOf(tabs.getItem(0)));
+    assertFalse(tabs.getVisible(), "no file hides the tab row");
     controller.open(List.of(new FileRequest(temp.resolve("second.log"), 0)));
     assertTrue(
         runUntil(
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return window.tabs().getItemCount() == 2;
+                return window.tabs().getItemCount() == 1;
               }
             }));
-    assertTrue(tabs.getVisible(), "a second file shows the tab row again");
+    assertTrue(tabs.getVisible(), "a file shows the tab row again");
   }
 
   @Test

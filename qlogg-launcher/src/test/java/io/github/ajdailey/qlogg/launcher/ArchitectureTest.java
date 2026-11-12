@@ -139,20 +139,23 @@ class ArchitectureTest {
         .check(classes);
   }
 
-  // Always on Top.
+  // Public SWT API exceptions: Always on Top and GTK 4 tool item sizing.
 
   /** The classes that reach SWT internals by reflection, which no import shows. */
   private static final String[] SWT_REFLECTION = {
-    ROOT + ".ui.swt.Win32Stacking", ROOT + ".ui.swt.CocoaStacking", ROOT + ".ui.swt.GtkX11Stacking"
+    ROOT + ".ui.swt.Win32Stacking",
+    ROOT + ".ui.swt.CocoaStacking",
+    ROOT + ".ui.swt.GtkX11Stacking",
+    ROOT + ".ui.swt.Gtk4ToolItemSizing"
   };
 
-  /** Only the Always on Top platform classes load classes by name or open members. */
+  /** Only the listed exception classes load classes by name or open members. */
   @Test
-  void reflectionOnlyInStackingClasses() {
-    reflectionOnlyInStackingClassesRule().check(classes);
+  void reflectionOnlyInExceptionClasses() {
+    reflectionOnlyInExceptionClassesRule().check(classes);
   }
 
-  private static ArchRule reflectionOnlyInStackingClassesRule() {
+  private static ArchRule reflectionOnlyInExceptionClassesRule() {
     return noClasses()
         .that()
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[0])
@@ -160,9 +163,10 @@ class ArchitectureTest {
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[1])
         .and()
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[2])
+        .and()
+        .doNotHaveFullyQualifiedName(SWT_REFLECTION[3])
         .should()
-        .callMethodWhere(
-            call(Class.class, "forName|getDeclaredField|getDeclaredMethod|getField|getMethod"))
+        .callMethodWhere(call(Class.class, "forName|getDeclared.*|getField|getMethod"))
         .orShould()
         .callMethodWhere(call(AccessibleObject.class, "setAccessible|trySetAccessible"))
         .because("SWT internals differ per platform; only these classes reach them");
@@ -643,7 +647,7 @@ class ArchitectureTest {
         controllersReadNoSystemPropertiesRule(), controllers + "ReadsPlatform", "getProperty");
     // Always on Top.
     assertViolations(
-        reflectionOnlyInStackingClassesRule(),
+        reflectionOnlyInExceptionClassesRule(),
         views + "ReflectsIntoSwt",
         "Class.forName",
         "Field.setAccessible");

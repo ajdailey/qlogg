@@ -22,6 +22,8 @@ import java.util.List;
  * @param shortcuts {@code shortcut.*}: bindings set in place of the defaults
  * @param favorites {@code favorite.N}: file paths, at most {@link #MAX_FAVORITES}
  * @param debugLogFile {@code log.file}: Help > Debug Log File; the log also goes to the file
+ * @param closeWindowWithLastTab {@code tabs.closeWindowWithLastTab}: closing the last tab closes
+ *     the window
  */
 public record Options(
     FontSettings font,
@@ -31,7 +33,9 @@ public record Options(
     boolean loadLastSession,
     ShortcutOverrides shortcuts,
     List<String> favorites,
-    boolean debugLogFile) {
+    boolean debugLogFile,
+    // Last tab.
+    boolean closeWindowWithLastTab) {
   /** Largest {@code recent.count}. */
   public static final int MAX_RECENT = 50;
 
@@ -54,6 +58,7 @@ public record Options(
           true,
           ShortcutOverrides.NONE,
           List.of(),
+          false,
           false);
 
   /** Checks the components and copies the list. */
@@ -93,6 +98,7 @@ public record Options(
    * @param shortcuts {@code shortcut.*}
    * @param favorites {@code favorite.N}
    * @param debugLogFile {@code log.file}
+   * @param closeWindowWithLastTab {@code tabs.closeWindowWithLastTab}
    */
   public Options(
       FontSettings font,
@@ -103,7 +109,8 @@ public record Options(
       boolean loadLastSession,
       ShortcutOverrides shortcuts,
       List<String> favorites,
-      boolean debugLogFile) {
+      boolean debugLogFile,
+      boolean closeWindowWithLastTab) {
     this(
         font,
         recentCount,
@@ -112,7 +119,8 @@ public record Options(
         loadLastSession,
         shortcuts,
         favorites,
-        debugLogFile);
+        debugLogFile,
+        closeWindowWithLastTab);
   }
 
   /**
@@ -171,7 +179,8 @@ public record Options(
         loadLastSession,
         shortcuts,
         favorites,
-        debugLogFile);
+        debugLogFile,
+        closeWindowWithLastTab);
   }
 
   /**
@@ -189,7 +198,8 @@ public record Options(
         loadLastSession,
         value,
         favorites,
-        debugLogFile);
+        debugLogFile,
+        closeWindowWithLastTab);
   }
 
   /**
@@ -207,7 +217,8 @@ public record Options(
         loadLastSession,
         shortcuts,
         value,
-        debugLogFile);
+        debugLogFile,
+        closeWindowWithLastTab);
   }
 
   /**
@@ -218,7 +229,36 @@ public record Options(
    */
   public Options withDebugLogFile(boolean value) {
     return new Options(
-        font, recentCount, monitor, defaultEncoding, loadLastSession, shortcuts, favorites, value);
+        font,
+        recentCount,
+        monitor,
+        defaultEncoding,
+        loadLastSession,
+        shortcuts,
+        favorites,
+        value,
+        closeWindowWithLastTab);
+  }
+
+  // Last tab.
+
+  /**
+   * Returns a copy with {@code tabs.closeWindowWithLastTab} set.
+   *
+   * @param value true closes the window with its last tab
+   * @return the copy
+   */
+  public Options withCloseWindowWithLastTab(boolean value) {
+    return new Options(
+        font,
+        recentCount,
+        monitor,
+        defaultEncoding,
+        loadLastSession,
+        shortcuts,
+        favorites,
+        debugLogFile,
+        value);
   }
 
   /**

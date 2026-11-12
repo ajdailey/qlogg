@@ -1240,14 +1240,31 @@ public final class ApplicationController implements DocumentHost {
 
   /**
    * Closes a tab: its controllers detach, and its document closes on a worker once every operation
-   * on it ended. The tab after it, else the one before, is shown when it was the shown one.
+   * on it ended. The tab after it, else the one before, is shown when it was the shown one. With
+   * {@code tabs.closeWindowWithLastTab} on, closing the last tab closes the window.
    *
    * @param document an open document's controller
    */
   public void closeDocument(DocumentController document) {
+    if (removeDocument(document)) {
+      closeWindowAfterLastTab();
+    }
+  }
+
+  // Last tab.
+
+  /** Closes the window once its last tab closed, when the setting asks for it. */
+  private void closeWindowAfterLastTab() {
+    if (documents.isEmpty() && !shuttingDown && preferences().options().closeWindowWithLastTab()) {
+      closeWindow();
+    }
+  }
+
+  /** Closes a tab as {@link #closeDocument} does, leaving the window open; false when not open. */
+  private boolean removeDocument(DocumentController document) {
     int index = documents.indexOf(document);
     if (index < 0) {
-      return;
+      return false;
     }
     documents.remove(index);
     reopening.remove(document);
@@ -1264,6 +1281,7 @@ public final class ApplicationController implements DocumentHost {
       listener.documentClosed(document);
     }
     showAfterRemoval(document, index);
+    return true;
   }
 
   /** Shows the tab after a removed one, else the one before, when the removed one was shown. */
@@ -1283,10 +1301,16 @@ public final class ApplicationController implements DocumentHost {
     }
   }
 
-  /** Closes every tab. */
+  /**
+   * Closes every tab; with {@code tabs.closeWindowWithLastTab} on and a tab open, then the window.
+   */
   public void closeAll() {
+    boolean closed = false;
     for (DocumentController document : new ArrayList<DocumentController>(documents)) {
-      closeDocument(document);
+      closed |= removeDocument(document);
+    }
+    if (closed) {
+      closeWindowAfterLastTab();
     }
   }
 

@@ -123,10 +123,7 @@ final class FiltersDialog {
 
   private void tool(ToolBar bar, String icon, UiText tip, final Runnable action) {
     ToolItem item = new ToolItem(bar, SWT.PUSH);
-    Image image = icons.get(icon);
-    if (image != null) {
-      item.setImage(image);
-    } else {
+    if (!icons.apply(item, icon)) {
       item.setText(tip.text().replace("&", ""));
     }
     item.setToolTipText(tip.text().replace("&", ""));

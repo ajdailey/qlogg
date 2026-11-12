@@ -59,6 +59,8 @@ final class OptionsFile {
   static final String FOLDER_SEARCH_FOLDER = "folderSearch.folder";
   static final String FOLDER_SEARCH_NAMES = "folderSearch.names";
   static final String FOLDER_SEARCH_RECURSIVE = "folderSearch.recursive";
+  // Last tab.
+  static final String CLOSE_WINDOW_WITH_LAST_TAB = "tabs.closeWindowWithLastTab";
 
   /** Largest window coordinate or size accepted, in pixels. */
   static final int MAX_PIXELS = 100_000;
@@ -120,7 +122,8 @@ final class OptionsFile {
         flag(p, LOAD_LAST, d.loadLastSession(), file),
         ShortcutOverrides.load(p),
         list(p, FAVORITE, Options.MAX_FAVORITES),
-        flag(p, LOG_FILE, d.debugLogFile(), file));
+        flag(p, LOG_FILE, d.debugLogFile(), file),
+        flag(p, CLOSE_WINDOW_WITH_LAST_TAB, d.closeWindowWithLastTab(), file));
   }
 
   /**
@@ -219,6 +222,8 @@ final class OptionsFile {
     p.setProperty(ENCODING, options.defaultEncoding());
     p.setProperty(LOAD_LAST, Boolean.toString(options.loadLastSession()));
     p.setProperty(LOG_FILE, Boolean.toString(options.debugLogFile()));
+    // Last tab.
+    p.setProperty(CLOSE_WINDOW_WITH_LAST_TAB, Boolean.toString(options.closeWindowWithLastTab()));
     options.shortcuts().store(p);
     storeList(p, FAVORITE, options.favorites());
     WindowState window = state.window();

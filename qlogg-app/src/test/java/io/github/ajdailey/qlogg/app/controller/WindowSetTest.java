@@ -378,6 +378,43 @@ class WindowSetTest {
     assertEquals(1, gate.opens());
   }
 
+  // Last tab.
+
+  @Test
+  void theLastTabClosesToAnEmptyWindowUnlessTheWindowClosesWithIt() throws Exception {
+    openIn(first, log("a.log"));
+    first.closeDocument(first.documents().get(0));
+    assertTrue(first.documents().isEmpty());
+    assertEquals(List.of(first), set.windows());
+    assertFalse(set.isQuitting());
+    assertFalse(firstView.hidden);
+
+    first.setOptions(first.preferences().options().withCloseWindowWithLastTab(true));
+    first.execute(CommandId.CLOSE_ALL);
+    assertFalse(set.isQuitting(), "Close All in an empty window keeps it");
+    first.execute(CommandId.NEW_WINDOW);
+    final ApplicationController second = set.windows().get(1);
+    openIn(second, log("b.log"));
+    openIn(second, log("c.log"));
+    second.closeDocument(second.documents().get(0));
+    assertEquals(2, set.windows().size(), "a tab left keeps the window");
+    second.execute(CommandId.CLOSE);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return views.get(1).disposed;
+          }
+        });
+    assertEquals(List.of(first), set.windows());
+    assertFalse(set.isQuitting());
+
+    openIn(first, log("d.log"));
+    openIn(first, log("e.log"));
+    first.execute(CommandId.CLOSE_ALL);
+    assertTrue(set.isQuitting(), "the last window quits");
+  }
+
   @Test
   void closingOneWindowKeepsTheOthersAndDropsItsTabs() throws Exception {
     first.setSessionOwner(true);

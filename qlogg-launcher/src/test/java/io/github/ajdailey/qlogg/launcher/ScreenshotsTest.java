@@ -56,8 +56,8 @@ import org.junit.jupiter.api.io.TempDir;
  * otherwise, painted through {@code Shell.print}. Runs only with {@code -Dqlogg.screenshots=<dir>}
  * ({@code tools/screenshots.sh}). The log is written to {@code -Dqlogg.screenshots.logs=<dir>} when
  * given, so the path field shows that path, else to a test temporary directory. With {@code
- * -Dqlogg.screenshots.tabs=2} a second mock log opens first, so the tab row shows. The highlighter
- * fixture has light and dark colors, as a user would choose per palette.
+ * -Dqlogg.screenshots.tabs=2} a second mock log opens first, so the tab row holds two tabs. The
+ * highlighter fixture has light and dark colors, as a user would choose per palette.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.screenshots", matches = ".+")

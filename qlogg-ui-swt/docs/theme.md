@@ -18,7 +18,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 
 | Surface | Colors from |
 |---|---|
-| `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips | The palette |
+| `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | `CocoaChrome` shell and list colors | The system appearance; skips `PALETTE_COLORED` folders |
 | Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
@@ -108,6 +108,32 @@ toolbars are native: on Windows they stay light under the dark palette.
 `apply`. It runs on `SWT.Settings`, from the Display or from `CocoaChrome` on
 the owner, and on the UI turn after a palette change, once native controls
 have restyled.
+
+A set created with a background color (`ToolIcons(Control, Color)`) is for a
+palette-painted surface, the tab strip buttons: `reink` leaves it alone, and
+`follow` takes the ink of the palette's next `gutter`. Measured under Xvfb, GTK
+3: the Close icon against the strip is 7.79:1 (Garden Light) to 12.72:1
+(Phosphor) across Follow Theme, Light, Dark and the nine bundled schemes, in
+light and dark chrome.
+
+The About dialog picks the logo variant from the background of the label that
+holds it, not from the palette or the main shell.
+
+### GTK 4 tool item size
+
+SWT 3.135.0 on GTK 4 wraps a `ToolItem`'s GtkPicture in a box that measures 0
+high for any width under GTK 4.14, so the tool bar lays an image-only item out
+at its padding (12 px, or 4 px for a check item) and shows no icon (measured
+under Xvfb, every QLogg tool bar). `ToolIcons.apply` calls
+`ToolItemSizing.platform().keepIconSize` before `setImage`.
+`Gtk4ToolItemSizing` turns off the picture's shrinking through SWT internals
+(`ToolItem.imageHandle`, `GTK4.gtk_picture_set_can_shrink`), and the items
+measure at least 20 px each way; `NativeToolItemSizing` does nothing on the
+other backends. This is a listed Public SWT API exception, and ArchUnit
+`reflectionOnlyInExceptionClasses` keeps reflection to the exception classes.
+If an SWT upgrade renames either internal, the items fall back to SWT's layout and
+`TabStripButtonsTest.everyToolItemIsLargerThanItsIcon` fails in the GTK 4 lane.
+Every tool item image goes through `ToolIcons.apply`.
 
 ### Icon build
 

@@ -31,6 +31,7 @@ import org.eclipse.swt.widgets.Listener;
 final class ResultsPane {
   private final Composite pane;
   private final CTabFolder sets;
+  private final TabStripButtons tabButtons;
   private final Composite body;
   private final LogCanvas canvas;
   private final DocumentController document;
@@ -68,6 +69,8 @@ final class ResultsPane {
     // The folder adds its tab row as trim around the hint, which is the empty client area.
     setsData.heightHint = 1;
     sets.setLayoutData(setsData);
+    // Tab strip buttons: kept sets overflow the strip (11 short searches at 1100 px).
+    tabButtons = new TabStripButtons(sets, palette, null, null);
     body = new Composite(pane, SWT.NONE);
     body.setLayout(new FillLayout());
     body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -113,6 +116,11 @@ final class ResultsPane {
 
   CTabFolder sets() {
     return sets;
+  }
+
+  // Tab strip buttons.
+  TabStripButtons tabButtons() {
+    return tabButtons;
   }
 
   /** One tab for the current search, then one closable tab per kept set, the shown one selected. */

@@ -47,10 +47,18 @@ Encoding menu forces another one, and the choice is remembered for the file.
   encoding, position and the time of the current line
   ([Timestamps](#timestamps)). The size's tooltip shows when the file last
   changed.
-- A tab row appears while two or more files are open. A tab's menu closes tabs,
-  copies the path, opens the folder, renames the tab or moves it to a new
-  window; a middle click closes it. View > Opened Files and Switch to File
+- A tab row appears while a file is open. A tab's menu closes tabs, copies the
+  path, opens the folder, renames the tab or moves it to a new window; a middle
+  click closes it. Closing the last tab leaves an empty window, unless Close
+  the window with its last tab is on in Tools > Options, General; in the last
+  window that quits QLogg. View > Opened Files and Switch to File
   (`Ctrl+Shift+O`) list the tabs.
+- The buttons at the right end of the tab row open files (+), list every tab
+  (the arrow, with the number of tabs the row cannot show) and close the
+  current tab (x). The list marks the current tab and shows each tab's dot;
+  choosing a tab shows it. The mouse wheel over the tab row scrolls hidden
+  tabs into view without changing the current tab. The result tabs have the
+  same list button.
 - A tab that is not shown gets a dot when its file grows: green for new lines,
   orange when the tab's search, with Auto-refresh on, found new matches,
   purple when a highlighter trigger stopped follow. A reload or truncation
@@ -541,7 +549,7 @@ Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 
 | Tab | Settings |
 |---|---|
-| General | Restore the last session, recent file count, search history size, search after add, quick find options, follow options |
+| General | Restore the last session, recent file count, search history size, search after add, quick find options, follow options, close the window with its last tab |
 | View | Font family and size, bold, anti-aliasing, [view colors](#view-colors) |
 | File | Default encoding, change notifications and the check interval |
 | Shortcuts | Rebind any command; keys another command holds are refused; restore defaults |

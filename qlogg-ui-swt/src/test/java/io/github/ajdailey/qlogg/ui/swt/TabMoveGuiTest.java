@@ -221,7 +221,7 @@ class TabMoveGuiTest {
     MainWindow second = windows.get(1);
     assertSame(shown, second.canvas().document());
     assertEquals(1, second.tabs().getItemCount());
-    assertFalse(second.tabs().getVisible(), "one tab hides the strip");
+    assertTrue(second.tabs().getVisible(), "one tab shows the strip");
     assertEquals(1, first.tabs().getItemCount());
     assertTrue(first.canvas().document() != shown);
     assertFalse(shown.isClosed());
@@ -251,7 +251,7 @@ class TabMoveGuiTest {
     assertEquals(2, windows.size());
     assertSame(dragged, windows.get(1).canvas().document());
     assertEquals(1, tabs.getItemCount());
-    assertFalse(tabs.getVisible());
+    assertTrue(tabs.getVisible(), "one tab shows the strip");
   }
 
   @Test
