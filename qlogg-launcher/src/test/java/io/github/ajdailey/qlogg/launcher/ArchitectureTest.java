@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.launcher;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.codeUnits;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
@@ -883,5 +884,60 @@ class ArchitectureTest {
         return call.getTarget().getOwner().isAssignableTo(type);
       }
     };
+  }
+
+  // Dialog colors.
+
+  /**
+   * A code unit that creates a {@code Shell} with an owning shell also calls {@code
+   * DialogColors.prepare}, as {@code Dialogs.shell} does, so a dialog built another way still takes
+   * the dark dialog colors on win32. The main window is out of scope: it is created with a {@code
+   * Display}. No owned shell stays native.
+   */
+  @Test
+  void ownedShellsTakeDialogColors() {
+    ownedShellsTakeDialogColorsRule().check(classes);
+  }
+
+  @Test
+  void dialogColorsRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        ownedShellsTakeDialogColorsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$OwnsUncoloredShell",
+        "OwnsUncoloredShell.open");
+  }
+
+  private static ArchRule ownedShellsTakeDialogColorsRule() {
+    final String shell = "org.eclipse.swt.widgets.Shell";
+    final String colors = ROOT + ".ui.swt.DialogColors";
+    return codeUnits()
+        .should(
+            new ArchCondition<JavaCodeUnit>(
+                "call DialogColors.prepare when creating an owned Shell") {
+              @Override
+              public void check(JavaCodeUnit unit, ConditionEvents events) {
+                boolean owned = false;
+                for (JavaConstructorCall call : unit.getConstructorCallsFromSelf()) {
+                  if (call.getTargetOwner().isAssignableTo(shell)) {
+                    for (JavaClass parameter : call.getTarget().getRawParameterTypes()) {
+                      owned |= parameter.isAssignableTo(shell);
+                    }
+                  }
+                }
+                if (!owned) {
+                  return;
+                }
+                for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+                  if (call.getTargetOwner().isAssignableTo(colors)
+                      && call.getName().equals("prepare")) {
+                    return;
+                  }
+                }
+                events.add(
+                    SimpleConditionEvent.violated(
+                        unit, unit.getFullName() + " creates an owned Shell without DialogColors"));
+              }
+            })
+        .because("win32 draws a dialog body light under a dark start unless it is colored");
   }
 }

@@ -112,7 +112,7 @@ final class CommandPaletteWindow {
   private void fill() {
     entries = palette.filter(filter.getText());
     boolean mac = SwtKeys.mac();
-    Color gray = shell.getDisplay().getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND);
+    Color gray = Dialogs.disabledText(shell);
     table.setRedraw(false);
     try {
       table.removeAll();

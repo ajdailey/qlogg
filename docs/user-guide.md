@@ -426,9 +426,11 @@ Files), markers for tabs, trailing spaces and line ends, hiding ANSI color
 sequences (for display, copy and search), the overview bar, and the light,
 dark and system themes. Light and dark also apply to menus, scroll bars and
 other controls: at once on Linux, at the next start on Windows, which says so
-when you change it, and where only the title bar, scroll bars, menu bar and
-lists turn dark. On Linux the GTK theme must have a dark variant. On macOS
-controls follow the system appearance and the theme recolors the log views.
+when you change it. On Windows the system theme applies them too, from the
+Windows setting at start; the title bar, menu bar, buttons, scroll bars, lists
+and dialogs turn dark and the main window's toolbars stay light. On Linux the
+GTK theme must have a dark variant. On macOS controls follow the system
+appearance and the theme recolors the log views.
 
 ### View colors
 

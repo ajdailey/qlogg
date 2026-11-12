@@ -398,8 +398,10 @@ final class FiltersDialog {
     }
   }
 
+  /** Opens the dialog with the table focused, so no tool item starts highlighted. */
   void open() {
     Dialogs.open(shell, SWT.DEFAULT, SWT.DEFAULT);
+    table.setFocus();
   }
 
   Shell shell() {

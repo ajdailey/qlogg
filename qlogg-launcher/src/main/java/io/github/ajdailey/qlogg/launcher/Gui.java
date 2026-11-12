@@ -47,17 +47,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Composes the application and runs the SWT event loop on the calling thread, which becomes the UI
- * thread. The theme resolves before the first Shell: light and dark also set the native controls'
- * theme ({@link SwtThemeService#open}), which on win32 a later switch reaches only at the next
- * start; on cocoa native controls follow the system. Startup after the Display exists does not
- * block it: the command-line files open on workers once the first window is shown, each in a tab,
- * following with {@code -f}; each further window of a restored session opens with its tabs. At
- * {@code -d 2} and above an {@link EventLoopWatchdog} logs UI-thread stalls. A primary instance's
- * {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the command-line
- * files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit closes it
- * before the workers, and so does a run that ends before the first window. A JVM shutdown hook
- * ({@link ShutdownHook}) runs the quit when the process is ended without it. A primary with the
- * debug log file attached deletes other processes' old log files on a lifecycle worker ({@link
+ * thread. The theme resolves before the first Shell: light and dark, and system on win32, also set
+ * the native controls' theme ({@link SwtThemeService#open}), which on win32 a later switch reaches
+ * only at the next start; on cocoa native controls follow the system. Startup after the Display
+ * exists does not block it: the command-line files open on workers once the first window is shown,
+ * each in a tab, following with {@code -f}; each further window of a restored session opens with
+ * its tabs. At {@code -d 2} and above an {@link EventLoopWatchdog} logs UI-thread stalls. A primary
+ * instance's {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the
+ * command-line files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit
+ * closes it before the workers, and so does a run that ends before the first window. A JVM shutdown
+ * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. A primary with
+ * the debug log file attached deletes other processes' old log files on a lifecycle worker ({@link
  * FileLog#prune}). The loop ends when every window is disposed, then the Display is disposed and
  * {@link #run} returns.
  */

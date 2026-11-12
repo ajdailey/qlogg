@@ -2,6 +2,7 @@
 
 `SwtThemeService` applies `ui.theme` to native widgets and reports system
 appearance changes; `CocoaChrome` recolors native widgets on macOS;
+`DialogColors` colors dialogs on a dark Windows start;
 `MainWindow.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
 images. Module overview: [../README.md](../README.md).
 
@@ -20,25 +21,61 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | `CocoaChrome` shell and list colors | The system appearance; skips `PALETTE_COLORED` folders |
+| Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
 
 | Platform | `Display.setDarkThemePreferred` | System appearance change |
 |---|---|---|
 | GTK | `SwtThemeService.preferDark` calls it; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
-| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | `SWT.Settings` |
+| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment, and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | `SWT.Settings`; native controls take a system change at the next start |
 | cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every second and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one |
 
 `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
 into a change event.
 
 - win32: under a dark startup setting, check box labels draw near-white while
-  dialog pages stay light. Every check box therefore comes from
-  `SwtThemeService.check`, which creates it with the theme off.
+  the main window's pages stay light. Every check box therefore comes from
+  `SwtThemeService.check`, which creates it with the theme off, except in a
+  dialog with `Win32DialogColors`, whose page is dark.
 - cocoa: do not set an application appearance. cocoa SWT caches its widget
   colors under the system appearance, and a different application appearance
   draws text in that appearance over the cached backgrounds (white on light
   gray).
+
+## Dialog colors
+
+`Dialogs.shell` calls `DialogColors.prepare` on every dialog and tool window
+shell, and `Dialogs.open` calls `DialogColors.apply` before the shell shows. A
+shell built another way calls both. `DialogColors.of` picks the class:
+
+| Class | When | Colors |
+|---|---|---|
+| `Win32DialogColors` | win32, native controls started dark | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` |
+| `NativeDialogColors` | GTK, cocoa, win32 started light | None set |
+
+A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`
+face, white text) and read-only combos dark and every other surface light
+(measured, SWT 3.135.0, `windows-2025`). `Win32DialogColors` gives the shell the
+title bar color with `INHERIT_DEFAULT`, then sets each control's colors where
+they are still the defaults, so a color the dialog set stays. Push buttons and
+read-only combos keep the native dark drawing. A control created after the
+dialog opens is colored at its `SWT.Skin` event.
+
+| Stays native | Drawn |
+|---|---|
+| `TabFolder` tab row and frame | Light; the selected page is dark |
+| `Table` grid lines and header dividers | Light lines between dark rows and header cells |
+| `Spinner` arrows | Light buttons beside the dark field |
+| A hovered or focused `ToolItem` | A light highlight under the light-ink icon (seen on Predefined Filters' focused Add; hover assumed the same) |
+| Disabled text | The system gray: a disabled label `#808080` on the body (4.1 contrast). `Dialogs.disabledText` (`#9a9a9a`) colors only the rows the command palette draws disabled |
+| `Browser` (the user guide) | The page's own colors |
+| `FileDialog`, `ColorDialog` | The system dialogs |
+
+The colors follow the startup setting, as win32 native controls do: after a
+theme change, open and newly opened dialogs keep them until the next start.
+`Dialogs.background` reports a new dialog's background, from which About picks
+its logo, and `Dialogs.disabledText` the gray of a disabled table row.
 
 ## Tab strip colors
 

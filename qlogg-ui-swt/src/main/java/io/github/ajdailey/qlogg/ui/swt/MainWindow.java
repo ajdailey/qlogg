@@ -2121,7 +2121,7 @@ public final class MainWindow implements MainView, ApplicationListener {
         };
     // Native chrome can differ from the palette (cocoa, win32 before a restart).
     Icons.Variant variant =
-        ToolIcons.dark(shell.getBackground()) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
+        ToolIcons.dark(Dialogs.background(shell)) ? Icons.Variant.DARK : Icons.Variant.LIGHT;
     new AboutDialog(shell, info, variant, licenses, this).open();
   }
 

@@ -89,4 +89,11 @@ final class ViewViolations {
           && controller.isFavorite(document);
     }
   }
+
+  /** Creates an owned shell without the dialog colors. */
+  static final class OwnsUncoloredShell {
+    org.eclipse.swt.widgets.Shell open(org.eclipse.swt.widgets.Shell parent) {
+      return new org.eclipse.swt.widgets.Shell(parent, org.eclipse.swt.SWT.DIALOG_TRIM);
+    }
+  }
 }

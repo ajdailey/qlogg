@@ -23,11 +23,12 @@ import org.eclipse.swt.widgets.Listener;
  *
  * <p>Native controls take the theme from {@link Display#setDarkThemePreferred}. GTK applies a
  * change at once, so {@link #preferDark} calls it there. win32 controls read it only when created,
- * so {@link #open} sets it before the first Shell and {@link #showsNow} reports whether that
- * startup setting matches a request. On cocoa native controls always follow the system appearance
- * and the service never calls it: cocoa SWT reads its widget colors once, under the system
- * appearance, and an application appearance that differs draws text in its own appearance over
- * those backgrounds, white on light gray or black on dark gray. Do not pin the cocoa appearance.
+ * so {@link #open} sets it before the first Shell, in system mode from the system setting at that
+ * moment, and {@link #showsNow} reports whether that startup setting matches a request. On cocoa
+ * native controls always follow the system appearance and the service never calls it: cocoa SWT
+ * reads its widget colors once, under the system appearance, and an application appearance that
+ * differs draws text in its own appearance over those backgrounds, white on light gray or black on
+ * dark gray. Do not pin the cocoa appearance.
  */
 public final class SwtThemeService implements ThemeService {
   private static final boolean GTK = "gtk".equals(SWT.getPlatform());
@@ -116,15 +117,17 @@ public final class SwtThemeService implements ThemeService {
   }
 
   /**
-   * Creates the service and, for light or dark off cocoa, sets the native controls' theme; call
-   * before the first Shell exists.
+   * Creates the service and sets the native controls' theme to the mode's palette side: for light
+   * or dark on GTK and win32, and for system on win32, where the system setting is read once here.
+   * On cocoa, and for system on GTK, native controls follow the platform's own setting. Call before
+   * the first Shell exists.
    *
    * @param display a Display with no Shell
    * @param mode the theme setting
    * @return the service
    */
   public static SwtThemeService open(Display display, ThemeMode mode) {
-    if (mode == ThemeMode.SYSTEM || COCOA) {
+    if (COCOA || (mode == ThemeMode.SYSTEM && !WIN32)) {
       return new SwtThemeService(display);
     }
     boolean value = ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark();
@@ -134,17 +137,28 @@ public final class SwtThemeService implements ThemeService {
   }
 
   /**
-   * Creates a check box readable on a light page. win32's dark native theme draws a check box label
-   * near-white, or light gray when disabled, and dialog pages stay light; {@code setForeground}
-   * reaches only an enabled box. The theme applies to a control when it is created, so under a dark
-   * startup setting the box is created with the theme off.
+   * Returns whether native controls started with the dark theme.
+   *
+   * @param display the Display
+   * @return true after {@link #open} set the dark theme
+   */
+  static boolean nativeDark(Display display) {
+    return Boolean.TRUE.equals(display.getData(NATIVE_DARK));
+  }
+
+  /**
+   * Creates a check box readable on its page. win32's dark native theme draws a check box label
+   * near-white, or light gray when disabled; {@code setForeground} reaches only an enabled box. The
+   * theme applies to a control when it is created, so under a dark startup setting a box on a light
+   * page is created with the theme off. A box in a dialog with {@link Win32DialogColors} sits on a
+   * dark page and keeps the theme.
    *
    * @param parent the parent
    * @return the check box
    */
   static Button check(Composite parent) {
     Display display = parent.getDisplay();
-    boolean light = WIN32 && Boolean.TRUE.equals(display.getData(NATIVE_DARK));
+    boolean light = WIN32 && nativeDark(display) && !DialogColors.colored(parent.getShell());
     if (light) {
       display.setDarkThemePreferred(false);
     }

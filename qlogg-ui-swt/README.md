@@ -15,7 +15,7 @@ against the build host's SWT fragment.
 | `MainMenuBar`, `TimeSyncMenu`, `AppMenu` | Menu bar, listed entries, Time Sync cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
 | `Dialogs` and the dialog classes, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
-| `SwtThemeService`, `CocoaChrome`, `Icons`, `ToolIcons` | Native widget theme per platform, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
+| `SwtThemeService`, `CocoaChrome`, `DialogColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |
 
 ## UI thread

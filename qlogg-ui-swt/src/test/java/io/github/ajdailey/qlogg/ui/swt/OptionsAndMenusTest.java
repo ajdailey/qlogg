@@ -53,6 +53,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.junit.jupiter.api.AfterEach;
@@ -479,5 +480,31 @@ class OptionsAndMenusTest {
     assertTrue(dialog.apply());
     assertSame(Palette.LIGHT, window.palette());
     dialog.shell().dispose();
+  }
+
+  // Predefined Filters focus.
+
+  @Test
+  void predefinedFiltersOpensWithTheTableFocused() {
+    final List<Shell> before = List.of(display.getShells());
+    controller.execute(CommandId.PREDEFINED_FILTERS);
+    final Shell[] dialog = new Shell[1];
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                for (Shell shell : display.getShells()) {
+                  if (!before.contains(shell) && shell.isVisible()) {
+                    dialog[0] = shell;
+                    shell.forceActive();
+                    return display.getFocusControl() instanceof Table;
+                  }
+                }
+                return false;
+              }
+            }),
+        "focus " + display.getFocusControl());
+    dialog[0].dispose();
   }
 }

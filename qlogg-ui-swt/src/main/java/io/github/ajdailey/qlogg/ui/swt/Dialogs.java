@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -34,8 +35,8 @@ final class Dialogs {
   }
 
   /**
-   * Creates a dialog shell with a given style and the owning shell's window icons. The icons stay
-   * owned by the shell that created them.
+   * Creates a dialog shell with a given style, the owning shell's window icons and the platform's
+   * {@link DialogColors}. The icons stay owned by the shell that created them.
    *
    * @param parent the owning shell
    * @param title the title
@@ -46,6 +47,7 @@ final class Dialogs {
     Shell shell = new Shell(parent, style);
     shell.setText(title);
     inheritIcons(shell, parent);
+    DialogColors.of(shell.getDisplay()).prepare(shell);
     GridLayout layout = new GridLayout(1, false);
     layout.marginWidth = 12;
     layout.marginHeight = 12;
@@ -142,13 +144,14 @@ final class Dialogs {
   }
 
   /**
-   * Opens a dialog centered over its parent.
+   * Opens a dialog centered over its parent, its controls in the {@link DialogColors}.
    *
    * @param shell the dialog
    * @param width preferred width, or {@code SWT.DEFAULT}
    * @param height preferred height, or {@code SWT.DEFAULT}
    */
   static void open(Shell shell, int width, int height) {
+    DialogColors.of(shell.getDisplay()).apply(shell);
     shell.pack();
     Point size = shell.computeSize(width, height);
     Rectangle owner = shell.getParent().getBounds();
@@ -158,6 +161,26 @@ final class Dialogs {
         size.x,
         size.y);
     shell.open();
+  }
+
+  /**
+   * Returns the background of a dialog opened over an owner.
+   *
+   * @param owner the owning shell
+   * @return the color
+   */
+  static Color background(Shell owner) {
+    return DialogColors.of(owner.getDisplay()).background(owner);
+  }
+
+  /**
+   * Returns the text color of a disabled table row in a dialog.
+   *
+   * @param shell the dialog
+   * @return the color
+   */
+  static Color disabledText(Shell shell) {
+    return DialogColors.of(shell.getDisplay()).disabledText(shell.getDisplay());
   }
 
   /**
