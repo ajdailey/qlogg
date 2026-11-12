@@ -43,7 +43,26 @@ public enum Target {
   }
 
   /**
-   * Maps the JVM's {@code os.name} and {@code os.arch} to a target.
+   * Maps this JVM's {@code os.name} and {@code os.arch} to a target. No other bootstrap class reads
+   * {@code os.name}.
+   *
+   * @return the target, or null on an unsupported platform
+   */
+  public static Target current() {
+    return of(System.getProperty("os.name"), System.getProperty("os.arch"));
+  }
+
+  /**
+   * Returns the message for this JVM's platform when {@link #current()} is null.
+   *
+   * @return the message, without a line terminator
+   */
+  static String unsupportedMessage() {
+    return unsupportedMessage(System.getProperty("os.name"), System.getProperty("os.arch"));
+  }
+
+  /**
+   * Maps an {@code os.name} and {@code os.arch} pair to a target.
    *
    * @param osName {@code Linux}, a name starting {@code Windows}, or {@code Mac OS X}
    * @param osArch {@code amd64}, {@code x86_64} or {@code aarch64}

@@ -176,6 +176,13 @@ missing.
   Regression: an exception ended the watch thread silently, and with it
   following.
 
+## Operating system seam
+
+| Class | Covers |
+|---|---|
+| `OsTraitsTest` | Each `os.name` form selecting one class, every answer of each class from a fixed name, `current()` matching this JVM, `EnvPaths.absolute` refusing null, empty, relative and NUL values |
+| `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of` |
+
 ## Platform assumptions
 
 | Case | Skips |

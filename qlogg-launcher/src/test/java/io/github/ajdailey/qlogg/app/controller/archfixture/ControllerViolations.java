@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -153,6 +154,15 @@ final class ControllerViolations {
             }
           });
       later.run();
+    }
+  }
+
+  // Operating system checks.
+
+  /** Asks the operating system seam for this process's system instead of taking it in. */
+  static final class AsksTheOs {
+    boolean mac() {
+      return OsTraits.current().macKeymap();
     }
   }
 }

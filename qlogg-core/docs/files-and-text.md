@@ -12,7 +12,7 @@ and type-checked, not contained to a directory.
 
 | Method | Rule |
 |---|---|
-| `logPath`, `logFile` | Rejects empty, NUL and, on Windows, device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. The file named to `holdLock` is rejected under any name. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
+| `logPath`, `logFile` | Rejects empty, NUL and, on Windows (`OsTraits.opensDeviceNames`), device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. The file named to `holdLock` is rejected under any name. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
 | `settingsDirectory` | Absolute, normalized, created with POSIX `rwx------` where supported, resolved to its real path, must be a directory |
 | `child` | A fixed name matching `[A-Za-z0-9._-]+`, resolved inside the directory |
 | `holdLock`, `releaseLock` | Name and forget the process's instance lock file, compared by real path and file key, so a hard link matches. On POSIX a close of any channel on the file ends the process's lock, and a replace of the name leaves the lock on the old file |

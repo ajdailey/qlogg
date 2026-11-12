@@ -204,6 +204,12 @@ class KeymapTest {
     assertEquals(List.of("View", "  Line Numbers\tCtrl+E Ctrl+T"), List.of(filtered.split("\n")));
   }
 
+  @Test
+  void theDefaultsFollowThisJvm() {
+    boolean mac = System.getProperty("os.name", "").startsWith("Mac");
+    assertEquals(Keymap.defaults(mac).bindings(), Keymap.defaults().bindings());
+  }
+
   // Navigation history and command palette.
 
   @Test

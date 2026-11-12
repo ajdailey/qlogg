@@ -22,6 +22,7 @@ display.
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
 | `core.util` | `Checks`, `Streams` | [Utilities](#utilities) |
+| `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths` | [Operating system seam](#operating-system-seam) |
 
 ## Threads
 
@@ -77,6 +78,27 @@ Every operation on a document's file holds a `LogDocument` entry
 |---|---|
 | `Checks` | `atLeast` and `notNegative` throw `IllegalArgumentException` naming the argument |
 | `Streams` | `readLimited` reads a stream to its end and throws `IOException` once it passes the limit, so an oversized file is refused rather than truncated |
+
+## Operating system seam
+
+`OsTraits` answers each question that differs between operating systems.
+`OsTraits.current()` picks `WindowsTraits`, `MacTraits` or `LinuxTraits` once
+from `os.name`; a name that is neither Windows nor macOS takes the Linux
+answers. No other class in core, app or the launcher reads `os.name`, and
+`app.controller` does not call `current()`: a controller takes the system, or a
+value from it, from its caller (`ArchitectureTest`). Tests take another
+system's answers from `OsTraits.of(name)`.
+
+| Method | Windows | macOS | Linux | Caller |
+|---|---|---|---|---|
+| `opensDeviceNames` | true | false | false | `SafePaths` refuses device forms |
+| `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
+| `confinesToSettings` | false | false | true | `PlatformSetup` moves `user.home`; `UserGuide.embedded` |
+| `webView2` | true | false | false | `PlatformSetup` sets the WebView2 data folder |
+| `macKeymap` | false | true | false | `Keymap.defaults()` |
+
+`OsTraits.description()` is the About line: `os.name`, `os.version` and
+`os.arch`.
 
 ## Testing
 

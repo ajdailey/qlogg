@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +49,7 @@ public final class PortableGuideMain {
     SettingsMode mode = "portable".equals(args[1]) ? SettingsMode.PORTABLE : SettingsMode.EXPLICIT;
     final boolean open = args.length < 3 || Boolean.parseBoolean(args[2]);
     SettingsLocation location = new SettingsLocation(mode, dir);
-    PlatformSetup.apply("Linux", location);
+    PlatformSetup.apply(OsTraits.of("Linux"), location);
     ConfigStore config = new ConfigStore(location);
     StartupRequest request =
         new StartupRequest(

@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -53,12 +54,16 @@ class PortableRunTest {
     Files.writeString(log, "one\ntwo\nthree\n");
     SettingsLocation location =
         SettingsLocation.resolve(
-            null, bundle.toString(), "Linux", Map.<String, String>of(), home.toString());
+            null,
+            bundle.toString(),
+            OsTraits.of("Linux"),
+            Map.<String, String>of(),
+            home.toString());
     assertEquals(SettingsMode.PORTABLE, location.mode());
     Map<Path, Long> before = files(temp);
     String userHome = System.getProperty("user.home");
     try {
-      PlatformSetup.apply("Linux", location);
+      PlatformSetup.apply(OsTraits.of("Linux"), location);
       run(location, log, true);
       run(location, log, false);
     } finally {

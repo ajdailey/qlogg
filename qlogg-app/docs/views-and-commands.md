@@ -111,7 +111,7 @@ constructor folds it into `PRIMARY` (`KeyStroke.forPlatform`) and drops a
 binding the fold repeats, so a macOS binding read from `qlogg.conf` becomes the
 `Ctrl` binding.
 
-`Keymap.defaults()` reads `os.name`; `defaults(mac)` differs only for Go Back
+`Keymap.defaults()` takes `OsTraits.current().macKeymap()`; `defaults(mac)` differs only for Go Back
 and Go Forward: `Alt+Left` and `Alt+Right`, or `Control+Command+Left` and
 `Right` on macOS, where `Option`+arrow moves by word in a text field.
 

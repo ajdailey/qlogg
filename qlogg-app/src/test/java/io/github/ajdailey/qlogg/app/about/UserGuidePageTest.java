@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -42,10 +43,10 @@ class UserGuidePageTest {
 
   @Test
   void linuxShowsTheGuideEmbeddedOnlyInPerUserMode() {
-    assertTrue(UserGuide.embedded(SettingsMode.PER_USER, "Linux"));
-    assertFalse(UserGuide.embedded(SettingsMode.PORTABLE, "Linux"));
-    assertFalse(UserGuide.embedded(SettingsMode.EXPLICIT, "Linux"));
-    assertTrue(UserGuide.embedded(SettingsMode.PORTABLE, "Windows 11"));
-    assertTrue(UserGuide.embedded(SettingsMode.EXPLICIT, "Mac OS X"));
+    assertTrue(UserGuide.embedded(SettingsMode.PER_USER, OsTraits.of("Linux")));
+    assertFalse(UserGuide.embedded(SettingsMode.PORTABLE, OsTraits.of("Linux")));
+    assertFalse(UserGuide.embedded(SettingsMode.EXPLICIT, OsTraits.of("Linux")));
+    assertTrue(UserGuide.embedded(SettingsMode.PORTABLE, OsTraits.of("Windows 11")));
+    assertTrue(UserGuide.embedded(SettingsMode.EXPLICIT, OsTraits.of("Mac OS X")));
   }
 }

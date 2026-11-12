@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.app.ipc.InstanceClient;
 import io.github.ajdailey.qlogg.app.ipc.InstanceServer;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -86,7 +87,7 @@ public final class Launcher {
       }
     }
     SettingsLocation location = SettingsLocation.fromSystem(settings);
-    PlatformSetup.apply(System.getProperty("os.name"), location);
+    PlatformSetup.apply(OsTraits.current(), location);
     if (LOG.isInfoEnabled()) {
       LOG.info(
           "QLogg {} on Java {} from {}",

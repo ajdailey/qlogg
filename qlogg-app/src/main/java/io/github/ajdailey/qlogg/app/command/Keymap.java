@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.command;
 
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,16 +37,13 @@ public final class Keymap {
     this.mac = mac;
   }
 
-  /** True on macOS, where Go Back and Go Forward take {@code Control+Command+Left} and Right. */
-  private static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
-
   /**
    * Returns the default bindings of the running platform.
    *
    * @return the keymap
    */
   public static Keymap defaults() {
-    return defaults(MAC);
+    return defaults(OsTraits.current().macKeymap());
   }
 
   /**

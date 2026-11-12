@@ -13,7 +13,7 @@ tabs](windows-and-tabs.md#settings-saves).
 |---|---|
 | `EXPLICIT` | `--settings` is given |
 | `PORTABLE` | `<qlogg.home>/qlogg.conf` exists |
-| `PER_USER` | Otherwise |
+| `PER_USER` | Otherwise; the directory is `OsTraits.userSettings` |
 
 An environment value that is not an absolute path is ignored.
 

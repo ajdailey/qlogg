@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,14 +28,14 @@ final class PlatformSetup {
    * mode, sets {@link #EDGE_DATA_DIR} to {@code <settings>/cache/webview2}, so the WebView2 browser
    * of the user guide writes its data inside the settings directory.
    *
-   * @param osName the {@code os.name} property
+   * @param os the system
    * @param settings the settings directory
    */
-  static void apply(String osName, SettingsLocation settings) {
-    if (settings.mode() != SettingsMode.PER_USER && "Linux".equals(osName)) {
+  static void apply(OsTraits os, SettingsLocation settings) {
+    if (settings.mode() != SettingsMode.PER_USER && os.confinesToSettings()) {
       System.setProperty("user.home", settings.directory().toString());
     }
-    if (osName.startsWith("Windows")) {
+    if (os.webView2()) {
       try {
         System.setProperty(
             EDGE_DATA_DIR,

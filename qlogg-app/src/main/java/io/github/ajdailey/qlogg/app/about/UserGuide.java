@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.about;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -31,11 +32,11 @@ public final class UserGuide {
    * application instead.
    *
    * @param mode the settings mode
-   * @param osName the {@code os.name} property
+   * @param os the system
    * @return false on Linux outside per-user mode
    */
-  public static boolean embedded(SettingsMode mode, String osName) {
-    return mode == SettingsMode.PER_USER || !"Linux".equals(osName);
+  public static boolean embedded(SettingsMode mode, OsTraits os) {
+    return mode == SettingsMode.PER_USER || !os.confinesToSettings();
   }
 
   /**

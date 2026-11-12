@@ -40,7 +40,7 @@ loads `qlogg.conf`, `positions.conf`, and `qlogg_session.conf` when the session
 is restored: with `-s`, or with neither `-s` nor `-n`, no file given and
 `session.loadLast` on.
 
-`PlatformSetup` then sets:
+`PlatformSetup` then sets, from `OsTraits.current()`:
 
 | Property | When | Value | Why |
 |---|---|---|---|
@@ -212,6 +212,7 @@ fails:
 | In `app.controller`, blocking file, document and settings calls only in `@WorkerThread` methods or tasks submitted to `Workers`; `@WorkerThread` methods called only from those | Controllers run on the UI thread |
 | No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors` or pool constructors outside `Workers` | One owner for every thread |
 | `LogDocument.open` and `ofText` only in `app.controller.DocumentOpener` within `app` | A document whose open ends after its window closed is closed, not leaked |
+| The string `os.name` only in `core.util.os` (`osNameOnlyInTheOsSeam`, read from each class file's constant pool); no `OsTraits.current()` in `app.controller` | Operating system checks go through `OsTraits`; tests choose the system |
 
 ## Testing
 

@@ -27,6 +27,7 @@ import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.AppMenu;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
 import io.github.ajdailey.qlogg.ui.swt.SwtThemeService;
@@ -196,8 +197,7 @@ final class Gui {
     final SwtUiDispatcher ui = new SwtUiDispatcher(display);
     final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
     set.setLogging(LogConfigurator.RECENT, logFiles);
-    set.setEmbeddedGuide(
-        UserGuide.embedded(config.location().mode(), System.getProperty("os.name")));
+    set.setEmbeddedGuide(UserGuide.embedded(config.location().mode(), OsTraits.current()));
     set.setFactory(
         new WindowSet.Factory() {
           @Override

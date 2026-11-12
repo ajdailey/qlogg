@@ -11,7 +11,7 @@ loads every other QLogg class, and SWT, through its own class loader.
 |---|---|
 | `Main` | Java 8 entry point and version check |
 | `Boot` | Startup sequence |
-| `Target` | `os.name` and `os.arch` to a target |
+| `Target` | `os.name` and `os.arch` to a target; the only bootstrap reader of `os.name` |
 | `BootIndex` | `META-INF/qlogg/index.properties` |
 | `Natives`, `NativesLocation` | Native library verification and extraction |
 | `NestedJarClassLoader` | Classes and resources from nested jars |
@@ -25,8 +25,9 @@ instead of failing with `UnsupportedClassVersionError`. It reaches `Boot`
 through reflection, because a Java 8 compilation cannot link to Java 21
 bytecode. `Boot.start` then:
 
-1. Maps `os.name` and `os.arch` to a `Target`; any other platform prints one
-   line and exits 2.
+1. Maps `os.name` and `os.arch` to a `Target` (`Target.current`); any other
+   platform prints one line and exits 2. `NativesLocation` and `MacRelaunch`
+   branch on that `Target`.
 2. On macOS without `-XstartOnFirstThread`, relaunches (`MacRelaunch`).
 3. Reads `META-INF/qlogg/index.properties` and prepares the natives
    (`Natives`).
@@ -111,7 +112,7 @@ the first process are not carried over.
 |---|---|
 | `MainTest` | Java 21 and later accepted, the message naming the running Java, `Main` compiled as Java 8 bytecode; `java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named by `-Dqlogg.test.java8=<path to java>` and is skipped without it |
 | `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
-| `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both |
+| `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both, `current` matching this JVM |
 | `NativesTest` | Extraction into an owner-only directory, an existing cache directory set owner-only, a tampered library extracted again, a failed move over a matching library succeeding and over a mismatched one failing, a bundle directory verified and never written, names outside the directory refused |
 | `NestedJarClassLoaderTest` | Classes and resources from nested jars |
-| `BootstrapArchitectureTest` | The module depends on the JDK only, process creation only in `MacRelaunch`, `System.exit` only in `Main` |
+| `BootstrapArchitectureTest` | The module depends on the JDK only, process creation only in `MacRelaunch`, `System.exit` only in `Main`, the string `os.name` only in `Target` (shown to fail on `archfixture.BootViolations`) |

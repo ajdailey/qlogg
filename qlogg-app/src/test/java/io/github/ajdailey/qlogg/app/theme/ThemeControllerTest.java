@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -190,7 +191,7 @@ class ThemeControllerTest {
         SettingsLocation.resolve(
             null,
             temp.toString(),
-            "Linux",
+            OsTraits.of("Linux"),
             Map.<String, String>of(),
             temp.resolve("home").toString());
     assertEquals(SettingsMode.PORTABLE, location.mode());
