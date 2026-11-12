@@ -11,10 +11,10 @@ against the build host's SWT fragment.
 
 | Classes | Contents | Detail |
 |---|---|---|
-| `MainWindow`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `WindowStacking` | The main window: top row, tab row, split body, search row, filtered view, status bar, Always on Top | [docs/main-window.md](docs/main-window.md) |
-| `MainMenuBar`, `TimeSyncMenu`, `AppMenu` | Menu bar, listed entries, Time Sync cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
+| `MainWindow`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabList`, `WindowStacking` | The main window: top row, tab row, split body, search row, filtered view, status bar, Always on Top | [docs/main-window.md](docs/main-window.md) |
+| `MainMenuBar`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu` | Menu bar, listed entries, Time Sync and Color Label cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
-| `Dialogs` and the dialog classes, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
+| `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
 | `SwtThemeService`, `CocoaChrome`, `DialogColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |
 | `PlatformTraits`, `Win32Traits`, `CocoaTraits`, `GtkTraits`, `Gtk3Traits`, `Gtk4Traits` | Every view-layer platform difference | [docs/main-window.md](docs/main-window.md#platform-traits) |
@@ -27,10 +27,11 @@ class that calls `Display.asyncExec` or `timerExec`, and nothing calls
 disposal races the call. `cancelTimer` cancels a `timerExec` task that has not
 run.
 
-View classes must not block the UI thread. `ArchitectureTest` rejects in this
-module `Future.get`, `Thread.join`, `Thread.sleep`, `Object.wait`, `Lock.lock`,
-`Condition.await`, `Semaphore.acquire`, `BlockingQueue.put` and `take`,
-`CountDownLatch.await`, `OperationHandle.await` and `java.nio.channels`.
+View classes must not block the UI thread. `ArchitectureTest`
+(`qlogg-launcher`) rejects in this module `Future.get`, `Thread.join`,
+`Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`,
+`Semaphore.acquire`, `BlockingQueue.put` and `take`, `CountDownLatch.await`,
+`OperationHandle.await` and `java.nio.channels`.
 
 Views read controller state only. They do not use `LogDocument`,
 `MutableLineSet`, `LineReader` or `FoldMap`, do not call the `Viewport`

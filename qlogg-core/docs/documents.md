@@ -113,7 +113,8 @@ the path. The document keeps the source it opened with.
 ## LineReader
 
 `LineReader` (one per thread, from `newReader()`) decodes lines through the
-block cache. It reads at most the first 1 MiB of a line, so a longer line shows
+shared `BlockCache`; `newReader(cache)` reads through another cache, so a scan
+of many lines does not evict the shared blocks. It reads at most the first 1 MiB of a line, so a longer line shows
 and copies its first MiB.
 
 | Method | Returns |

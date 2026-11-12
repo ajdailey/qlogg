@@ -49,14 +49,16 @@ folder, `AtomicFiles`) on a `qlogg-lifecycle-` worker. The controller then
 calls `MainView.showGuide`, else `showGuideElsewhere`: `launch` on the copy,
 else a notice naming it. The launcher's `Gui` passes `UserGuide.embedded` to
 `WindowSet.setEmbeddedGuide`, and while it is false the controller skips
-`showGuide`. `embedded` is false on Linux in portable and `--settings` mode: WebKitGTK and Mesa write `~/.cache/QLogg`,
-`~/.local/share/QLogg` and `~/.cache/mesa_shader_cache` once the embedded
-browser opens, outside the settings directory (measured with `strace -f`, an
-empty `HOME`, WebKitGTK 4.1). Moving them through `XDG_CACHE_HOME` and
-`XDG_DATA_HOME` is not used: set before the Display it hides
-`~/.local/share/fonts` and passes to launched programs, and set later it
-moves nothing because GLib caches both. The view also calls `showGuideElsewhere` when its
-guide window fails after `showGuide` returned true.
+`showGuide`. The view also calls `showGuideElsewhere` when its guide window
+fails after `showGuide` returned true.
+
+`embedded` is false on Linux in portable and `--settings` mode, because
+WebKitGTK and Mesa write `~/.cache/QLogg`, `~/.local/share/QLogg` and
+`~/.cache/mesa_shader_cache` once the embedded browser opens, outside the
+settings directory (measured with `strace -f`, an empty `HOME`, WebKitGTK
+4.1). Do not move them through `XDG_CACHE_HOME` and `XDG_DATA_HOME`: set before
+the Display, that hides `~/.local/share/fonts` and passes to launched programs;
+set later, it moves nothing because GLib caches both.
 
 ## Recent log lines
 

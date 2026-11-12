@@ -176,6 +176,12 @@ missing.
   Regression: an exception ended the watch thread silently, and with it
   following.
 
+## Atomic writes
+
+| Class | Covers |
+|---|---|
+| `AtomicFilesTest` | Write and replace leaving no temporary file; a failed move or read keeping the target. The Windows move retry runs on every host through `AtomicFiles.tryMove` with a `Move` that throws: access denied and a sharing-violation `FileSystemException` tried again, a move refused every time throwing after the last attempt, `NoSuchFileException` tried to the last attempt and a plain `IOException` thrown at once |
+
 ## Operating system seam
 
 | Class | Covers |

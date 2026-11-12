@@ -183,8 +183,9 @@ a live instance's file: its process runs, and its writes keep it young.
 ## Architecture rules
 
 `ArchitectureTest` checks every class except the bootstrap; test classes and
-test jars are not imported. `rulesFailOnTheirFixtures` runs the boundary and
-thread rules against the violating classes in `ui.swt.archfixture` and
+test jars are not imported. `rulesFailOnTheirFixtures` and the other fixture
+tests run the view, controller, thread, platform, OS and dialog color rules
+against the violating classes in `ui.swt.archfixture` and
 `app.controller.archfixture` (test sources), so a rule that stops matching
 fails:
 
@@ -194,12 +195,17 @@ fails:
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
 | No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
 | `SWT.getPlatform()` only in `PlatformTraits`; no `System.getenv` in `ui.swt` or `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
+| `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
+| A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.prepare` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |
 | `core.util` depends on no other QLogg package | Utilities stay leaf classes |
 | `ui.swt` uses `core.{search, watch}` only for their enums | Views read controller state, not the search and file-watch model |
 | Views do not depend on `LogDocument`, `MutableLineSet`, `LineReader` or `FoldMap`, and do not call `Viewport` mutators | The controller owns the document, the sets and the viewport |
+| Views do not call `Highlighter.of` or `compile` | `HighlightComposer` and `HighlightSetsEditor` compose and validate rules |
+| `ui.swt` does not call `ApplicationController.isFavorite`, `debugLogFile`, `runSearchOnAdd` or `ThemeController.mode` | `CommandStates` computes check item state |
+| `app.controller.TextExporter` does not depend on `app.view` | The exporter runs on a worker; its caller posts the result to the UI thread |
 | Public `app.controller` methods do not return `MutableLineSet` | Views cannot change marks or results |
 | `app.controller` reads no system property or environment variable | Tests choose the platform through the view |
 | Every `UiText` constant is read outside `UiText` | No unused bundle entry |
@@ -208,7 +214,7 @@ fails:
 | No `ProcessBuilder`, `Runtime.exec`, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
 | `System.exit` and `Runtime.halt` only in `launcher.Main` | Exit only before the Display exists |
 | No `Display.syncExec`; `Display.asyncExec` and `timerExec` only in `SwtUiDispatcher` | A worker never waits on the UI thread; submissions after disposal are dropped |
-| No `Future.get`, `Thread.join` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
+| No `Future.get`, `Thread.join`, `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`, `Semaphore.acquire`, `BlockingQueue.put` or `take`, `CountDownLatch.await`, `OperationHandle.await` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
 | No `Future.get`, `Thread.join`, `Thread.sleep`, `OperationHandle.await` or `CountDownLatch.await` in `app.controller` and `app.command` | Controllers run on the UI thread |
 | In `app.controller`, blocking file, document and settings calls only in `@WorkerThread` methods or tasks submitted to `Workers`; `@WorkerThread` methods called only from those | Controllers run on the UI thread |
 | No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors` or pool constructors outside `Workers` | One owner for every thread |
@@ -238,4 +244,4 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |
 | `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN and rolling once the directory is gone; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
-| `ArchitectureTest` | The rules above, and each rule against its fixture |
+| `ArchitectureTest` | The rules above, and the fixture tests |

@@ -44,12 +44,12 @@ range falls back to its default.
 
 | Part | Keys | Read and written by |
 |---|---|---|
-| `Preferences` fields | `ui.theme` (`ThemeMode`), search history and size, `search.maxResults`, `search.runOnAdd`, quick find options, `view.splitPercent`, `view.overview`, predefined filters | `ConfigStore` |
+| `Preferences` fields | `ui.theme` (`ThemeMode`), search history and size, `search.maxResults`, `search.runOnAdd`, quick find options, `view.splitPercent`, `view.overview`, `follow.*`, predefined filters | `ConfigStore` |
 | `HighlightSettings` | `highlight.*`, `label.*`, `matchHighlight.*` | `HighlightFile` |
 | `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab` | `OptionsFile` |
-| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
+| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
 
 `FoldRulesText.parse` checks the Options Folding tab's text. Blank lines are
 dropped and other lines kept as typed. Every pattern must compile; at most 64
@@ -117,11 +117,11 @@ file name order.
 | `name` | The name in Tools > Options; blank, or holding a control character, shows the id; cut at 64 chars |
 | Each `Palette.COLOR_NAMES` entry | `#rrggbb` |
 
-Other keys are ignored. A file is skipped with one WARN naming it when its id
-is not 1 to 64 letters, digits, `-` and `_`, or is `follow`, `light`, `dark` or a bundled id;
-when it is not a regular file (links are not followed), is over 64 KiB or does
-not parse; or when `dark` or a color is missing or invalid. At most 64 files
-are read. Values are never logged.
+Other keys are ignored. A file is skipped with one WARN naming it when its id is
+not 1 to 64 letters, digits, `-` and `_`, or is `follow`, `light`, `dark` or a
+bundled id; when it is not a regular file (links are not followed), is over 64
+KiB or does not parse; or when `dark` or a color is missing or invalid. At most
+64 files are read. Values are never logged.
 
 ## Position and session stores
 

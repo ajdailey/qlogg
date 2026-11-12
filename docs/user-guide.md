@@ -3,9 +3,9 @@
 QLogg shows large and growing log files without loading them into memory. It
 never connects to another computer; a second launch hands its files to the
 running QLogg over a local-only connection. On macOS, `Ctrl` in this guide is
-`Cmd`; Help > Keyboard Shortcuts lists every key for your platform and Tools >
-Options, Shortcuts changes them. Menus on Linux show modifiers in GTK's order,
-`Shift+Ctrl+T` for `Ctrl+Shift+T`.
+`Cmd` and `Alt` is `Option`; Help > Keyboard Shortcuts lists every key for your
+platform and Tools > Options, Shortcuts changes them. Menus on Linux show
+modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
 - [Opening files](#opening-files)
 - [The main window](#the-main-window)
@@ -21,6 +21,7 @@ Options, Shortcuts changes them. Menus on Linux show modifiers in GTK's order,
 - [Scratchpad](#scratchpad)
 - [Sessions, recent files and favorites](#sessions-recent-files-and-favorites)
 - [Windows and the running instance](#windows-and-the-running-instance)
+- [Menus](#menus)
 - [Options](#options)
 - [Help menu and logs](#help-menu-and-logs)
 - [Command line](#command-line)
@@ -29,10 +30,11 @@ Options, Shortcuts changes them. Menus on Linux show modifiers in GTK's order,
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
 File > Open Recent or File > Favorites, or on the command line. Each file
-opens in its own tab; a dropped folder is not opened. The first lines show at
-once while indexing continues in the background; `Esc` or the Stop button
-stops it. File > Open from Clipboard (`Ctrl+V` in a log view) opens the
-clipboard's text, up to 16 MiB, held in memory only.
+opens in its own tab. A drop always copies, so the source never moves or
+deletes the file; folders in a drop are not opened, and a notice says so. The
+first lines show at once while indexing continues in the background; `Esc` or
+the Stop button stops it. File > Open from Clipboard (`Ctrl+V` in a log view)
+opens the clipboard's text, up to 16 MiB, held in memory only.
 
 Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
 color labels.
@@ -87,7 +89,7 @@ Encoding menu forces another one, and the choice is remembered for the file.
 | `Home`, `0`, `^`, `$`, `End` | Line start, line end, right edge of the text |
 | `Ctrl+L` | Go to a line |
 | `Ctrl+Shift+L` | Go to a time |
-| `Alt+Left`, `Alt+Right` (macOS: `Control+Command+Left`, `Control+Command+Right`) | Go back to the line before a jump, and forward again |
+| `Alt+Left`, `Alt+Right` (macOS: `Ctrl+Cmd+Left`, `Ctrl+Cmd+Right`) | Go back to the line before a jump, and forward again |
 | `Ctrl+PageDown`, `Ctrl+PageUp` | Next and previous tab |
 | `Space` | Switch between the main and the filtered view |
 | `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Options size |
@@ -102,8 +104,9 @@ reload keeps the jumps; a shorter file moves those past its end to its last
 line. Go Back and Go Forward are gray when there is no jump in that direction.
 
 View > Command Palette lists every menu command with its menu and keys. Type
-letters of the command's name in order, such as `gtl` for Go to Line, and press
-`Enter` to run the first one. Commands that cannot run now are gray.
+letters of the command's name in order, such as `gtl` for Go to Line. The first
+row is selected and the arrow keys move the selection; `Enter` or a double
+click runs the command. Commands that cannot run now are gray and do not run.
 
 ![Command palette filtered by gtl](images/guide/palette.png)
 
@@ -113,19 +116,19 @@ Type a pattern in the search row and press `Enter`. Matching lines appear in
 the filtered view below the main view; a click there goes to the line in the
 main view. `n` and `N` (`F3`, `Shift+F3`) go to the next and previous match.
 
-The icon toggles beside the field, also on keys `4` to `9` in a log view:
+The icon toggles beside the field; the keys work in a log view:
 
-| Toggle | Effect |
-|---|---|
-| Match case | Case-sensitive search |
-| Regular expression | Java regular expression, else plain text |
-| Whole word | The match must be a whole word |
-| Inverse | Lines that do not match |
-| Combine | Expressions such as `"error" and not "retry"` |
-| In selection | Only the selected lines |
-| Auto-refresh | Search lines appended to a followed file |
-| Keep results | The next search adds a result tab instead of replacing the results |
-| Range | Every line from a line matching the pattern through the next line matching the range end; no key |
+| Toggle | Key | Effect |
+|---|---|---|
+| Match case | `4` | Case-sensitive search |
+| Regular expression | `5` | Java regular expression, else plain text |
+| Whole word | | The match must be a whole word |
+| Inverse | `6` | Lines that do not match |
+| Combine | `7` | Expressions such as `"error" and not "retry"` |
+| In selection | | Only the selected lines |
+| Auto-refresh | `8` | Search lines appended to a followed file |
+| Keep results | `9` | The next search adds a result tab instead of replacing the results |
+| Range | | Every line from a line matching the pattern through the next line matching the range end |
 
 ### Limits, views and filters
 
@@ -533,8 +536,8 @@ Window > New Window opens another main window.
 
 View > Always on Top keeps a window above other windows; each window has its
 own setting, and a new window starts without it. Dialogs the window opens stay
-above it. It is unavailable on Linux under Wayland or GTK 4, where the window
-manager's window menu (`Alt+Space`) offers Always on Top instead.
+above it. On Linux under Wayland or GTK 4 the item is gray; use Always on Top
+in the window manager's window menu (`Alt+Space`) instead.
 
 ### Moving tabs between windows
 
@@ -560,18 +563,59 @@ which comes to the front. A file a window shows already is shown in that tab
 instead of a second one, with `+line:N` and `-f` applied. On macOS, files
 opened from the Finder or dropped on the Dock icon arrive the same way.
 
+## Menus
+
+Each menu in order; `;` separates the groups and a cascade's items are in
+parentheses. Help > Keyboard Shortcuts lists the keys.
+
+| Menu | Items |
+|---|---|
+| File | Open, Open from Clipboard; Open Recent (the files, Open All, Clean Up), Recently Closed (the files, Open All, Clear), Reopen Closed Tab, Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
+| Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
+| Search | Find, Find Next, Find Previous; Search Field, Search All Open Files, Search in Folder; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
+| Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format, Edit Formats; Time Zone, Time Offset; Time Spread: Off, Activity, Pauses), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
+| Encoding | Auto; the common encodings, Other |
+| Tools | Predefined Filters, Save as Filter; Scratchpad; Options |
+| Window | New Window; Move to New Window; Next Tab, Previous Tab, Switch to File, Opened Files |
+| Help | Documentation, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
+
+On macOS, About QLogg, Options (as Preferences) and Exit (as Quit) are in the
+QLogg menu.
+
+The log view's context menu holds the copy, mark, search, selection and save
+commands, Toggle Fold, Scroll All Tabs to This Time, and the Time Sync,
+Highlighters and Color Label cascades. Find Selection Forward and Backward,
+Send Selection to Scratchpad and Replace Scratchpad with Selection are only
+there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
+context menu.
+
 ## Options
 
 Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 
-| Tab | Settings |
-|---|---|
-| General | Restore the last session, recent file count, search history size, search after add, quick find options, follow options, close the window with its last tab |
-| View | Font family and size, bold, anti-aliasing, [view colors](#view-colors) |
-| File | Default encoding, change notifications and the check interval |
-| Shortcuts | Rebind any command; keys another command holds are refused; restore defaults |
-| Advanced | Stop a search after a number of matches; Keep file closed ([Following a growing file](#following-a-growing-file)) |
-| Folding | The fold rules ([Folding multi-line entries](#folding-multi-line-entries)) |
+| Tab | Setting | Default | Effect |
+|---|---|---|---|
+| General | Load the last session at startup | On | A start without files restores the session |
+| General | Recent files kept | 20 | Length of File > Open Recent, 1 to 50 |
+| General | Search history size | 50 | Patterns the search history keeps, 1 to 1,000 |
+| General | Search at once after add, exclude and replace | On | `Shift+A`, `Shift+E` and `Shift+R` run the search |
+| General | Quick find searches while typing | On | Quick find moves as you type |
+| General | Quick find uses regular expressions | Off | Quick find patterns are regular expressions, else plain text |
+| General | Follow files when they open | Off | View > Follow New Files |
+| General | Follow when scrolling down past the last line | On | View > Follow on Overscroll |
+| General | Close the window with its last tab | Off | Closing the last tab closes the window; in the last window, QLogg quits |
+| View | Font, Size | Platform monospace font and size | The log views' font; size 4 to 72 |
+| View | Bold, Force anti-aliasing | Off | Text drawing |
+| View | View colors | Follow theme | [View colors](#view-colors) |
+| File | Default encoding | ISO-8859-1 | Used when detection finds no other encoding |
+| File | Use directory change notifications | On | Notices file changes from system events between checks |
+| File | Check interval (ms) | 1000 | How often open files are checked for changes, 100 to 60,000 |
+| Shortcuts | The command list | Built-in keys | Rebind any command; keys another command holds are refused; restore defaults |
+| Advanced | Stop a search after this many matches | 0, no limit | Takes effect at the next start |
+| Advanced | Keep file closed | Off | [Keep file closed](#keep-file-closed) |
+| Folding | Entry start pattern, Continuation patterns | The rules in [Folding multi-line entries](#folding-multi-line-entries) | Restore Defaults brings the built-in rules back |
 
 ![Keyboard Shortcuts](images/guide/shortcuts.png)
 
@@ -596,7 +640,7 @@ qlogg [options] [[+line:N] file]...
 
 | Option | Effect |
 |---|---|
-| `-h`, `--help` | Print usage and exit |
+| `-h`, `--help`, `--help-all` | Print usage and exit |
 | `-v`, `--version` | Print the version and exit |
 | `-d`, `--debug <level>` | Log level on stderr: `1` INFO, `2` DEBUG, `3` TRACE, or a level name |
 | `-l`, `--log` | Also write the debug log file for this run |
@@ -608,6 +652,7 @@ qlogg [options] [[+line:N] file]...
 | `--window-x <px>`, `--window-y <px>` | Window position |
 | `--settings <dir>` | Settings directory |
 | `+line:N` | Open the next file at line N |
+| `--` | End of options; the remaining arguments are files |
 
 QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
 `~/.config/qlogg`, Windows `%APPDATA%\QLogg`, macOS

@@ -89,6 +89,9 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
 `activeDocumentChanged`, `documentReplaced` and `tabRenamed`.
 
 - Closing the shown tab shows the one after it, else the one before.
+- Closing the last tab, or Close All, leaves an empty window. With
+  `tabs.closeWindowWithLastTab` on, the window closes through `closeWindow`, so
+  the last window quits. Close All in an empty window does nothing.
 - `Ctrl+PageDown` and `Ctrl+PageUp` show the next and previous tab.
 - The tab context menu calls `closeOthers`, `closeSide`, `copyPath`,
   `copyFileName`, `openContainingFolder`, `renameTab` and `resetTabName`. A tab
@@ -103,8 +106,9 @@ a document entry, reads included, before it closes the file.
 
 ### Path commands
 
-`copyPath`, `copyFileName`, `openContainingFolder` and `openInEditor` (Edit
-menu and tab menu) act on the file's path. The folder and the file open through
+`copyPath`, `copyFileName` (Edit menu), `openContainingFolder` and
+`openInEditor` (File menu) act on the file's path; the tab menu has all but
+`openInEditor`. The folder and the file open through
 `MainView.launch`, which runs no shell. `openInEditor` first checks on a
 `qlogg-lifecycle-` worker whether the system would run the file instead of
 opening it: an executable file, or an extension in `WINDOWS_EXECUTABLE` where
@@ -177,8 +181,8 @@ for Auto.
 ## Command dispatch
 
 `execute(command)` runs File, Help, Go to Line, the search field, quick find,
-the split and the history and filter dialogs itself. Search toggles, visibility
-modes, edits with selection and search limits go to the shown document's
+the split and the history and filter dialogs itself. Search toggles, filtered
+view modes, edits with selection and search limits go to the shown document's
 `SearchController` and `FilteredController`. Every other command goes to the
 focused view. A canvas reports focus through `setFocusedView` on focus, click
 and key; without one, the main view is focused.
@@ -192,9 +196,9 @@ and key; without one, the main view is focused.
 
 ### Command palette
 
-View > Command Palette (`Ctrl+Shift+P`) calls `MainView.showCommandPalette`
-over `commandPalette()`. `CommandPalette.filter` lists every menu command but
-itself with its menu path (`Search > Search Options`) and `CommandStates.enabled`. A
+View > Command Palette (`Ctrl+Shift+P`) calls `MainView.showCommandPalette` over
+`commandPalette()`. `CommandPalette.filter` lists every menu command but itself
+with its menu path (`Search > Search Options`) and `CommandStates.enabled`. A
 query matches when its non-blank chars appear in order in the title, ignoring
 case, else in the menu path and title; a char scores 1, 3 more right after the
 previous match and 5 more at a word start, and rows sort by score, then menu
@@ -207,13 +211,14 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 
 | Commands | Checked from | Enabled when |
 |---|---|---|
-| Checks in `APPLICATION_CHECKS` | Settings, theme, block mode or debug log file | Always |
+| Checks in `APPLICATION_CHECKS` | Settings, theme, block mode, debug log file or the window's Always on Top flag | Always; Always on Top only while `MainView.onTopSupported` |
 | Other checks | The shown document | A document shows |
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
 | Move to New Window | - | A document shows |
 | Close Others, Close to the Left, Close to the Right | - | The active tab has a tab on that side (`tabItems`) |
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
 | Go Back, Go Forward | - | The shown document's history has an entry in that direction |
+| Go to Time, Scroll All Tabs to This Time, Time Offset, Time Zone | - | The shown document has a timestamp format |
 | Open Recent > Open All; Recently Closed > Open All, Clear | - | The list is not empty |
 | Reopen Closed Tab | - | Recently Closed is not empty |
 
@@ -244,11 +249,12 @@ favorite path. File > Open Recent > Clean Up checks the paths on a
 `RecentFiles` keeps File > Recently Closed in `UiState.closedFiles`, at most 20,
 newest first. Closing a tab lists its file; closing a window or quitting does
 not. Opening the file in any tab drops it. A reopened file opens through the
-normal path, at its remembered position unless Follow New Files is on. Open All on either list checks the paths on a
-`qlogg-lifecycle-` worker, opens the regular, readable ones in list order (a
-file open already shows its tab) and names the others in one notice. File >
-Reopen Closed Tab (`Ctrl+Shift+T`) takes the newest entry off the list, then
-opens it through `openListed`, so a missing file leaves the list too.
+normal path, at its remembered position unless Follow New Files is on. Open All
+on either list checks the paths on a `qlogg-lifecycle-` worker, opens the
+regular, readable ones in list order (a file open already shows its tab) and
+names the others in one notice. File > Reopen Closed Tab (`Ctrl+Shift+T`) takes
+the newest entry off the list, then opens it through `openListed`, so a missing
+file leaves the list too.
 
 `UiState` receives the search toggles, line number toggles, the Open dialog's
 directory and dialog sizes (`rememberDialogSize`). When a window closes, and at

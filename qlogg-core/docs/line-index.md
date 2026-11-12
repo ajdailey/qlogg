@@ -50,6 +50,10 @@ at most every 100 ms and once at the end.
   grows.
 - At most `maxBlocksInFlight` blocks (default two per CPU thread) are read
   but not appended; fewer when `IO_BUFFERS` is short.
+- Each `Indexer` has its own `ReadBuffers` pool and trims it when an
+  operation ends. `Indexer(workers, settings, false)` keeps the pool until
+  `trim()`, for a run that indexes many files in turn
+  ([Search in a folder](search.md#search-in-a-folder)).
 - `IndexListener` calls run on the coordinator thread and must not block
   toward the UI thread.
 

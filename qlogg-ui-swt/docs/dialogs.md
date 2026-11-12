@@ -3,10 +3,10 @@
 The dialogs (`Dialogs`, `LineNumberDialog`, `ErrorDialog`, `AboutDialog`,
 `TextWindow`, `ShortcutsWindow`, `HistoryDialog`, `FiltersDialog`,
 `NameDialog`, `SwitchFileDialog`, `HighlightersDialog`, `OptionsDialog`,
-`SelectorsDialog`, the timestamp dialogs and `GuideWindow`) and the tool
-windows (`ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`,
-`MarksWindow`). Module
-overview: [../README.md](../README.md).
+`SelectorsDialog`, `CommandPaletteWindow`, the timestamp dialogs and
+`GuideWindow`) and the tool windows (`ScratchpadWindow`, `MultiSearchWindow`,
+`FolderSearchWindow`, `MarksWindow`). Module overview:
+[../README.md](../README.md).
 
 ## Dialog model
 
@@ -106,7 +106,7 @@ Under GTK 4 no `Browser` is created; see
 
 ## Tool windows
 
-All three are modeless.
+All four are modeless.
 
 ### Scratchpad
 
@@ -135,7 +135,10 @@ a `DirectoryDialog`), the file name globs, Include subfolders, the search text
 and the toggles, then a summary, a progress bar and two virtual tables: the
 listed files with their match count and status, and the selected file's
 matching lines. Enter or a double click on a line opens it in a tab. Stop
-cancels the run; closing the window clears it.
+cancels the run. `FolderSearchController` (`qlogg-app`) runs the search on
+workers and calls the window's listener on the UI thread. Closing the window
+calls `FolderSearchController.clear`, which cancels the run and closes its
+results, returning their `RESULTS` reservation.
 
 ### Marks List
 

@@ -30,8 +30,8 @@ at shutdown.
   set until it holds no other thread.
 - Pool threads are daemon threads, so a missed `close` cannot keep the JVM
   alive.
-- Code that catches `InterruptedException` restores the interrupt flag and
-  returns.
+- Code that catches `InterruptedException` restores the interrupt flag, then
+  returns or throws.
 
 ## Background operations
 
@@ -53,12 +53,12 @@ shares that all open documents draw from:
 | Share | Percent | Holder |
 |---|---|---|
 | `LINE_INDEX` | 40 | `GrowableLineIndex` |
-| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines, folder search results |
+| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines, filtered-view `Extras` snapshots and `ContextRows` checkpoints, folder search results |
 | `BLOCK_CACHE` | 10 | `BlockCache`, at most 64 MiB |
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `COPY` | 5 | Text being copied to the clipboard or saved |
 | `FOLDS` | 3 | Fold maps |
-| `HIGHLIGHT` | 2 | Highlight and layout caches |
+| `HIGHLIGHT` | 2 | Highlight spans of the shown rows, color labels, overview bins, time samples and the time spread; row text layouts are not charged |
 | `PASTED` | 2 | Text opened from the clipboard, while its document is open |
 
 The remaining 8% is headroom.

@@ -126,8 +126,8 @@ uses its document's encoding and result set and is charged to `RESULTS`.
 
 ## Search in a folder
 
-`FolderSearchController` (Search > Search in Folder) runs a `FolderSearch` over a
-folder's files without opening tabs; core detail is in
+`FolderSearchController` (Search > Search in Folder) runs a `FolderSearch`
+over a folder's files without opening tabs; core detail is in
 [qlogg-core Search](../../qlogg-core/docs/search.md#search-in-a-folder).
 
 - `request()` is the last run's `FolderRequest`. Otherwise it takes the
@@ -145,8 +145,8 @@ folder's files without opening tabs; core detail is in
   of a replaced run are dropped.
 - `open(file, hit)` selects the tab whose path or real path is the file and
   goes to the line, else opens the file at that line.
-- `clear()` cancels and drops the results. The window calls it when it
-  closes, and so does a window's close.
+- `clear()` cancels and drops the results. The Search in Folder window calls
+  it when it closes, and so does closing the main window.
 
 ## Predefined filters
 

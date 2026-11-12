@@ -26,7 +26,8 @@ Favorites, Search > Search Options, View > Folding).
   as `Ctrl+C` reach the log view and never a text field.
 - A `check()` command is a check item.
 - No two items of a menu, cascade or context menu share a mnemonic
-  (`LogViewTest.mnemonicsAreUniqueInEveryMenu` walks the built menus).
+  (`LogViewTest.mnemonicsAreUniqueInEveryMenu` walks the menu bar and the log
+  view, tab, path field and search field context menus).
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.
 - `syncEnablement` applies every item's enablement on each document open,

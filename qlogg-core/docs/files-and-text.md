@@ -13,6 +13,7 @@ and type-checked, not contained to a directory.
 | Method | Rule |
 |---|---|
 | `logPath`, `logFile` | Rejects empty, NUL and, on Windows (`OsTraits.opensDeviceNames`), device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. The file named to `holdLock` is rejected under any name. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
+| `logDirectory` | A folder to search: the same form checks as `logFile`, made absolute and normalized, must be an existing directory, resolved to its real path |
 | `settingsDirectory` | Absolute, normalized, created with POSIX `rwx------` where supported, resolved to its real path, must be a directory |
 | `child` | A fixed name matching `[A-Za-z0-9._-]+`, resolved inside the directory |
 | `holdLock`, `releaseLock` | Name and forget the process's instance lock file, compared by real path and file key, so a hard link matches. On POSIX a close of any channel on the file ends the process's lock, and a replace of the name leaves the lock on the old file |
@@ -28,7 +29,7 @@ and type-checked, not contained to a directory.
 | `ReopeningByteSource` | Holds no file between reads ([Keep file closed](documents.md#keep-file-closed)). `size()` reads the attributes of the real path |
 | `MemoryByteSource` | A byte array in the heap, for pasted text. `path()` is null; the size never changes |
 | `BlockCache` | LRU of fixed-size blocks for random reads, keyed by source and block number. `fromBudget` creates the process's cache: 64 KiB blocks, the smaller of the `BLOCK_CACHE` share and 64 MiB, charged for the life of the process. A miss loads into an evicted block's array, so a full cache allocates nothing; bytes are copied out under the lock, which is never held during I/O. A block read short at end of file is read again when a request reaches past it. `invalidateFrom` drops a block and everything after it; `invalidate(source)` drops a source's blocks, which `LogDocument.close` calls |
-| `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, reused while operations run. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits. `trim` drops free buffers past the first two and releases their reservation; the indexer calls it when an operation ends, the search engine when a search ends with the share short of a full pool |
+| `ReadBuffers` | Pool of little-endian direct buffers for sequential scans, reused while operations run. The first two are charged to `IO_BUFFERS` unconditionally; past the share, `tryAcquire` returns null and `acquire` waits. `trim` drops free buffers past the first two and releases their reservation; an `Indexer` calls it when an operation ends (unless created to keep its pool), the search engine when a search ends with the share short of a full pool |
 
 A read after `close` throws `ClosedChannelException` on every `ByteSource`.
 
