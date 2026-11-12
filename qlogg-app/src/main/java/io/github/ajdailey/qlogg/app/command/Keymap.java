@@ -176,6 +176,11 @@ public final class Keymap {
     window(b, CommandId.COMMAND_PALETTE, P, 'P');
     // Reopen Closed Tab.
     window(b, CommandId.REOPEN_CLOSED, P, 'T');
+    // Search in Folder keys: Ctrl+Shift+H (Cmd+Shift+H), jEdit's search-in-directory, the steps.
+    window(b, CommandId.SEARCH_FOLDER, P, 'H');
+    sequence(b, CommandId.SEARCH_FOLDER, 'd');
+    window(b, CommandId.NEXT_FOLDER_MATCH, 0, KeyStroke.F4);
+    window(b, CommandId.PREVIOUS_FOLDER_MATCH, S, KeyStroke.F4);
     return new Keymap(b, mac);
   }
 

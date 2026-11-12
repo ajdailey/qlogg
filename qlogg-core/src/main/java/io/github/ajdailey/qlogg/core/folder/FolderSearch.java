@@ -52,9 +52,10 @@ import java.util.regex.PatternSyntaxException;
  * a {@link MutableLineSet}, a read of each matching line, and close. File content stays on disk;
  * the heap holds one file's index and result set at a time, plus the listed lines.
  *
- * <p>Walk: subfolders only when {@code recursive}; a name must match the {@link NamePattern}. A
- * symbolic link to a file is searched, as an open follows it; a link to a folder is not entered. A
- * file or folder the walk cannot read is listed {@code UNREADABLE}.
+ * <p>Walk: subfolders only when {@code recursive}; a file name must match {@code names} and not
+ * {@code exclude} ({@link NamePattern#excludes}). A symbolic link to a file is searched, as an open
+ * follows it; a link to a folder is not entered. A file or folder the walk cannot read is listed
+ * {@code UNREADABLE}.
  *
  * <p>A file that does not open or index is listed {@code UNREADABLE}; one with a one-byte code unit
  * and a NUL byte in its first {@link EncodingDetector#SAMPLE_BYTES} is listed {@code NOT_TEXT}
@@ -64,7 +65,9 @@ import java.util.regex.PatternSyntaxException;
  * <p>Memory: each walked file reserves {@link #ENTRY_BYTES} plus 2 bytes per path char from {@code
  * RESULTS}, and each listed line {@link #HIT_BYTES} plus 2 bytes per char; the line text is cut at
  * {@link #MAX_TEXT_CHARS}. {@link FolderResults} holds these reservations until it closes. A
- * refused reservation stops the search: the current file keeps the lines listed so far, {@link
+ * refused reservation, in this class or in the file's search, first calls {@link
+ * FolderListener#resultsRefused}: on true the reservation is retried, or the file searched again.
+ * Otherwise it stops the search: the current file keeps the lines listed so far, {@link
  * FolderResults#limited} turns true and the search ends {@code COMPLETED} with {@code MEMORY}. A
  * run indexes through its own {@link Indexer} of {@link #INDEX_BLOCK_BYTES} blocks, which keeps its
  * buffer pool until the run ends: a pool trimmed after each file frees its direct memory only at a
@@ -255,7 +258,7 @@ public final class FolderSearch {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
               token.check();
               Path name = file.getFileName();
-              if (name == null || !query.names().matches(name)) {
+              if (name == null || !wanted(name)) {
                 return FileVisitResult.CONTINUE;
               }
               long size;
@@ -276,7 +279,7 @@ public final class FolderSearch {
                 return FileVisitResult.CONTINUE;
               }
               long cost = entryBytes(file);
-              if (!budget.reserve(MemoryShare.RESULTS, cost)) {
+              if (!reserve(cost)) {
                 results.setLimited();
                 return FileVisitResult.TERMINATE;
               }
@@ -292,7 +295,7 @@ public final class FolderSearch {
                 return FileVisitResult.CONTINUE;
               }
               Path name = file.getFileName();
-              if (name != null && !query.names().matches(name) && !Files.isDirectory(file)) {
+              if (name != null && !wanted(name) && !Files.isDirectory(file)) {
                 return FileVisitResult.CONTINUE;
               }
               return unreadable(file, failure);
@@ -316,10 +319,25 @@ public final class FolderSearch {
       }
     }
 
+    /** Reports whether a file name matches {@code names} and not {@code exclude}. */
+    private boolean wanted(Path name) {
+      return query.names().matches(name) && !query.exclude().excludes(name);
+    }
+
+    /** Reserves {@code RESULTS} bytes, asking the listener to free some on each refusal. */
+    private boolean reserve(long cost) {
+      while (!budget.reserve(MemoryShare.RESULTS, cost)) {
+        if (!listener.resultsRefused()) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /** Lists a file or folder the walk could not read; stops the walk when the share refuses. */
     private FileVisitResult unreadable(Path path, IOException failure) {
       long cost = entryBytes(path);
-      if (!budget.reserve(MemoryShare.RESULTS, cost)) {
+      if (!reserve(cost)) {
         results.setLimited();
         return FileVisitResult.TERMINATE;
       }
@@ -377,18 +395,13 @@ public final class FolderSearch {
       }
       MutableLineSet set = new MutableLineSet(budget);
       try {
-        Ending ending = new Ending();
-        OperationHandle handle = services.search().search(document, query.query(), set, ending);
-        try {
-          while (!handle.await(SLICE_MILLIS)) {
-            token.check();
-            publish(false);
-          }
-        } finally {
-          if (!handle.isDone()) {
-            handle.cancel();
-            handle.await(LogDocument.CLOSE_BOUND.toMillis());
-          }
+        Ending ending = searchOnce(document, set);
+        while (ending.outcome == OperationOutcome.COMPLETED
+            && ending.limit == SearchLimit.MEMORY
+            && listener.resultsRefused()) {
+          set.clear();
+          searchPercent = 0;
+          ending = searchOnce(document, set);
         }
         return switch (ending.outcome) {
           case CANCELED -> throw new CancellationException("Search canceled");
@@ -399,6 +412,25 @@ public final class FolderSearch {
         set.clear();
         document.exit();
       }
+    }
+
+    /** Searches an indexed file into {@code set}; returns how the search ended. */
+    private Ending searchOnce(LogDocument document, MutableLineSet set)
+        throws InterruptedException {
+      Ending ending = new Ending();
+      OperationHandle handle = services.search().search(document, query.query(), set, ending);
+      try {
+        while (!handle.await(SLICE_MILLIS)) {
+          token.check();
+          publish(false);
+        }
+      } finally {
+        if (!handle.isDone()) {
+          handle.cancel();
+          handle.await(LogDocument.CLOSE_BOUND.toMillis());
+        }
+      }
+      return ending;
     }
 
     private FileHits failed(Candidate file, Exception failure) {
@@ -439,7 +471,7 @@ public final class FolderSearch {
             CharSequence line = reader.decodedLine(index, batch[k]);
             String text = line.subSequence(0, Math.min(line.length(), MAX_TEXT_CHARS)).toString();
             long cost = HIT_BYTES + 2L * text.length();
-            if (!budget.reserve(MemoryShare.RESULTS, cost)) {
+            if (!reserve(cost)) {
               complete = false;
               results.setLimited();
               break listing;

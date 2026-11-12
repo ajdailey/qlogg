@@ -496,6 +496,8 @@ class LogViewTest {
             "Clear Results",
             "Search All Open Files",
             "Search in Folder",
+            "Next Folder Match",
+            "Previous Folder Match",
             "-",
             "Add Selection to Search",
             "Exclude Selection from Search",
@@ -519,10 +521,10 @@ class LogViewTest {
             "Auto-Refresh",
             "Keep Results",
             "Search After Add, Exclude or Replace"),
-        labels(search.getItem(14).getMenu()));
+        labels(cascade(search, "Search Options")));
     assertEquals(
         List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
-        labels(search.getItem(15).getMenu()));
+        labels(cascade(search, "Search Limits")));
     assertEquals(
         List.of(
             "Go to Line",
@@ -751,6 +753,13 @@ class LogViewTest {
       kept.remove(kept.size() - 1);
     }
     return kept;
+  }
+
+  /** The cascade of a menu whose label, as {@link #labels} writes it, is {@code label}. */
+  private static Menu cascade(Menu menu, String label) {
+    int at = labels(menu).indexOf(label);
+    assertTrue(at >= 0, label);
+    return menu.getItem(at).getMenu();
   }
 
   /** Menu labels without mnemonics, accelerator text or ellipses; "-" for a separator. */

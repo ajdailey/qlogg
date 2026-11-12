@@ -97,6 +97,15 @@ public final class FolderResults {
     return retained;
   }
 
+  /**
+   * Reports whether {@link #close} ran.
+   *
+   * @return true once closed
+   */
+  public synchronized boolean isClosed() {
+    return closed;
+  }
+
   /** Drops the entries and releases their reservations; later additions are released at once. */
   public synchronized void close() {
     closed = true;

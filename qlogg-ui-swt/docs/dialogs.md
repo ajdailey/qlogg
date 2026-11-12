@@ -131,14 +131,18 @@ tab with its search's results. Stop cancels every search of the group.
 ### Search in Folder
 
 `FolderSearchWindow` (Search > Search in Folder) holds the folder (Browse opens
-a `DirectoryDialog`), the file name globs, Include subfolders, the search text
-and the toggles, then a summary, a progress bar and two virtual tables: the
-listed files with their match count and status, and the selected file's
-matching lines. Enter or a double click on a line opens it in a tab. Stop
-cancels the run. `FolderSearchController` (`qlogg-app`) runs the search on
-workers and calls the window's listener on the UI thread. Closing the window
-calls `FolderSearchController.clear`, which cancels the run and closes its
-results, returning their `RESULTS` reservation.
+a `DirectoryDialog`), the file name globs, Include subfolders, the exclude
+globs, the search text and the toggles, then a summary, a progress bar, the
+kept sets (a read-only `Combo` with Pin, Clear and Clear All) and two virtual
+tables: the shown set's files with their match count and status, and the
+selected file's matching lines. Enter or a double click on a line opens it in
+a tab. Stop cancels the run. `FolderSearchController` (`qlogg-app`) runs the
+search on workers, keeps the sets and calls the window's listener on the UI
+thread. A `Display` key filter limited to the window's shell runs the
+single-stroke keys of Next and Previous Folder Match (`F4`, `Shift+F4`), and
+the window selects the rows of the line stepped to. Closing the window calls
+`FolderSearchController.cancel`; the sets stay until Clear, Clear All or the
+main window closes.
 
 ### Marks List
 

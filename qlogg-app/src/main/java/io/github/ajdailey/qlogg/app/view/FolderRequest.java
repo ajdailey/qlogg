@@ -10,16 +10,22 @@ import io.github.ajdailey.qlogg.core.folder.NamePattern;
  * @param recursive true to search subfolders
  * @param text the search text
  * @param options the toggles; mode, case, whole word, inverse and combining apply
+ * @param exclude {@code ;}-separated file name globs left out of those {@code names} takes
  */
 public record FolderRequest(
-    String folder, String names, boolean recursive, String text, SearchOptions options) {
-  /** No folder, the default names, no subfolders, no text, the default toggles. */
+    String folder,
+    String names,
+    boolean recursive,
+    String text,
+    SearchOptions options,
+    String exclude) {
+  /** No folder, the default names, no subfolders, no text, the default toggles, no exclude. */
   public static final FolderRequest EMPTY =
-      new FolderRequest("", NamePattern.DEFAULT, false, "", SearchOptions.DEFAULTS);
+      new FolderRequest("", NamePattern.DEFAULT, false, "", SearchOptions.DEFAULTS, "");
 
   /** Checks the components. */
   public FolderRequest {
-    if (folder == null || names == null || text == null || options == null) {
+    if (folder == null || names == null || text == null || options == null || exclude == null) {
       throw new IllegalArgumentException("every component is required");
     }
   }

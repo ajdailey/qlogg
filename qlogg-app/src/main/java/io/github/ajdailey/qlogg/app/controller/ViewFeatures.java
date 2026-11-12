@@ -54,7 +54,7 @@ final class ViewFeatures {
     this.workers = workers;
     this.ui = ui;
     this.view = view;
-    this.folderSearch = new FolderSearchController(application, ui);
+    this.folderSearch = new FolderSearchController(application, ui, view);
   }
 
   /** The search across open files. */
@@ -120,6 +120,9 @@ final class ViewFeatures {
       case REPLACE_SCRATCHPAD -> sendToScratchpad(true);
       case SEARCH_ALL_FILES -> searchAllFiles();
       case SEARCH_FOLDER -> view.showFolderSearch();
+      // Search in Folder step keys.
+      case NEXT_FOLDER_MATCH -> folderSearch.step(true);
+      case PREVIOUS_FOLDER_MATCH -> folderSearch.step(false);
       case SAVE_SELECTION -> save(false);
       case SAVE_FILTERED -> save(true);
       case TOGGLE_WRAP, TOGGLE_FOLD, COLLAPSE_ALL_FOLDS, EXPAND_ALL_FOLDS -> {

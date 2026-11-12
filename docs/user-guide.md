@@ -181,20 +181,34 @@ selection; each tab's search start and end lines apply.
 
 ### Searching a folder
 
-Search > Search in Folder searches the files of a folder without opening a tab
-for each. It starts with the folder, file names and Include subfolders of
+Search > Search in Folder (`Ctrl+Shift+H`, `Cmd+Shift+H` on macOS, or
+`Ctrl+E Ctrl+D`) searches the files of a folder without opening a tab for
+each. It starts with the folder, file names, Include subfolders and Exclude of
 the last folder search, kept between runs of QLogg, and the shown tab's search
 text and toggles.
 File names takes globs separated by `;`; the default `*.log*` matches a log
-and its rotated copies. Include subfolders searches the folders below it;
-links to folders are not followed.
+and its rotated copies. Exclude takes globs the same way and leaves out the
+files they match, such as `*.gz` for compressed rotations. Include subfolders
+searches the folders below it; links to folders are not followed.
 
 The upper table lists each file with its matches; selecting a file lists its
 matching lines below. Double-click a line, or press Enter, to open the file at
 that line, or to go there in the tab that already shows it. Compressed or
 binary files show Not text, and files that cannot be read show why. When
-the matching lines fill the memory set aside for results, the search stops
-and says so; narrow the search or the file names.
+the matching lines fill the memory set aside for results, the oldest unpinned
+earlier result set is dropped first, with a notice; when none is left, the
+search stops and says so; narrow the search or the file names.
+
+Results lists the last ten searches, newest first, while QLogg runs; choosing
+one shows its files. Pin keeps a search past the ten, Clear drops the shown
+one and Clear All drops every one. Closing the window stops a running search
+and keeps the results.
+
+`F4` and `Shift+F4` (Search > Next Folder Match and Previous Folder Match) go
+to the next and previous matching line of the shown results, across files,
+opening the file as a double-click does; they work in the window and in the
+main window. Selecting a file starts the next step there. Passing the last or
+first line wraps around with a notice.
 
 ![Search in Folder results, with a compressed file shown as Not text](images/guide/folder-search.png)
 
@@ -580,7 +594,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 |---|---|
 | File | Open, Open from Clipboard; Open Recent (the files, Open All, Clean Up), Recently Closed (the files, Open All, Clear), Reopen Closed Tab, Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
-| Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
+| Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
 | View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format, Edit Formats; Time Zone, Time Offset; Time Spread: Off, Activity, Pauses), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |

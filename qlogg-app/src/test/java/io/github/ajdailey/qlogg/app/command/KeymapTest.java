@@ -308,4 +308,35 @@ class KeymapTest {
     assertEquals("Cmd+Shift+T", Keymap.defaults(true).keysText(CommandId.REOPEN_CLOSED, true));
     assertEquals("Ctrl+Shift+T", Keymap.defaults(false).keysText(CommandId.REOPEN_CLOSED, false));
   }
+
+  // Search in Folder keys.
+
+  @Test
+  void searchInFolderAndItsStepKeysAreFreeOnEveryPlatform() {
+    for (boolean mac : new boolean[] {false, true}) {
+      Keymap map = Keymap.defaults(mac);
+      assertEquals(
+          new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'h'),
+          map.accelerator(CommandId.SEARCH_FOLDER));
+      assertEquals(new KeyStroke(0, KeyStroke.F4), map.accelerator(CommandId.NEXT_FOLDER_MATCH));
+      assertEquals(
+          new KeyStroke(KeyStroke.SHIFT, KeyStroke.F4),
+          map.accelerator(CommandId.PREVIOUS_FOLDER_MATCH));
+      for (CommandId command :
+          List.of(
+              CommandId.SEARCH_FOLDER,
+              CommandId.NEXT_FOLDER_MATCH,
+              CommandId.PREVIOUS_FOLDER_MATCH)) {
+        for (Binding binding : map.bindingsFor(command)) {
+          assertEquals(List.of(), map.conflicts(binding), binding.text(mac));
+        }
+      }
+    }
+    assertEquals(
+        "Cmd+Shift+H, Cmd+E Cmd+D", Keymap.defaults(true).keysText(CommandId.SEARCH_FOLDER, true));
+    assertEquals(
+        "Ctrl+Shift+H, Ctrl+E Ctrl+D",
+        Keymap.defaults(false).keysText(CommandId.SEARCH_FOLDER, false));
+    assertEquals("Shift+F4", Keymap.defaults(true).keysText(CommandId.PREVIOUS_FOLDER_MATCH, true));
+  }
 }

@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,6 +12,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.controller.FolderResultSet;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -47,7 +49,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Search > Search in Folder driven through its widgets: a run from the fields, the file rows with
- * their counts and statuses, a file's lines, and a chosen line opened in a tab. With {@code
+ * their counts and statuses, a file's lines, a chosen line opened in a tab, the exclude field, the
+ * kept sets with Pin, Clear and Clear All, and {@code F4} in the window. With {@code
  * -Dqlogg.shots=<dir>} it also writes PNGs of the window and of the opened line.
  */
 @Tag("swt")
@@ -167,7 +170,79 @@ class FolderSearchGuiTest {
     shoot(window.shell(), "folder-search-opened.png");
     search.shell().dispose();
     assertEquals(FolderSearchState.Phase.DONE, controller.folderSearch().state().phase());
-    assertEquals(0, controller.folderSearch().files().size(), "closing drops the results");
+    assertEquals(2, controller.folderSearch().files().size(), "closing keeps the sets");
+  }
+
+  @Test
+  void excludeKeptSetsAndTheStepKeyWorkInTheWindow() throws Exception {
+    Path logs = Files.createDirectory(temp.resolve("logs"));
+    Files.writeString(logs.resolve("app.log"), "hit 0\nline\nhit 2\n", StandardCharsets.US_ASCII);
+    Files.writeString(logs.resolve("debug.log"), "hit\n", StandardCharsets.US_ASCII);
+    controller.execute(CommandId.SEARCH_FOLDER);
+    final FolderSearchWindow search = window.folderSearch();
+    assertEquals("", search.exclude().getText());
+    assertFalse(search.clearAll().getEnabled());
+    search.folder().setText(logs.toString());
+    search.exclude().setText("debug.*");
+    search.text().setText("hit");
+    runSearch(search, 1);
+    search.text().setText("line");
+    runSearch(search, 2);
+    assertEquals(2, search.setList().getItemCount());
+    assertEquals(0, search.setList().getSelectionIndex());
+    assertEquals(UiText.FOLDER_SET.format("line", "logs", 1L), search.setList().getItem(0));
+
+    search.setList().select(1);
+    search.setList().notifyListeners(SWT.Selection, new Event());
+    final FolderResultSet hits = controller.folderSearch().shown();
+    assertEquals("hit", hits.request().text());
+    assertEquals(1, search.files().getItemCount(), "debug.log is excluded");
+    search.pin().setSelection(true);
+    search.pin().notifyListeners(SWT.Selection, new Event());
+    assertTrue(hits.pinned());
+    assertEquals(
+        UiText.FOLDER_SET_PINNED.format(UiText.FOLDER_SET.format("hit", "logs", 2L)),
+        search.setList().getItem(1));
+
+    Event f4 = new Event();
+    f4.keyCode = SWT.F4;
+    search.files().notifyListeners(SWT.KeyDown, f4);
+    search.files().notifyListeners(SWT.KeyDown, f4);
+    assertEquals(1, controller.folderSearch().stepHit());
+    assertEquals(1, search.lines().getSelectionIndex());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return shown != null
+                    && shown.state().title().equals("app.log")
+                    && shown.selection().caret().line() == 2;
+              }
+            }));
+
+    search.clear().notifyListeners(SWT.Selection, new Event());
+    assertEquals(1, search.setList().getItemCount());
+    assertEquals(UiText.FOLDER_SET.format("line", "logs", 1L), search.setList().getItem(0));
+    search.clearAll().notifyListeners(SWT.Selection, new Event());
+    assertEquals(0, search.setList().getItemCount());
+    assertEquals(0, search.files().getItemCount());
+    assertEquals(UiText.FOLDER_IDLE.text(), search.summary().getText());
+  }
+
+  /** Presses Search and waits for the run to end with {@code sets} kept. */
+  private void runSearch(final FolderSearchWindow search, final int sets) {
+    search.shell().getDefaultButton().notifyListeners(SWT.Selection, new Event());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return controller.folderSearch().sets().size() == sets
+                    && controller.folderSearch().state().phase() == FolderSearchState.Phase.DONE;
+              }
+            }));
   }
 
   /** Writes a PNG of a shell when {@code qlogg.shots} names a directory. */

@@ -644,7 +644,12 @@ public final class Harness {
       long start = System.nanoTime();
       new FolderSearch(services)
           .start(
-              new FolderQuery(dir.toString(), NamePattern.of(names), recursive, query(spec)),
+              new FolderQuery(
+                  dir.toString(),
+                  NamePattern.of(names),
+                  recursive,
+                  query(spec),
+                  NamePattern.of("")),
               results,
               new FolderListener() {
                 @Override

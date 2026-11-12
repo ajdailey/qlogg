@@ -26,4 +26,15 @@ public interface FolderListener {
    *     a regex that does not compile; otherwise null
    */
   void finished(OperationOutcome outcome, SearchLimit limit, Exception failure);
+
+  /**
+   * Called when a {@code RESULTS} reservation of the search is refused, before the search stops at
+   * the share. The search retries the reservation after a true return.
+   *
+   * @return true after releasing {@code RESULTS} bytes held elsewhere, such as an older run's
+   *     results; false to stop the search at the share
+   */
+  default boolean resultsRefused() {
+    return false;
+  }
 }

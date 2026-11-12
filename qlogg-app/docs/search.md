@@ -134,22 +134,50 @@ over a folder's files without opening tabs; core detail is in
 [qlogg-core Search](../../qlogg-core/docs/search.md#search-in-a-folder).
 
 - `request()` is the last run's `FolderRequest`. Otherwise it takes the
-  folder, globs and Include subfolders from `folderSearch.*` in
-  `qlogg.conf`, the folder falling back to the shown tab's, and the shown
+  folder, globs, Include subfolders and exclude globs from `folderSearch.*`
+  in `qlogg.conf`, the folder falling back to the shown tab's, and the shown
   tab's search text and toggles.
-- `run` saves the folder, globs and Include subfolders to `folderSearch.*`.
-- `run` cancels the last run and closes its `FolderResults`, returning their
-  `RESULTS` reservation. An empty folder or text, a glob or combined
-  expression that does not parse, or closed workers end the run `FAILED`
-  before the search thread; the folder is validated on it.
+- `run` saves the folder, globs, Include subfolders and exclude globs to
+  `folderSearch.*`.
+- `run` stops the running search, which keeps what it listed, and starts a
+  `FolderResultSet` as the shown set. An empty folder or text, a glob or
+  combined expression that does not parse, or closed workers start no set and
+  make `state()` `FAILED` before the search thread; the folder is validated
+  on it.
 - Mode, case, whole word, inverse and combining apply. Range, In selection,
   context and auto-refresh do not. `view.hideAnsi` applies.
 - Progress and the end reach the UI thread through the `UiDispatcher`; events
-  of a replaced run are dropped.
+  of a dropped set are ignored.
 - `open(file, hit)` selects the tab whose path or real path is the file and
-  goes to the line, else opens the file at that line.
-- `clear()` cancels and drops the results. The Search in Folder window calls
-  it when it closes, and so does closing the main window.
+  goes to the line, else opens the file at that line. Another line of a file
+  still opening, within 5 s, moves the new tab there instead of opening the
+  file again, so fast steps do not race two opens.
+
+### Kept result sets
+
+`sets()` lists the runs newest first; `show(set)` picks the set the window
+lists and the step keys walk.
+
+| Operation | Effect |
+|---|---|
+| New run | Drops the oldest unpinned sets beyond `KEPT_SETS` (10) |
+| `togglePin(set)` | A pinned set does not count toward the 10 and is never dropped for memory |
+| `drop(set)` (Clear) | Stops its search, closes its `FolderResults`, shows the newest other set |
+| `clear()` (Clear All) | Drops every set; closing the main window calls it |
+| `RESULTS` refusal during a run | `FolderListener.resultsRefused` closes the oldest unpinned other set on the run's thread and the reservation is retried; the UI thread then drops that set, with one notice per run |
+
+Every kept set holds its `RESULTS` reservation. Closing the Search in Folder
+window stops the running search and keeps the sets. Sets are not saved.
+
+### Step keys
+
+`step(forward)` (Search > Next Folder Match `F4`, Previous Folder Match
+`Shift+F4`) opens the next or previous listed line of the shown set across
+its files, from the last line opened or stepped to, through `open`. The first
+step takes the first or last line; `stepFrom(file)` (a file row chosen in the
+window) starts at that file. Passing an end wraps with a notice; a set with no
+listed line gives a notice. The keys run from the main window's menu and from
+a key filter of the Search in Folder window.
 
 ## Predefined filters
 

@@ -108,7 +108,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers |
 | `open.directory` | Where File > Open starts with no file shown | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
-| `folderSearch.folder`, `.names`, `.recursive` | Search in Folder's folder, file name globs (at most 4,096 chars each) and Include subfolders | none, `*.log*`, `false` | Each folder search |
+| `folderSearch.folder`, `.names`, `.recursive`, `.exclude` | Search in Folder's folder, file name globs, Include subfolders and exclude globs (text at most 4,096 chars each) | none, `*.log*`, `false`, none | Each folder search |
 | `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
 | `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |
 | `time.format.N.name`, `.locate`, `.pattern` | A user timestamp format: a name, a regex whose group `ts` holds the time, a `DateTimeFormatter` pattern; at most 32 | none | View > Timestamps > Edit Formats |

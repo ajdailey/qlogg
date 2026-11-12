@@ -789,6 +789,35 @@ public enum UiText {
   FOLDER_BAD_NAMES,
   /** Failure: the folder does not validate or cannot be walked; argument: the reason. */
   FOLDER_FAILED,
+  // Search in Folder exclude, kept sets and step keys.
+  /** Field label: the file name globs left out. */
+  FOLDER_EXCLUDE,
+  /** Label of the kept sets list. */
+  FOLDER_SETS,
+  /** Kept set; arguments: search text, folder name and matches. */
+  FOLDER_SET,
+  /** Kept set while its search runs; argument: the set text. */
+  FOLDER_SET_RUNNING,
+  /** Pinned kept set; argument: the set text. */
+  FOLDER_SET_PINNED,
+  /** Toggle button: keep the shown set past the newest ten. */
+  FOLDER_PIN,
+  /** Button: drop the shown set. */
+  FOLDER_CLEAR,
+  /** Button: drop every set. */
+  FOLDER_CLEAR_ALL,
+  /** Command label. */
+  COMMAND_NEXT_FOLDER_MATCH,
+  /** Command label. */
+  COMMAND_PREVIOUS_FOLDER_MATCH,
+  /** Notice: a step key with no listed line in the shown set. */
+  NOTICE_FOLDER_NO_LINES,
+  /** Notice: Next passed the last listed line. */
+  NOTICE_FOLDER_WRAPPED_FIRST,
+  /** Notice: Previous passed the first listed line. */
+  NOTICE_FOLDER_WRAPPED_LAST,
+  /** Notice: a run dropped older sets to free memory. */
+  NOTICE_FOLDER_SET_DROPPED,
   /** Scratchpad window title. */
   SCRATCHPAD_TITLE,
   /** Scratchpad tab; argument: its number. */

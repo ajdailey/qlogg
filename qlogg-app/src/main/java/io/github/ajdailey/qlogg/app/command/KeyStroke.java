@@ -30,6 +30,9 @@ public record KeyStroke(int modifiers, int key) {
   /** F3. */
   public static final int F3 = F1 + 2;
 
+  /** F4. */
+  public static final int F4 = F1 + 3;
+
   /** F5. */
   public static final int F5 = F1 + 4;
 

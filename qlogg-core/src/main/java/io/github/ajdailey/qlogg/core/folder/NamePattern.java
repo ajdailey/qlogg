@@ -60,6 +60,16 @@ public final class NamePattern {
     return false;
   }
 
+  /**
+   * Reports whether a glob matches a name; the exclude test of a folder search.
+   *
+   * @param name one name element, not a path
+   * @return true when a glob matches it; false when there is none
+   */
+  public boolean excludes(Path name) {
+    return !globs.isEmpty() && matches(name);
+  }
+
   @Override
   public String toString() {
     return text;

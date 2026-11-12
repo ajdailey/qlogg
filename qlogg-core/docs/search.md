@@ -185,8 +185,9 @@ them as documents the application shows. `start(query, results, listener)`
 runs a coordinator on a `qlogg-search-` virtual thread:
 
 1. `SafePaths.logDirectory` validates the folder and returns its real path.
-2. The walk takes files whose name matches the `NamePattern`
-   (`;`-separated globs, `NamePattern.DEFAULT` is `*.log*`), in subfolders
+2. The walk takes files whose name matches `names` (`;`-separated globs,
+   `NamePattern.DEFAULT` is `*.log*`) and not `exclude`
+   (`NamePattern.excludes`, which matches nothing when blank), in subfolders
    only with `recursive`, and sorts them by path.
 3. Each file in turn: `LogDocument.open` with encoding detection, a full
    index, a `SearchEngine` search into a `MutableLineSet`, a `LineReader`
@@ -215,9 +216,13 @@ runs a coordinator on a `qlogg-search-` virtual thread:
 Each walked file reserves 96 B plus 2 B per path char from `RESULTS`; each
 listed line reserves 80 B plus 2 B per char, its text cut at 512 chars.
 `FolderResults` holds these reservations until `close()`. A refused
-reservation stops the search: the file in progress keeps the lines listed so
-far (`complete()` false), `limited()` turns true, and the search ends
-`COMPLETED` with `SearchLimit.MEMORY`.
+reservation, here or in a file's `SearchEngine` search, first calls
+`FolderListener.resultsRefused` on the coordinator thread. A true return means
+the listener released `RESULTS` bytes, such as an older run's results: the
+reservation is retried, or the file searched again. Otherwise the search
+stops: the file in progress keeps the lines listed so far (`complete()`
+false), `limited()` turns true, and the search ends `COMPLETED` with
+`SearchLimit.MEMORY`.
 
 A run reads files through its own `Indexer` and its own line cache rather than
 the shared ones:

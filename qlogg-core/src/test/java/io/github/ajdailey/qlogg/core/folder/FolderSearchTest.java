@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.AfterEach;
@@ -44,8 +45,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Folder walk and name pattern, streaming of a file larger than the budget, the results share stop,
- * cancel during a runaway regex, and files and folders that cannot be searched.
+ * Folder walk, name and exclude patterns, streaming of a file larger than the budget, the results
+ * share stop and the retry after the listener frees results, cancel during a runaway regex, and
+ * files and folders that cannot be searched.
  */
 class FolderSearchTest {
   private static final Duration BOUND = Duration.ofSeconds(60);
@@ -214,6 +216,66 @@ class FolderSearchTest {
     assertReleased();
   }
 
+  @Test
+  void excludeLeavesOutNamesTheIncludeGlobsTake() throws Exception {
+    start(MemoryBudget.of(1L << 30));
+    write("a.log", "flagword\n");
+    write("a.log.1", "flagword\n");
+    write("a.log.2.gz", "flagword\n");
+    write("debug.log", "flagword\n");
+    assertFalse(NamePattern.of(" ; ").excludes(Path.of("a.log")));
+    assertTrue(NamePattern.of("*.gz").excludes(Path.of("a.log.2.gz")));
+    FolderResults results = new FolderResults(budget);
+    run(
+        dir.toString(),
+        NamePattern.DEFAULT,
+        " *.gz ; debug.* ",
+        false,
+        literal("flagword"),
+        results,
+        new Recording());
+    List<FileHits> files = results.files();
+    assertEquals(2, files.size());
+    assertEquals(dir.toRealPath().resolve("a.log"), files.get(0).path());
+    assertEquals(dir.toRealPath().resolve("a.log.1"), files.get(1).path());
+    results.close();
+    assertReleased();
+  }
+
+  @Test
+  void aRefusedReservationAsksTheListenerToFreeResultsAndRetries() throws Exception {
+    start(MemoryBudget.of(4L << 20));
+    StringBuilder text = new StringBuilder();
+    for (int i = 0; i < 2000; i++) {
+      text.append("BLOCKTERM line ").append(i).append('\n');
+    }
+    write("a.log", text.toString());
+    final long held = budget.available(MemoryShare.RESULTS) - 1024;
+    assertTrue(budget.reserve(MemoryShare.RESULTS, held));
+    final AtomicInteger refusals = new AtomicInteger();
+    Recording recording =
+        new Recording() {
+          @Override
+          public boolean resultsRefused() {
+            if (refusals.getAndIncrement() > 0) {
+              return false;
+            }
+            budget.release(MemoryShare.RESULTS, held);
+            return true;
+          }
+        };
+    FolderResults results = new FolderResults(budget);
+    run(dir.toString(), NamePattern.DEFAULT, "", false, literal("BLOCKTERM"), results, recording);
+    assertEquals(OperationOutcome.COMPLETED, recording.outcome);
+    assertEquals(SearchLimit.NONE, recording.limit);
+    assertEquals(1, refusals.get());
+    assertFalse(results.limited());
+    assertEquals(2000, results.file(0).size());
+    assertTrue(results.file(0).complete());
+    results.close();
+    assertReleased();
+  }
+
   /** The cancel lands while runaway.log is the current file, so no entry is listed. */
   @Test
   void cancelStopsARunawayRegexWithinTheBound() throws Exception {
@@ -233,7 +295,8 @@ class FolderSearchTest {
                     dir.toString(),
                     NamePattern.of(NamePattern.DEFAULT),
                     false,
-                    SearchQuery.of("(.*x){25}y", MatchMode.REGEX)),
+                    SearchQuery.of("(.*x){25}y", MatchMode.REGEX),
+                    NamePattern.of("")),
                 results,
                 recording);
     // Indexed and searching: the file percent averages the index and search percents.
@@ -334,11 +397,23 @@ class FolderSearchTest {
   private Recording run(
       String folder, String names, boolean recursive, SearchQuery query, FolderResults results)
       throws InterruptedException {
-    Recording recording = new Recording();
+    return run(folder, names, "", recursive, query, results, new Recording());
+  }
+
+  private Recording run(
+      String folder,
+      String names,
+      String exclude,
+      boolean recursive,
+      SearchQuery query,
+      FolderResults results,
+      Recording recording)
+      throws InterruptedException {
     OperationHandle handle =
         new FolderSearch(services)
             .start(
-                new FolderQuery(folder, NamePattern.of(names), recursive, query),
+                new FolderQuery(
+                    folder, NamePattern.of(names), recursive, query, NamePattern.of(exclude)),
                 results,
                 recording);
     assertTrue(handle.await(BOUND.toMillis()));
@@ -374,7 +449,7 @@ class FolderSearchTest {
   }
 
   /** Records a folder search's events. */
-  private static final class Recording implements FolderListener {
+  private static class Recording implements FolderListener {
     final CountDownLatch finished = new CountDownLatch(1);
     volatile FolderProgress last;
     volatile OperationOutcome outcome;

@@ -59,6 +59,7 @@ final class OptionsFile {
   static final String FOLDER_SEARCH_FOLDER = "folderSearch.folder";
   static final String FOLDER_SEARCH_NAMES = "folderSearch.names";
   static final String FOLDER_SEARCH_RECURSIVE = "folderSearch.recursive";
+  static final String FOLDER_SEARCH_EXCLUDE = "folderSearch.exclude";
   // Last tab.
   static final String CLOSE_WINDOW_WITH_LAST_TAB = "tabs.closeWindowWithLastTab";
 
@@ -198,8 +199,12 @@ final class OptionsFile {
     if (names.length() > FolderSearchSettings.MAX_CHARS) {
       names = d.names();
     }
+    String exclude = p.getProperty(FOLDER_SEARCH_EXCLUDE, d.exclude());
+    if (exclude.length() > FolderSearchSettings.MAX_CHARS) {
+      exclude = d.exclude();
+    }
     return new FolderSearchSettings(
-        folder, names, flag(p, FOLDER_SEARCH_RECURSIVE, d.recursive(), file));
+        folder, names, flag(p, FOLDER_SEARCH_RECURSIVE, d.recursive(), file), exclude);
   }
 
   /**
@@ -262,6 +267,7 @@ final class OptionsFile {
     p.setProperty(FOLDER_SEARCH_FOLDER, folderSearch.folder());
     p.setProperty(FOLDER_SEARCH_NAMES, folderSearch.names());
     p.setProperty(FOLDER_SEARCH_RECURSIVE, Boolean.toString(folderSearch.recursive()));
+    p.setProperty(FOLDER_SEARCH_EXCLUDE, folderSearch.exclude());
   }
 
   private static List<String> list(Properties p, String prefix, int max) {

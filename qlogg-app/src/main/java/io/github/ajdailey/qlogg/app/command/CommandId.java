@@ -89,6 +89,11 @@ public enum CommandId {
   SEARCH_ALL_FILES(CommandGroup.SEARCH, UiText.COMMAND_SEARCH_ALL_FILES, false, false),
   /** Search the files of a folder without opening them. */
   SEARCH_FOLDER(CommandGroup.SEARCH, UiText.COMMAND_SEARCH_FOLDER, false, false),
+  // Search in Folder step keys.
+  /** Open the next listed line of the shown Search in Folder set. */
+  NEXT_FOLDER_MATCH(CommandGroup.SEARCH, UiText.COMMAND_NEXT_FOLDER_MATCH, false, false),
+  /** Open the previous listed line of the shown Search in Folder set. */
+  PREVIOUS_FOLDER_MATCH(CommandGroup.SEARCH, UiText.COMMAND_PREVIOUS_FOLDER_MATCH, false, false),
   /** Add the selected text to the search as an alternative. */
   ADD_TO_SEARCH(CommandGroup.SEARCH, UiText.COMMAND_ADD_TO_SEARCH, true, false),
   /** Exclude lines holding the selected text from the search. */

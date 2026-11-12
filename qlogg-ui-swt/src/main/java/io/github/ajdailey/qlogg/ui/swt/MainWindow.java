@@ -2104,7 +2104,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   @Override
   public void showFolderSearch() {
     if (folderSearch == null || folderSearch.isDisposed()) {
-      folderSearch = new FolderSearchWindow(shell, controller.folderSearch());
+      folderSearch = new FolderSearchWindow(shell, controller.folderSearch(), controller::keymap);
     }
     folderSearch.open();
   }
