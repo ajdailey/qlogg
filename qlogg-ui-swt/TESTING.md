@@ -21,6 +21,13 @@ documents. Module overview: [README.md](README.md).
   backgrounds read 246,245,244).
 - `EventLoop.runUntil` dispatches events until a condition holds, with a bound
   and no fixed sleep.
+- Tests post pointer events with `notifyListeners`. Xvfb's pointer sits over
+  the test window, which receives real crossing and motion events while a test
+  dispatches; a real motion between a posted press and release moves a
+  `LogCanvas` drag to it. A test that dispatches during a posted drag posts
+  through `PostedPointer`, which drops pointer events it did not post
+  (`ViewFeaturesGuiTest`). A press and release posted with no dispatch between
+  them needs no filter.
 - `HangWatchdog`, registered for every test in the module through
   `META-INF/services` and `junit-platform.properties`, prints every thread's
   stack to stderr when a test, its `@BeforeEach` and `@AfterEach` included,

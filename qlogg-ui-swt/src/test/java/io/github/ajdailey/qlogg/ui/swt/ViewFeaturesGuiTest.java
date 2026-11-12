@@ -71,10 +71,12 @@ class ViewFeaturesGuiTest {
   private Workers workers;
   private MainWindow window;
   private ApplicationController controller;
+  private PostedPointer pointer;
 
   @BeforeEach
   void open() throws Exception {
     display = new Display();
+    pointer = new PostedPointer(display);
     workers =
         new Workers(
             2,
@@ -179,7 +181,7 @@ class ViewFeaturesGuiTest {
     event.x = x;
     event.y = y;
     event.stateMask = stateMask;
-    canvas().notifyListeners(type, event);
+    pointer.post(canvas(), type, event);
   }
 
   private void wheel(int count, int stateMask) {
@@ -458,7 +460,7 @@ class ViewFeaturesGuiTest {
     assertEquals("", pad.values().getText());
     pad.add("1700000000", true);
     text.selectAll();
-    text.notifyListeners(SWT.MouseUp, new Event());
+    pointer.post(text, SWT.MouseUp, new Event());
     assertTrue(pad.values().getText().contains("2023-11-14"), pad.values().getText());
     Event key = new Event();
     key.stateMask = SWT.MOD1;
