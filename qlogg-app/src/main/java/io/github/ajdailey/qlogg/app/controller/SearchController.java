@@ -1134,7 +1134,7 @@ public final class SearchController {
         text, toggles, SearchViewState.Phase.FAILED, 0, matches, SearchLimit.NONE, 0, message);
   }
 
-  private static String reason(ExpressionException e) {
+  static String reason(ExpressionException e) {
     UiText text =
         switch (e.reason()) {
           case UNTERMINATED_QUOTE -> UiText.EXPRESSION_UNTERMINATED_QUOTE;

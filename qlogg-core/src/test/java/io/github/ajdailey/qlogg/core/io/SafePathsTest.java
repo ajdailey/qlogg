@@ -103,6 +103,28 @@ class SafePathsTest {
     rejects(link.toString());
   }
 
+  // Search in a folder.
+
+  @Test
+  void aLogDirectoryResolvesToItsRealPathAndMustBeADirectory() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("logs"));
+    Path dotted = dir.resolve("..").resolve("logs");
+    assertEquals(dir.toRealPath(), SafePaths.logDirectory(dotted.toString()));
+    final Path file = Files.createFile(dir.resolve("app.log"));
+    for (final String bad :
+        List.of(file.toString(), dir.resolve("missing").toString(), "a\0b", "")) {
+      assertThrows(
+          IOException.class,
+          new Executable() {
+            @Override
+            public void execute() throws Throwable {
+              SafePaths.logDirectory(bad);
+            }
+          },
+          bad);
+    }
+  }
+
   @Test
   void missingFileNeedsParentDirectory() throws Exception {
     assertEquals(

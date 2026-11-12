@@ -156,6 +156,23 @@ Edit > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
 each tab's filtered view gets the results for its file. It ignores In
 selection; each tab's search start and end lines apply.
 
+### Searching a folder
+
+Edit > Search in Folder searches the files of a folder without opening a tab
+for each. It starts with the folder, file names and Include subfolders of
+the last folder search, kept between runs of QLogg, and the shown tab's search
+text and toggles.
+File names takes globs separated by `;`; the default `*.log*` matches a log
+and its rotated copies. Include subfolders searches the folders below it;
+links to folders are not followed.
+
+The upper table lists each file with its matches; selecting a file lists its
+matching lines below. Double-click a line, or press Enter, to open the file at
+that line, or to go there in the tab that already shows it. Compressed or
+binary files show Not text, and files that cannot be read show why. When
+the matching lines fill the memory set aside for results, the search stops
+and says so; narrow the search or the file names.
+
 ## Marks and quick find
 
 `m` marks or unmarks the selected lines; a click in the bullet column marks

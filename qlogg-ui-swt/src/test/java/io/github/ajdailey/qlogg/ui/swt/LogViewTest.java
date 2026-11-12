@@ -489,7 +489,9 @@ class LogViewTest {
             "-",
             "Copy with Line Numbers",
             "Block Selection",
-            "Search All Open Files"),
+            "Search All Open Files",
+            // Search in a folder.
+            "Search in Folder"),
         labels(bar.getItem(1).getMenu()));
     MenuItem search = bar.getItem(1).getMenu().getItem(30);
     assertEquals(SWT.CASCADE, search.getStyle() & SWT.CASCADE);

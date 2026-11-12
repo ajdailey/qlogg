@@ -1966,6 +1966,27 @@ public final class MainWindow implements MainView, ApplicationListener {
     return multiSearch;
   }
 
+  // Search in a folder.
+
+  private FolderSearchWindow folderSearch;
+
+  @Override
+  public void showFolderSearch() {
+    if (folderSearch == null || folderSearch.isDisposed()) {
+      folderSearch = new FolderSearchWindow(shell, controller.folderSearch());
+    }
+    folderSearch.open();
+  }
+
+  /**
+   * Returns the Search in Folder window.
+   *
+   * @return the window, or null before the first use
+   */
+  FolderSearchWindow folderSearch() {
+    return folderSearch;
+  }
+
   @Override
   public void showSelectorsDialog() {
     new SelectorsDialog(shell, controller).open();

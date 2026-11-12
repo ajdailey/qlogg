@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.core.index.GrowableLineIndex;
 import io.github.ajdailey.qlogg.core.index.IndexListener;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
@@ -477,9 +478,20 @@ public final class LogDocument implements LineSource, Closeable {
    * @return the reader
    */
   public LineReader newReader() {
+    return newReader(services.cache());
+  }
+
+  /**
+   * Creates a reader for this document's lines that reads through another cache, so a scan of many
+   * lines does not evict the shared cache's blocks; one thread uses it at a time.
+   *
+   * @param cache the cache the reader reads through
+   * @return the reader
+   */
+  public LineReader newReader(BlockCache cache) {
     return new LineReader(
         source,
-        services.cache(),
+        cache,
         detection.encoding(),
         new BooleanSupplier() {
           @Override

@@ -68,6 +68,26 @@ class StateStoresTest {
     assertEquals(List.of("/mock/c.log", "/mock/a.log"), loaded.state().recentFiles());
   }
 
+  // Search in a folder.
+
+  @Test
+  void folderSearchSettingsRoundTripAndAnOverlongValueReadsAsTheDefault() throws Exception {
+    FolderSearchSettings folder = new FolderSearchSettings("/mock/logs", "*.log;*.txt", true);
+    ConfigStore store = new ConfigStore(location());
+    assertTrue(
+        store.save(Preferences.DEFAULTS.withState(UiState.DEFAULTS.withFolderSearch(folder))));
+    assertEquals(folder, new ConfigStore(location()).load().state().folderSearch());
+    Files.writeString(
+        temp.resolve(SettingsLocation.MARKER),
+        "folderSearch.folder="
+            + "x".repeat(FolderSearchSettings.MAX_CHARS + 1)
+            + "\nfolderSearch.names=*.out\nfolderSearch.recursive=maybe\n",
+        StandardCharsets.ISO_8859_1);
+    assertEquals(
+        new FolderSearchSettings("", "*.out", false),
+        new ConfigStore(location()).load().state().folderSearch());
+  }
+
   @Test
   void invalidValuesFallBackToDefaults() throws Exception {
     Files.writeString(

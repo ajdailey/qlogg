@@ -67,6 +67,25 @@ class HarnessTest {
   }
 
   @Test
+  void folderCountsTheSameMatchesAsASearchOfEachFile() throws Exception {
+    Path dir = Files.createDirectory(temp.resolve("logs"));
+    Path one = dir.resolve("one.log");
+    new LogGenerator(LogGenerator.Profile.ASCII_SHORT, 1).write(one, BYTES);
+    new LogGenerator(LogGenerator.Profile.ASCII_SHORT, 2).write(dir.resolve("one.log.1"), BYTES);
+    Harness harness = harness();
+    try {
+      harness.multi(SEARCH, List.of(one, dir.resolve("one.log.1")));
+      harness.folder(SEARCH, dir, "*.log*", false);
+    } finally {
+      harness.close();
+    }
+    assertEquals(2, number("folder.files"));
+    assertTrue(value("folder.outcome").startsWith("COMPLETED"));
+    assertEquals(number("multi.matches"), number("folder.matches"));
+    assertEquals(number("folder.matches"), number("folder.listed"));
+  }
+
+  @Test
   void filteredListsContextMatchesAndMarks() throws Exception {
     Path file = generated(LogGenerator.Profile.ASCII_SHORT, "filtered.log");
     Harness harness = harness();

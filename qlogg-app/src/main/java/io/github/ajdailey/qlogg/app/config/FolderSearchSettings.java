@@ -1,0 +1,29 @@
+package io.github.ajdailey.qlogg.app.config;
+
+import io.github.ajdailey.qlogg.core.folder.NamePattern;
+
+/**
+ * The Search in Folder window's remembered fields in {@code qlogg.conf}. Immutable.
+ *
+ * @param folder {@code folderSearch.folder}: the folder as typed or chosen, or empty
+ * @param names {@code folderSearch.names}: the file name globs
+ * @param recursive {@code folderSearch.recursive}: Include subfolders
+ */
+public record FolderSearchSettings(String folder, String names, boolean recursive) {
+  /** Longest folder or names value kept; a longer one in the file reads as the default. */
+  public static final int MAX_CHARS = 4096;
+
+  /** No folder, the default names, no subfolders. */
+  public static final FolderSearchSettings DEFAULTS =
+      new FolderSearchSettings("", NamePattern.DEFAULT, false);
+
+  /** Checks the components. */
+  public FolderSearchSettings {
+    if (folder == null || names == null) {
+      throw new IllegalArgumentException("folder and names are required");
+    }
+    if (folder.length() > MAX_CHARS || names.length() > MAX_CHARS) {
+      throw new IllegalArgumentException("folder or names too long");
+    }
+  }
+}

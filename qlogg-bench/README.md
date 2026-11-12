@@ -42,6 +42,7 @@ $H multi literal:blockterm <scratch>/a.log <scratch>/b.log <scratch>/c.log
 $H filtered <scratch>/ascii-short-1g.log literal:flagword 3 3
 $H time <scratch>/timed-1g.log [go-tos]
 $H tail <scratch>/tail.log 50000 20
+$H folder literal:flagword <scratch>/logs '*.log*' [recursive]
 xvfb-run -a env GDK_BACKEND=x11 $H startup qlogg-dist/target/qlogg.jar \
     <scratch>/ascii-short-100m.log <scratch>/startup-jar [runs]
 xvfb-run -a env GDK_BACKEND=x11 $H startup <scratch>/bundle/qlogg/bin/qlogg \
@@ -55,6 +56,7 @@ xvfb-run -a env GDK_BACKEND=x11 $H startup <scratch>/bundle/qlogg/bin/qlogg \
 | `multi` | One `SEARCH` over several files, as a search across open files runs it: opens and indexes each; searches them in turn (`multi.inTurn.ms`), then starts one search per file on the shared engine (`multi.atOnce.ms`, CPU, each file's time and matches, total matches); heap after GC, shares, peak RSS |
 | `filtered` | Filtered-result generation, as `FilteredController` runs it: `SEARCH`, one line in 1,000 marked, context rows for `BEFORE` and `AFTER` lines (0 by default; `filtered.context.ms`), the marks outside them (`filtered.extras.ms`), the row count; 10,000 random 50-row screens, mapped to lines and read (p50, p99, max of each); heap after GC, shares, peak RSS |
 | `time` | Timestamp navigation: format detection on the 64 KiB head, the 256 order samples, `GO_TOS` (1,000 by default) go to times by bisection to random times and as many caret-time reads of random lines (p50, p99, max of each), one linear pass; heap after GC, shares, peak RSS. A file with no detected format ends after the detection |
+| `folder` | One `SEARCH` over a folder's files as Search in Folder runs it (`FolderSearch`: each file opened, indexed, searched, its matching lines read, closed, in turn): total time and CPU, MiB per second, files, matches, lines listed and their `RESULTS` bytes; heap after GC with the results held, shares, peak RSS. `multi` over the same files gives the open-files path for comparison |
 | `tail` | Appends lines at the given rate for the given seconds to a new file opened with the default monitor settings; latency from the write to the line entering the index (p50, p99, max) |
 | `startup` | Launches QLogg `runs` times (6 by default), one at a time, with `--settings <dir> -m -n -d debug <file>`, and times each from process start to the first paint that shows file text (`LogCanvas` logs it at DEBUG); the first run, which also fills the settings directory and extracts the SWT natives, is reported apart from the median of the rest |
 

@@ -734,6 +734,61 @@ public enum UiText {
   MULTI_SUMMARY,
   /** Notice: search across files with an empty field. */
   MULTI_NO_TEXT,
+  // Search in a folder.
+  /** Command label. */
+  COMMAND_SEARCH_FOLDER,
+  /** Window title. */
+  FOLDER_TITLE,
+  /** Field label: the folder. */
+  FOLDER_FOLDER,
+  /** Button: choose the folder. */
+  FOLDER_BROWSE,
+  /** Field label: the file name globs. */
+  FOLDER_NAMES,
+  /** Check box: search subfolders. */
+  FOLDER_RECURSIVE,
+  /** Field label: the search text. */
+  FOLDER_TEXT,
+  /** Files table column. */
+  FOLDER_COLUMN_FILE,
+  /** Files table column. */
+  FOLDER_COLUMN_MATCHES,
+  /** Files table column. */
+  FOLDER_COLUMN_STATUS,
+  /** Lines table column. */
+  FOLDER_COLUMN_LINE,
+  /** Lines table column. */
+  FOLDER_COLUMN_TEXT,
+  /** File status: searched to the end. */
+  FOLDER_STATUS_DONE,
+  /** File status: the results share stopped the listing; argument: lines listed. */
+  FOLDER_STATUS_PARTIAL,
+  /** File status: not opened or read; argument: the reason. */
+  FOLDER_STATUS_UNREADABLE,
+  /** File status: compressed or binary. */
+  FOLDER_STATUS_NOT_TEXT,
+  /** File status: the search of the file failed; argument: the reason. */
+  FOLDER_STATUS_FAILED,
+  /** Summary before a run. */
+  FOLDER_IDLE,
+  /** Summary while the folder is walked. */
+  FOLDER_WALKING,
+  /** Summary while searching; arguments: file name, file number, files, percent, matches. */
+  FOLDER_RUNNING,
+  /** Summary at the end; arguments: text, matches, files with matches, files listed. */
+  FOLDER_DONE,
+  /** Summary at the results share stop; arguments: text and matches. */
+  FOLDER_LIMITED,
+  /** Summary after Stop; arguments: text, matches and files with matches. */
+  FOLDER_STOPPED,
+  /** Failure: no search text. */
+  FOLDER_NO_TEXT,
+  /** Failure: no folder. */
+  FOLDER_NO_FOLDER,
+  /** Failure: a glob that does not parse; argument: the reason. */
+  FOLDER_BAD_NAMES,
+  /** Failure: the folder does not validate or cannot be walked; argument: the reason. */
+  FOLDER_FAILED,
   /** Scratchpad window title. */
   SCRATCHPAD_TITLE,
   /** Scratchpad tab; argument: its number. */

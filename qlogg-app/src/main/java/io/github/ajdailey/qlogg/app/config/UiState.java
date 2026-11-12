@@ -20,6 +20,8 @@ import java.util.Map;
  * @param dialogs {@code dialog.<name>.width} and {@code .height}: a dialog's last size
  * @param closedFiles {@code closed.N}: File > Recently Closed, most recent first, at most {@link
  *     #MAX_CLOSED}
+ * @param folderSearch {@code folderSearch.*}: the Search in Folder window's folder, names and
+ *     subfolders
  */
 public record UiState(
     WindowState window,
@@ -30,7 +32,8 @@ public record UiState(
     String openDirectory,
     List<String> recentFiles,
     Map<String, Size> dialogs,
-    List<String> closedFiles) {
+    List<String> closedFiles,
+    FolderSearchSettings folderSearch) {
   /** Most dialog sizes kept. */
   public static final int MAX_DIALOGS = 32;
 
@@ -48,7 +51,8 @@ public record UiState(
           "",
           List.of(),
           Map.of(),
-          List.of());
+          List.of(),
+          FolderSearchSettings.DEFAULTS);
 
   /**
    * A dialog's size in pixels.
@@ -72,7 +76,8 @@ public record UiState(
         || openDirectory == null
         || recentFiles == null
         || dialogs == null
-        || closedFiles == null) {
+        || closedFiles == null
+        || folderSearch == null) {
       throw new IllegalArgumentException("every component is required");
     }
     if (split != 0 && (split < Preferences.MIN_SPLIT || split > Preferences.MAX_SPLIT)) {
@@ -106,7 +111,8 @@ public record UiState(
         openDirectory,
         recentFiles,
         dialogs,
-        closedFiles);
+        closedFiles,
+        folderSearch);
   }
 
   /**
@@ -125,7 +131,8 @@ public record UiState(
         openDirectory,
         recentFiles,
         dialogs,
-        closedFiles);
+        closedFiles,
+        folderSearch);
   }
 
   /**
@@ -137,7 +144,16 @@ public record UiState(
    */
   public UiState withLineNumbers(boolean main, boolean filtered) {
     return new UiState(
-        window, split, search, main, filtered, openDirectory, recentFiles, dialogs, closedFiles);
+        window,
+        split,
+        search,
+        main,
+        filtered,
+        openDirectory,
+        recentFiles,
+        dialogs,
+        closedFiles,
+        folderSearch);
   }
 
   /**
@@ -156,7 +172,8 @@ public record UiState(
         value,
         recentFiles,
         dialogs,
-        closedFiles);
+        closedFiles,
+        folderSearch);
   }
 
   /**
@@ -175,7 +192,8 @@ public record UiState(
         openDirectory,
         value,
         dialogs,
-        closedFiles);
+        closedFiles,
+        folderSearch);
   }
 
   /**
@@ -213,7 +231,8 @@ public record UiState(
         openDirectory,
         recentFiles,
         dialogs,
-        value);
+        value,
+        folderSearch);
   }
 
   /**
@@ -270,6 +289,29 @@ public record UiState(
         openDirectory,
         recentFiles,
         copy,
-        closedFiles);
+        closedFiles,
+        folderSearch);
+  }
+
+  // Search in a folder.
+
+  /**
+   * Returns a copy with other Search in Folder settings.
+   *
+   * @param value the settings
+   * @return the copy
+   */
+  public UiState withFolderSearch(FolderSearchSettings value) {
+    return new UiState(
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        openDirectory,
+        recentFiles,
+        dialogs,
+        closedFiles,
+        value);
   }
 }

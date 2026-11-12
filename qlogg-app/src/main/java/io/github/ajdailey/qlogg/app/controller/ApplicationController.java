@@ -1591,6 +1591,17 @@ public final class ApplicationController implements DocumentHost {
     return features.multiSearch();
   }
 
+  // Search in a folder.
+
+  /**
+   * Returns the search in a folder.
+   *
+   * @return the controller
+   */
+  public FolderSearchController folderSearch() {
+    return features.folderSearch();
+  }
+
   /**
    * Reports whether a plain drag in a log view selects a block of columns.
    *
@@ -1903,6 +1914,7 @@ public final class ApplicationController implements DocumentHost {
     shuttingDown = true;
     opener.close();
     quickFind.cancelRunning();
+    features.folderSearch().clear();
     for (DocumentController document : documents) {
       rememberPosition(document);
     }

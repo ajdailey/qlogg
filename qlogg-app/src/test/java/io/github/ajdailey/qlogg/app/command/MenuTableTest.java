@@ -49,23 +49,40 @@ class MenuTableTest {
     assertNull(MenuTable.nestedCascade(CommandId.TIME_OFFSET));
   }
 
+  /**
+   * Mnemonics the Edit menu repeats; a letter for each of its 26 items would move existing ones.
+   */
+  private static final String EDIT_REPEATS = "abefnst";
+
   @Test
-  void mnemonicsAreUniqueInFileViewAndTools() {
-    CommandGroup[] groups = {CommandGroup.FILE, CommandGroup.VIEW, CommandGroup.TOOLS};
-    for (CommandGroup group : groups) {
-      for (Map.Entry<String, List<String>> menu : menus(group).entrySet()) {
-        List<Character> seen = new ArrayList<Character>();
-        for (String label : menu.getValue()) {
-          int at = label.indexOf('&');
-          if (at < 0) {
-            continue;
-          }
-          char key = label.toLowerCase(Locale.ROOT).charAt(at + 1);
-          assertFalse(seen.contains(key), menu.getKey() + ": '" + key + "' again in " + label);
-          seen.add(key);
-        }
+  void mnemonicsAreUniqueInEveryMenu() {
+    Map<String, List<String>> menus = new LinkedHashMap<String, List<String>>();
+    List<String> bar = new ArrayList<String>();
+    menus.put("menu bar", bar);
+    for (CommandGroup group : CommandGroup.values()) {
+      if (group.menu()) {
+        bar.add(group.label());
+        menus.putAll(menus(group));
       }
     }
+    List<String> repeated = new ArrayList<String>();
+    for (Map.Entry<String, List<String>> menu : menus.entrySet()) {
+      List<Character> seen = new ArrayList<Character>();
+      for (String label : menu.getValue()) {
+        int at = label.indexOf('&');
+        if (at < 0) {
+          continue;
+        }
+        char key = label.toLowerCase(Locale.ROOT).charAt(at + 1);
+        boolean known =
+            menu.getKey().equals(CommandGroup.EDIT.label()) && EDIT_REPEATS.indexOf(key) >= 0;
+        if (seen.contains(key) && !known) {
+          repeated.add(menu.getKey() + ": '" + key + "' again in " + label);
+        }
+        seen.add(key);
+      }
+    }
+    assertEquals(List.of(), repeated);
   }
 
   /** Labels per menu: the group's own menu, then each cascade in it. */

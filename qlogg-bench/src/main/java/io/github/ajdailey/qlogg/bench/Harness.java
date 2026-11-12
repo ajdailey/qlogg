@@ -6,6 +6,13 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.folder.FileHits;
+import io.github.ajdailey.qlogg.core.folder.FolderListener;
+import io.github.ajdailey.qlogg.core.folder.FolderProgress;
+import io.github.ajdailey.qlogg.core.folder.FolderQuery;
+import io.github.ajdailey.qlogg.core.folder.FolderResults;
+import io.github.ajdailey.qlogg.core.folder.FolderSearch;
+import io.github.ajdailey.qlogg.core.folder.NamePattern;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
@@ -117,7 +124,7 @@ public final class Harness {
   public static final String LAUNCHER_GC = "-XX:GCTimeRatio=1";
 
   private static final List<String> OPENS_DOCUMENTS =
-      List.of("run", "multi", "filtered", "time", "tail");
+      List.of("run", "multi", "filtered", "time", "tail", "folder");
 
   private static final String[] HEAP_OPTIONS = {
     "-Xmx", "-XX:MaxRAMPercentage=", "-XX:MaxRAM=", "-XX:MaxHeapSize="
@@ -171,7 +178,8 @@ public final class Harness {
           "usage: generate PROFILE BYTES FILE [SEED] | run FILE [SEARCH...]"
               + " | multi SEARCH FILE... | filtered FILE SEARCH [BEFORE [AFTER]]"
               + " | time FILE [GO_TOS] | tail FILE LINES_PER_SECOND SECONDS"
-              + " | startup TARGET FILE SETTINGS [RUNS]");
+              + " | startup TARGET FILE SETTINGS [RUNS]"
+              + " | folder SEARCH DIR [NAMES [recursive]]");
       System.exit(2);
     }
     if (OPENS_DOCUMENTS.contains(args[0]) && relaunchNeeded()) {
@@ -227,6 +235,18 @@ public final class Harness {
           harness.tail(Path.of(args[1]), Integer.parseInt(args[2]), Integer.parseInt(args[3]));
         } finally {
           harness.workers.close();
+        }
+      }
+      case "folder" -> {
+        Harness harness = new Harness(System.out);
+        try {
+          harness.folder(
+              args[1],
+              Path.of(args[2]),
+              args.length > 3 ? args[3] : NamePattern.DEFAULT,
+              args.length > 4 && args[4].equals("recursive"));
+        } finally {
+          harness.close();
         }
       }
       default -> throw new IllegalArgumentException("Unknown command: " + args[0]);
@@ -503,7 +523,8 @@ public final class Harness {
     return running.results();
   }
 
-  private RunningSearch startSearch(LogDocument document, String spec) throws ExpressionException {
+  /** Parses a {@code SEARCH} argument. */
+  private static SearchQuery query(String spec) throws ExpressionException {
     int colon = spec.indexOf(':');
     String kind = spec.substring(0, colon);
     String pattern = spec.substring(colon + 1);
@@ -514,12 +535,16 @@ public final class Harness {
         kind.startsWith("expr")
             ? ExpressionParser.parse(pattern, mode, true)
             : new SearchExpression.Term(pattern, mode);
+    return new SearchQuery(expression, caseSensitive, false, false, null);
+  }
+
+  private RunningSearch startSearch(LogDocument document, String spec) throws ExpressionException {
     MutableLineSet results = new MutableLineSet(budget);
     final CountDownLatch done = new CountDownLatch(1);
     final AtomicReference<OperationOutcome> outcome = new AtomicReference<OperationOutcome>();
     final AtomicReference<SearchLimit> limit = new AtomicReference<SearchLimit>();
     final AtomicLong ended = new AtomicLong();
-    SearchQuery query = new SearchQuery(expression, caseSensitive, false, false, null);
+    SearchQuery query = query(spec);
     long start = System.nanoTime();
     OperationHandle handle =
         services
@@ -595,6 +620,66 @@ public final class Harness {
       for (LogDocument document : documents) {
         document.close();
       }
+    }
+    endLines();
+  }
+
+  // Search in a folder.
+
+  /**
+   * Searches a folder's files as Search in Folder does: one {@link FolderSearch} that opens,
+   * indexes, searches, lists and closes each file in turn.
+   */
+  void folder(String spec, Path dir, String names, boolean recursive)
+      throws InterruptedException, ExpressionException {
+    heapLines();
+    out.println("folder=" + dir);
+    FolderResults results = new FolderResults(budget);
+    final CountDownLatch done = new CountDownLatch(1);
+    final AtomicReference<OperationOutcome> outcome = new AtomicReference<OperationOutcome>();
+    final AtomicReference<SearchLimit> limit = new AtomicReference<SearchLimit>();
+    final AtomicReference<FolderProgress> last = new AtomicReference<FolderProgress>();
+    try {
+      long cpu = cpuNanos();
+      long start = System.nanoTime();
+      new FolderSearch(services)
+          .start(
+              new FolderQuery(dir.toString(), NamePattern.of(names), recursive, query(spec)),
+              results,
+              new FolderListener() {
+                @Override
+                public void progressed(FolderProgress progress) {
+                  last.set(progress);
+                }
+
+                @Override
+                public void finished(
+                    OperationOutcome result, SearchLimit reached, Exception failure) {
+                  outcome.set(result);
+                  limit.set(reached);
+                  done.countDown();
+                }
+              });
+      done.await();
+      long nanos = System.nanoTime() - start;
+      long lines = 0;
+      for (FileHits file : results.files()) {
+        lines += file.size();
+      }
+      long bytes = last.get().bytesTotal();
+      out.println("folder.outcome=" + outcome.get() + " limit=" + limit.get());
+      out.println("folder.files=" + last.get().filesTotal());
+      out.println("folder.bytes=" + bytes);
+      out.println("folder.ms=" + millis(nanos));
+      out.println("folder.cpu.ms=" + millis(cpuNanos() - cpu));
+      out.println("folder.mibPerSecond=" + format(bytes / 1048576.0 / (nanos / 1e9)));
+      out.println("folder.matches=" + results.matches());
+      out.println("folder.listed=" + lines);
+      out.println("folder.results.bytes=" + results.retainedBytes());
+      heap("heap.afterGc");
+      shares();
+    } finally {
+      results.close();
     }
     endLines();
   }

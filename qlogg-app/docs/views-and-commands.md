@@ -121,8 +121,9 @@ Highlighters, Encoding, Favorites and Help.
 
 `MenuTable.commands(group, appMenu)` lists a menu's commands. With the macOS
 application menu present it leaves out About, Options and Exit, which that menu
-holds as About, Preferences and Quit. In File, View and Tools, and in each of
-their cascades, no two items share a mnemonic (`MenuTableTest`). View has more
+holds as About, Preferences and Quit. In the menu bar, each menu and each
+cascade, no two items share a mnemonic (`MenuTableTest`), except that Edit
+repeats seven letters (`a`, `b`, `e`, `f`, `n`, `s`, `t`). View has more
 items than letters, so Text Wrap, Wrap New Files, Toggle Fold, Save Splitter
 Position and Command Palette have none.
 

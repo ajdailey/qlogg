@@ -177,3 +177,56 @@ before each bucket make `rank` and `select` a binary search over buckets.
   chunk merge.
 - `version()` counts changes, so a reader detects a toggle that left the size
   unchanged.
+
+## Search in a folder
+
+`core.folder.FolderSearch` searches the files of a folder without opening
+them as documents the application shows. `start(query, results, listener)`
+runs a coordinator on a `qlogg-search-` virtual thread:
+
+1. `SafePaths.logDirectory` validates the folder and returns its real path.
+2. The walk takes files whose name matches the `NamePattern`
+   (`;`-separated globs, `NamePattern.DEFAULT` is `*.log*`), in subfolders
+   only with `recursive`, and sorts them by path.
+3. Each file in turn: `LogDocument.open` with encoding detection, a full
+   index, a `SearchEngine` search into a `MutableLineSet`, a `LineReader`
+   read of each matching line, then close. The heap holds one file's index
+   and result set at a time.
+
+| `FileHits.Status` | When |
+|---|---|
+| `SEARCHED` | The file was searched; `matches()` counts its matching lines and `size()` the lines listed |
+| `UNREADABLE` | A file or folder the walk cannot read, a link whose target is missing, or a file that does not open or index; `detail()` gives the reason |
+| `NOT_TEXT` | A one-byte encoding with a NUL byte in the first 64 KiB, such as a compressed rotation `app.log.2.gz` |
+| `FAILED` | That file's search failed, for example a regex that overflows the stack on one of its lines; the walk goes on |
+
+- A symbolic link to a file is searched, because an open follows it. A link
+  to a folder is not entered.
+- A regex that does not compile ends the search `FAILED` with the
+  `PatternSyntaxException`.
+- `FolderListener.progressed` runs at most every 100 ms and once at the end,
+  before `finished`; both run on the coordinator thread.
+- Cancellation is checked at every walked entry, every 50 ms while a file
+  indexes or searches, and at every listed line. The file in progress is
+  canceled and closed before `finished`, and is not listed.
+
+### Folder search memory
+
+Each walked file reserves 96 B plus 2 B per path char from `RESULTS`; each
+listed line reserves 80 B plus 2 B per char, its text cut at 512 chars.
+`FolderResults` holds these reservations until `close()`. A refused
+reservation stops the search: the file in progress keeps the lines listed so
+far (`complete()` false), `limited()` turns true, and the search ends
+`COMPLETED` with `SearchLimit.MEMORY`.
+
+A run reads files through its own `Indexer` and its own line cache rather than
+the shared ones:
+
+- The run's `Indexer` uses 1 MiB blocks, 2 per CPU thread, and keeps its pool
+  until the run ends (`Indexer(workers, settings, false)`, then `trim()`). The
+  shared indexer trims its pool after every file, and a trimmed direct buffer
+  frees its native memory only at a later GC, so one pool per file would
+  accumulate.
+- `LogDocument.newReader(cache)` reads the listed lines through a 64 KiB cache
+  of 8 KiB blocks, so a listing neither fills nor evicts the shared
+  `BlockCache`.

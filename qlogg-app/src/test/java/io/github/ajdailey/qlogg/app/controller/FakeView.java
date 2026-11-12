@@ -294,6 +294,16 @@ final class FakeView implements MainView {
     multiSearchShown++;
   }
 
+  // Search in a folder.
+
+  int folderSearchShown;
+
+  @Override
+  public void showFolderSearch() {
+    ui.check("showFolderSearch");
+    folderSearchShown++;
+  }
+
   @Override
   public void showSelectorsDialog() {
     ui.check("showSelectorsDialog");

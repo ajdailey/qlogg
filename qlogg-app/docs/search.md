@@ -124,6 +124,30 @@ uses its document's encoding and result set and is charged to `RESULTS`.
 - A run ignores `inSelection` and leaves each tab's toggle as it was. Each
   tab's search start and end limits apply.
 
+## Search in a folder
+
+`FolderSearchController` (Edit > Search in Folder) runs a `FolderSearch` over a
+folder's files without opening tabs; core detail is in
+[qlogg-core Search](../../qlogg-core/docs/search.md#search-in-a-folder).
+
+- `request()` is the last run's `FolderRequest`. Otherwise it takes the
+  folder, globs and Include subfolders from `folderSearch.*` in
+  `qlogg.conf`, the folder falling back to the shown tab's, and the shown
+  tab's search text and toggles.
+- `run` saves the folder, globs and Include subfolders to `folderSearch.*`.
+- `run` cancels the last run and closes its `FolderResults`, returning their
+  `RESULTS` reservation. An empty folder or text, a glob or combined
+  expression that does not parse, or closed workers end the run `FAILED`
+  before the search thread; the folder is validated on it.
+- Mode, case, whole word, inverse and combining apply. Range, In selection,
+  context and auto-refresh do not. `view.hideAnsi` applies.
+- Progress and the end reach the UI thread through the `UiDispatcher`; events
+  of a replaced run are dropped.
+- `open(file, hit)` selects the tab whose path or real path is the file and
+  goes to the line, else opens the file at that line.
+- `clear()` cancels and drops the results. The window calls it when it
+  closes, and so does a window's close.
+
 ## Predefined filters
 
 `importFilters` and `exportFilters` read or write a user-chosen file on a

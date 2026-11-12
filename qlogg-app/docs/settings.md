@@ -49,7 +49,7 @@ range falls back to its default.
 | `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file` | `OptionsFile` |
-| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `dialog.*` | `OptionsFile` |
+| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
 
 `FoldRulesText.parse` checks the Options Folding tab's text. Blank lines are
 dropped and other lines kept as typed. Every pattern must compile; at most 64
@@ -98,6 +98,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers |
 | `open.directory` | Where File > Open starts with no file shown | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
+| `folderSearch.folder`, `.names`, `.recursive` | Search in Folder's folder, file name globs (at most 4,096 chars each) and Include subfolders | none, `*.log*`, `false` | Each folder search |
 | `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
 | `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |
 | `time.format.N.name`, `.locate`, `.pattern` | A user timestamp format: a name, a regex whose group `ts` holds the time, a `DateTimeFormatter` pattern; at most 32 | none | View > Timestamps > Edit Formats |

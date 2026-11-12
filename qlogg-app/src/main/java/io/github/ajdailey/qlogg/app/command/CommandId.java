@@ -332,6 +332,9 @@ public enum CommandId {
   BLOCK_SELECTION(CommandGroup.EDIT, UiText.COMMAND_BLOCK_SELECTION, false, true),
   /** Run the search in every open file. */
   SEARCH_ALL_FILES(CommandGroup.EDIT, UiText.COMMAND_SEARCH_ALL_FILES, false, false),
+  // Search in a folder.
+  /** Search the files of a folder without opening them. */
+  SEARCH_FOLDER(CommandGroup.EDIT, UiText.COMMAND_SEARCH_FOLDER, false, false),
   // Marks list.
   /** Show the window listing the shown file's marks. */
   MARKS_LIST(CommandGroup.TOOLS, UiText.COMMAND_MARKS_LIST, true, false),

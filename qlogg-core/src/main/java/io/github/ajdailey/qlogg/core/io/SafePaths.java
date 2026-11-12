@@ -133,6 +133,31 @@ public final class SafePaths {
     }
   }
 
+  // Search in a folder.
+
+  /**
+   * Validates a folder of logs to search: checked as {@link #logFile(String)} checks a path's form,
+   * made absolute and normalized, then resolved to its real path, which must be a directory.
+   *
+   * @param path the folder as given; a relative path resolves against the working directory
+   * @return the real path of the directory
+   * @throws IOException when the text is not a path, the folder does not exist or is not a
+   *     directory
+   */
+  public static Path logDirectory(String path) throws IOException {
+    checkForm(path);
+    Path absolute;
+    try {
+      absolute = Path.of(path).toAbsolutePath().normalize();
+    } catch (InvalidPathException e) {
+      throw new IOException("Not a valid path: " + e.getReason(), e);
+    }
+    if (!Files.isDirectory(absolute)) {
+      throw new IOException(absolute + " is not a directory");
+    }
+    return absolute.toRealPath();
+  }
+
   /**
    * Validates a settings directory: made absolute and normalized, created with owner-only
    * permissions where the file system supports POSIX permissions, then resolved to its real path.

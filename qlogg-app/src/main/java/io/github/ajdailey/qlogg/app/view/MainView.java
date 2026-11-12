@@ -186,6 +186,11 @@ public interface MainView
   /** Shows the window listing the search across open files, one group per file. */
   void showMultiSearch();
 
+  // Search in a folder.
+
+  /** Shows the Search in Folder window, creating it on first use. */
+  void showFolderSearch();
+
   /** Shows the Automatic Highlighters dialog. */
   void showSelectorsDialog();
 

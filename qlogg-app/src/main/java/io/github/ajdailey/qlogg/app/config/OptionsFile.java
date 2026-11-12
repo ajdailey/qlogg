@@ -55,6 +55,10 @@ final class OptionsFile {
   static final String FILTERED_LINE_NUMBERS = "view.filteredLineNumbers";
   static final String OPEN_DIRECTORY = "open.directory";
   static final String DIALOG = "dialog.";
+  // Search in a folder.
+  static final String FOLDER_SEARCH_FOLDER = "folderSearch.folder";
+  static final String FOLDER_SEARCH_NAMES = "folderSearch.names";
+  static final String FOLDER_SEARCH_RECURSIVE = "folderSearch.recursive";
 
   /** Largest window coordinate or size accepted, in pixels. */
   static final int MAX_PIXELS = 100_000;
@@ -175,7 +179,24 @@ final class OptionsFile {
         p.getProperty(OPEN_DIRECTORY, ""),
         list(p, RECENT, Options.MAX_RECENT),
         dialogs,
-        list(p, CLOSED, UiState.MAX_CLOSED));
+        list(p, CLOSED, UiState.MAX_CLOSED),
+        folderSearch(p, file));
+  }
+
+  // Search in a folder.
+
+  private static FolderSearchSettings folderSearch(Properties p, Path file) {
+    FolderSearchSettings d = FolderSearchSettings.DEFAULTS;
+    String folder = p.getProperty(FOLDER_SEARCH_FOLDER, d.folder());
+    String names = p.getProperty(FOLDER_SEARCH_NAMES, d.names());
+    if (folder.length() > FolderSearchSettings.MAX_CHARS) {
+      folder = d.folder();
+    }
+    if (names.length() > FolderSearchSettings.MAX_CHARS) {
+      names = d.names();
+    }
+    return new FolderSearchSettings(
+        folder, names, flag(p, FOLDER_SEARCH_RECURSIVE, d.recursive(), file));
   }
 
   /**
@@ -231,6 +252,11 @@ final class OptionsFile {
       p.setProperty(
           DIALOG + entry.getKey() + ".height", Integer.toString(entry.getValue().height()));
     }
+    // Search in a folder.
+    FolderSearchSettings folderSearch = state.folderSearch();
+    p.setProperty(FOLDER_SEARCH_FOLDER, folderSearch.folder());
+    p.setProperty(FOLDER_SEARCH_NAMES, folderSearch.names());
+    p.setProperty(FOLDER_SEARCH_RECURSIVE, Boolean.toString(folderSearch.recursive()));
   }
 
   private static List<String> list(Properties p, String prefix, int max) {

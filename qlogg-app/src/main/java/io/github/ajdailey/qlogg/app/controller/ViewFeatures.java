@@ -45,6 +45,8 @@ final class ViewFeatures {
   private final UiDispatcher ui;
   private final MainView view;
   private final MultiSearchController multiSearch = new MultiSearchController();
+  // Search in a folder.
+  private final FolderSearchController folderSearch;
   private boolean blockMode;
 
   ViewFeatures(ApplicationController application, Workers workers, UiDispatcher ui, MainView view) {
@@ -52,11 +54,17 @@ final class ViewFeatures {
     this.workers = workers;
     this.ui = ui;
     this.view = view;
+    this.folderSearch = new FolderSearchController(application, ui);
   }
 
   /** The search across open files. */
   MultiSearchController multiSearch() {
     return multiSearch;
+  }
+
+  /** The search in a folder. */
+  FolderSearchController folderSearch() {
+    return folderSearch;
   }
 
   /** Reports whether a plain drag selects a block. */
@@ -111,6 +119,7 @@ final class ViewFeatures {
       case SEND_TO_SCRATCHPAD -> sendToScratchpad(false);
       case REPLACE_SCRATCHPAD -> sendToScratchpad(true);
       case SEARCH_ALL_FILES -> searchAllFiles();
+      case SEARCH_FOLDER -> view.showFolderSearch();
       case SAVE_SELECTION -> save(false);
       case SAVE_FILTERED -> save(true);
       case TOGGLE_WRAP, TOGGLE_FOLD, COLLAPSE_ALL_FOLDS, EXPAND_ALL_FOLDS -> {

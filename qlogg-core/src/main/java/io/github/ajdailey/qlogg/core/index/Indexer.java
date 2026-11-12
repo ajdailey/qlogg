@@ -24,8 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * ms and once at the end. At most {@code maxBlocksInFlight} blocks are read but not yet appended,
  * fewer when the {@code IO_BUFFERS} share is short.
  *
- * <p>An operation trims the buffer pool when it ends. When a scan outlives the operation's bounded
- * wait at its end, the scan returns its buffer to the pool when it finishes.
+ * <p>An operation trims the buffer pool when it ends, unless the indexer was created to keep it
+ * until {@link #trim}. When a scan outlives the operation's bounded wait at its end, the scan
+ * returns its buffer to the pool when it finishes.
  *
  * <p>Cancellation is checked before each block is read and while waiting for a scan, so an
  * operation stops within one block. A read on a closed source also ends it as {@code CANCELED}. The
@@ -41,6 +42,7 @@ public final class Indexer {
   private final Workers workers;
   private final IndexSettings settings;
   private final ReadBuffers buffers;
+  private final boolean trimAtEnd;
 
   /**
    * Creates an indexer with its own buffer pool.
@@ -49,10 +51,35 @@ public final class Indexer {
    * @param settings block size, in-flight bound and budget
    */
   public Indexer(Workers workers, IndexSettings settings) {
+    this(workers, settings, true);
+  }
+
+  // Search in a folder.
+
+  /**
+   * Creates an indexer with its own buffer pool, trimmed at the end of each operation or only by
+   * {@link #trim}.
+   *
+   * @param workers runs coordinators and scans
+   * @param settings block size, in-flight bound and budget
+   * @param trimAtEnd false keeps the pool between operations until {@link #trim}
+   */
+  public Indexer(Workers workers, IndexSettings settings, boolean trimAtEnd) {
     this.workers = workers;
     this.settings = settings;
+    this.trimAtEnd = trimAtEnd;
     this.buffers =
         new ReadBuffers(settings.blockBytes(), settings.maxBlocksInFlight(), settings.budget());
+  }
+
+  /**
+   * Drops the pool's free buffers past {@link ReadBuffers#MIN_BUFFERS} and returns their {@code
+   * IO_BUFFERS} reservation.
+   *
+   * @return the buffers dropped
+   */
+  public int trim() {
+    return buffers.trim();
   }
 
   /**
@@ -313,7 +340,9 @@ public final class Indexer {
           recycle(slot);
         }
       }
-      buffers.trim();
+      if (trimAtEnd) {
+        buffers.trim();
+      }
       if (interrupted) {
         Thread.currentThread().interrupt();
       }

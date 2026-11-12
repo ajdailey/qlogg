@@ -16,6 +16,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
+import io.github.ajdailey.qlogg.core.io.ReadBuffers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.testkit.SyntheticLog;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
@@ -264,6 +265,28 @@ class IndexerTest {
                 .close();
           }
         });
+  }
+
+  // Search in a folder.
+
+  @Test
+  void anIndexerThatKeepsItsPoolReleasesItOnlyOnTrim() throws Exception {
+    MemoryBudget budget = MemoryBudget.of(1L << 30);
+    Path file = write(ascii(SyntheticLog.text(20_000, 8, "\n")));
+    Indexer indexer = new Indexer(workers, new IndexSettings(4096, 8, budget), false);
+    try (FileByteSource source = FileByteSource.open(file)) {
+      TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
+      RecordingListener listener = new RecordingListener();
+      try (GrowableLineIndex index = new GrowableLineIndex(encoding, budget, source, cache())) {
+        assertTrue(indexer.index(source, index, index.resumeOffset(), listener).await(WAIT_MILLIS));
+        assertEquals(OperationOutcome.COMPLETED, listener.outcome);
+      }
+    }
+    long minimum = ReadBuffers.MIN_BUFFERS * 4096L;
+    long kept = budget.reserved(MemoryShare.IO_BUFFERS);
+    assertTrue(kept > minimum, "the pool stays past its minimum: " + kept);
+    assertTrue(indexer.trim() > 0);
+    assertEquals(minimum, budget.reserved(MemoryShare.IO_BUFFERS));
   }
 
   @Test

@@ -17,7 +17,7 @@ without a display. `qlogg-ui-swt` implements the view contracts and
 | `app.i18n` | `UiText` and `messages.properties` | [Views and commands](docs/views-and-commands.md) |
 | `app.controller` | Windows, tabs, open, reload, close and quit | [Windows and tabs](docs/windows-and-tabs.md) |
 | `app.controller` | The main and filtered views of one document: rows, copy, save, marks, follow, folds | [Document views](docs/document-views.md) |
-| `app.controller`, `app.search` | Search, quick find, search across files, history and filters | [Search](docs/search.md) |
+| `app.controller`, `app.search` | Search, quick find, search across files, search in a folder, history and filters | [Search](docs/search.md) |
 | `app.controller`, `app.highlight`, `app.theme` | Highlighters, color labels, keyword triggers, palette | [Highlighting](docs/highlighting.md) |
 | `app.controller` | Timestamp formats, Go to Time, time sync, time spread | [Timestamps](docs/timestamps.md) |
 | `app.config` | Settings directory, `qlogg.conf`, positions and session stores | [Settings](docs/settings.md) |
@@ -54,7 +54,7 @@ Controllers run work on these `Workers` pools:
 |---|---|
 | `qlogg-index-` | Open, paste, reload, reopen, session restore; indexing |
 | `qlogg-read-` | Row reads, caret times, fold classification, first-line selector match, marks list |
-| `qlogg-search-` | Search, quick find, mark toggle, range selection, overview bins, time search, trigger scans, filtered-view snapshots |
+| `qlogg-search-` | Search, folder search, quick find, mark toggle, range selection, overview bins, time search, trigger scans, filtered-view snapshots |
 | `qlogg-lifecycle-` | Settings writes, document close, quit, imports and exports, About facts, Help folder and guide actions |
 
 Every worker that reads a document runs inside `LogDocument.enter` and `exit`.
