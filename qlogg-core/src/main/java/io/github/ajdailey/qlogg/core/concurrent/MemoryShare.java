@@ -4,7 +4,10 @@ package io.github.ajdailey.qlogg.core.concurrent;
 public enum MemoryShare {
   /** Line indexes: 40%. */
   LINE_INDEX(40),
-  /** Search results, multi-tab results and marks: 20%. */
+  /**
+   * Search results, multi-tab and folder search results, marks and mark comments, and the filtered
+   * view's context and extra rows: 20%.
+   */
   RESULTS(20),
   /** Raw-byte block caches: 10%. */
   BLOCK_CACHE(10),
@@ -12,9 +15,9 @@ public enum MemoryShare {
   IO_BUFFERS(10),
   /** Fold maps: 3%. */
   FOLDS(3),
-  /** Highlight spans and layout caches: 2%. */
+  /** Highlight spans: 2%. */
   HIGHLIGHT(2),
-  /** Text being copied to the clipboard: 5%. */
+  /** Text being copied to the clipboard or saved to a file: 5%. */
   COPY(5),
   /** Text opened from the clipboard, held while its document is open: 2%. */
   PASTED(2);

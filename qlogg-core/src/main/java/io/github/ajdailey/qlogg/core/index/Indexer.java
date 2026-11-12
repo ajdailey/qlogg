@@ -54,8 +54,6 @@ public final class Indexer {
     this(workers, settings, true);
   }
 
-  // Search in a folder.
-
   /**
    * Creates an indexer with its own buffer pool, trimmed at the end of each operation or only by
    * {@link #trim}.

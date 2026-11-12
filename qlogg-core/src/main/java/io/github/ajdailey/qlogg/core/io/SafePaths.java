@@ -133,8 +133,6 @@ public final class SafePaths {
     }
   }
 
-  // Search in a folder.
-
   /**
    * Validates a folder of logs to search: checked as {@link #logFile(String)} checks a path's form,
    * made absolute and normalized, then resolved to its real path, which must be a directory.

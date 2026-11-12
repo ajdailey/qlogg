@@ -728,7 +728,6 @@ class LogViewTest {
     return 0;
   }
 
-  /** Menu labels without mnemonics, accelerator text or ellipses; "-" for a separator. */
   /**
    * Drops the commands the macOS application menu carries, and the separators they leave at an end
    * or doubled, when the application menu is present.
@@ -753,6 +752,7 @@ class LogViewTest {
     return kept;
   }
 
+  /** Menu labels without mnemonics, accelerator text or ellipses; "-" for a separator. */
   private static List<String> labels(Menu menu) {
     List<String> labels = new ArrayList<String>();
     for (MenuItem item : menu.getItems()) {
