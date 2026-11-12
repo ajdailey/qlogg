@@ -31,6 +31,22 @@ public record Binding(CommandId command, KeyStroke first, KeyStroke second, Scop
   }
 
   /**
+   * Returns the binding with its strokes as a platform's keyboard produces them.
+   *
+   * @param mac true for macOS
+   * @return this binding, or one with {@link KeyStroke#CONTROL} folded into {@link
+   *     KeyStroke#PRIMARY}
+   */
+  public Binding forPlatform(boolean mac) {
+    KeyStroke folded = first.forPlatform(mac);
+    KeyStroke foldedSecond = second == null ? null : second.forPlatform(mac);
+    if (folded == first && foldedSecond == second) {
+      return this;
+    }
+    return new Binding(command, folded, foldedSecond, scope);
+  }
+
+  /**
    * Returns the keys as the platform writes them.
    *
    * @param mac true for macOS names

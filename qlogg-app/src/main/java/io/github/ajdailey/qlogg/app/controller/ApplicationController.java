@@ -1335,7 +1335,7 @@ public final class ApplicationController implements DocumentHost {
     replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
     replacement.search().setText(old.search().fieldText(), old.search().options());
     // Navigation history.
-    replacement.history().takeOver(old.history());
+    replacement.takeHistory(old);
     SearchViewState ran = old.search().state();
     boolean rerun =
         change != null
@@ -1503,6 +1503,8 @@ public final class ApplicationController implements DocumentHost {
       case OPEN_ALL_CLOSED -> recent.openAll(preferences.get().state().closedFiles());
       case CLEAR_CLOSED -> recent.clearClosed();
       case COMMAND_PALETTE -> view.showCommandPalette();
+      // Reopen Closed Tab.
+      case REOPEN_CLOSED -> recent.reopenClosed();
       default -> {
         if (!features.execute(command) && !time.execute(command)) {
           documentCommand(command);

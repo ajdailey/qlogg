@@ -2,9 +2,13 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
+import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
@@ -12,6 +16,7 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -140,6 +145,113 @@ class NavigationTest {
     assertEquals(4, caret(truncated));
     fixture.application.execute(CommandId.GO_BACK);
     assertEquals(0, caret(truncated));
+  }
+
+  // Go Back and Go Forward state.
+
+  /** Counts {@code navigationChanged}. */
+  private static final class NavigationCount implements DocumentViewListener {
+    int count;
+
+    @Override
+    public void stateChanged(DocumentViewState state) {}
+
+    @Override
+    public void contentChanged() {}
+
+    @Override
+    public void navigationChanged() {
+      count++;
+    }
+  }
+
+  @Test
+  void theCommandStatesFollowTheEntriesAndEachChangeIsHeard() throws Exception {
+    DocumentController document = open(200);
+    NavigationCount heard = new NavigationCount();
+    document.addListener(heard);
+    CommandStates states = new CommandStates(fixture.application);
+    assertFalse(states.enabled(CommandId.GO_BACK));
+    assertFalse(states.enabled(CommandId.GO_FORWARD));
+    document.jumpToLine(51);
+    assertEquals(1, heard.count);
+    assertTrue(states.enabled(CommandId.GO_BACK));
+    assertFalse(states.enabled(CommandId.GO_FORWARD));
+    document.jumpToLine(101);
+    assertEquals(1, heard.count);
+    fixture.application.execute(CommandId.GO_BACK);
+    assertEquals(2, heard.count);
+    assertTrue(states.enabled(CommandId.GO_BACK));
+    assertTrue(states.enabled(CommandId.GO_FORWARD));
+    fixture.application.execute(CommandId.GO_BACK);
+    assertEquals(3, heard.count);
+    assertFalse(states.enabled(CommandId.GO_BACK));
+    fixture.application.execute(CommandId.GO_FORWARD);
+    fixture.application.execute(CommandId.GO_FORWARD);
+    assertEquals(5, heard.count);
+    assertTrue(states.enabled(CommandId.GO_BACK));
+    assertFalse(states.enabled(CommandId.GO_FORWARD));
+  }
+
+  @Test
+  void aReloadKeepsTheStatesAndATruncationClearsThem() throws Exception {
+    DocumentController document = open(100);
+    document.jumpToLine(81);
+    fixture.application.execute(CommandId.GO_BACK);
+    fixture.application.execute(CommandId.RELOAD);
+    DocumentController reloaded = replacement(document);
+    CommandStates states = new CommandStates(fixture.application);
+    assertFalse(states.enabled(CommandId.GO_BACK));
+    assertTrue(states.enabled(CommandId.GO_FORWARD));
+    NavigationCount heard = new NavigationCount();
+    reloaded.addListener(heard);
+    fixture.application.execute(CommandId.GO_FORWARD);
+    assertEquals(1, heard.count);
+    fixture.application.execute(CommandId.GO_BACK);
+    Files.writeString(temp.resolve("nav.log"), "a\n", StandardOpenOption.TRUNCATE_EXISTING);
+    final DocumentController truncated = replacement(reloaded);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return truncated.history().entries().length == 1;
+          }
+        });
+    assertFalse(states.enabled(CommandId.GO_BACK));
+    assertFalse(states.enabled(CommandId.GO_FORWARD));
+  }
+
+  // Reopen Closed Tab.
+
+  @Test
+  void reopenClosedTabOpensTheNewestClosedFileAndTakesItOffTheList() throws Exception {
+    DocumentController document = open(10);
+    Path other = fixture.lines("other.log", 5);
+    fixture.open(other);
+    CommandStates states = new CommandStates(fixture.application);
+    assertFalse(states.enabled(CommandId.REOPEN_CLOSED));
+    String older = document.document().path().toString();
+    String newer = fixture.application.activeDocument().document().path().toString();
+    fixture.application.closeDocument(document);
+    fixture.application.closeDocument(fixture.application.activeDocument());
+    assertEquals(List.of(newer, older), fixture.application.preferences().state().closedFiles());
+    assertTrue(states.enabled(CommandId.REOPEN_CLOSED));
+    fixture.application.execute(CommandId.REOPEN_CLOSED);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController shown = fixture.application.activeDocument();
+            return shown != null && shown.state().title().equals("other.log");
+          }
+        });
+    assertEquals(List.of(older), fixture.application.preferences().state().closedFiles());
+    Files.delete(temp.resolve("nav.log"));
+    fixture.application.execute(CommandId.REOPEN_CLOSED);
+    assertEquals(List.of(), fixture.application.preferences().state().closedFiles());
+    assertFalse(states.enabled(CommandId.REOPEN_CLOSED));
+    fixture.application.execute(CommandId.REOPEN_CLOSED);
+    assertEquals(1, fixture.application.documents().size());
   }
 
   private DocumentController replacement(final DocumentController old) throws Exception {

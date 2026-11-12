@@ -125,7 +125,8 @@ public final class CommandStates {
    * Reports whether a command's item is enabled. A disabled menu item's accelerator does not fire.
    *
    * @param command any command
-   * @return true unless the command needs a document, a file or a favorite state it lacks
+   * @return true unless the command needs a document, a file, a favorite state, a navigation entry
+   *     or a closed file it lacks
    */
   public boolean enabled(CommandId command) {
     DocumentController document = application.activeDocument();
@@ -134,11 +135,14 @@ public final class CommandStates {
       return file;
     }
     return switch (command) {
-      // Navigation history: Go Back and Go Forward.
-      case MOVE_TO_NEW_WINDOW, GO_BACK, GO_FORWARD -> document != null;
+      case MOVE_TO_NEW_WINDOW -> document != null;
+      // Navigation history.
+      case GO_BACK -> document != null && document.canGoBack();
+      case GO_FORWARD -> document != null && document.canGoForward();
       // Open All and Recently Closed.
       case OPEN_ALL_RECENT -> !application.preferences().state().recentFiles().isEmpty();
-      case OPEN_ALL_CLOSED, CLEAR_CLOSED ->
+      // Recently Closed and Reopen Closed Tab.
+      case OPEN_ALL_CLOSED, CLEAR_CLOSED, REOPEN_CLOSED ->
           !application.preferences().state().closedFiles().isEmpty();
       case ADD_FAVORITE -> file && !application.isFavorite(document);
       case REMOVE_FAVORITE -> application.isFavorite(document);

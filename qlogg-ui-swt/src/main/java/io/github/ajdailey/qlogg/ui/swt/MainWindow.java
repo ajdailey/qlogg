@@ -233,6 +233,12 @@ public final class MainWindow implements MainView, ApplicationListener {
           // A format change enables the timestamp commands' accelerators.
           syncEnablement();
         }
+
+        // Navigation history: Go Back and Go Forward accelerators follow their entries.
+        @Override
+        public void navigationChanged() {
+          syncEnablement();
+        }
       };
   // Timestamps: the filtered view's selection and its time difference.
   private final DocumentViewListener filteredListener =
@@ -709,6 +715,15 @@ public final class MainWindow implements MainView, ApplicationListener {
           }
         });
     showWarningMarker(application.newWarnings());
+    // Reopen Closed Tab: another window may have changed the closed list.
+    shell.addListener(
+        SWT.Activate,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            syncEnablement();
+          }
+        });
   }
 
   /**

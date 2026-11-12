@@ -205,8 +205,9 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
 | Move to New Window | - | A document shows |
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
-| Go Back, Go Forward | - | A document shows |
+| Go Back, Go Forward | - | The shown document's history has an entry in that direction |
 | Open Recent > Open All; Recently Closed > Open All, Clear | - | The list is not empty |
+| Reopen Closed Tab | - | Recently Closed is not empty |
 
 `CommandStates` also lists the highlighter sets (`highlightSets`), the open
 files (`openedFiles`) and a tab menu's enabled items (`tabItems`). An ArchUnit
@@ -237,7 +238,9 @@ newest first. Closing a tab lists its file; closing a window or quitting does
 not. Opening the file in any tab drops it. A reopened file opens through the
 normal path, at its remembered position unless Follow New Files is on. Open All on either list checks the paths on a
 `qlogg-lifecycle-` worker, opens the regular, readable ones in list order (a
-file open already shows its tab) and names the others in one notice.
+file open already shows its tab) and names the others in one notice. File >
+Reopen Closed Tab (`Ctrl+Shift+T`) takes the newest entry off the list, then
+opens it through `openListed`, so a missing file leaves the list too.
 
 `UiState` receives the search toggles, line number toggles, the Open dialog's
 directory and dialog sizes (`rememberDialogSize`). When a window closes, and at

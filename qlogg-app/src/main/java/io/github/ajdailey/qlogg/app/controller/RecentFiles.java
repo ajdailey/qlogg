@@ -20,7 +20,8 @@ import org.slf4j.LoggerFactory;
  * File > Recently Closed and Open All on it and on Open Recent. Closing a tab lists its file first
  * in Recently Closed, at most {@link UiState#MAX_CLOSED}; opening the file in a tab drops it. The
  * list is {@code closed.N} in {@code qlogg.conf}. A reopened file opens at its remembered position
- * through the normal open path. Confined to the UI thread.
+ * through the normal open path. Reopen Closed Tab takes the newest entry off the list and opens it.
+ * Confined to the UI thread.
  *
  * <p>Open All checks each listed file on a {@code qlogg-lifecycle-} worker, then opens the regular,
  * readable ones in list order; a file open already shows its tab. One notice names the files
@@ -50,6 +51,19 @@ final class RecentFiles {
     if (!document.inMemory()) {
       setState(application.preferences().state().addClosed(document.path().toString()));
     }
+  }
+
+  // Reopen Closed Tab.
+
+  /** Drops the newest Recently Closed file from the list and opens it, if the list has one. */
+  void reopenClosed() {
+    List<String> closed = application.preferences().state().closedFiles();
+    if (closed.isEmpty()) {
+      return;
+    }
+    String path = closed.get(0);
+    setState(application.preferences().state().removeClosed(path));
+    application.openListed(path);
   }
 
   /** Empties Recently Closed. */

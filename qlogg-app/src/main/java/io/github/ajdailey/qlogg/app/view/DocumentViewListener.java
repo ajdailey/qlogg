@@ -14,4 +14,7 @@ public interface DocumentViewListener {
 
   /** The caret time, the selection's time difference, the time offset or the format changed. */
   default void timeChanged() {}
+
+  /** Go Back or Go Forward changed whether it has an entry. */
+  default void navigationChanged() {}
 }

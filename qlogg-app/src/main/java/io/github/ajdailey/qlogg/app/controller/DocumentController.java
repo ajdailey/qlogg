@@ -83,7 +83,8 @@ import org.slf4j.LoggerFactory;
  * <p>The {@link TriggerController} applies the triggers of the same rules to appended lines.
  *
  * <p>Jumps record the caret's line in a {@link NavigationHistory}, which Go Back and Go Forward
- * walk; a reload or reopen hands it to the new controller.
+ * walk; a reload or reopen hands it to the new controller. Listeners hear {@code navigationChanged}
+ * when Go Back or Go Forward changes whether it has an entry, so the menu items follow.
  */
 public final class DocumentController extends LineViewController {
   /** Least interval between flushes of index progress. */
@@ -134,6 +135,8 @@ public final class DocumentController extends LineViewController {
   // Navigation history.
   private final NavigationHistory history = new NavigationHistory();
   private boolean filteredMove;
+  private boolean canBack;
+  private boolean canForward;
 
   /**
    * A move that waits for indexing to reach its line.
@@ -801,11 +804,13 @@ public final class DocumentController extends LineViewController {
   /** Records the caret's line in the navigation history, before a jump moves it. */
   void recordJump() {
     history.record(caretLine());
+    navigationChanged();
   }
 
   /** Records the line the filtered view moved the main view from, as a jump. */
   void commitDeparture() {
     history.commit();
+    navigationChanged();
   }
 
   /**
@@ -830,6 +835,7 @@ public final class DocumentController extends LineViewController {
   /** Goes to the line before the last jump, keeping the caret's line for Go Forward. */
   public void goBack() {
     long line = history.back(caretLine());
+    navigationChanged();
     if (line >= 0) {
       goToLine(line + 1);
     }
@@ -838,12 +844,52 @@ public final class DocumentController extends LineViewController {
   /** Goes to the line Go Back left. */
   public void goForward() {
     long line = history.forward();
+    navigationChanged();
     if (line >= 0) {
       goToLine(line + 1);
     }
   }
 
-  /** Returns the navigation history, for a reload and tests. */
+  /**
+   * Reports whether Go Back has an entry.
+   *
+   * @return true when an entry precedes the current one
+   */
+  public boolean canGoBack() {
+    return history.canBack();
+  }
+
+  /**
+   * Reports whether Go Forward has an entry.
+   *
+   * @return true after Go Back with no jump since
+   */
+  public boolean canGoForward() {
+    return history.canForward();
+  }
+
+  /**
+   * Takes over a reloaded document's navigation history.
+   *
+   * @param old the replaced document's controller
+   */
+  void takeHistory(DocumentController old) {
+    history.takeOver(old.history);
+    navigationChanged();
+  }
+
+  /** Fires {@code navigationChanged} when Go Back or Go Forward changed whether it has an entry. */
+  private void navigationChanged() {
+    boolean back = history.canBack();
+    boolean forward = history.canForward();
+    if (back != canBack || forward != canForward) {
+      canBack = back;
+      canForward = forward;
+      fireNavigation();
+    }
+  }
+
+  /** Returns the navigation history, for tests. */
   NavigationHistory history() {
     return history;
   }
@@ -1256,6 +1302,7 @@ public final class DocumentController extends LineViewController {
     }
     if (!status.indexing()) {
       history.clamp(index.lineCount());
+      navigationChanged();
     }
     state = buildState(status);
     fireState(state);

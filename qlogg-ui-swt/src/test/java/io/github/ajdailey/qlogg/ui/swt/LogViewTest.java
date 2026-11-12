@@ -450,6 +450,7 @@ class LogViewTest {
                 "-",
                 "Close",
                 "Close All",
+                "Reopen Closed Tab",
                 "-",
                 "Exit")),
         labels(bar.getItem(0).getMenu()));

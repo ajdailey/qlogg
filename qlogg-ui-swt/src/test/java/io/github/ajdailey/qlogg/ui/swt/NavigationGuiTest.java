@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -190,13 +191,55 @@ class NavigationGuiTest {
     document.jumpToLine(151);
     assertEquals(150, document.selection().caret().line());
     MenuItem back = item(CommandId.GO_BACK);
-    int expected = SwtKeys.mac() ? SWT.MOD1 | '[' : SWT.MOD3 | SWT.ARROW_LEFT;
+    int expected = SwtKeys.mac() ? SWT.MOD4 | SWT.MOD1 | SWT.ARROW_LEFT : SWT.MOD3 | SWT.ARROW_LEFT;
     assertEquals(expected, back.getAccelerator());
     assertTrue(back.getEnabled());
     back.notifyListeners(SWT.Selection, new Event());
     assertEquals(0, document.selection().caret().line());
     item(CommandId.GO_FORWARD).notifyListeners(SWT.Selection, new Event());
     assertEquals(150, document.selection().caret().line());
+  }
+
+  @Test
+  void goBackIsEnabledRightAfterAJumpAndFollowsItsEntries() {
+    final DocumentController document = controller.documents().get(0);
+    controller.activate(document);
+    MenuItem back = item(CommandId.GO_BACK);
+    MenuItem forward = item(CommandId.GO_FORWARD);
+    assertFalse(back.getEnabled());
+    assertFalse(forward.getEnabled());
+    // No menu shows between these steps: navigationChanged alone keeps the accelerators live.
+    document.jumpToLine(151);
+    assertTrue(back.getEnabled());
+    assertFalse(forward.getEnabled());
+    back.notifyListeners(SWT.Selection, new Event());
+    assertEquals(0, document.selection().caret().line());
+    assertFalse(back.getEnabled());
+    assertTrue(forward.getEnabled());
+  }
+
+  // Reopen Closed Tab.
+
+  @Test
+  void reopenClosedTabCarriesItsKeyAndReopensTheClosedFile() {
+    MenuItem reopen = item(CommandId.REOPEN_CLOSED);
+    int expected = SWT.MOD1 | SWT.MOD2 | 'T';
+    assertEquals(expected, reopen.getAccelerator());
+    assertFalse(reopen.getEnabled());
+    controller.closeDocument(controller.documents().get(0));
+    assertTrue(reopen.getEnabled());
+    reopen.notifyListeners(SWT.Selection, new Event());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return controller.documents().size() == 2;
+              }
+            }));
+    assertEquals(List.of(), controller.preferences().state().closedFiles());
+    window.syncMenu();
+    assertFalse(reopen.getEnabled());
   }
 
   @Test

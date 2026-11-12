@@ -143,10 +143,13 @@ first match is a jump.
 
 Entries are lines, so appends leave them in place. A reload or reopen copies
 them to the new controller (`takeOver`); once indexing ends, `clamp` moves
-entries past the last line onto it and merges neighbors that became equal. Go
-Back and Go Forward are enabled whenever a document shows and do nothing
-without an entry: a disabled item's accelerator does not fire, and a jump does
-not sync the menu.
+entries past the last line onto it and merges neighbors that became equal.
+
+Go Back and Go Forward are enabled while their direction has an entry
+(`canGoBack`, `canGoForward`). A disabled item's accelerator does not fire, so
+`DocumentController` fires `navigationChanged` whenever a jump, Go Back, Go
+Forward, `takeHistory` or `clamp` changes either answer, and the window syncs
+its menu's enablement then.
 
 ### Marks
 

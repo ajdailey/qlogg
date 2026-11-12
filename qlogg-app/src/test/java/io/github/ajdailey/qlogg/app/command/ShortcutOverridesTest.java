@@ -112,4 +112,25 @@ class ShortcutOverridesTest {
     assertEquals("view Ctrl+E Ctrl+F", properties.getProperty("shortcut.FOLLOW.0"));
     assertEquals(overrides, ShortcutOverrides.load(properties));
   }
+
+  // Control modifier.
+
+  @Test
+  void aControlBindingRoundTripsThroughProperties() {
+    Binding back =
+        new Binding(
+            CommandId.GO_BACK,
+            new KeyStroke(KeyStroke.CONTROL | KeyStroke.PRIMARY, KeyStroke.LEFT),
+            null,
+            Binding.Scope.WINDOW);
+    ShortcutOverrides overrides = ShortcutOverrides.NONE.with(CommandId.GO_BACK, List.of(back));
+    Properties properties = new Properties();
+    overrides.store(properties);
+    assertEquals("window Control+Ctrl+Left", properties.getProperty("shortcut.GO_BACK.0"));
+    assertEquals(overrides, ShortcutOverrides.load(properties));
+    assertEquals(
+        Binding.Scope.WINDOW,
+        ShortcutOverrides.scopeFor(
+            CommandId.RELOAD, KeyStroke.parse("Control+R"), null, Keymap.defaults(true)));
+  }
 }

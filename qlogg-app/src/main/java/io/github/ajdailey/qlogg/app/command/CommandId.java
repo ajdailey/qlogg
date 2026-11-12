@@ -37,6 +37,9 @@ public enum CommandId {
   CLOSE(CommandGroup.FILE, UiText.COMMAND_CLOSE, true, false),
   /** Close every tab. */
   CLOSE_ALL(CommandGroup.FILE, UiText.COMMAND_CLOSE_ALL, false, false),
+  // Reopen Closed Tab.
+  /** Open the newest Recently Closed file again. */
+  REOPEN_CLOSED(CommandGroup.FILE, UiText.COMMAND_REOPEN_CLOSED, false, false),
   /** Close the window. */
   QUIT(CommandGroup.FILE, UiText.COMMAND_QUIT, true, false),
   /** Copy the selection, or the current line when nothing is selected. */

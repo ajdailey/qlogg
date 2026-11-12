@@ -5,7 +5,8 @@ package io.github.ajdailey.qlogg.app.command;
  * case with {@link #SHIFT} when shifted, and any other printable char ({@code $}, {@code ^}) as
  * itself without {@link #SHIFT}. Other keys, the space bar included, use the constants below.
  *
- * @param modifiers a combination of {@link #PRIMARY}, {@link #SHIFT} and {@link #ALT}
+ * @param modifiers a combination of {@link #PRIMARY}, {@link #SHIFT}, {@link #ALT} and {@link
+ *     #CONTROL}
  * @param key a printable char or one of the key constants
  */
 public record KeyStroke(int modifiers, int key) {
@@ -17,6 +18,9 @@ public record KeyStroke(int modifiers, int key) {
 
   /** Alt, or Option on macOS. */
   public static final int ALT = 4;
+
+  /** Control on macOS; elsewhere Ctrl is {@link #PRIMARY} and {@link #forPlatform} folds it in. */
+  public static final int CONTROL = 8;
 
   private static final int SPECIAL = 0x110000;
 
@@ -107,7 +111,7 @@ public record KeyStroke(int modifiers, int key) {
 
   /** Checks the components. */
   public KeyStroke {
-    if ((modifiers & ~(PRIMARY | SHIFT | ALT)) != 0) {
+    if ((modifiers & ~(PRIMARY | SHIFT | ALT | CONTROL)) != 0) {
       throw new IllegalArgumentException("unknown modifier");
     }
     boolean printable = key > ' ' && key < SPECIAL && !Character.isUpperCase(key);
@@ -132,6 +136,20 @@ public record KeyStroke(int modifiers, int key) {
   }
 
   /**
+   * Returns the stroke as a platform's keyboard produces it: outside macOS, {@link #CONTROL}
+   * becomes {@link #PRIMARY}.
+   *
+   * @param mac true for macOS
+   * @return this stroke, or the folded one
+   */
+  public KeyStroke forPlatform(boolean mac) {
+    if (mac || (modifiers & CONTROL) == 0) {
+      return this;
+    }
+    return new KeyStroke((modifiers & ~CONTROL) | PRIMARY, key);
+  }
+
+  /**
    * Reports whether the key is a printable char.
    *
    * @return false for the key constants
@@ -142,13 +160,18 @@ public record KeyStroke(int modifiers, int key) {
 
   /**
    * Returns the stroke as the platform writes it, for example {@code Ctrl+Shift+G}, {@code Cmd+O},
-   * {@code $} or {@code F1}.
+   * {@code Ctrl+Cmd+Left}, {@code $} or {@code F1}. With {@code mac} false, {@link #CONTROL} is
+   * {@code Control+}, which {@link #forPlatform} leaves only in a macOS binding stored in {@code
+   * qlogg.conf}.
    *
    * @param mac true for macOS names
    * @return the text
    */
   public String text(boolean mac) {
     StringBuilder text = new StringBuilder();
+    if ((modifiers & CONTROL) != 0) {
+      text.append(mac ? "Ctrl+" : "Control+");
+    }
     if ((modifiers & PRIMARY) != 0) {
       text.append(mac ? "Cmd+" : "Ctrl+");
     }
@@ -182,7 +205,10 @@ public record KeyStroke(int modifiers, int key) {
     int modifiers = 0;
     String rest = text;
     while (true) {
-      if (rest.startsWith("Ctrl+") && rest.length() > 5) {
+      if (rest.startsWith("Control+") && rest.length() > 8) {
+        modifiers |= CONTROL;
+        rest = rest.substring(8);
+      } else if (rest.startsWith("Ctrl+") && rest.length() > 5) {
         modifiers |= PRIMARY;
         rest = rest.substring(5);
       } else if (rest.startsWith("Alt+") && rest.length() > 4) {

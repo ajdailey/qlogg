@@ -106,11 +106,14 @@ recorded, and the next drain throws it.
 
 `Keymap` is the one table of bindings. The menu bar, the log view's key handler
 and Help > Keyboard Shortcuts all read it. `PRIMARY` is Ctrl, or Command on
-macOS.
+macOS. `CONTROL` is the macOS Control key: outside macOS the `Keymap`
+constructor folds it into `PRIMARY` (`KeyStroke.forPlatform`) and drops a
+binding the fold repeats, so a macOS binding read from `qlogg.conf` becomes the
+`Ctrl` binding.
 
 `Keymap.defaults()` reads `os.name`; `defaults(mac)` differs only for Go Back
-and Go Forward: `Alt+Left` and `Alt+Right`, or `Command+[` and `Command+]` on
-macOS, where `Option`+arrow moves by word in a text field.
+and Go Forward: `Alt+Left` and `Alt+Right`, or `Control+Command+Left` and
+`Right` on macOS, where `Option`+arrow moves by word in a text field.
 
 ### Commands and menus
 
@@ -132,7 +135,10 @@ Position and Command Palette have none.
 `KeyStroke` is toolkit-free. A printable key is the char it types: a letter in
 lower case plus `SHIFT`, and `$` and `^` without `SHIFT`. Other keys are
 constants; `Space` is `SPACE`, not a printable char. `KeyStroke.parse` reads
-`KeyStroke.text` back.
+`KeyStroke.text(false)` back. `text(true)` writes `CONTROL` as `Ctrl+` and
+`PRIMARY` as `Cmd+`; `text(false)` writes them as `Control+` and `Ctrl+`.
+`SwtKeys` maps `CONTROL` to `SWT.MOD4`, which is Control on macOS and 0
+elsewhere.
 
 | Scope | Applies | Dispatched by |
 |---|---|---|
@@ -149,7 +155,8 @@ stroke cancels it.
 
 `KeymapTest` rejects a stroke bound twice, a single stroke that is also a
 sequence prefix, an accelerator on a command with no menu, and a log view
-command with no key, and checks both platforms' Go Back and Go Forward keys.
+command with no key, and checks both platforms' Go Back, Go Forward and Reopen
+Closed Tab keys.
 
 ### User overrides
 
@@ -164,7 +171,7 @@ defaults: `shortcut.<COMMAND>.count` and `shortcut.<COMMAND>.<n>` = `window` or
   sequence. The shortcut editor refuses a binding with any conflict.
 - `scopeFor` gives `LOG_VIEW` to a sequence, a log view command or a plain key;
   the default binding's scope to a stroke the command has by default; and
-  `WINDOW` to other `Ctrl`, `Alt` or function keys.
+  `WINDOW` to other `Ctrl`, `Command`, `Control`, `Alt` or function keys.
 
 ## UI text
 

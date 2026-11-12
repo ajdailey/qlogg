@@ -25,9 +25,10 @@ Consecutive commands with the same `submenu()` form one cascade, Edit > Search.
 - A `check()` command is a check item.
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.
-- Every item's enablement is also applied on each document open, activation,
-  replacement and close (`syncEnablement`), because a disabled item's
-  accelerator does not fire.
+- `syncEnablement` applies every item's enablement on each document open,
+  activation, replacement and close, on the shown document's
+  `navigationChanged`, and on shell activation (another window may have
+  changed Recently Closed). A disabled item's accelerator does not fire.
 - `MainWindow.syncMenu` syncs every menu; `MainWindow` also keeps the menu
   accessors the tests use.
 

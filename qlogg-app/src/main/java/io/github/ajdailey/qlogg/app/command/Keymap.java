@@ -15,17 +15,28 @@ public final class Keymap {
   private static final int S = KeyStroke.SHIFT;
 
   private final List<Binding> bindings;
+  private final boolean mac;
 
   /**
-   * Creates a keymap.
+   * Creates a keymap. Outside macOS each binding's {@link KeyStroke#CONTROL} becomes {@link
+   * KeyStroke#PRIMARY}, and a binding that then repeats an earlier one is dropped.
    *
    * @param bindings the bindings, in display order
+   * @param mac true for macOS bindings
    */
-  public Keymap(List<Binding> bindings) {
-    this.bindings = Collections.unmodifiableList(new ArrayList<Binding>(bindings));
+  public Keymap(List<Binding> bindings, boolean mac) {
+    List<Binding> kept = new ArrayList<Binding>(bindings.size());
+    for (Binding binding : bindings) {
+      Binding folded = binding.forPlatform(mac);
+      if (folded == binding || !kept.contains(folded)) {
+        kept.add(folded);
+      }
+    }
+    this.bindings = Collections.unmodifiableList(kept);
+    this.mac = mac;
   }
 
-  /** True on macOS, where Go Back and Go Forward take {@code Command+[} and {@code Command+]}. */
+  /** True on macOS, where Go Back and Go Forward take {@code Control+Command+Left} and Right. */
   private static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
 
   /**
@@ -39,8 +50,8 @@ public final class Keymap {
 
   /**
    * Returns the default bindings. Go Back and Go Forward are {@code Alt+Left} and {@code
-   * Alt+Right}, or {@code Command+[} and {@code Command+]} on macOS, where {@code Option+Left} and
-   * {@code Right} move by word in a text field.
+   * Alt+Right}, or {@code Control+Command+Left} and {@code Right} on macOS, where {@code
+   * Option+Left} and {@code Right} move by word in a text field.
    *
    * @param mac true for the macOS bindings
    * @return the keymap
@@ -160,16 +171,14 @@ public final class Keymap {
     // Context lines and range filter.
     view(b, CommandId.SELECT_RANGE, P, 'r');
     // Navigation history and command palette.
-    if (mac) {
-      window(b, CommandId.GO_BACK, P, '[');
-      window(b, CommandId.GO_FORWARD, P, ']');
-    } else {
-      window(b, CommandId.GO_BACK, KeyStroke.ALT, KeyStroke.LEFT);
-      window(b, CommandId.GO_FORWARD, KeyStroke.ALT, KeyStroke.RIGHT);
-    }
+    int back = mac ? KeyStroke.CONTROL | P : KeyStroke.ALT;
+    window(b, CommandId.GO_BACK, back, KeyStroke.LEFT);
+    window(b, CommandId.GO_FORWARD, back, KeyStroke.RIGHT);
     view(b, CommandId.GO_TO_RESULT, 0, KeyStroke.ENTER);
     window(b, CommandId.COMMAND_PALETTE, P, 'P');
-    return new Keymap(b);
+    // Reopen Closed Tab.
+    window(b, CommandId.REOPEN_CLOSED, P, 'T');
+    return new Keymap(b, mac);
   }
 
   /** Adds a jEdit two-stroke binding: {@code Ctrl+E}, then {@code Ctrl+} the char. */
@@ -333,7 +342,7 @@ public final class Keymap {
         result.addAll(replaced);
       }
     }
-    return new Keymap(result);
+    return new Keymap(result, mac);
   }
 
   /**

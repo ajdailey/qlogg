@@ -207,15 +207,19 @@ class KeymapTest {
   // Navigation history and command palette.
 
   @Test
-  void goBackAndForwardTakeAltArrowsOrCommandBrackets() {
+  void goBackAndForwardTakeAltArrowsOrControlCommandArrows() {
     Keymap others = Keymap.defaults(false);
     assertEquals(
         new KeyStroke(KeyStroke.ALT, KeyStroke.LEFT), others.accelerator(CommandId.GO_BACK));
     assertEquals(
         new KeyStroke(KeyStroke.ALT, KeyStroke.RIGHT), others.accelerator(CommandId.GO_FORWARD));
     Keymap mac = Keymap.defaults(true);
-    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, '['), mac.accelerator(CommandId.GO_BACK));
-    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, ']'), mac.accelerator(CommandId.GO_FORWARD));
+    int controlCommand = KeyStroke.CONTROL | KeyStroke.PRIMARY;
+    assertEquals(new KeyStroke(controlCommand, KeyStroke.LEFT), mac.accelerator(CommandId.GO_BACK));
+    assertEquals(
+        new KeyStroke(controlCommand, KeyStroke.RIGHT), mac.accelerator(CommandId.GO_FORWARD));
+    assertEquals("Ctrl+Cmd+Left", mac.keysText(CommandId.GO_BACK, true));
+    assertEquals("Alt+Right", others.keysText(CommandId.GO_FORWARD, false));
     for (Keymap map : List.of(others, mac)) {
       for (CommandId command :
           List.of(
@@ -233,5 +237,69 @@ class KeymapTest {
     assertEquals(
         new KeyStroke(0, KeyStroke.ENTER),
         others.bindingsFor(CommandId.GO_TO_RESULT).get(0).first());
+  }
+
+  // Control modifier.
+
+  @Test
+  void noStrokeIsBoundTwiceOnEitherPlatform() {
+    for (boolean mac : new boolean[] {false, true}) {
+      Set<String> seen = new HashSet<String>();
+      for (Binding binding : Keymap.defaults(mac).bindings()) {
+        assertTrue(seen.add(binding.text(mac)), "bound twice: " + binding.text(mac));
+      }
+    }
+  }
+
+  @Test
+  void controlFoldsIntoPrimaryOutsideMacos() {
+    KeyStroke controlCommand =
+        new KeyStroke(KeyStroke.CONTROL | KeyStroke.PRIMARY | KeyStroke.SHIFT, KeyStroke.LEFT);
+    assertEquals("Ctrl+Cmd+Shift+Left", controlCommand.text(true));
+    assertEquals("Control+Ctrl+Shift+Left", controlCommand.text(false));
+    assertEquals(controlCommand, KeyStroke.parse("Control+Ctrl+Shift+Left"));
+    assertEquals(controlCommand, controlCommand.forPlatform(true));
+    assertEquals(
+        new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, KeyStroke.LEFT),
+        controlCommand.forPlatform(false));
+    KeyStroke control = KeyStroke.parse("Control+K");
+    assertEquals(new KeyStroke(KeyStroke.CONTROL, 'k'), control);
+    assertEquals("Ctrl+K", control.text(true));
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'k'), control.forPlatform(false));
+  }
+
+  @Test
+  void aKeymapOutsideMacosHoldsNoControlStrokeAndNoRepeatTheFoldMade() {
+    Binding control =
+        new Binding(CommandId.RELOAD, KeyStroke.parse("Control+Alt+R"), null, Binding.Scope.WINDOW);
+    Binding primary =
+        new Binding(CommandId.RELOAD, KeyStroke.parse("Ctrl+Alt+R"), null, Binding.Scope.WINDOW);
+    Keymap others = new Keymap(List.of(primary, control), false);
+    assertEquals(List.of(primary), others.bindings());
+    Keymap mac = new Keymap(List.of(primary, control), true);
+    assertEquals(List.of(primary, control), mac.bindings());
+    assertEquals("Ctrl+Option+R", mac.bindings().get(1).text(true));
+    ShortcutOverrides overrides = ShortcutOverrides.NONE.with(CommandId.RELOAD, List.of(control));
+    assertEquals(
+        primary.first(),
+        Keymap.defaults(false).withOverrides(overrides).accelerator(CommandId.RELOAD));
+    assertEquals(
+        control.first(),
+        Keymap.defaults(true).withOverrides(overrides).accelerator(CommandId.RELOAD));
+  }
+
+  // Reopen Closed Tab.
+
+  @Test
+  void reopenClosedTabTakesCtrlShiftTOnEveryPlatform() {
+    for (boolean mac : new boolean[] {false, true}) {
+      Keymap map = Keymap.defaults(mac);
+      assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'T'), map.accelerator(CommandId.REOPEN_CLOSED));
+      for (Binding binding : map.bindingsFor(CommandId.REOPEN_CLOSED)) {
+        assertEquals(List.of(), map.conflicts(binding), binding.text(mac));
+      }
+    }
+    assertEquals("Cmd+Shift+T", Keymap.defaults(true).keysText(CommandId.REOPEN_CLOSED, true));
+    assertEquals("Ctrl+Shift+T", Keymap.defaults(false).keysText(CommandId.REOPEN_CLOSED, false));
   }
 }

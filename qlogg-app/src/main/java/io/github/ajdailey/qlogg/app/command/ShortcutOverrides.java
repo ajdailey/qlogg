@@ -10,8 +10,9 @@ import java.util.Properties;
 /**
  * Key bindings the user set in place of a command's defaults. Stored in {@code qlogg.conf} as
  * {@code shortcut.<COMMAND>.count} and {@code shortcut.<COMMAND>.<n>} = {@code window} or {@code
- * view}, a space, then the keys as {@link Binding#text} writes them with {@code mac} false. A count
- * of 0 leaves the command unbound. Immutable.
+ * view}, a space, then the keys as {@link Binding#text} writes them with {@code mac} false: {@code
+ * Ctrl+} is {@link KeyStroke#PRIMARY} and {@code Control+} the macOS Control key. A count of 0
+ * leaves the command unbound. Immutable.
  */
 public final class ShortcutOverrides {
   /** No overrides. */
@@ -90,7 +91,7 @@ public final class ShortcutOverrides {
   /**
    * Returns where a new binding applies: a sequence, a log view command or a plain key applies in
    * the log view; a stroke the command has by default keeps that binding's scope; any other stroke
-   * with Ctrl or Alt, or a function key, applies in the window.
+   * with Ctrl, Command, Control or Alt, or a function key, applies in the window.
    *
    * @param command the command
    * @param first the first stroke
@@ -108,7 +109,8 @@ public final class ShortcutOverrides {
         return binding.scope();
       }
     }
-    boolean modified = (first.modifiers() & (KeyStroke.PRIMARY | KeyStroke.ALT)) != 0;
+    boolean modified =
+        (first.modifiers() & (KeyStroke.PRIMARY | KeyStroke.ALT | KeyStroke.CONTROL)) != 0;
     boolean function = first.key() >= KeyStroke.F1 && first.key() < KeyStroke.F1 + 12;
     return modified || function ? Binding.Scope.WINDOW : Binding.Scope.LOG_VIEW;
   }

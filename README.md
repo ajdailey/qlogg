@@ -23,7 +23,7 @@ plugins.
 | Area | Summary | Guide |
 |---|---|---|
 | Large files | Any size and line count; content stays on disk while indexing runs in the background, and the first lines show at once | [Opening files](docs/user-guide.md#opening-files) |
-| Opening | Command line, File > Open, Open Recent and Recently Closed with Open All, Favorites, drop on the window, clipboard text (up to 16 MiB, in memory); reload keeps marks and labels | [Opening files](docs/user-guide.md#opening-files), [Recent files](docs/user-guide.md#sessions-recent-files-and-favorites) |
+| Opening | Command line, File > Open, Open Recent and Recently Closed with Open All, Reopen Closed Tab, Favorites, drop on the window, clipboard text (up to 16 MiB, in memory); reload keeps marks and labels | [Opening files](docs/user-guide.md#opening-files), [Recent files](docs/user-guide.md#sessions-recent-files-and-favorites) |
 | Following | Follow a growing file; reopen by name after truncation, replacement, rotation or a retargeted link, with retries; Keep file closed for writers that rename over the file | [Following a growing file](docs/user-guide.md#following-a-growing-file) |
 | Encodings | Detection (BOM, UTF-16, UTF-8, ISO-8859-1 fallback) and a forced charset per file | [Opening files](docs/user-guide.md#opening-files) |
 | Search | Regex or literal, match case, whole word, inverse, combined expressions, in selection, start and end lines, auto-refresh, history, predefined filters, search with the selection, quick find, search all open files, search the files of a folder without opening them | [Search](docs/user-guide.md#search-and-the-filtered-view) |

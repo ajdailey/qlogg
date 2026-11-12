@@ -1127,6 +1127,15 @@ public abstract class LineViewController {
     }
   }
 
+  // Navigation history.
+
+  /** Tells the views Go Back or Go Forward changed whether it has an entry. */
+  void fireNavigation() {
+    for (DocumentViewListener listener : new ArrayList<DocumentViewListener>(listeners)) {
+      listener.navigationChanged();
+    }
+  }
+
   /** Maps the visible rows to their lines for a read: ascending, fewer at the end of the view. */
   private long[] visibleSourceLines(long top, int count) {
     long[] found = new long[count];

@@ -1280,7 +1280,11 @@ public enum UiText {
   /** View colors choice: the light palette whatever the theme. */
   VIEW_COLORS_LIGHT,
   /** View colors choice: the dark palette whatever the theme. */
-  VIEW_COLORS_DARK;
+  VIEW_COLORS_DARK,
+
+  // Reopen Closed Tab.
+  /** Command label. */
+  COMMAND_REOPEN_CLOSED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 
