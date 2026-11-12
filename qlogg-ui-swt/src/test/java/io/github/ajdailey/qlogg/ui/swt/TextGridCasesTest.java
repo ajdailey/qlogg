@@ -47,6 +47,12 @@ class TextGridCasesTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
   private static final int LINES = 100;
 
+  /**
+   * Columns of line 0: a few rows when wrapped, so they fit the main view the filtered view's
+   * minimum leaves in a 400 px window at the platform font.
+   */
+  private static final int WIDE = 150;
+
   @TempDir Path temp;
 
   private final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
@@ -120,10 +126,10 @@ class TextGridCasesTest {
     assertTrue(failures.isEmpty(), failures.toString());
   }
 
-  /** Line 0 is 400 columns of {@code x}; line 1 starts with a tab; the rest are short. */
+  /** Line 0 is {@link #WIDE} columns of {@code x}; line 1 starts with a tab; the rest are short. */
   private Path write() throws IOException {
     StringBuilder text = new StringBuilder();
-    text.append("x".repeat(400)).append('\n');
+    text.append("x".repeat(WIDE)).append('\n');
     text.append("\tat a.B\n");
     for (int i = 2; i < LINES; i++) {
       text.append("line ").append(i).append('\n');
@@ -230,7 +236,7 @@ class TextGridCasesTest {
               @Override
               public boolean getAsBoolean() {
                 int columns = document().viewport().columns();
-                int segments = (400 + columns - 1) / columns;
+                int segments = (WIDE + columns - 1) / columns;
                 return document().lines().contains(0)
                     && document().viewport().rows() == screen - segments + 1;
               }
@@ -238,7 +244,7 @@ class TextGridCasesTest {
         "rows " + document().viewport().rows() + " of " + screen);
     LineBlock block = document().lines();
     int columns = document().viewport().columns();
-    int segments = (400 + columns - 1) / columns;
+    int segments = (WIDE + columns - 1) / columns;
     assertEquals(segments, view.wrappedRows(block, 0));
     assertEquals(1, view.wrappedRows(block, 1));
     assertEquals(1, view.wrappedRows(block, LINES + 5));
