@@ -28,6 +28,13 @@ documents. Module overview: [README.md](README.md).
   through `PostedPointer`, which drops pointer events it did not post
   (`ViewFeaturesGuiTest`). A press and release posted with no dispatch between
   them needs no filter.
+- SWT GTK caches window trim in `~/.swt/trims.prefs` (the test home under
+  surefire): each new `Display` reads it and each dispose writes it, so a trim
+  one test records sizes every later shell. Opening `WindowStackingTest`'s
+  shell under Xvfb records a 94 px trim width, which narrows later client
+  areas by 94 px; that test restores the file. A test that needs a canvas
+  width grows the shell until the canvas reaches it (`LogViewTest`), since a
+  shell size does not fix it.
 - `HangWatchdog`, registered for every test in the module through
   `META-INF/services` and `junit-platform.properties`, prints every thread's
   stack to stderr when a test, its `@BeforeEach` and `@AfterEach` included,

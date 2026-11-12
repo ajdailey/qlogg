@@ -270,6 +270,16 @@ class LogViewTest {
     }
     assertTrue(window.infoText().contains("UTF-8"), window.infoText());
     assertTrue(window.positionText().contains("/200"), window.positionText());
+    // The setup waits for the top line only; the rest of the block can arrive later.
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().lines().contains(2);
+              }
+            }),
+        "line 2 never fetched");
     assertEquals("tab     here café 日本", document().lines().text(2));
   }
 
@@ -753,14 +763,22 @@ class LogViewTest {
             }));
     LogCanvas view = window.canvas();
     int gutter = view.gutterWidth();
-    int width = canvas().getClientArea().width;
-    assertTrue(
-        gutter + view.columnOffset(161) < width,
-        "column 160 at " + (gutter + view.columnOffset(160)) + " px of " + width);
     final int height = view.lineHeight();
     final int inkFrom = gutter + view.columnOffset(140);
     final int inkTo = gutter + view.columnOffset(170);
     final int backgroundX = gutter + 2;
+    // The canvas width a shell size gives depends on SWT's cached window trim.
+    Rectangle bounds = window.shell().getBounds();
+    window.shell().setSize(bounds.width + Math.max(0, inkTo - canvasWidth()), bounds.height);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return canvasWidth() >= inkTo;
+          }
+        });
+    int width = canvasWidth();
+    assertTrue(inkTo <= width, "column 170 ends at " + inkTo + " px of a " + width + " px canvas");
     // The row's text can reach the canvas after the line is indexed.
     final ImageData[] painted = new ImageData[1];
     assertTrue(
@@ -776,6 +794,9 @@ class LogViewTest {
     ImageData plain = painted[0];
     document().select(new Selection(new TextPosition(0, 150), new TextPosition(0, 160)));
     ImageData selected = capture();
+    assertTrue(
+        plain.width >= width && selected.width >= width,
+        "captured " + plain.width + " and " + selected.width + " px of a " + width + " px canvas");
     RGB background = rgbAt(plain, backgroundX, height / 2);
     int inkLeft = -1;
     int inkRight = -1;
@@ -825,6 +846,10 @@ class LogViewTest {
       }
     }
     return false;
+  }
+
+  private int canvasWidth() {
+    return canvas().getClientArea().width;
   }
 
   private ImageData capture() {

@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -26,11 +29,16 @@ import org.junit.jupiter.api.condition.OS;
  */
 @Tag("swt")
 class WindowStackingTest {
+  /** SWT GTK's window trim cache, restored after each test: this shell records a 94 px width. */
+  private static final Path TRIMS = Path.of(System.getProperty("user.home"), ".swt", "trims.prefs");
+
   private Display display;
   private Shell shell;
+  private byte[] trims;
 
   @BeforeEach
-  void open() {
+  void open() throws IOException {
+    trims = Files.isRegularFile(TRIMS) ? Files.readAllBytes(TRIMS) : null;
     display = new Display();
     shell = new Shell(display, SWT.SHELL_TRIM);
     shell.setText("qlogg-stacking-" + System.nanoTime());
@@ -38,8 +46,13 @@ class WindowStackingTest {
   }
 
   @AfterEach
-  void close() {
+  void close() throws IOException {
     display.dispose();
+    if (trims == null) {
+      Files.deleteIfExists(TRIMS);
+    } else {
+      Files.write(TRIMS, trims);
+    }
   }
 
   private static boolean x11() {

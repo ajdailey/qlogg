@@ -214,12 +214,13 @@ class FolderSearchTest {
     assertReleased();
   }
 
+  /** The cancel lands while runaway.log is the current file, so no entry is listed. */
   @Test
   void cancelStopsARunawayRegexWithinTheBound() throws Exception {
     start(MemoryBudget.of(1L << 30));
     StringBuilder text = new StringBuilder();
     for (int i = 0; i < 2000; i++) {
-      text.append("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+      text.append("x".repeat(60)).append('\n');
     }
     write("runaway.log", text.toString());
     write("second.log", "y\n");
@@ -232,28 +233,33 @@ class FolderSearchTest {
                     dir.toString(),
                     NamePattern.of(NamePattern.DEFAULT),
                     false,
-                    SearchQuery.of("(x+x+)+y", MatchMode.REGEX)),
+                    SearchQuery.of("(.*x){25}y", MatchMode.REGEX)),
                 results,
                 recording);
+    // Indexed and searching: the file percent averages the index and search percents.
     assertTrue(
         Poll.until(
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
                 FolderProgress progress = recording.last;
-                return progress != null && progress.file() != null && progress.filePercent() >= 50;
+                return progress != null
+                    && progress.file() != null
+                    && progress.file().endsWith("runaway.log")
+                    && progress.filePercent() >= 50;
               }
             },
-            BOUND));
+            BOUND),
+        "runaway.log never reported searching");
     long canceled = System.nanoTime();
     handle.cancel();
     assertTrue(handle.await(CANCEL_MILLIS));
     long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - canceled);
     assertTrue(millis < CANCEL_MILLIS, millis + " ms");
     assertEquals(OperationOutcome.CANCELED, recording.outcome);
-    assertEquals(0, results.fileCount());
-    results.close();
+    assertEquals(0, results.fileCount(), results.files().toString());
     assertReleased();
+    results.close();
   }
 
   @Test
