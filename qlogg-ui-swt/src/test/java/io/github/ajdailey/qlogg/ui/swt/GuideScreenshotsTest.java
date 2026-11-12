@@ -12,6 +12,8 @@ import io.github.ajdailey.qlogg.app.config.TimeSettings;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
+import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
+import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -48,7 +50,9 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -57,11 +61,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Writes the user guide's screenshots to {@code -Dqlogg.guide.shots=<dir>} ({@code
- * tools/screenshots.sh}): the main window with search results and marks, a selection's time
- * difference, collapsed stack traces, the highlighters dialog, the Options Folding tab and Keyboard
- * Shortcuts and both time-spread modes, each painted through {@code Shell.print} from a generated
- * mock log, written to {@code -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows
- * that path.
+ * tools/screenshots.sh}) from generated mock logs, written to {@code
+ * -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows that path: the main window
+ * with search results and marks, a selection's time difference, collapsed stack traces, the
+ * highlighters dialog, the Options Folding tab, Keyboard Shortcuts, both time-spread modes and
+ * Search in Folder, painted through {@code Shell.print}; the tab list, the command palette, the
+ * View colors list, the Nightwater scheme and File > Recently Closed, read from the screen, where
+ * open menus show.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.guide.shots", matches = ".+")
@@ -109,10 +115,10 @@ class GuideScreenshotsTest {
               services,
               new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, temp)),
               Preferences.DEFAULTS
-                  .withHighlights(highlights())
+                  .withHighlights(highlights(LIGHT_COLORS))
                   .withTime(new TimeSettings(ZoneOffset.UTC, ZoneOffset.UTC, List.of())));
       window.attach(controller);
-      window.place(new WindowGeometry.Request(0, 0, 960, 600), null);
+      window.place(new WindowGeometry.Request(0, 0, 1100, 700), null);
       window.open();
       shoot();
       controller.shutdown();
@@ -216,6 +222,192 @@ class GuideScreenshotsTest {
     spreadShot(CommandId.TIME_SPREAD_ACTIVITY, SpreadMode.ACTIVITY, "time-spread-activity.png");
     spreadShot(CommandId.TIME_SPREAD_PAUSES, SpreadMode.PAUSES, "time-spread-pauses.png");
     controller.execute(CommandId.TIME_SPREAD_OFF);
+    tabShots(dir);
+    folderSearchShot(dir);
+    viewColorsShots(document);
+    recentlyClosedShot();
+  }
+
+  /** The tab list and the command palette, read from the screen. */
+  private void tabShots(Path dir) throws Exception {
+    String[] names = {
+      "gateway",
+      "ingest",
+      "scheduler",
+      "store",
+      "audit",
+      "billing",
+      "export",
+      "metrics",
+      "notify",
+      "queue",
+      "reports",
+      "session"
+    };
+    for (String name : names) {
+      final Path log = mockLog(dir.resolve(name + ".log"));
+      controller.open(List.of(new FileRequest(log, 0)));
+      assertTrue(
+          runUntil(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  DocumentController shown = controller.activeDocument();
+                  return shown != null
+                      && shown.state().title().equals(log.getFileName().toString())
+                      && !shown.state().indexing();
+                }
+              }));
+    }
+    controller.activate(controller.documents().get(3));
+    // At the screen's right edge, so the list menu opens leftward inside the window.
+    Rectangle screen = display.getBounds();
+    window.shell().setLocation(screen.width - drawn(window.shell()).width, 0);
+    settle();
+    TabStripButtons buttons = window.tabButtons();
+    buttons.tabList().show(buttons.listButton());
+    settle();
+    saveScreen(window.shell(), "tab-list.png");
+    buttons.tabList().menu().setVisible(false);
+    window.shell().setLocation(0, 0);
+    settle();
+
+    controller.execute(CommandId.COMMAND_PALETTE);
+    CommandPaletteWindow palette = window.commandPalette();
+    palette.filter().setText("gtl");
+    settle();
+    saveScreen(window.shell(), "palette.png");
+    palette.shell().dispose();
+    settle();
+  }
+
+  /** File > Recently Closed, opened through posted keys; the menu stays open until shutdown. */
+  private void recentlyClosedShot() {
+    for (int i = 0; i < 3; i++) {
+      controller.closeDocument(controller.documents().get(controller.documents().size() - 1));
+    }
+    window.syncMenu();
+    window.shell().forceActive();
+    settle();
+    // Alt+F opens File; the mnemonic opens Recently Closed.
+    postKeys(SWT.ALT, 'f');
+    settle();
+    postKeys(0, 't');
+    settle();
+    assertTrue(
+        window.menuBar().closedMenu().isVisible(),
+        "Alt+F opened no menu; it fires only with the ibus daemon reachable");
+    saveScreen(window.shell(), "recently-closed.png");
+  }
+
+  /** Search in Folder over a folder of mock logs, one of them compressed. */
+  private void folderSearchShot(Path dir) throws Exception {
+    Path folder = Files.createDirectories(dir.resolve("archive"));
+    mockLog(folder.resolve("service.log"));
+    mockLog(folder.resolve("service.log.1"));
+    mockLog(folder.resolve("ingest.log"));
+    Files.write(
+        folder.resolve("service.log.2.gz"), new byte[] {0x1f, (byte) 0x8b, 8, 0, 0, 0, 'h'});
+    controller.execute(CommandId.SEARCH_FOLDER);
+    final FolderSearchWindow search = window.folderSearch();
+    search.folder().setText(folder.toString());
+    search.text().setText("failed");
+    search.shell().getDefaultButton().notifyListeners(SWT.Selection, new Event());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return controller.folderSearch().state().phase() == FolderSearchState.Phase.DONE
+                    && search.files().getItemCount() == 4;
+              }
+            }));
+    search.files().setSelection(0);
+    search.files().notifyListeners(SWT.Selection, new Event());
+    settle();
+    save(search.shell(), "folder-search.png");
+    search.shell().dispose();
+  }
+
+  /** The View colors list in Options and the log views under a bundled dark scheme. */
+  private void viewColorsShots(DocumentController document) {
+    OptionsDialog options = new OptionsDialog(window.shell(), controller);
+    options.open();
+    options.folder().setSelection(1);
+    options.viewColors().select(4);
+    options.viewColors().setFocus();
+    // Taller, so the open list fits inside the dialog.
+    Point size = options.shell().getSize();
+    options.shell().setSize(size.x, size.y + 150);
+    settle();
+    options.viewColors().setListVisible(true);
+    settle();
+    saveScreen(options.shell(), "options-view-colors.png");
+    options.viewColors().setListVisible(false);
+    options.shell().dispose();
+
+    controller.activate(document);
+    HighlightSettings light = controller.preferences().highlights();
+    controller.setHighlightSettings(highlights(DARK_COLORS));
+    controller.setViewOptions(controller.preferences().view().withColors("nightwater"));
+    settle();
+    saveScreen(window.shell(), "view-colors-nightwater.png");
+    controller.setViewOptions(
+        controller.preferences().view().withColors(ColorSchemes.FOLLOW_THEME));
+    controller.setHighlightSettings(light);
+    settle();
+  }
+
+  /** Posts a key, with a modifier held when {@code modifier} is not 0. */
+  private void postKeys(int modifier, int key) {
+    if (modifier != 0) {
+      post(SWT.KeyDown, modifier, '\0');
+    }
+    post(SWT.KeyDown, 0, (char) key);
+    post(SWT.KeyUp, 0, (char) key);
+    if (modifier != 0) {
+      post(SWT.KeyUp, modifier, '\0');
+    }
+  }
+
+  private void post(int type, int keyCode, char character) {
+    Event event = new Event();
+    event.type = type;
+    event.keyCode = keyCode;
+    event.character = character;
+    display.post(event);
+  }
+
+  /** The area a shell draws: its menu bar and client area. */
+  private static Rectangle drawn(Shell shell) {
+    Rectangle bounds = shell.getBounds();
+    Point client = shell.toDisplay(0, 0);
+    Rectangle area = shell.getClientArea();
+    return new Rectangle(
+        bounds.x, bounds.y, client.x - bounds.x + area.width, client.y - bounds.y + area.height);
+  }
+
+  /** Saves the screen under a shell, so open menus and windows over it show. */
+  private void saveScreen(Shell shell, String name) {
+    while (display.readAndDispatch()) {
+      // Flush pending paints.
+    }
+    Rectangle area = drawn(shell);
+    Image image = new Image(display, area.width, area.height);
+    GC gc = new GC(display);
+    try {
+      gc.copyArea(image, area.x, area.y);
+      write(image, name);
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  private void write(Image image, String name) {
+    ImageLoader loader = new ImageLoader();
+    loader.data = new ImageData[] {image.getImageData()};
+    loader.save(out.resolve(name).toString(), SWT.IMAGE_PNG);
   }
 
   /** Chooses a time-spread mode and saves the window once the bar shows it. */
@@ -264,35 +456,38 @@ class GuideScreenshotsTest {
 
   /** Paints a shell into an image through the public print API and writes a PNG. */
   private void save(Shell shell, String name) {
-    while (display.readAndDispatch()) {
-      // Flush pending paints so the image shows the latest rows.
-    }
-    Point size = shell.getSize();
-    Image image = new Image(display, size.x, size.y);
+    // An inactive window draws GTK's faded backdrop style.
+    shell.forceActive();
+    settle();
+    Rectangle area = drawn(shell);
+    Image image = new Image(display, area.width, area.height);
     GC gc = new GC(image);
     try {
       shell.print(gc);
-      ImageLoader loader = new ImageLoader();
-      loader.data = new ImageData[] {image.getImageData()};
-      loader.save(out.resolve(name).toString(), SWT.IMAGE_PNG);
+      write(image, name);
     } finally {
       gc.dispose();
       image.dispose();
     }
   }
 
-  private static HighlightSettings highlights() {
+  /** Colors per rule: ERROR line, WARN text, ID background, component text. */
+  private static final int[] LIGHT_COLORS = {0xf2b8b5, 0x7a4f00, 0x9fd3ff, 0x2f7d32};
+
+  private static final int[] DARK_COLORS = {0x6e2522, 0xe0b04a, 0x1f4a6b, 0x7fc77f};
+
+  private static HighlightSettings highlights(int[] c) {
     HighlightSet set =
         new HighlightSet(
             "mock-service",
             "Mock service",
             List.of(
                 new HighlightRule(
-                    "ERROR", MatchMode.LITERAL, true, true, null, Rgb.of(0xf2b8b5), 160, 0, true),
-                HighlightRule.matchOnly("WARN", MatchMode.LITERAL, Rgb.of(0x7a4f00), null),
-                HighlightRule.matchOnly("ID-(\\d{3})", MatchMode.REGEX, null, Rgb.of(0x9fd3ff))
+                    "ERROR", MatchMode.LITERAL, true, true, null, Rgb.of(c[0]), 160, 0, true),
+                HighlightRule.matchOnly("WARN", MatchMode.LITERAL, Rgb.of(c[1]), null),
+                HighlightRule.matchOnly("ID-(\\d{3})", MatchMode.REGEX, null, Rgb.of(c[2]))
                     .withAlphaAndVariance(200, 25),
-                HighlightRule.matchOnly("\\[(\\w+)", MatchMode.REGEX, Rgb.of(0x2f7d32), null)));
+                HighlightRule.matchOnly("\\[(\\w+)", MatchMode.REGEX, Rgb.of(c[3]), null)));
     return HighlightSettings.DEFAULTS.withSets(List.of(set)).withActive(List.of(set.id()));
   }
 

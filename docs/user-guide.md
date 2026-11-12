@@ -73,6 +73,8 @@ Encoding menu forces another one, and the choice is remembered for the file.
 - The status bar shows indexing, follow and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
 
+![The tab list open over a row of twelve tabs](images/guide/tab-list.png)
+
 ## Moving around
 
 | Keys | Action |
@@ -101,6 +103,8 @@ line. Go Back and Go Forward are gray when there is no jump in that direction.
 View > Command Palette lists every menu command with its menu and keys. Type
 letters of the command's name in order, such as `gtl` for Go to Line, and press
 `Enter` to run the first one. Commands that cannot run now are gray.
+
+![Command palette filtered by gtl](images/guide/palette.png)
 
 ## Search and the filtered view
 
@@ -182,6 +186,8 @@ that line, or to go there in the tab that already shows it. Compressed or
 binary files show Not text, and files that cannot be read show why. When
 the matching lines fill the memory set aside for results, the search stops
 and says so; narrow the search or the file names.
+
+![Search in Folder results, with a compressed file shown as Not text](images/guide/folder-search.png)
 
 ## Marks and quick find
 
@@ -454,6 +460,10 @@ light chrome and the reverse. A named scheme keeps its colors through every
 theme change, including a system appearance change; menus, dialogs and other
 controls keep following the theme. A change applies at once.
 
+![View colors in Tools > Options, View](images/guide/options-view-colors.png)
+
+![The Nightwater scheme in light chrome](images/guide/view-colors-nightwater.png)
+
 | Scheme | Colors |
 |---|---|
 | Light | Navy on white |
@@ -513,6 +523,8 @@ names any it could not open; Clear empties Recently Closed. File > Reopen
 Closed Tab (`Ctrl+Shift+T`) takes the newest file off
 Recently Closed and opens it. File > Favorites adds, removes and opens
 favorite files.
+
+![File > Recently Closed](images/guide/recently-closed.png)
 
 ## Windows and the running instance
 

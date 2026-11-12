@@ -13,12 +13,17 @@ documents. Module overview: [README.md](README.md).
   them.
 - The `test-gtk4` CI job runs them with `SWT_GTK4=1`. A test that hits a known
   GTK 4 failure skips itself there through the test class `Gtk4`.
-- The root POM sets `XDG_CONFIG_HOME` to the test classes' `gtk-config`,
+- The root POM sets `XDG_CONFIG_DIRS` to the test classes' `gtk-config`,
   whose `settings.ini` names Adwaita for GTK 3 and GTK 4. Ubuntu's
   `/etc/gtk-3.0/settings.ini` names Yaru, which the CI runner lacks, and a
   missing theme keeps native controls light under the dark setting (measured
   with `GTK_THEME` naming a missing theme: every dark test passed while native
-  backgrounds read 246,245,244).
+  backgrounds read 246,245,244). A `settings.ini` in `~/.config/gtk-3.0` or
+  `gtk-4.0` overrides the pin. `XDG_CONFIG_HOME` is not used: it hides
+  `~/.config/ibus`, and without the ibus daemon a posted Alt accelerator does
+  not fire under Xvfb, with or without the simple input method (measured on
+  GTK 3). `GTK_THEME=Adwaita` is not used: it keeps native controls light under
+  the dark setting (measured 246,245,244).
 - `EventLoop.runUntil` dispatches events until a condition holds, with a bound
   and no fixed sleep.
 - Tests post pointer events with `notifyListeners`. Xvfb's pointer sits over

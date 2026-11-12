@@ -3,8 +3,11 @@
 # and the user guide's docs/images/guide/*.png from generated mock logs under
 # Xvfb. Linux (GTK) only. Needs xvfb-run and a JDK 21 in JAVA_HOME; the test JVM
 # uses target/test-home as user.home, so nothing is written to the real home
-# directory. The logs are written to /tmp/qlogg-demo, the path the path field
-# shows, and removed afterwards. The next build embeds the guide images.
+# directory. Surefire's XDG_CONFIG_DIRS pin draws GTK's Adwaita theme, light or
+# dark, whatever the desktop theme. The Recently Closed shot posts Alt+F, which
+# fires only with the ibus daemon reachable. The logs are written to
+# /tmp/qlogg-demo, the path the path field shows, and removed afterwards. The
+# next build embeds the guide images.
 set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)

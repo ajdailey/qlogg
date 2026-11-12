@@ -394,10 +394,12 @@
                         <!-- GTK takes its theme from settings.ini. Ubuntu's names Yaru,
                              which a CI runner lacks, and a missing theme ignores the dark
                              setting, so the GUI test modules name Adwaita in
-                             src/test/resources/gtk-config. -->
+                             src/test/resources/gtk-config. XDG_CONFIG_DIRS leaves
+                             ~/.config/ibus reachable, which a posted Alt accelerator needs
+                             under Xvfb; GTK_THEME would ignore the dark setting. -->
                         <environmentVariables>
                             <GDK_BACKEND>x11</GDK_BACKEND>
-                            <XDG_CONFIG_HOME>${project.build.testOutputDirectory}/gtk-config</XDG_CONFIG_HOME>
+                            <XDG_CONFIG_DIRS>${project.build.testOutputDirectory}/gtk-config</XDG_CONFIG_DIRS>
                         </environmentVariables>
                     </configuration>
                 </plugin>

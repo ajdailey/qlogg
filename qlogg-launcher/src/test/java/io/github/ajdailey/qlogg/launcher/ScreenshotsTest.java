@@ -249,18 +249,17 @@ class ScreenshotsTest {
     while (display.readAndDispatch()) {
       // Flush pending paints so the image shows the latest rows.
     }
-    Point size = window.shell().getSize();
-    if (screen) {
-      // Shell.print draws GTK native controls light under a dark theme; the screen shows them.
-      Rectangle area = window.shell().getClientArea();
-      size = new Point(area.width, area.height);
-    }
-    Image image = new Image(display, size.x, size.y);
+    // The menu bar and client area; the shell's size also counts window trim it does not draw.
+    Rectangle bounds = window.shell().getBounds();
+    Point client = window.shell().toDisplay(0, 0);
+    Rectangle area = window.shell().getClientArea();
+    Image image =
+        new Image(display, client.x - bounds.x + area.width, client.y - bounds.y + area.height);
     GC gc = screen ? new GC(display) : new GC(image);
     try {
       if (screen) {
-        Point origin = window.shell().toDisplay(0, 0);
-        gc.copyArea(image, origin.x, origin.y);
+        // Shell.print draws GTK native controls light under a dark theme; the screen shows them.
+        gc.copyArea(image, bounds.x, bounds.y);
       } else {
         window.shell().print(gc);
       }
