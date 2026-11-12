@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeySequencer;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
@@ -94,40 +95,6 @@ public final class LogCanvas {
 
   // Accessible names.
   private final AccessibleName accessibleName;
-
-  /**
-   * Commands of the right-click menu, in order; null is a separator. Consecutive commands with a
-   * {@link #contextCascade} form one cascade. Time Sync follows the last command, then Highlighters
-   * and Color Label after a separator.
-   */
-  static final CommandId[] CONTEXT_MENU = {
-    CommandId.COPY,
-    CommandId.COPY_LINE,
-    CommandId.COPY_WITH_LINE_NUMBERS,
-    null,
-    CommandId.TOGGLE_MARK,
-    CommandId.EDIT_MARK_COMMENT,
-    null,
-    CommandId.FIND_SELECTION_FORWARD,
-    CommandId.FIND_SELECTION_BACKWARD,
-    null,
-    CommandId.ADD_TO_SEARCH,
-    CommandId.EXCLUDE_FROM_SEARCH,
-    CommandId.REPLACE_SEARCH,
-    CommandId.SET_SEARCH_START,
-    CommandId.SET_SEARCH_END,
-    CommandId.CLEAR_SEARCH_LIMITS,
-    null,
-    CommandId.SET_SELECTION_START,
-    CommandId.SET_SELECTION_END,
-    null,
-    CommandId.SAVE_SELECTION,
-    CommandId.SEND_TO_SCRATCHPAD,
-    CommandId.REPLACE_SCRATCHPAD,
-    null,
-    CommandId.TOGGLE_FOLD,
-    CommandId.SCROLL_TABS_TO_TIME
-  };
 
   private final LineViewController document;
   private final ApplicationController application;
@@ -268,30 +235,17 @@ public final class LogCanvas {
     canvas.redraw();
   }
 
-  /**
-   * Returns the cascade a context menu command sits in.
-   *
-   * @param command a command of {@link #CONTEXT_MENU}
-   * @return Search Limits for the search limit commands, or null
-   */
-  static UiText contextCascade(CommandId command) {
-    return switch (command) {
-      case SET_SEARCH_START, SET_SEARCH_END, CLEAR_SEARCH_LIMITS -> UiText.MENU_SEARCH_LIMITS;
-      default -> null;
-    };
-  }
-
   private Menu contextMenu(final Keymap keymap) {
     Menu menu = new Menu(canvas);
     boolean mac = SwtKeys.mac();
     Menu cascade = null;
-    for (final CommandId command : CONTEXT_MENU) {
+    for (final CommandId command : MenuTable.LOG_VIEW_MENU) {
       if (command == null) {
         new MenuItem(menu, SWT.SEPARATOR);
         cascade = null;
         continue;
       }
-      UiText cascadeLabel = contextCascade(command);
+      UiText cascadeLabel = MenuTable.logViewCascade(command);
       if (cascadeLabel == null) {
         cascade = null;
       } else if (cascade == null) {
@@ -313,45 +267,37 @@ public final class LogCanvas {
             }
           });
     }
-    // Time sync.
-    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
-    timeSync.setText(UiText.MENU_TIME_SYNC.text());
-    final Menu timeSyncMenu = new Menu(menu);
-    timeSync.setMenu(timeSyncMenu);
-    timeSyncMenu.addListener(
-        SWT.Show,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            TimeSyncMenu.fill(timeSyncMenu, application.windowSet().timeSync(), document.owner());
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR);
-    MenuItem sets = new MenuItem(menu, SWT.CASCADE);
-    sets.setText(UiText.GROUP_HIGHLIGHT.text());
-    final Menu setsMenu = new Menu(menu);
-    sets.setMenu(setsMenu);
-    MenuItem labels = new MenuItem(menu, SWT.CASCADE);
-    labels.setText(UiText.MENU_COLOR_LABEL.text());
-    final Menu labelsMenu = new Menu(menu);
-    labels.setMenu(labelsMenu);
-    setsMenu.addListener(
-        SWT.Show,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            fillSets(setsMenu);
-          }
-        });
-    labelsMenu.addListener(
-        SWT.Show,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            ColorLabelMenu.fill(labelsMenu, application, keymap, document);
-          }
-        });
+    for (UiText label : MenuTable.LOG_VIEW_CASCADES) {
+      if (label == null) {
+        new MenuItem(menu, SWT.SEPARATOR);
+        continue;
+      }
+      MenuItem holder = new MenuItem(menu, SWT.CASCADE);
+      holder.setText(label.text());
+      final Menu listed = new Menu(menu);
+      holder.setMenu(listed);
+      final UiText kind = label;
+      listed.addListener(
+          SWT.Show,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              fillCascade(kind, listed, keymap);
+            }
+          });
+    }
     return menu;
+  }
+
+  /** Fills a {@link MenuTable#LOG_VIEW_CASCADES} cascade as it shows. */
+  private void fillCascade(UiText kind, Menu listed, Keymap keymap) {
+    switch (kind) {
+      case MENU_TIME_SYNC ->
+          TimeSyncMenu.fill(listed, application.windowSet().timeSync(), document.owner());
+      case GROUP_HIGHLIGHT -> fillSets(listed);
+      case MENU_COLOR_LABEL -> ColorLabelMenu.fill(listed, application, keymap, document);
+      default -> throw new IllegalArgumentException(kind.name());
+    }
   }
 
   /** Lists None and the highlighter sets, the active ones checked. */

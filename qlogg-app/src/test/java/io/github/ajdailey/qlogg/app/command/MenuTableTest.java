@@ -13,14 +13,20 @@ import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Menu contents with and without the macOS application menu, and mnemonics per menu. */
+/**
+ * Menu contents with and without the macOS application menu, radio items, and mnemonics per menu:
+ * every menu-bar title, item and cascade, and every fixed item of the log view, tab, path field and
+ * search field context menus, has one, unique in its menu. The built menus are walked in {@code
+ * LogViewTest}.
+ */
 class MenuTableTest {
   @Test
-  void theApplicationMenuTakesAboutOptionsAndExit() {
-    assertTrue(MenuTable.commands(CommandGroup.TOOLS, false).contains(CommandId.OPTIONS));
+  void theApplicationMenuTakesAboutPreferencesAndExit() {
+    assertTrue(MenuTable.commands(CommandGroup.TOOLS, false).contains(CommandId.PREFERENCES));
+    assertEquals("Pr&eferences...", CommandId.PREFERENCES.label());
     assertTrue(MenuTable.commands(CommandGroup.HELP, false).contains(CommandId.ABOUT));
     assertTrue(MenuTable.commands(CommandGroup.FILE, false).contains(CommandId.QUIT));
-    assertFalse(MenuTable.commands(CommandGroup.TOOLS, true).contains(CommandId.OPTIONS));
+    assertFalse(MenuTable.commands(CommandGroup.TOOLS, true).contains(CommandId.PREFERENCES));
     assertFalse(MenuTable.commands(CommandGroup.HELP, true).contains(CommandId.ABOUT));
     assertFalse(MenuTable.commands(CommandGroup.FILE, true).contains(CommandId.QUIT));
     List<CommandId> tools = MenuTable.commands(CommandGroup.TOOLS, true);
@@ -48,23 +54,54 @@ class MenuTableTest {
       assertEquals(UiText.MENU_TIME_SPREAD, MenuTable.nestedCascade(mode));
       assertEquals(UiText.MENU_TIMESTAMPS.text(), mode.submenu());
     }
-    assertFalse(MenuTable.radio(CommandId.THEME_LIGHT));
     assertNull(MenuTable.nestedCascade(CommandId.TIME_OFFSET));
+    assertNull(MenuTable.nestedCascade(CommandId.THEME_LIGHT));
+  }
+
+  @Test
+  void radioItemsAreCheckCommandsInACascadeOrEncoding() {
+    for (CommandId command : MenuTable.RADIO) {
+      assertTrue(command.check(), command.name());
+      assertTrue(
+          command.submenu() != null || command.group() == CommandGroup.ENCODING, command.name());
+    }
+    assertTrue(MenuTable.radio(CommandId.THEME_DARK));
+    assertTrue(MenuTable.radio(CommandId.SHOW_MATCHES));
+    assertTrue(MenuTable.radio(CommandId.ENCODING_AUTO));
+    assertFalse(MenuTable.radio(CommandId.FOLLOW));
+  }
+
+  @Test
+  void contextMenusListEachCommandOnce() {
+    List<CommandId> seen = new ArrayList<CommandId>();
+    for (CommandId command : MenuTable.LOG_VIEW_MENU) {
+      if (command != null) {
+        assertFalse(seen.contains(command), command.name());
+        seen.add(command);
+      }
+    }
+    assertEquals(UiText.MENU_SEARCH_LIMITS, MenuTable.logViewCascade(CommandId.SET_SEARCH_END));
+    assertNull(MenuTable.logViewCascade(CommandId.COPY));
+    assertTrue(MenuTable.TAB_MENU.contains(UiText.MENU_TIME_SYNC));
+  }
+
+  @Test
+  void everyMenuItemHasAMnemonic() {
+    List<String> missing = new ArrayList<String>();
+    for (Map.Entry<String, List<String>> menu : menus().entrySet()) {
+      for (String label : menu.getValue()) {
+        if (label.indexOf('&') < 0) {
+          missing.add(menu.getKey() + " > " + label);
+        }
+      }
+    }
+    assertEquals(List.of(), missing);
   }
 
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
-    Map<String, List<String>> menus = new LinkedHashMap<String, List<String>>();
-    List<String> bar = new ArrayList<String>();
-    menus.put("menu bar", bar);
-    for (CommandGroup group : CommandGroup.values()) {
-      if (group.menu()) {
-        bar.add(group.label());
-        menus.putAll(menus(group));
-      }
-    }
     List<String> repeated = new ArrayList<String>();
-    for (Map.Entry<String, List<String>> menu : menus.entrySet()) {
+    for (Map.Entry<String, List<String>> menu : menus().entrySet()) {
       List<Character> seen = new ArrayList<Character>();
       for (String label : menu.getValue()) {
         int at = label.indexOf('&');
@@ -79,6 +116,77 @@ class MenuTableTest {
       }
     }
     assertEquals(List.of(), repeated);
+  }
+
+  /** Labels per menu: the menu bar's titles, then each group's menu and its cascades. */
+  private static Map<String, List<String>> menus() {
+    Map<String, List<String>> menus = new LinkedHashMap<String, List<String>>();
+    List<String> bar = new ArrayList<String>();
+    menus.put("menu bar", bar);
+    for (CommandGroup group : CommandGroup.values()) {
+      if (group.menu()) {
+        bar.add(group.label());
+        menus.putAll(menus(group));
+      }
+    }
+    menus.get(CommandGroup.ENCODING.label()).add(UiText.MENU_ENCODING_OTHER.text());
+    menus.putAll(contextMenus());
+    return menus;
+  }
+
+  /**
+   * Labels per context menu: the log view menu with its cascades' fixed items, the tab menu, the
+   * path field menu and the search field menu.
+   */
+  private static Map<String, List<String>> contextMenus() {
+    Map<String, List<String>> menus = new LinkedHashMap<String, List<String>>();
+    List<String> log = new ArrayList<String>();
+    menus.put("log view", log);
+    for (CommandId command : MenuTable.LOG_VIEW_MENU) {
+      if (command == null) {
+        continue;
+      }
+      UiText cascade = MenuTable.logViewCascade(command);
+      if (cascade == null) {
+        log.add(command.label());
+        continue;
+      }
+      String key = "log view > " + cascade.text();
+      if (!menus.containsKey(key)) {
+        log.add(cascade.text());
+        menus.put(key, new ArrayList<String>());
+      }
+      menus.get(key).add(command.label());
+    }
+    for (UiText cascade : MenuTable.LOG_VIEW_CASCADES) {
+      if (cascade != null) {
+        log.add(cascade.text());
+      }
+    }
+    menus.put("log view > Time Sync", List.of(UiText.TIME_SYNC_LEAVE.text()));
+    menus.put("log view > Highlighters", List.of(CommandId.NO_HIGHLIGHTERS.label()));
+    menus.put("log view > Color Label", List.of(UiText.MENU_NONE.text()));
+    List<String> tab = new ArrayList<String>();
+    for (UiText label : MenuTable.TAB_MENU) {
+      if (label != null) {
+        tab.add(label.text());
+      }
+    }
+    menus.put("tab", tab);
+    menus.put("tab > Time Sync", List.of(UiText.TIME_SYNC_LEAVE.text()));
+    List<String> path = new ArrayList<String>();
+    for (UiText label : MenuTable.PATH_MENU) {
+      if (label != null) {
+        path.add(label.text());
+      }
+    }
+    menus.put("path field", path);
+    List<String> field = new ArrayList<String>();
+    for (CommandId command : MenuTable.SEARCH_FIELD_MENU) {
+      field.add(command.label());
+    }
+    menus.put("search field", field);
+    return menus;
   }
 
   /** Labels per menu: the group's own menu, then each cascade in it. */

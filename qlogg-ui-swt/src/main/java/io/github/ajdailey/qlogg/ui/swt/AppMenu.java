@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The macOS application menu: About, Preferences and Quit run {@link CommandId#ABOUT}, {@link
- * CommandId#OPTIONS} and {@link CommandId#QUIT} in the window activated last, so the menu bar
+ * CommandId#PREFERENCES} and {@link CommandId#QUIT} in the window activated last, so the menu bar
  * leaves them out ({@link io.github.ajdailey.qlogg.app.command.MenuTable}). Hide, Hide Others and
  * Show All stay native. A quit request from the system (Cmd-Q, logout) runs {@link WindowSet#quit}
  * in place of SWT's own disposal, and a file opened from the Finder or the Dock goes to {@link
@@ -104,7 +104,7 @@ public final class AppMenu {
   static CommandId command(int id) {
     return switch (id) {
       case SWT.ID_ABOUT -> CommandId.ABOUT;
-      case SWT.ID_PREFERENCES -> CommandId.OPTIONS;
+      case SWT.ID_PREFERENCES -> CommandId.PREFERENCES;
       case SWT.ID_QUIT -> CommandId.QUIT;
       default -> null;
     };

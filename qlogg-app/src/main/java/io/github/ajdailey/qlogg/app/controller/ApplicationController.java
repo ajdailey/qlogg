@@ -1496,9 +1496,9 @@ public final class ApplicationController implements DocumentHost {
       case COMMAND_LINE_OPTIONS ->
           view.showText(CommandId.COMMAND_LINE_OPTIONS.title(), CommandLineParser.usage());
       case ABOUT -> showAbout();
-      case DOCUMENTATION -> help.showGuide();
-      // Options dialog, recent files, favorites, encoding and zoom.
-      case OPTIONS -> view.showOptions();
+      case USER_GUIDE -> help.showGuide();
+      // Preferences dialog, recent files, favorites, encoding and zoom.
+      case PREFERENCES -> view.showPreferences();
       case CLEAN_RECENT -> cleanRecent();
       case ADD_FAVORITE -> addFavorite();
       case REMOVE_FAVORITE -> removeFavorite();
@@ -1530,6 +1530,8 @@ public final class ApplicationController implements DocumentHost {
       case OPEN_ALL_RECENT -> recent.openAll(preferences.get().state().recentFiles());
       case OPEN_ALL_CLOSED -> recent.openAll(preferences.get().state().closedFiles());
       case CLEAR_CLOSED -> recent.clearClosed();
+      // Clear Recent Files.
+      case CLEAR_RECENT -> recent.clearRecent();
       case COMMAND_PALETTE -> view.showCommandPalette();
       // Reopen Closed Tab.
       case REOPEN_CLOSED -> recent.reopenClosed();
@@ -2371,7 +2373,7 @@ public final class ApplicationController implements DocumentHost {
   }
 
   /**
-   * Replaces the options from the Options dialog and applies them: key bindings, font, file
+   * Replaces the options from the Preferences dialog and applies them: key bindings, font, file
    * monitoring, the default encoding for files opened afterwards and the recent-files count.
    *
    * @param next the options

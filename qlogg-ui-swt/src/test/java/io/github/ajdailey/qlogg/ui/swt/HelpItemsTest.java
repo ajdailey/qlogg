@@ -305,7 +305,7 @@ class HelpItemsTest {
   void documentationShowsTheGuideInABrowserWindowOrNamesTheFile() throws Exception {
     final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
     long start = System.nanoTime();
-    controller.execute(CommandId.DOCUMENTATION);
+    controller.execute(CommandId.USER_GUIDE);
     assertTrue(
         runUntil(
             new BooleanSupplier() {
@@ -343,7 +343,7 @@ class HelpItemsTest {
     }
     assertTrue(GuideWindow.allowed(guide.location(), copy), guide.location());
     shootScreen(guide.shell(), "guide.png");
-    controller.execute(CommandId.DOCUMENTATION);
+    controller.execute(CommandId.USER_GUIDE);
     assertTrue(
         runUntil(
             new BooleanSupplier() {
@@ -436,7 +436,7 @@ class HelpItemsTest {
   @Test
   void withoutTheApplicationMenuTheMenuBarKeepsAboutOptionsAndExit() {
     assumeFalse(AppMenu.present(display), "Cocoa always has the application menu");
-    assertSame(CommandId.OPTIONS, AppMenu.command(SWT.ID_PREFERENCES));
+    assertSame(CommandId.PREFERENCES, AppMenu.command(SWT.ID_PREFERENCES));
     assertSame(CommandId.ABOUT, AppMenu.command(SWT.ID_ABOUT));
     assertSame(CommandId.QUIT, AppMenu.command(SWT.ID_QUIT));
     assertSame(null, AppMenu.command(SWT.ID_HIDE));
@@ -444,7 +444,7 @@ class HelpItemsTest {
     boolean options = false;
     for (MenuItem header : window.shell().getMenuBar().getItems()) {
       for (MenuItem item : header.getMenu().getItems()) {
-        options |= item.getData() == CommandId.OPTIONS;
+        options |= item.getData() == CommandId.PREFERENCES;
       }
     }
     assertTrue(options);

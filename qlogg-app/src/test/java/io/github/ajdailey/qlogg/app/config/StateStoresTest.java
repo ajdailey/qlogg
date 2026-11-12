@@ -60,7 +60,7 @@ class StateStoresTest {
             .withOpenDirectory("/mock")
             .addRecent("/mock/a.log", 7)
             .addRecent("/mock/c.log", 7)
-            .withDialog("options", new UiState.Size(640, 480));
+            .withDialog("preferences", new UiState.Size(640, 480));
     ConfigStore store = new ConfigStore(location());
     assertTrue(store.save(Preferences.DEFAULTS.withOptions(options).withState(state)));
     Preferences loaded = new ConfigStore(location()).load();

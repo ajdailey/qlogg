@@ -148,7 +148,8 @@ public final class CommandStates {
       case GO_BACK -> document != null && document.canGoBack();
       case GO_FORWARD -> document != null && document.canGoForward();
       // Open All and Recently Closed.
-      case OPEN_ALL_RECENT -> !application.preferences().state().recentFiles().isEmpty();
+      case OPEN_ALL_RECENT, CLEAR_RECENT ->
+          !application.preferences().state().recentFiles().isEmpty();
       // Recently Closed and Reopen Closed Tab.
       case OPEN_ALL_CLOSED, CLEAR_CLOSED, REOPEN_CLOSED ->
           !application.preferences().state().closedFiles().isEmpty();

@@ -16,18 +16,22 @@ public enum CommandId {
   OPEN_CLIPBOARD(CommandGroup.FILE, UiText.COMMAND_OPEN_CLIPBOARD, false, false),
   /** Open every recent file. */
   OPEN_ALL_RECENT(
-      CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_RECENT, true, false, UiText.MENU_OPEN_RECENT),
+      CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_RECENT, true, false, UiText.MENU_RECENT_FILES),
   /** Drop the recent files that no longer exist; the cascade lists the recent files before it. */
   CLEAN_RECENT(
-      CommandGroup.FILE, UiText.COMMAND_CLEAN_RECENT, false, false, UiText.MENU_OPEN_RECENT),
+      CommandGroup.FILE, UiText.COMMAND_CLEAN_RECENT, false, false, UiText.MENU_RECENT_FILES),
+  // Clear Recent Files.
+  /** Empty the recent files list. */
+  CLEAR_RECENT(
+      CommandGroup.FILE, UiText.COMMAND_CLEAR_RECENT, false, false, UiText.MENU_RECENT_FILES),
+  /** Open the newest Recently Closed file again. */
+  REOPEN_CLOSED(CommandGroup.FILE, UiText.COMMAND_REOPEN_CLOSED, false, false),
   /** Open every recently closed file. */
   OPEN_ALL_CLOSED(
       CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_CLOSED, false, false, UiText.MENU_RECENTLY_CLOSED),
   /** Empty Recently Closed; the cascade lists the closed files before Open All. */
   CLEAR_CLOSED(
       CommandGroup.FILE, UiText.COMMAND_CLEAR_CLOSED, false, false, UiText.MENU_RECENTLY_CLOSED),
-  /** Open the newest Recently Closed file again. */
-  REOPEN_CLOSED(CommandGroup.FILE, UiText.COMMAND_REOPEN_CLOSED, false, false),
   /** Add the shown file to the favorites. */
   ADD_FAVORITE(CommandGroup.FILE, UiText.COMMAND_ADD_FAVORITE, false, false, UiText.MENU_FAVORITES),
   /** Remove the shown file from the favorites. */
@@ -273,7 +277,7 @@ public enum CommandId {
   ZOOM_IN(CommandGroup.VIEW, UiText.COMMAND_ZOOM_IN, true, false),
   /** Make the log views' font one point smaller. */
   ZOOM_OUT(CommandGroup.VIEW, UiText.COMMAND_ZOOM_OUT, false, false),
-  /** Return the log views' font to the size set in Options. */
+  /** Return the log views' font to the size set in Preferences. */
   ZOOM_RESET(CommandGroup.VIEW, UiText.COMMAND_ZOOM_RESET, false, false),
   /** Light palette. */
   THEME_LIGHT(CommandGroup.VIEW, UiText.COMMAND_THEME_LIGHT, true, true, UiText.MENU_THEME),
@@ -308,8 +312,8 @@ public enum CommandId {
   SAVE_AS_FILTER(CommandGroup.TOOLS, UiText.COMMAND_SAVE_AS_FILTER, false, false),
   /** Open the scratchpad window. */
   SCRATCHPAD(CommandGroup.TOOLS, UiText.COMMAND_SCRATCHPAD, true, false),
-  /** Open the Options dialog. */
-  OPTIONS(CommandGroup.TOOLS, UiText.COMMAND_OPTIONS, true, false),
+  /** Open the Preferences dialog. */
+  PREFERENCES(CommandGroup.TOOLS, UiText.COMMAND_PREFERENCES, true, false),
   // Window menu.
   /** Open an empty main window. */
   NEW_WINDOW(CommandGroup.WINDOW, UiText.COMMAND_NEW_WINDOW, false, false),
@@ -323,7 +327,7 @@ public enum CommandId {
   SWITCH_FILE(CommandGroup.WINDOW, UiText.COMMAND_SWITCH_FILE, false, false),
   // Help menu.
   /** Open the user guide shipped in the jar. */
-  DOCUMENTATION(CommandGroup.HELP, UiText.COMMAND_DOCUMENTATION, false, false),
+  USER_GUIDE(CommandGroup.HELP, UiText.COMMAND_USER_GUIDE, false, false),
   /** Show the key bindings. */
   KEYBOARD_SHORTCUTS(CommandGroup.HELP, UiText.COMMAND_KEYBOARD_SHORTCUTS, false, false),
   /** Show the command-line usage. */

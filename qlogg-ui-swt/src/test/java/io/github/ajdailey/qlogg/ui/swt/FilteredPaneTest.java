@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
@@ -356,7 +357,7 @@ class FilteredPaneTest {
   @Test
   void bothViewsHaveTheContextMenu() {
     List<CommandId> expected = new ArrayList<CommandId>();
-    for (CommandId command : LogCanvas.CONTEXT_MENU) {
+    for (CommandId command : MenuTable.LOG_VIEW_MENU) {
       if (command != null) {
         expected.add(command);
       }

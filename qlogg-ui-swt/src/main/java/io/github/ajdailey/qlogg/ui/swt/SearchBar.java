@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.Keymap;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.SearchController;
@@ -113,7 +114,7 @@ public final class SearchBar {
 
         @Override
         public void optionsChanged(String text, SearchOptions options) {
-          showOptions(text, options);
+          showPreferences(text, options);
         }
       };
   private final DocumentViewListener filteredListener =
@@ -218,7 +219,7 @@ public final class SearchBar {
     GridData statusData = new GridData(SWT.FILL, SWT.CENTER, false, false);
     statusData.widthHint = 170;
     status.setLayoutData(statusData);
-    showOptions("", SearchOptions.DEFAULTS);
+    showPreferences("", SearchOptions.DEFAULTS);
     listen();
     unbind();
   }
@@ -352,10 +353,7 @@ public final class SearchBar {
 
   private Menu fieldMenu() {
     Menu menu = new Menu(pattern);
-    CommandId[] commands = {
-      CommandId.SAVE_AS_FILTER, CommandId.EDIT_HISTORY, CommandId.CLEAR_HISTORY
-    };
-    for (final CommandId command : commands) {
+    for (final CommandId command : MenuTable.SEARCH_FIELD_MENU) {
       MenuItem item = new MenuItem(menu, SWT.PUSH);
       item.setText(command.label());
       item.setData(command);
@@ -602,7 +600,7 @@ public final class SearchBar {
       }
     }
     SearchOptions next = options().withMode(MatchMode.REGEX);
-    showOptions(FilterPatterns.compose(checked, combining), next);
+    showPreferences(FilterPatterns.compose(checked, combining), next);
     if (controller != null) {
       controller.setText(pattern.getText(), next);
       runSearch();
@@ -729,7 +727,7 @@ public final class SearchBar {
     controller.addListener(listener);
     shown.filtered().addListener(filteredListener);
     setEnabled(true);
-    showOptions(controller.fieldText(), controller.options());
+    showPreferences(controller.fieldText(), controller.options());
     show(controller.state());
     syncVisibility();
   }
@@ -794,7 +792,7 @@ public final class SearchBar {
     }
   }
 
-  private void showOptions(String text, SearchOptions options) {
+  private void showPreferences(String text, SearchOptions options) {
     if (bar.isDisposed()) {
       return;
     }

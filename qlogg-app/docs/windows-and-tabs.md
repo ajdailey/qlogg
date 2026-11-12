@@ -219,7 +219,7 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
 | Go Back, Go Forward | - | The shown document's history has an entry in that direction |
 | Go to Time, Scroll All Tabs to This Time, Time Offset, Time Zone | - | The shown document has a timestamp format |
-| Open Recent > Open All; Recently Closed > Open All, Clear | - | The list is not empty |
+| Recent Files > Open All, Clear Recent Files; Recently Closed > Open All, Clear Recently Closed | - | The list is not empty |
 | Reopen Closed Tab | - | Recently Closed is not empty |
 
 `CommandStates` also lists the highlighter sets (`highlightSets`), the open
@@ -228,7 +228,7 @@ rule keeps the views from reading the getters only this mapping needs.
 
 ## Options and remembered state
 
-`setOptions` (Tools > Options) applies:
+`setOptions` (Tools > Preferences) applies:
 
 | Option | Applied through |
 |---|---|
@@ -240,11 +240,12 @@ rule keeps the views from reading the getters only this mapping needs.
 
 `zoomFont` and View > Zoom In, Zoom Out (`Ctrl`+wheel in a view) step the drawn
 size by one point within 4 to 72, save it as `font.zoom` and fire
-`fontChanged`. Reset Zoom clears it, back to the Options size.
+`fontChanged`. Reset Zoom clears it, back to the Preferences size.
 
 Favorites add and remove the shown file's path. `openListed` opens a recent or
-favorite path. File > Open Recent > Clean Up checks the paths on a
-`qlogg-lifecycle-` worker and drops those that are not regular files.
+favorite path. File > Recent Files > Clean Up checks the paths on a
+`qlogg-lifecycle-` worker and drops those that are not regular files; Clear
+Recent Files (`RecentFiles.clearRecent`) empties the list on the UI thread.
 
 `RecentFiles` keeps File > Recently Closed in `UiState.closedFiles`, at most 20,
 newest first. Closing a tab lists its file; closing a window or quitting does

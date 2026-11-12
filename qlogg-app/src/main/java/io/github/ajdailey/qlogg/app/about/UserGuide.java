@@ -26,9 +26,9 @@ public final class UserGuide {
   private UserGuide() {}
 
   /**
-   * Reports whether Help > Documentation shows the copy in the embedded browser. On Linux in
-   * portable and {@code --settings} mode it does not: WebKitGTK and Mesa write their cache and data
-   * under the user's home, outside the settings directory, so the copy goes to the system's HTML
+   * Reports whether Help > User Guide shows the copy in the embedded browser. On Linux in portable
+   * and {@code --settings} mode it does not: WebKitGTK and Mesa write their cache and data under
+   * the user's home, outside the settings directory, so the copy goes to the system's HTML
    * application instead.
    *
    * @param mode the settings mode

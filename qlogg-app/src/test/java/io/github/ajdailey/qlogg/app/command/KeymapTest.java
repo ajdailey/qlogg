@@ -100,7 +100,7 @@ class KeymapTest {
     assertEquals("F3, N, Ctrl+G", keymap.keysText(CommandId.FIND_NEXT, false));
     assertEquals(
         "Shift+F3, Shift+N, Ctrl+Shift+G", keymap.keysText(CommandId.FIND_PREVIOUS, false));
-    assertEquals("Ctrl+S, Ctrl+Shift+F", keymap.keysText(CommandId.FOCUS_SEARCH, false));
+    assertEquals("Ctrl+S", keymap.keysText(CommandId.FOCUS_SEARCH, false));
     assertEquals(new KeyStroke(0, KeyStroke.F3), keymap.accelerator(CommandId.FIND_NEXT));
     KeySequencer sequencer = new KeySequencer(keymap);
     assertEquals(new KeySequencer.Run(CommandId.FIND_NEXT), sequencer.press(KeyStroke.of(0, 'n')));
@@ -316,7 +316,7 @@ class KeymapTest {
     for (boolean mac : new boolean[] {false, true}) {
       Keymap map = Keymap.defaults(mac);
       assertEquals(
-          new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'h'),
+          new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'f'),
           map.accelerator(CommandId.SEARCH_FOLDER));
       assertEquals(new KeyStroke(0, KeyStroke.F4), map.accelerator(CommandId.NEXT_FOLDER_MATCH));
       assertEquals(
@@ -333,9 +333,9 @@ class KeymapTest {
       }
     }
     assertEquals(
-        "Cmd+Shift+H, Cmd+E Cmd+D", Keymap.defaults(true).keysText(CommandId.SEARCH_FOLDER, true));
+        "Cmd+Shift+F, Cmd+E Cmd+D", Keymap.defaults(true).keysText(CommandId.SEARCH_FOLDER, true));
     assertEquals(
-        "Ctrl+Shift+H, Ctrl+E Ctrl+D",
+        "Ctrl+Shift+F, Ctrl+E Ctrl+D",
         Keymap.defaults(false).keysText(CommandId.SEARCH_FOLDER, false));
     assertEquals("Shift+F4", Keymap.defaults(true).keysText(CommandId.PREVIOUS_FOLDER_MATCH, true));
   }

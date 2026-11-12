@@ -288,7 +288,7 @@ public final class ConfigStore {
         .withFilters(FilterFile.load(properties))
         .withHighlights(HighlightFile.load(properties))
         .withView(ViewFile.load(properties))
-        // Options dialog settings, favorites and remembered UI state.
+        // Preferences dialog settings, favorites and remembered UI state.
         .withOptions(OptionsFile.loadOptions(properties, file))
         .withState(OptionsFile.loadState(properties, file))
         .withTime(TimeFile.load(properties));
@@ -354,7 +354,7 @@ public final class ConfigStore {
     FilterFile.store(preferences.filters(), properties);
     HighlightFile.store(preferences.highlights(), properties);
     ViewFile.store(preferences.view(), properties);
-    // Options dialog settings, favorites and remembered UI state.
+    // Preferences dialog settings, favorites and remembered UI state.
     OptionsFile.store(preferences.options(), preferences.state(), properties);
     // Timestamps.
     TimeFile.store(preferences.time(), properties);

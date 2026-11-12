@@ -49,7 +49,7 @@ final class FakeView implements MainView {
   int openedFilesShown;
   final List<Path> launched = new ArrayList<Path>();
   boolean launchResult = true;
-  int optionsShown;
+  int preferencesShown;
   WindowState window = new WindowState(10, 20, 800, 600, false);
 
   @Override
@@ -310,9 +310,9 @@ final class FakeView implements MainView {
   }
 
   @Override
-  public void showOptions() {
-    ui.check("showOptions");
-    optionsShown++;
+  public void showPreferences() {
+    ui.check("showPreferences");
+    preferencesShown++;
   }
 
   @Override

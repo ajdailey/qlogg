@@ -9,7 +9,7 @@ import io.github.ajdailey.qlogg.core.model.FoldRules;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Parsing and validation of the fold rules the Options dialog edits. */
+/** Parsing and validation of the fold rules the Preferences dialog edits. */
 class FoldRulesTextTest {
   @Test
   void theDefaultsRoundTripWithTheirTrailingSpace() {
@@ -33,7 +33,7 @@ class FoldRulesTextTest {
 
   @Test
   void badTextIsRefusedWithTheReason() {
-    assertEquals(UiText.OPTIONS_FOLD_EMPTY.text(), FoldRulesText.parse("", "\n").error());
+    assertEquals(UiText.PREFERENCES_FOLD_EMPTY.text(), FoldRulesText.parse("", "\n").error());
     FoldRulesText invalid = FoldRulesText.parse("", "^ok\n[unclosed");
     assertNull(invalid.rules());
     assertTrue(invalid.error().startsWith("Pattern [unclosed: "), invalid.error());
@@ -43,7 +43,7 @@ class FoldRulesTextTest {
       many.append("^p").append(i).append('\n');
     }
     assertEquals(
-        UiText.OPTIONS_FOLD_TOO_MANY.format(ViewFile.MAX_CONTINUATION),
+        UiText.PREFERENCES_FOLD_TOO_MANY.format(ViewFile.MAX_CONTINUATION),
         FoldRulesText.parse("", many.toString()).error());
   }
 }

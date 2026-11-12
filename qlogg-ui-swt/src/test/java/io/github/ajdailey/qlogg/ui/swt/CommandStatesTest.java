@@ -40,10 +40,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Records the checked and enabled state of every check item and file command in the menu bar, read
- * after {@link MainWindow#syncMenu} with no document, with a document and with its filtered view
- * focused. Each state is two characters: {@code c} or {@code -} for checked, {@code e} or {@code -}
- * for enabled. A mismatch prints the whole recorded table.
+ * Records the checked and enabled state of every check and radio item and file command in the menu
+ * bar, read after {@link MainWindow#syncMenu} with no document, with a document and with its
+ * filtered view focused. Each state is two characters: {@code c} or {@code -} for checked, {@code
+ * e} or {@code -} for enabled. A mismatch prints the whole recorded table.
  */
 @Tag("swt")
 class CommandStatesTest {
@@ -79,6 +79,9 @@ class CommandStatesTest {
     row(CommandId.WRAP_ON_OPEN, "-e -e -e");
     row(CommandId.TOGGLE_WHITESPACE, "-e -e -e");
     row(CommandId.HIDE_ANSI, "-e -e -e");
+    row(CommandId.TIME_SPREAD_OFF, "ce ce ce");
+    row(CommandId.TIME_SPREAD_ACTIVITY, "-e -e -e");
+    row(CommandId.TIME_SPREAD_PAUSES, "-e -e -e");
     row(CommandId.SHOW_MARKS_AND_MATCHES, "-- ce ce");
     row(CommandId.SHOW_MARKS, "-- -e -e");
     row(CommandId.SHOW_MATCHES, "-- -e -e");
@@ -200,7 +203,7 @@ class CommandStatesTest {
       if (!(item.getData() instanceof CommandId command)) {
         continue;
       }
-      boolean check = (item.getStyle() & SWT.CHECK) != 0;
+      boolean check = (item.getStyle() & (SWT.CHECK | SWT.RADIO)) != 0;
       if (!check && !FILE_ITEMS.contains(command)) {
         continue;
       }

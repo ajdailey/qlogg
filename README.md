@@ -23,7 +23,7 @@ plugins.
 | Area | Summary | Guide |
 |---|---|---|
 | Large files | Any size and line count; content stays on disk while indexing runs in the background, and the first lines show at once | [Opening files](docs/user-guide.md#opening-files) |
-| Opening | Command line, File > Open, Open Recent and Recently Closed with Open All, Reopen Closed Tab, Favorites, drop on the window, clipboard text (up to 16 MiB, in memory); reload keeps marks and labels | [Opening files](docs/user-guide.md#opening-files), [Recent files](docs/user-guide.md#sessions-recent-files-and-favorites) |
+| Opening | Command line, File > Open, Recent Files and Recently Closed with Open All, Reopen Closed Tab, Favorites, drop on the window, clipboard text (up to 16 MiB, in memory); reload keeps marks and labels | [Opening files](docs/user-guide.md#opening-files), [Recent files](docs/user-guide.md#sessions-recent-files-and-favorites) |
 | Following | Follow a growing file; reopen by name after truncation, replacement, rotation or a retargeted link, with retries; Keep file closed for writers that rename over the file | [Following a growing file](docs/user-guide.md#following-a-growing-file) |
 | Encodings | Detection (BOM, UTF-16, UTF-8, ISO-8859-1 fallback) and a forced charset per file | [Opening files](docs/user-guide.md#opening-files) |
 | Search | Regex or literal, match case, whole word, inverse, combined expressions, in selection, start and end lines, auto-refresh, history, predefined filters, search with the selection, quick find, search all open files, search the files of a folder without opening them (exclude globs, ten kept result sets with pin, `F4` steps) | [Search](docs/user-guide.md#search-and-the-filtered-view) |
@@ -33,7 +33,7 @@ plugins.
 | Timestamps | Format detection and user formats, time zones, caret and selection times, offsets, Go to Time, Scroll All Tabs and Time Sync groups, time spread on the overview bar | [Timestamps](docs/user-guide.md#timestamps) |
 | Viewing | Line numbers, go to line and `+line:N`, Go Back and Go Forward over jumps, block selection, copy with line numbers, save of a selection or the filtered view, text wrap, whitespace and line-end markers, hidden ANSI colors, folding of multi-line entries, font zoom, light, dark and system themes, view color schemes apart from the theme (Light, Dark, nine bundled and user scheme files) | [Moving around](docs/user-guide.md#moving-around), [Selecting](docs/user-guide.md#selecting-copying-and-saving), [Folding](docs/user-guide.md#folding-multi-line-entries), [View options](docs/user-guide.md#view-options), [View colors](docs/user-guide.md#view-colors) |
 | Multiple files and windows | Movable, renamable tabs with a dot for new lines or matches, a tab menu, Open, tab list (with the hidden count) and Close buttons beside the tabs, Switch to File, and an option to close the window with its last tab; several main windows, tabs moved between them as they are, Always on Top per window | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
-| Sessions and settings | Session restore of tabs, marks, offsets and sync groups; remembered position, encoding and time format per file; remembered window state; Tools > Options with a shortcut editor | [Sessions](docs/user-guide.md#sessions-recent-files-and-favorites), [Options](docs/user-guide.md#options) |
+| Sessions and settings | Session restore of tabs, marks, offsets and sync groups; remembered position, encoding and time format per file; remembered window state; Tools > Preferences with a shortcut editor | [Sessions](docs/user-guide.md#sessions-recent-files-and-favorites), [Preferences](docs/user-guide.md#preferences) |
 | Portable settings | Settings beside the installation, or on Linux beside `bin/qlogg`, when `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
 | Single instance | A second launch hands its files to the running QLogg over an authenticated loopback connection; any failure opens a window of its own. Ending the process saves settings and the session | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
 | Tools and Help | Command palette; scratchpad transforms; path commands and Open in Editor; Keyboard Shortcuts, Show Log with a warning marker, debug log file, Report an Issue, and the user guide in its own browser window (on Linux in portable and `--settings` mode, the system browser); macOS application menu | [Command palette](docs/user-guide.md#moving-around), [Scratchpad](docs/user-guide.md#scratchpad), [Help](docs/user-guide.md#help-menu-and-logs) |
@@ -249,7 +249,7 @@ An empty `qlogg.conf` in either place selects portable mode.
 | `docker/`, `compose.yaml`, `scripts/` | Container build |
 | `.github/` | CI workflow and the scripts its steps run |
 | `tools/icons.sh` | Renders the application icon from `qlogg-dist/src/icons/*.svg` |
-| `docs/user-guide.md`, `docs/images/guide/` | The user guide Help > Documentation shows, and its screenshots |
+| `docs/user-guide.md`, `docs/images/guide/` | The user guide Help > User Guide shows, and its screenshots |
 | `tools/screenshots.sh`, `docs/images/` | Writes the light and dark screenshots and the user guide's images under Xvfb from generated mock logs (Linux) |
 
 ## Documents

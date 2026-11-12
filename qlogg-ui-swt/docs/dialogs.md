@@ -2,7 +2,7 @@
 
 The dialogs (`Dialogs`, `LineNumberDialog`, `ErrorDialog`, `AboutDialog`,
 `TextWindow`, `ShortcutsWindow`, `HistoryDialog`, `FiltersDialog`,
-`NameDialog`, `SwitchFileDialog`, `HighlightersDialog`, `OptionsDialog`,
+`NameDialog`, `SwitchFileDialog`, `HighlightersDialog`, `PreferencesDialog`,
 `SelectorsDialog`, `CommandPaletteWindow`, the timestamp dialogs and
 `GuideWindow`) and the tool windows (`ScratchpadWindow`, `MultiSearchWindow`,
 `FolderSearchWindow`, `MarksWindow`). Module overview:
@@ -58,9 +58,9 @@ chosen file whose ids are new.
 | Color Labels | Name, colors and cycle membership per label |
 | Match Highlight | On or off, theme color or a chosen one, variance |
 
-## Options
+## Preferences
 
-`OptionsDialog` (Tools > Options) is modeless with General, View, File,
+`PreferencesDialog` (Tools > Preferences) is modeless with General, View, File,
 Shortcuts, Advanced and Folding tabs. OK and Apply call `setOptions`,
 `setSearchHistory`, `setQuickFindOptions`, `setFollowSettings` and
 `setPreferences`.
@@ -99,7 +99,7 @@ A failure during `create` returns null instead, and the controller takes the
 same fallback. A bound that expires during one of `GuideWindow`'s own browser
 or shell calls closes the window after that call returns: on Cocoa an SWT
 timer runs inside any nested run loop a native call spins. A second
-Documentation reloads the page, restarts the bound and activates the window.
+User Guide reloads the page, restarts the bound and activates the window.
 
 Under GTK 4 no `Browser` is created; see
 [../README.md](../README.md#gtk-4).

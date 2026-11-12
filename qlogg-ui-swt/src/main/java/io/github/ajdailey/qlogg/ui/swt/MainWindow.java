@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.about.AboutInfo;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.UiState;
@@ -867,144 +868,61 @@ public final class MainWindow implements MainView, ApplicationListener {
       old.dispose();
     }
     CommandStates.TabItems state = menuBar.states().tabItems(document);
-    boolean file = state.file();
-    tabMenuItem(
-        menu,
-        UiText.TAB_CLOSE,
-        true,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.closeDocument(document);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_CLOSE_OTHERS,
-        state.closeOthers(),
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.closeOthers(document);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_CLOSE_LEFT,
-        state.closeLeft(),
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.closeSide(document, true);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_CLOSE_RIGHT,
-        state.closeRight(),
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.closeSide(document, false);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_CLOSE_ALL,
-        true,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.closeAll();
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR);
-    tabMenuItem(
-        menu,
-        UiText.TAB_COPY_PATH,
-        file,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.copyPath(document);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_COPY_FILE_NAME,
-        file,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.copyFileName(document);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_OPEN_FOLDER,
-        file,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.openContainingFolder(document);
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR);
-    tabMenuItem(
-        menu,
-        UiText.TAB_RENAME,
-        file,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.renameTab(document);
-          }
-        });
-    tabMenuItem(
-        menu,
-        UiText.TAB_RESET_NAME,
-        file,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.resetTabName(document);
-          }
-        });
-    // Time sync.
-    new MenuItem(menu, SWT.SEPARATOR);
-    MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
-    timeSync.setText(UiText.MENU_TIME_SYNC.text());
-    Menu timeSyncMenu = new Menu(menu);
-    timeSync.setMenu(timeSyncMenu);
-    TimeSyncMenu.fill(timeSyncMenu, controller.windowSet().timeSync(), document);
-    // Tab move between windows.
-    tabMenuItem(
-        menu,
-        UiText.TAB_MOVE_TO_NEW_WINDOW,
-        true,
-        new Runnable() {
-          @Override
-          public void run() {
-            controller.moveToNewWindow(document, null, null);
-          }
-        });
+    for (final UiText label : MenuTable.TAB_MENU) {
+      if (label == null) {
+        new MenuItem(menu, SWT.SEPARATOR);
+      } else if (label == UiText.MENU_TIME_SYNC) {
+        MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
+        timeSync.setText(label.text());
+        Menu timeSyncMenu = new Menu(menu);
+        timeSync.setMenu(timeSyncMenu);
+        TimeSyncMenu.fill(timeSyncMenu, controller.windowSet().timeSync(), document);
+      } else {
+        MenuItem item = new MenuItem(menu, SWT.PUSH);
+        item.setText(label.text());
+        item.setEnabled(tabItemEnabled(label, state));
+        item.addListener(
+            SWT.Selection,
+            new Listener() {
+              @Override
+              public void handleEvent(Event event) {
+                runTabItem(label, document);
+              }
+            });
+      }
+    }
     menu.setLocation(x, y);
     menu.setVisible(true);
     return menu;
   }
 
-  private static void tabMenuItem(Menu menu, UiText label, boolean enabled, final Runnable action) {
-    MenuItem item = new MenuItem(menu, SWT.PUSH);
-    item.setText(label.text());
-    item.setEnabled(enabled);
-    item.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            action.run();
-          }
-        });
+  private static boolean tabItemEnabled(UiText label, CommandStates.TabItems state) {
+    return switch (label) {
+      case TAB_CLOSE_OTHERS -> state.closeOthers();
+      case TAB_CLOSE_LEFT -> state.closeLeft();
+      case TAB_CLOSE_RIGHT -> state.closeRight();
+      case TAB_COPY_PATH, TAB_COPY_FILE_NAME, TAB_OPEN_FOLDER, TAB_RENAME, TAB_RESET_NAME ->
+          state.file();
+      default -> true;
+    };
+  }
+
+  /** Runs a {@link MenuTable#TAB_MENU} item on a tab. */
+  private void runTabItem(UiText label, DocumentController document) {
+    switch (label) {
+      case TAB_CLOSE -> controller.closeDocument(document);
+      case TAB_CLOSE_OTHERS -> controller.closeOthers(document);
+      case TAB_CLOSE_LEFT -> controller.closeSide(document, true);
+      case TAB_CLOSE_RIGHT -> controller.closeSide(document, false);
+      case TAB_CLOSE_ALL -> controller.closeAll();
+      case TAB_COPY_PATH -> controller.copyPath(document);
+      case TAB_COPY_FILE_NAME -> controller.copyFileName(document);
+      case TAB_OPEN_FOLDER -> controller.openContainingFolder(document);
+      case TAB_RENAME -> controller.renameTab(document);
+      case TAB_RESET_NAME -> controller.resetTabName(document);
+      case TAB_MOVE_TO_NEW_WINDOW -> controller.moveToNewWindow(document, null, null);
+      default -> throw new IllegalArgumentException(label.name());
+    }
   }
 
   /**
@@ -1194,66 +1112,69 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Builds the path field's context menu: Copy Full Path, Copy File Name and Open Containing Folder
-   * for the shown file, then Copy and Select All for the field's text.
+   * Builds the path field's context menu from {@link MenuTable#PATH_MENU}: Copy Full Path, Copy
+   * File Name and Open Containing Folder for the shown file, then Copy and Select All for the
+   * field's text.
    */
   private Menu pathMenu() {
     final Menu menu = new Menu(pathField);
-    final MenuItem copyPath = pathMenuItem(menu, UiText.TAB_COPY_PATH, CommandId.COPY_PATH);
-    final MenuItem copyName =
-        pathMenuItem(menu, UiText.TAB_COPY_FILE_NAME, CommandId.COPY_FILE_NAME);
-    final MenuItem folder = pathMenuItem(menu, UiText.TAB_OPEN_FOLDER, CommandId.OPEN_FOLDER);
-    new MenuItem(menu, SWT.SEPARATOR);
-    final MenuItem copy = new MenuItem(menu, SWT.PUSH);
-    copy.setText(UiText.PATH_COPY.text());
-    copy.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            pathField.copy();
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR);
-    MenuItem selectAll = new MenuItem(menu, SWT.PUSH);
-    selectAll.setText(UiText.PATH_SELECT_ALL.text());
-    selectAll.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            pathField.selectAll();
-          }
-        });
+    final Map<UiText, MenuItem> items = new EnumMap<UiText, MenuItem>(UiText.class);
+    for (final UiText label : MenuTable.PATH_MENU) {
+      if (label == null) {
+        new MenuItem(menu, SWT.SEPARATOR);
+        continue;
+      }
+      MenuItem item = new MenuItem(menu, SWT.PUSH);
+      item.setText(label.text());
+      item.addListener(
+          SWT.Selection,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              runPathItem(label);
+            }
+          });
+      items.put(label, item);
+    }
     menu.addListener(
         SWT.Show,
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            boolean attached = menuBar != null;
-            copyPath.setEnabled(attached && menuBar.states().enabled(CommandId.COPY_PATH));
-            copyName.setEnabled(attached && menuBar.states().enabled(CommandId.COPY_FILE_NAME));
-            folder.setEnabled(attached && menuBar.states().enabled(CommandId.OPEN_FOLDER));
-            copy.setEnabled(pathField.getSelectionCount() > 0);
+            for (Map.Entry<UiText, MenuItem> entry : items.entrySet()) {
+              CommandId command = pathCommand(entry.getKey());
+              boolean enabled =
+                  command == null
+                      ? entry.getKey() != UiText.PATH_COPY || pathField.getSelectionCount() > 0
+                      : menuBar != null && menuBar.states().enabled(command);
+              entry.getValue().setEnabled(enabled);
+            }
           }
         });
     return menu;
   }
 
-  private MenuItem pathMenuItem(Menu menu, UiText label, final CommandId command) {
-    MenuItem item = new MenuItem(menu, SWT.PUSH);
-    item.setText(label.text());
-    item.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            if (controller != null) {
-              controller.execute(command);
-            }
-          }
-        });
-    return item;
+  /** Returns the command a {@link MenuTable#PATH_MENU} item runs, or null for the field's own. */
+  private static CommandId pathCommand(UiText label) {
+    return switch (label) {
+      case TAB_COPY_PATH -> CommandId.COPY_PATH;
+      case TAB_COPY_FILE_NAME -> CommandId.COPY_FILE_NAME;
+      case TAB_OPEN_FOLDER -> CommandId.OPEN_FOLDER;
+      default -> null;
+    };
+  }
+
+  private void runPathItem(UiText label) {
+    CommandId command = pathCommand(label);
+    if (command != null) {
+      if (controller != null) {
+        controller.execute(command);
+      }
+    } else if (label == UiText.PATH_COPY) {
+      pathField.copy();
+    } else {
+      pathField.selectAll();
+    }
   }
 
   /**
@@ -2314,7 +2235,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     return new WindowGeometry.Rect(r.x, r.y, r.width, r.height);
   }
 
-  // Options dialog, zoom and remembered window state.
+  // Preferences dialog, zoom and remembered window state.
 
   /** Keeps the normal bounds whenever the window moves or resizes unmaximized. */
   private void trackWindowState() {
@@ -2495,10 +2416,10 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   @Override
-  public void showOptions() {
-    OptionsDialog dialog = new OptionsDialog(shell, controller);
+  public void showPreferences() {
+    PreferencesDialog dialog = new PreferencesDialog(shell, controller);
     dialog.open();
-    remember(dialog.shell(), "options");
+    remember(dialog.shell(), "preferences");
   }
 
   @Override
@@ -2549,7 +2470,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Returns File > Open Recent.
+   * Returns File > Recent Files.
    *
    * @return the cascade, filled when the File menu shows
    */

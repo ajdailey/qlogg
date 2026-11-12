@@ -121,7 +121,7 @@ Each mode change, and each system change in `SYSTEM`, calls
 `ApplicationController.theme()` is the `ThemeController`. The View menu's theme
 items call `setTheme`, which saves `ui.theme`. When `ThemeController.setMode`
 reports that native controls show the theme only from the next start (Windows),
-`setTheme` shows `THEME_RESTART_MESSAGE` through `showInfo`. Tools > Options
+`setTheme` shows `THEME_RESTART_MESSAGE` through `showInfo`. Tools > Preferences
 saves `view.colors` through `setViewOptions`, which calls
 `ThemeController.setColors`.
 

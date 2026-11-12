@@ -642,8 +642,8 @@ public enum UiText {
   /** Command label. */
   COMMAND_COPY_FILE_NAME,
   /** Command label. */
-  COMMAND_DOCUMENTATION,
-  /** Notice: Help > Documentation in a build without the user guide. */
+  COMMAND_USER_GUIDE,
+  /** Notice: Help > User Guide in a build without the user guide. */
   NOTICE_NO_DOCUMENTATION,
   /** Button. */
   BUTTON_APPLY,
@@ -880,23 +880,23 @@ public enum UiText {
   SELECTORS_INVALID,
   /** Automatic Highlighters button. */
   SELECTORS_UPDATE,
-  // Options dialog, sessions, recent files, favorites, encoding and zoom.
+  // Preferences dialog, sessions, recent files, favorites, encoding and zoom.
   /** Encoding menu. */
   GROUP_ENCODING,
   /** File menu cascade of the favorite files. */
   MENU_FAVORITES,
   /** File menu cascade listing the recent files. */
-  MENU_OPEN_RECENT,
+  MENU_RECENT_FILES,
   /** View submenu of the filtered view's modes and the split. */
   MENU_FILTERED_VIEW,
   /** View submenu of the light, dark and system themes. */
   MENU_THEME,
   /** Command label. */
   COMMAND_CLEAN_RECENT,
-  /** Disabled Open Recent item while the list is empty. */
+  /** Disabled Recent Files item while the list is empty. */
   RECENT_NONE,
   /** Command label. */
-  COMMAND_OPTIONS,
+  COMMAND_PREFERENCES,
   /** Command label. */
   COMMAND_ZOOM_IN,
   /** Command label. */
@@ -927,59 +927,59 @@ public enum UiText {
   NOTICE_FONT_SIZE,
   /** Encoding name shown for detection. */
   ENCODING_AUTO_NAME,
-  /** Options dialog tab. */
-  OPTIONS_TAB_GENERAL,
-  /** Options dialog tab. */
-  OPTIONS_TAB_VIEW,
-  /** Options dialog tab. */
-  OPTIONS_TAB_FILE,
-  /** Options dialog tab. */
-  OPTIONS_TAB_SHORTCUTS,
-  /** Options dialog tab. */
-  OPTIONS_TAB_ADVANCED,
-  /** Options check box. */
-  OPTIONS_LOAD_SESSION,
-  /** Options field label. */
-  OPTIONS_RECENT_COUNT,
-  /** Options field label. */
-  OPTIONS_HISTORY_SIZE,
-  /** Options check box. */
-  OPTIONS_RUN_ON_ADD,
-  /** Options check box. */
-  OPTIONS_QUICK_INCREMENTAL,
-  /** Options check box. */
-  OPTIONS_QUICK_REGEX,
-  /** Options check box. */
-  OPTIONS_FOLLOW_ON_LOAD,
-  /** Options check box. */
-  OPTIONS_FOLLOW_ON_OVERSCROLL,
-  /** Options field label. */
-  OPTIONS_FONT_FAMILY,
+  /** Preferences dialog tab. */
+  PREFERENCES_TAB_GENERAL,
+  /** Preferences dialog tab. */
+  PREFERENCES_TAB_VIEW,
+  /** Preferences dialog tab. */
+  PREFERENCES_TAB_FILE,
+  /** Preferences dialog tab. */
+  PREFERENCES_TAB_SHORTCUTS,
+  /** Preferences dialog tab. */
+  PREFERENCES_TAB_ADVANCED,
+  /** Preferences check box. */
+  PREFERENCES_LOAD_SESSION,
+  /** Preferences field label. */
+  PREFERENCES_RECENT_COUNT,
+  /** Preferences field label. */
+  PREFERENCES_HISTORY_SIZE,
+  /** Preferences check box. */
+  PREFERENCES_RUN_ON_ADD,
+  /** Preferences check box. */
+  PREFERENCES_QUICK_INCREMENTAL,
+  /** Preferences check box. */
+  PREFERENCES_QUICK_REGEX,
+  /** Preferences check box. */
+  PREFERENCES_FOLLOW_ON_LOAD,
+  /** Preferences check box. */
+  PREFERENCES_FOLLOW_ON_OVERSCROLL,
+  /** Preferences field label. */
+  PREFERENCES_FONT_FAMILY,
   /** Font choice for the platform's monospace font. */
-  OPTIONS_FONT_DEFAULT,
-  /** Options field label. */
-  OPTIONS_FONT_SIZE,
-  /** Options check box. */
-  OPTIONS_FONT_BOLD,
-  /** Options check box. */
-  OPTIONS_FONT_ANTIALIAS,
-  /** Options field label. */
-  OPTIONS_ENCODING,
-  /** Options check box. */
-  OPTIONS_WATCH,
-  /** Options field label. */
-  OPTIONS_POLL,
-  /** Options field label. */
-  OPTIONS_MAX_RESULTS,
+  PREFERENCES_FONT_DEFAULT,
+  /** Preferences field label. */
+  PREFERENCES_FONT_SIZE,
+  /** Preferences check box. */
+  PREFERENCES_FONT_BOLD,
+  /** Preferences check box. */
+  PREFERENCES_FONT_ANTIALIAS,
+  /** Preferences field label. */
+  PREFERENCES_ENCODING,
+  /** Preferences check box. */
+  PREFERENCES_WATCH,
+  /** Preferences field label. */
+  PREFERENCES_POLL,
+  /** Preferences field label. */
+  PREFERENCES_MAX_RESULTS,
   // Keep file closed.
-  /** Options check box. */
-  OPTIONS_KEEP_CLOSED,
-  /** Options note under the keep file closed check box. */
-  OPTIONS_KEEP_CLOSED_NOTE,
+  /** Preferences check box. */
+  PREFERENCES_KEEP_CLOSED,
+  /** Preferences note under the keep file closed check box. */
+  PREFERENCES_KEEP_CLOSED_NOTE,
   /** Notice: a file opened only for each read is gone; the argument is its name. */
   NOTICE_FILE_MISSING_CLOSED,
-  /** Options note under fields read at startup. */
-  OPTIONS_NEXT_START,
+  /** Preferences note under fields read at startup. */
+  PREFERENCES_NEXT_START,
   /** Shortcut scope. */
   SHORTCUTS_WINDOW,
   /** Shortcut scope. */
@@ -1025,29 +1025,29 @@ public enum UiText {
   NOTICE_FOLDER_FAILED,
   /** Notice: Report an Issue copied the runtime details. */
   NOTICE_ISSUE_DETAILS,
-  // User guide and the Options Folding tab.
+  // User guide and the Preferences Folding tab.
   /** User guide window title. */
   GUIDE_TITLE,
   /** Notice: the user guide could not be written to the cache; the reason. */
   NOTICE_GUIDE_FAILED,
   /** Notice: neither a browser widget nor an application showed the guide; the file. */
   NOTICE_GUIDE_AT,
-  /** Options tab. */
-  OPTIONS_TAB_FOLDING,
-  /** Options Folding label. */
-  OPTIONS_FOLD_START,
-  /** Options Folding label. */
-  OPTIONS_FOLD_CONTINUATION,
-  /** Options Folding note on the pattern syntax. */
-  OPTIONS_FOLD_NOTE,
+  /** Preferences tab. */
+  PREFERENCES_TAB_FOLDING,
+  /** Preferences Folding label. */
+  PREFERENCES_FOLD_START,
+  /** Preferences Folding label. */
+  PREFERENCES_FOLD_CONTINUATION,
+  /** Preferences Folding note on the pattern syntax. */
+  PREFERENCES_FOLD_NOTE,
   /** Button. */
-  OPTIONS_FOLD_DEFAULTS,
-  /** Options Folding error: the pattern and the parser's description. */
-  OPTIONS_FOLD_INVALID,
-  /** Options Folding error: no pattern at all. */
-  OPTIONS_FOLD_EMPTY,
-  /** Options Folding error: the most continuation patterns kept. */
-  OPTIONS_FOLD_TOO_MANY,
+  PREFERENCES_FOLD_DEFAULTS,
+  /** Preferences Folding error: the pattern and the parser's description. */
+  PREFERENCES_FOLD_INVALID,
+  /** Preferences Folding error: no pattern at all. */
+  PREFERENCES_FOLD_EMPTY,
+  /** Preferences Folding error: the most continuation patterns kept. */
+  PREFERENCES_FOLD_TOO_MANY,
 
   // Theme restart notice.
   /** Title of the notice that native controls change at the next start. */
@@ -1276,8 +1276,8 @@ public enum UiText {
   PALETTE_MENU,
 
   // View colors.
-  /** Options label: the log views' color scheme. */
-  OPTIONS_VIEW_COLORS,
+  /** Preferences label: the log views' color scheme. */
+  PREFERENCES_VIEW_COLORS,
   /** View colors choice: the theme's palette. */
   VIEW_COLORS_THEME,
   /** Bundled color scheme. */
@@ -1298,8 +1298,8 @@ public enum UiText {
   VIEW_COLORS_PHOSPHOR,
   /** Bundled color scheme. */
   VIEW_COLORS_GRAPHITE,
-  /** Options note: where user schemes are read. */
-  OPTIONS_VIEW_COLORS_NOTE,
+  /** Preferences note: where user schemes are read. */
+  PREFERENCES_VIEW_COLORS_NOTE,
 
   // Dropped folders.
   /** Notice: a drop held folders, which are not opened. */
@@ -1326,8 +1326,8 @@ public enum UiText {
   TAB_LIST,
   /** Tab list button tool tip with the hidden tab count. */
   TAB_LIST_HIDDEN,
-  /** Options check box: closing the last tab closes the window. */
-  OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB,
+  /** Preferences check box: closing the last tab closes the window. */
+  PREFERENCES_CLOSE_WINDOW_WITH_LAST_TAB,
 
   // Menu structure.
   /** Go menu. */
@@ -1355,7 +1355,10 @@ public enum UiText {
   /** Accessible name of the filtered view with the shown set's match count. */
   ACCESSIBLE_FILTERED_VIEW_COUNT,
   /** Accessible name of the overview bar. */
-  ACCESSIBLE_OVERVIEW;
+  ACCESSIBLE_OVERVIEW,
+  // Clear Recent Files.
+  /** Command label. */
+  COMMAND_CLEAR_RECENT;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

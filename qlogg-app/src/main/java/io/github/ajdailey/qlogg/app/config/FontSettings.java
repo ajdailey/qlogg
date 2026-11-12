@@ -5,7 +5,7 @@ package io.github.ajdailey.qlogg.app.config;
  * and {@code font.antialias}.
  *
  * @param family the family; empty for the platform's monospace font
- * @param size the size set in Options, in points; 0 for the platform's default
+ * @param size the size set in Preferences, in points; 0 for the platform's default
  * @param zoom the size zooming chose, in points; 0 when not zoomed
  * @param bold true draws bold where the font has it
  * @param antialias true forces anti-aliased text
@@ -40,7 +40,7 @@ public record FontSettings(String family, int size, int zoom, boolean bold, bool
    * Returns the size the views draw with.
    *
    * @param platformSize the platform's default size in points
-   * @return the zoomed size, else the Options size, else the platform's
+   * @return the zoomed size, else the Preferences size, else the platform's
    */
   public int effectiveSize(int platformSize) {
     if (zoom != 0) {

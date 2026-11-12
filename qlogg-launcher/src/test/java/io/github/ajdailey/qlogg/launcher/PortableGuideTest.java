@@ -21,7 +21,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Help > Documentation in portable mode, in a child process with {@code HOME} an empty folder: the
+ * Help > User Guide in portable mode, in a child process with {@code HOME} an empty folder: the
  * guide opens outside the embedded browser, so neither WebKitGTK's {@code QLogg} folders nor Mesa's
  * shader cache appear under {@code HOME}. Fontconfig writes its cache there because the test's data
  * folders hold the fonts under another path, and GTK's input method module creates empty {@code

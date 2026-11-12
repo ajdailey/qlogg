@@ -4,7 +4,7 @@ QLogg shows large and growing log files without loading them into memory. It
 never connects to another computer; a second launch hands its files to the
 running QLogg over a local-only connection. On macOS, `Ctrl` in this guide is
 `Cmd` and `Alt` is `Option`; Help > Keyboard Shortcuts lists every key for your
-platform and Tools > Options, Shortcuts changes them. Menus on Linux show
+platform and Tools > Preferences, Shortcuts changes them. Menus on Linux show
 modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
 - [Opening files](#opening-files)
@@ -22,14 +22,14 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 - [Sessions, recent files and favorites](#sessions-recent-files-and-favorites)
 - [Windows and the running instance](#windows-and-the-running-instance)
 - [Menus](#menus)
-- [Options](#options)
+- [Preferences](#preferences)
 - [Help menu and logs](#help-menu-and-logs)
 - [Command line](#command-line)
 
 ## Opening files
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
-File > Open Recent or File > Favorites, or on the command line. Each file
+File > Recent Files or File > Favorites, or on the command line. Each file
 opens in its own tab. A drop always copies, so the source never moves or
 deletes the file; folders in a drop are not opened, and a notice says so. The
 first lines show at once while indexing continues in the background; `Esc` or
@@ -54,9 +54,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
   path, opens the folder, renames the tab or moves it to a new window; a middle
   click closes it. File > Close Multiple Tabs closes the tabs around the shown
   one. Closing the last tab leaves an empty window, unless Close the window
-  with its last tab is on in Tools > Options, General; in the last window that
-  quits QLogg. Window > Opened Files and Switch to File
-  (`Ctrl+Shift+O`) list the tabs.
+  with its last tab is on in Tools > Preferences, General; in the last window
+  that quits QLogg. Window > Opened Files and Switch to File (`Ctrl+Shift+O`)
+  list the tabs.
 - The buttons at the right end of the tab row open files (+), list every tab
   (the arrow, with the number of tabs the row cannot show) and close the
   current tab (x). The list marks the current tab and shows each tab's dot;
@@ -92,7 +92,7 @@ Encoding menu forces another one, and the choice is remembered for the file.
 | `Alt+Left`, `Alt+Right` (macOS: `Ctrl+Cmd+Left`, `Ctrl+Cmd+Right`) | Go back to the line before a jump, and forward again |
 | `Ctrl+PageDown`, `Ctrl+PageUp` | Next and previous tab |
 | `Space` | Switch between the main and the filtered view |
-| `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Options size |
+| `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Preferences size |
 | `Alt`+wheel, `Shift`+wheel | Scroll sideways, scroll by pages |
 | `Ctrl+Shift+P` | Command palette |
 
@@ -181,7 +181,7 @@ selection; each tab's search start and end lines apply.
 
 ### Searching a folder
 
-Search > Search in Folder (`Ctrl+Shift+H`, `Cmd+Shift+H` on macOS, or
+Search > Search in Folder (`Ctrl+Shift+F`, `Cmd+Shift+F` on macOS, or
 `Ctrl+E Ctrl+D`) searches the files of a folder without opening a tab for
 each. It starts with the folder, file names, Include subfolders and Exclude of
 the last folder search, kept between runs of QLogg, and the shown tab's search
@@ -309,7 +309,7 @@ resumes when the file opens.
 
 QLogg holds a file open while its tab is open, and Windows refuses a rename
 over an open file, so a program that rotates its log that way fails. Tools >
-Options, Advanced, Keep file closed opens the file only for each read. It
+Preferences, Advanced, Keep file closed opens the file only for each read. It
 applies to files opened or reloaded afterwards.
 
 With it on, the content of a moved or deleted file cannot be read: a deleted
@@ -434,10 +434,10 @@ bar shrinks a collapsed entry to one line and shows its hidden matches and
 marks there; a click on it leaves the entry collapsed.
 
 By default a line continues the entry above it when it starts with white
-space, `at `, `Caused by:` or `... N more`. Tools > Options, Folding changes
+space, `at `, `Caused by:` or `... N more`. Tools > Preferences, Folding changes
 the rules for every file:
 
-![Options, Folding tab](images/guide/options-folding.png)
+![Preferences, Folding tab](images/guide/options-folding.png)
 
 - **Entry start pattern**: when set, every line it does not match continues
   the entry above. A pattern such as `^\d{4}-\d{2}-\d{2}` suits logs whose
@@ -478,15 +478,16 @@ appearance and the theme recolors the log views.
 
 ### View colors
 
-Tools > Options, View, View colors picks the colors of the log views, gutter,
-overview bar and tab strips apart from the theme, as a terminal profile does.
+Tools > Preferences, View, View colors picks the colors of the log views,
+gutter, overview bar and tab strips apart from the theme, as a terminal profile
+does.
 Follow theme, the default, uses the theme's light or dark colors. Light and
 Dark use those colors whatever the theme, so the log views can be dark in
 light chrome and the reverse. A named scheme keeps its colors through every
 theme change, including a system appearance change; menus, dialogs and other
 controls keep following the theme. A change applies at once.
 
-![View colors in Tools > Options, View](images/guide/options-view-colors.png)
+![View colors in Tools > Preferences, View](images/guide/options-view-colors.png)
 
 ![The Nightwater scheme in light chrome](images/guide/view-colors-nightwater.png)
 
@@ -537,18 +538,18 @@ epoch time.
 ## Sessions, recent files and favorites
 
 QLogg restores the last session at start when no file is given (Tools >
-Options, General; `-s` and `-n` decide for one run): the tabs of each window,
-the shown tab, tab names, follow, marks, mark comments, time offsets, time
-sync groups and each window's Always on Top. Each file's
-position and forced encoding are remembered; `+line:N` wins over the position.
+Preferences, General; `-s` and `-n` decide for one run): the tabs of each
+window, the shown tab, tab names, follow, marks, mark comments, time offsets,
+time sync groups and each window's Always on Top. Each file's position and
+forced encoding are remembered; `+line:N` wins over the position.
 
-File > Open Recent lists recent files (Clean Up drops missing ones). File >
-Recently Closed lists the last 20 files whose tabs you closed; a reopened file
-returns to its position. Open All on either list opens every listed file and
-names any it could not open; Clear empties Recently Closed. File > Reopen
-Closed Tab (`Ctrl+Shift+T`) takes the newest file off
-Recently Closed and opens it. File > Favorites adds, removes and opens
-favorite files.
+File > Recent Files lists recent files; Clean Up drops missing ones and Clear
+Recent Files empties the list. File > Reopen Closed Tab (`Ctrl+Shift+T`) takes
+the newest file off Recently Closed and opens it. File > Recently Closed lists
+the last 20 files whose tabs you closed; a reopened file returns to its
+position, and Clear Recently Closed empties the list. Open All on either list
+opens every listed file and names any it could not open. File > Favorites
+adds, removes and opens favorite files.
 
 ![File > Recently Closed](images/guide/recently-closed.png)
 
@@ -592,19 +593,18 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 
 | Menu | Items |
 |---|---|
-| File | Open, Open from Clipboard; Open Recent (the files, Open All, Clean Up), Recently Closed (the files, Open All, Clear), Reopen Closed Tab, Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
+| File | Open, Open from Clipboard; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
 | View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format, Edit Formats; Time Zone, Time Offset; Time Spread: Off, Activity, Pauses), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
-| Tools | Predefined Filters, Save as Filter; Scratchpad; Options |
+| Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
 | Window | New Window; Move to New Window; Next Tab, Previous Tab, Switch to File, Opened Files |
-| Help | Documentation, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
+| Help | User Guide, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
 
-On macOS, About QLogg, Options (as Preferences) and Exit (as Quit) are in the
-QLogg menu.
+On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
 
 The log view's context menu holds the copy, mark, search, selection and save
 commands, Toggle Fold, Scroll All Tabs to This Time, and the Time Sync,
@@ -613,14 +613,14 @@ Send Selection to Scratchpad and Replace Scratchpad with Selection are only
 there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
 context menu.
 
-## Options
+## Preferences
 
-Tools > Options (on macOS, QLogg > Preferences) has these tabs:
+Tools > Preferences (on macOS, QLogg > Preferences) has these tabs:
 
 | Tab | Setting | Default | Effect |
 |---|---|---|---|
 | General | Load the last session at startup | On | A start without files restores the session |
-| General | Recent files kept | 20 | Length of File > Open Recent, 1 to 50 |
+| General | Recent files kept | 20 | Length of File > Recent Files, 1 to 50 |
 | General | Search history size | 50 | Patterns the search history keeps, 1 to 1,000 |
 | General | Search at once after add, exclude and replace | On | `Shift+A`, `Shift+E` and `Shift+R` run the search |
 | General | Quick find searches while typing | On | Quick find moves as you type |
@@ -645,7 +645,7 @@ Tools > Options (on macOS, QLogg > Preferences) has these tabs:
 
 | Item | Action |
 |---|---|
-| Documentation | This guide, in its own window; when the window cannot show it within 15 seconds, and on Linux in portable and `--settings` mode, in your system browser |
+| User Guide | This guide, in its own window; when the window cannot show it within 15 seconds, and on Linux in portable and `--settings` mode, in your system browser |
 | Keyboard Shortcuts (`F1`) | Every binding, with a filter and Copy |
 | Command-Line Options | The `--help` text |
 | Show Log | QLogg's recent log lines |
@@ -680,7 +680,7 @@ QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
 `~/.config/qlogg`, Windows `%APPDATA%\QLogg`, macOS
 `~/Library/Application Support/QLogg`, or the installation directory when a
 `qlogg.conf` exists there (portable mode). On Linux in portable mode and with
-`--settings`, Help > Documentation opens this guide in your system browser,
+`--settings`, Help > User Guide opens this guide in your system browser,
 because the embedded browser keeps its cache in your home folder. GTK's input
 method support still creates an empty `~/.config/ibus/bus` folder there, and
 with the experimental GTK 4 backend (`SWT_GTK4=1`) the graphics driver writes

@@ -81,9 +81,9 @@ class CommandPaletteTest {
     palette.run(CommandId.ADD_FAVORITE);
     assertEquals(before, fixture.view.notices.size());
     assertEquals(List.of(), fixture.application.preferences().options().favorites());
-    assertTrue(find(palette.filter("options"), CommandId.OPTIONS).enabled());
-    palette.run(CommandId.OPTIONS);
-    assertEquals(1, fixture.view.optionsShown);
+    assertTrue(find(palette.filter("preferences"), CommandId.PREFERENCES).enabled());
+    palette.run(CommandId.PREFERENCES);
+    assertEquals(1, fixture.view.preferencesShown);
     fixture.application.execute(CommandId.COMMAND_PALETTE);
     assertEquals(1, fixture.view.paletteShown);
   }

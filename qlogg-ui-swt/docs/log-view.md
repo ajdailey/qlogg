@@ -123,15 +123,15 @@ and selection and hands focus back to the canvas.
 
 ### Context menu
 
-The right-click menu (`LogCanvas.CONTEXT_MENU`) lists Copy, Copy This Line,
-Copy with Line Numbers; Mark or Unmark, Edit Mark Comment; Find Selection
-Forward and Backward; Add Selection to Search, Exclude Selection from Search,
-Replace Search with Selection and the Search Limits cascade; Set Selection
-Start and End; Save Selection to File, Send Selection to Scratchpad, Replace
-Scratchpad with Selection; Toggle Fold, Scroll All Tabs to This Time and the
-Time Sync cascade; then the Highlighters (None and the sets) and Color Label
-(None and the label names) cascades. A right click outside the selection first moves the caret to that
-row.
+The right-click menu (`MenuTable.LOG_VIEW_MENU`, then `LOG_VIEW_CASCADES`)
+lists Copy, Copy This Line, Copy with Line Numbers; Mark or Unmark, Edit Mark
+Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
+Selection from Search, Replace Search with Selection and the Search Limits
+cascade; Set Selection Start and End; Save Selection to File, Send Selection to
+Scratchpad, Replace Scratchpad with Selection; Toggle Fold, Scroll All Tabs to
+This Time and the Time Sync cascade; then the Highlighters (None and the sets)
+and Color Label (None and the label names) cascades. A right click outside the
+selection first moves the caret to that row.
 
 The menu is built on the canvas's first `MenuDetect`, not with the canvas: it
 costs 35-60 ms per view under GTK 4, which every file open would otherwise pay

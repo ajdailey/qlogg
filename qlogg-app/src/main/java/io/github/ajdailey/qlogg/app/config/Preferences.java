@@ -44,7 +44,7 @@ public record Preferences(
     boolean overview,
     FollowSettings follow,
     ViewOptions view,
-    // Options dialog settings, favorites and remembered UI state.
+    // Preferences dialog settings, favorites and remembered UI state.
     Options options,
     UiState state,
     // Timestamps.
@@ -414,7 +414,7 @@ public record Preferences(
         time);
   }
 
-  // Options dialog settings, favorites and remembered UI state.
+  // Preferences dialog settings, favorites and remembered UI state.
 
   /**
    * Returns a copy with other options.

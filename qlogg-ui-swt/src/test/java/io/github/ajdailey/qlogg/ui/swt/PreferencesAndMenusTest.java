@@ -63,12 +63,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The Options dialog's shortcut editor, font zoom, margin clicks and the Encoding, Favorites and
- * Open Recent menus, under Xvfb. With {@code -Dqlogg.shots=<dir>} it also writes PNGs of the window
- * and the dialog.
+ * The Preferences dialog's shortcut editor, font zoom, margin clicks and the Encoding, Favorites
+ * and Recent Files menus, under Xvfb. With {@code -Dqlogg.shots=<dir>} it also writes PNGs of the
+ * window and the dialog.
  */
 @Tag("swt")
-class OptionsAndMenusTest {
+class PreferencesAndMenusTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
 
   @TempDir Path temp;
@@ -308,7 +308,7 @@ class OptionsAndMenusTest {
 
   @Test
   void theShortcutEditorRefusesTakenKeysAndAppliesFreeOnes() throws Exception {
-    final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     int row = -1;
     TableItem[] items = dialog.commands().getItems();
@@ -355,7 +355,7 @@ class OptionsAndMenusTest {
 
   @Test
   void searchRowTooltipsNameTheKeysAfterAShortcutChange() {
-    final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     TableItem[] items = dialog.commands().getItems();
     for (int i = 0; i < items.length; i++) {
@@ -385,7 +385,7 @@ class OptionsAndMenusTest {
 
   @Test
   void theFoldingTabRefusesABadPatternAndAppliesAGoodOne() {
-    final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     assertEquals(
         FoldRulesText.continuationText(FoldRules.DEFAULTS),
@@ -408,7 +408,7 @@ class OptionsAndMenusTest {
 
   @Test
   void theAdvancedTabSetsKeepFileClosed() {
-    final OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     assertFalse(dialog.keepClosed().getSelection());
     dialog.folder().setSelection(4);
@@ -458,7 +458,7 @@ class OptionsAndMenusTest {
 
   @Test
   void theViewTabListsTheSchemesAndAppliesOneLive() {
-    OptionsDialog dialog = new OptionsDialog(window.shell(), controller);
+    PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     Combo colors = dialog.viewColors();
     assertEquals(ColorSchemes.BUNDLED.size() + 3, colors.getItemCount());

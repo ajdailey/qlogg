@@ -57,7 +57,7 @@ before starting QLogg (linux-x86_64 only; linux-aarch64 has no SWT GTK 4
 natives and stays on GTK 3). Open SWT GTK 4 defects affect the log view: slow
 scrolling, custom painting and missing mouse events.
 
-Under GTK 4, Help > Documentation shows a notice naming the guide's copy and
+Under GTK 4, Help > User Guide shows a notice naming the guide's copy and
 creates no `Browser`, because WebKitGTK 6.0 aborts the JVM when the browser
 starts (measured, Ubuntu 24.04).
 

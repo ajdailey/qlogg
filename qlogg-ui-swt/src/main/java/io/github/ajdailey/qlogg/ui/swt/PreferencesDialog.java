@@ -44,14 +44,14 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Tools > Options: General, View, File, Shortcuts and Advanced tabs over the settings. OK and Apply
- * hand the edited settings to the controller, which saves them and applies them at once, except the
- * result limit, read at the next start. The Shortcuts tab edits overrides on top of the default
- * keymap: a key field records one or two strokes, Add refuses keys another command holds, Default
- * returns the selected command to its defaults and Restore All Defaults drops every override.
- * Modeless; it returns at once.
+ * Tools > Preferences: General, View, File, Shortcuts and Advanced tabs over the settings. OK and
+ * Apply hand the edited settings to the controller, which saves them and applies them at once,
+ * except the result limit, read at the next start. The Shortcuts tab edits overrides on top of the
+ * default keymap: a key field records one or two strokes, Add refuses keys another command holds,
+ * Default returns the selected command to its defaults and Restore All Defaults drops every
+ * override. Modeless; it returns at once.
  */
-final class OptionsDialog {
+final class PreferencesDialog {
   private final Shell shell;
   private final ApplicationController controller;
   private final Keymap defaults = Keymap.defaults();
@@ -94,21 +94,21 @@ final class OptionsDialog {
   // Last tab.
   private Button closeWindowWithLastTab;
 
-  OptionsDialog(Shell parent, ApplicationController controller) {
+  PreferencesDialog(Shell parent, ApplicationController controller) {
     this.controller = controller;
     Preferences preferences = controller.preferences();
     this.overrides = preferences.options().shortcuts();
     this.initialFont = preferences.options().font();
     this.platformSize = Dialogs.monospaceSize();
-    shell = Dialogs.shell(parent, CommandId.OPTIONS.title(), false);
+    shell = Dialogs.shell(parent, CommandId.PREFERENCES.title(), false);
     folder = new TabFolder(shell, SWT.TOP);
     folder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-    general(tab(folder, UiText.OPTIONS_TAB_GENERAL), preferences);
-    view(tab(folder, UiText.OPTIONS_TAB_VIEW));
-    file(tab(folder, UiText.OPTIONS_TAB_FILE), preferences.options());
-    shortcuts(tab(folder, UiText.OPTIONS_TAB_SHORTCUTS));
-    advanced(tab(folder, UiText.OPTIONS_TAB_ADVANCED), preferences);
-    folding(tab(folder, UiText.OPTIONS_TAB_FOLDING), preferences.view().folds());
+    general(tab(folder, UiText.PREFERENCES_TAB_GENERAL), preferences);
+    view(tab(folder, UiText.PREFERENCES_TAB_VIEW));
+    file(tab(folder, UiText.PREFERENCES_TAB_FILE), preferences.options());
+    shortcuts(tab(folder, UiText.PREFERENCES_TAB_SHORTCUTS));
+    advanced(tab(folder, UiText.PREFERENCES_TAB_ADVANCED), preferences);
+    folding(tab(folder, UiText.PREFERENCES_TAB_FOLDING), preferences.view().folds());
     Composite buttons = Dialogs.buttonRow(shell, 1);
     Button ok =
         Dialogs.button(
@@ -170,42 +170,43 @@ final class OptionsDialog {
   }
 
   private void general(Composite page, Preferences preferences) {
-    loadSession = check(page, UiText.OPTIONS_LOAD_SESSION, preferences.options().loadLastSession());
+    loadSession =
+        check(page, UiText.PREFERENCES_LOAD_SESSION, preferences.options().loadLastSession());
     recentCount =
         spinner(
             page,
-            UiText.OPTIONS_RECENT_COUNT,
+            UiText.PREFERENCES_RECENT_COUNT,
             1,
             Options.MAX_RECENT,
             preferences.options().recentCount());
     historySize =
         spinner(
             page,
-            UiText.OPTIONS_HISTORY_SIZE,
+            UiText.PREFERENCES_HISTORY_SIZE,
             1,
             SearchHistory.MAX_SIZE,
             preferences.historySize());
-    runOnAdd = check(page, UiText.OPTIONS_RUN_ON_ADD, preferences.runSearchOnAdd());
+    runOnAdd = check(page, UiText.PREFERENCES_RUN_ON_ADD, preferences.runSearchOnAdd());
     quickIncremental =
-        check(page, UiText.OPTIONS_QUICK_INCREMENTAL, preferences.quickFindIncremental());
-    quickRegex = check(page, UiText.OPTIONS_QUICK_REGEX, preferences.quickFindRegex());
-    followOnLoad = check(page, UiText.OPTIONS_FOLLOW_ON_LOAD, preferences.follow().onLoad());
+        check(page, UiText.PREFERENCES_QUICK_INCREMENTAL, preferences.quickFindIncremental());
+    quickRegex = check(page, UiText.PREFERENCES_QUICK_REGEX, preferences.quickFindRegex());
+    followOnLoad = check(page, UiText.PREFERENCES_FOLLOW_ON_LOAD, preferences.follow().onLoad());
     followOnOverscroll =
-        check(page, UiText.OPTIONS_FOLLOW_ON_OVERSCROLL, preferences.follow().onOverscroll());
+        check(page, UiText.PREFERENCES_FOLLOW_ON_OVERSCROLL, preferences.follow().onOverscroll());
     // Last tab.
     closeWindowWithLastTab =
         check(
             page,
-            UiText.OPTIONS_CLOSE_WINDOW_WITH_LAST_TAB,
+            UiText.PREFERENCES_CLOSE_WINDOW_WITH_LAST_TAB,
             preferences.options().closeWindowWithLastTab());
   }
 
   private void view(Composite page) {
-    new Label(page, SWT.NONE).setText(UiText.OPTIONS_FONT_FAMILY.text());
+    new Label(page, SWT.NONE).setText(UiText.PREFERENCES_FONT_FAMILY.text());
     fontFamily = new Combo(page, SWT.DROP_DOWN);
     fontFamily.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     fontFamily.setTextLimit(FontSettings.MAX_FAMILY_CHARS);
-    fontFamily.add(UiText.OPTIONS_FONT_DEFAULT.text());
+    fontFamily.add(UiText.PREFERENCES_FONT_DEFAULT.text());
     TreeSet<String> families = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
     for (FontData data : shell.getDisplay().getFontList(null, true)) {
       families.add(data.getName());
@@ -221,29 +222,29 @@ final class OptionsDialog {
     fontSize =
         spinner(
             page,
-            UiText.OPTIONS_FONT_SIZE,
+            UiText.PREFERENCES_FONT_SIZE,
             FontSettings.MIN_SIZE,
             FontSettings.MAX_SIZE,
             initialFont.effectiveSize(platformSize));
-    bold = check(page, UiText.OPTIONS_FONT_BOLD, initialFont.bold());
-    antialias = check(page, UiText.OPTIONS_FONT_ANTIALIAS, initialFont.antialias());
+    bold = check(page, UiText.PREFERENCES_FONT_BOLD, initialFont.bold());
+    antialias = check(page, UiText.PREFERENCES_FONT_ANTIALIAS, initialFont.antialias());
     // View colors.
     viewColors(page);
   }
 
   private void file(Composite page, Options options) {
-    new Label(page, SWT.NONE).setText(UiText.OPTIONS_ENCODING.text());
+    new Label(page, SWT.NONE).setText(UiText.PREFERENCES_ENCODING.text());
     encoding = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
     encoding.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     for (String name : Charset.availableCharsets().keySet()) {
       encoding.add(name);
     }
     encoding.setText(options.defaultEncoding());
-    watch = check(page, UiText.OPTIONS_WATCH, options.useWatchService());
+    watch = check(page, UiText.PREFERENCES_WATCH, options.useWatchService());
     poll =
         spinner(
             page,
-            UiText.OPTIONS_POLL,
+            UiText.PREFERENCES_POLL,
             Options.MIN_POLL_MILLIS,
             Options.MAX_POLL_MILLIS,
             options.pollMillis());
@@ -253,14 +254,14 @@ final class OptionsDialog {
     maxResults =
         spinner(
             page,
-            UiText.OPTIONS_MAX_RESULTS,
+            UiText.PREFERENCES_MAX_RESULTS,
             0,
             Integer.MAX_VALUE,
             (int) Math.min(Integer.MAX_VALUE, preferences.maxResults()));
-    note(page, UiText.OPTIONS_NEXT_START);
+    note(page, UiText.PREFERENCES_NEXT_START);
     // Keep file closed.
-    keepClosed = check(page, UiText.OPTIONS_KEEP_CLOSED, preferences.follow().keepClosed());
-    note(page, UiText.OPTIONS_KEEP_CLOSED_NOTE);
+    keepClosed = check(page, UiText.PREFERENCES_KEEP_CLOSED, preferences.follow().keepClosed());
+    note(page, UiText.PREFERENCES_KEEP_CLOSED_NOTE);
   }
 
   private void shortcuts(Composite page) {
@@ -521,12 +522,12 @@ final class OptionsDialog {
   // Folding tab.
 
   private void folding(Composite page, FoldRules rules) {
-    note(page, UiText.OPTIONS_FOLD_NOTE);
-    new Label(page, SWT.NONE).setText(UiText.OPTIONS_FOLD_START.text());
+    note(page, UiText.PREFERENCES_FOLD_NOTE);
+    new Label(page, SWT.NONE).setText(UiText.PREFERENCES_FOLD_START.text());
     foldStart = new Text(page, SWT.SINGLE | SWT.BORDER);
     foldStart.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     Label label = new Label(page, SWT.WRAP);
-    label.setText(UiText.OPTIONS_FOLD_CONTINUATION.text());
+    label.setText(UiText.PREFERENCES_FOLD_CONTINUATION.text());
     label.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
     foldContinuation = new Text(page, SWT.MULTI | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
     foldContinuation.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1));
@@ -535,7 +536,7 @@ final class OptionsDialog {
     Composite row = Dialogs.buttonRow(page, 2);
     Dialogs.button(
         row,
-        UiText.OPTIONS_FOLD_DEFAULTS.text(),
+        UiText.PREFERENCES_FOLD_DEFAULTS.text(),
         new Runnable() {
           @Override
           public void run() {
@@ -579,7 +580,7 @@ final class OptionsDialog {
     Preferences current = controller.preferences();
     Options old = current.options();
     String family = fontFamily.getSelectionIndex() == 0 ? "" : fontFamily.getText().strip();
-    if (family.equals(UiText.OPTIONS_FONT_DEFAULT.text())) {
+    if (family.equals(UiText.PREFERENCES_FONT_DEFAULT.text())) {
       family = "";
     }
     int size = fontSize.getSelection();
@@ -625,7 +626,7 @@ final class OptionsDialog {
 
   /** Lists Follow theme, then every scheme; an id naming no scheme stays listed by its id. */
   private void viewColors(Composite page) {
-    new Label(page, SWT.NONE).setText(UiText.OPTIONS_VIEW_COLORS.text());
+    new Label(page, SWT.NONE).setText(UiText.PREFERENCES_VIEW_COLORS.text());
     viewColors = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
     viewColors.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     String current = controller.preferences().view().colors();
@@ -640,7 +641,7 @@ final class OptionsDialog {
       viewColors.add(current);
     }
     viewColors.select(colorIds.indexOf(current));
-    note(page, UiText.OPTIONS_VIEW_COLORS_NOTE);
+    note(page, UiText.PREFERENCES_VIEW_COLORS_NOTE);
   }
 
   /** Hands a changed color scheme to the controller. */

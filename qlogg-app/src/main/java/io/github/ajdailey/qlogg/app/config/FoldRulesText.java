@@ -8,10 +8,10 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * The fold rules as the Options dialog edits them: an entry start pattern and continuation patterns
- * one per line, blank lines ignored and other lines kept as typed (a trailing space can matter, as
- * in {@code ^at }). {@link #parse} compiles every pattern, so a rule that reaches the settings
- * always compiles.
+ * The fold rules as the Preferences dialog edits them: an entry start pattern and continuation
+ * patterns one per line, blank lines ignored and other lines kept as typed (a trailing space can
+ * matter, as in {@code ^at }). {@link #parse} compiles every pattern, so a rule that reaches the
+ * settings always compiles.
  *
  * @param rules the rules, or null when the text is refused
  * @param error the reason for a refusal, or null
@@ -34,11 +34,11 @@ public record FoldRulesText(FoldRules rules, String error) {
       }
     }
     if (start.isEmpty() && patterns.isEmpty()) {
-      return new FoldRulesText(null, UiText.OPTIONS_FOLD_EMPTY.text());
+      return new FoldRulesText(null, UiText.PREFERENCES_FOLD_EMPTY.text());
     }
     if (patterns.size() > ViewFile.MAX_CONTINUATION) {
       return new FoldRulesText(
-          null, UiText.OPTIONS_FOLD_TOO_MANY.format(ViewFile.MAX_CONTINUATION));
+          null, UiText.PREFERENCES_FOLD_TOO_MANY.format(ViewFile.MAX_CONTINUATION));
     }
     List<String> all = new ArrayList<String>(patterns);
     if (!start.isEmpty()) {
@@ -49,7 +49,7 @@ public record FoldRulesText(FoldRules rules, String error) {
         Pattern.compile(pattern);
       } catch (PatternSyntaxException e) {
         return new FoldRulesText(
-            null, UiText.OPTIONS_FOLD_INVALID.format(pattern, e.getDescription()));
+            null, UiText.PREFERENCES_FOLD_INVALID.format(pattern, e.getDescription()));
       }
     }
     return new FoldRulesText(new FoldRules(start, patterns), null);

@@ -78,7 +78,6 @@ public final class Keymap {
     view(b, CommandId.GROW_MAIN_VIEW, 0, '+');
     view(b, CommandId.SHRINK_MAIN_VIEW, 0, '-');
     window(b, CommandId.FOCUS_SEARCH, P, 's');
-    view(b, CommandId.FOCUS_SEARCH, P, 'F');
     window(b, CommandId.FIND_NEXT, 0, KeyStroke.F3);
     view(b, CommandId.FIND_NEXT, 0, 'n');
     view(b, CommandId.FIND_NEXT, P, 'g');
@@ -176,8 +175,8 @@ public final class Keymap {
     window(b, CommandId.COMMAND_PALETTE, P, 'P');
     // Reopen Closed Tab.
     window(b, CommandId.REOPEN_CLOSED, P, 'T');
-    // Search in Folder keys: Ctrl+Shift+H (Cmd+Shift+H), jEdit's search-in-directory, the steps.
-    window(b, CommandId.SEARCH_FOLDER, P, 'H');
+    // Search in Folder keys: Ctrl+Shift+F (Cmd+Shift+F), jEdit's search-in-directory, the steps.
+    window(b, CommandId.SEARCH_FOLDER, P, 'F');
     sequence(b, CommandId.SEARCH_FOLDER, 'd');
     window(b, CommandId.NEXT_FOLDER_MATCH, 0, KeyStroke.F4);
     window(b, CommandId.PREVIOUS_FOLDER_MATCH, S, KeyStroke.F4);

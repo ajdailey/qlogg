@@ -64,7 +64,7 @@ import org.junit.jupiter.api.io.TempDir;
  * tools/screenshots.sh}) from generated mock logs, written to {@code
  * -Dqlogg.screenshots.logs=<dir>} when given, so the path field shows that path: the main window
  * with search results and marks, a selection's time difference, collapsed stack traces, the
- * highlighters dialog, the Options Folding tab, Keyboard Shortcuts, both time-spread modes and
+ * highlighters dialog, the Preferences Folding tab, Keyboard Shortcuts, both time-spread modes and
  * Search in Folder, painted through {@code Shell.print}; the tab list, the command palette, the
  * View colors list, the Nightwater scheme and File > Recently Closed, read from the screen, where
  * open menus show.
@@ -200,7 +200,7 @@ class GuideScreenshotsTest {
     controller.execute(CommandId.EDIT_HIGHLIGHTERS);
     saveDialog("highlighters.png");
 
-    OptionsDialog options = new OptionsDialog(window.shell(), controller);
+    PreferencesDialog options = new PreferencesDialog(window.shell(), controller);
     options.open();
     options.folder().setSelection(options.folder().getItemCount() - 1);
     save(options.shell(), "options-folding.png");
@@ -329,9 +329,9 @@ class GuideScreenshotsTest {
     search.shell().dispose();
   }
 
-  /** The View colors list in Options and the log views under a bundled dark scheme. */
+  /** The View colors list in Preferences and the log views under a bundled dark scheme. */
   private void viewColorsShots(DocumentController document) {
-    OptionsDialog options = new OptionsDialog(window.shell(), controller);
+    PreferencesDialog options = new PreferencesDialog(window.shell(), controller);
     options.open();
     options.folder().setSelection(1);
     options.viewColors().select(4);

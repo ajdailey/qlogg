@@ -455,6 +455,26 @@ class RememberedStateTest {
     }
   }
 
+  // Clear Recent Files.
+
+  @Test
+  void clearRecentFilesEmptiesTheSavedList() throws Exception {
+    Path one = lines("one.log", 3);
+    try (Run run = new Run()) {
+      CommandStates states = new CommandStates(run.application);
+      assertFalse(states.enabled(CommandId.CLEAR_RECENT));
+      run.application.open(List.of(new FileRequest(one, 0)));
+      run.untilOpen(1);
+      assertTrue(states.enabled(CommandId.CLEAR_RECENT));
+      run.application.execute(CommandId.CLEAR_RECENT);
+      assertEquals(List.of(), run.application.preferences().state().recentFiles());
+      assertFalse(states.enabled(CommandId.CLEAR_RECENT));
+    }
+    try (Run run = new Run()) {
+      assertEquals(List.of(), run.application.preferences().state().recentFiles());
+    }
+  }
+
   // Recently Closed and Open All.
 
   @Test

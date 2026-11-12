@@ -60,7 +60,7 @@ Two settings can hold text taken from a log:
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab` | `OptionsFile` |
 | `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
 
-`FoldRulesText.parse` checks the Options Folding tab's text. Blank lines are
+`FoldRulesText.parse` checks the Preferences Folding tab's text. Blank lines are
 dropped and other lines kept as typed. Every pattern must compile; at most 64
 continuation patterns and at least one pattern in all are allowed.
 
@@ -69,39 +69,39 @@ continuation patterns and at least one pattern in all are allowed.
 | Key | Values | Default | Set from |
 |---|---|---|---|
 | `ui.theme` | `light`, `dark`, `system` | `light` | View > Theme |
-| `search.historySize` | 1 to 1000 | 50 | Search > Edit Search History; Tools > Options |
+| `search.historySize` | 1 to 1000 | 50 | Search > Edit Search History; Tools > Preferences |
 | `search.history.N` | Search text, most recent first | none | Each search; Search > Clear Search History |
-| `search.maxResults` | 0 (no limit) or the match count that stops a search; read at startup | 0 | Tools > Options, Advanced |
+| `search.maxResults` | 0 (no limit) or the match count that stops a search; read at startup | 0 | Tools > Preferences, Advanced |
 | `search.runOnAdd` | `true`, `false` | `true` | Search > Search Options > Search After Add, Exclude or Replace |
 | `filter.N.name`, `filter.N.pattern`, `filter.N.regex` | A predefined filter | none | Tools > Predefined Filters, Save as Filter |
 | `quickFind.incremental`, `quickFind.regex` | `true`, `false` | `true`, `false` | The quick find bar |
 | `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Filtered View > Save Splitter Position |
 | `view.overview` | `true`, `false` | `true` | View > Overview Bar |
 | `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
-| `view.colors` | `follow`, `light`, `dark`, a bundled scheme id (`sandstone`, `nightwater`, `garden-light`, `garden-dark`, `legal-pad`, `paper`, `midnight`, `phosphor`, `graphite`), or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. `light` and `dark` pin `Palette.LIGHT` and `Palette.DARK`. An id that names no scheme follows the theme and stays saved | `follow` | Tools > Options, View |
+| `view.colors` | `follow`, `light`, `dark`, a bundled scheme id (`sandstone`, `nightwater`, `garden-light`, `garden-dark`, `legal-pad`, `paper`, `midnight`, `phosphor`, `graphite`), or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. `light` and `dark` pin `Palette.LIGHT` and `Palette.DARK`. An id that names no scheme follows the theme and stays saved | `follow` | Tools > Preferences, View |
 | `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files |
 | `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll |
-| `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Options, Advanced |
+| `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Preferences, Advanced |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |
 | `label.N.name`, `.fore`, `.back`, `.cycle` | Color label N, 0 to 8 | 9 labels, all in the cycle | Configure Highlighters, Color Labels tab |
 | `matchHighlight.enabled`, `.color`, `.variance` | Match highlight; an empty color is the theme's | `true`, theme, 0 | Highlighters > Highlight Search Matches; Configure Highlighters |
 | `view.wrapOnOpen` | `true`, `false`: files open with text wrap on | `false` | View > Wrap New Files |
 | `view.showWhitespace` | `true`, `false` | `false` | View > Show Whitespace |
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
-| `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Options, Folding |
+| `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Preferences, Folding |
 | `highlight.selector.N.glob`, `.firstLine`, `.set` | A rule picking a highlighter set for a file as it opens | none | Highlighters > Automatic Highlighters |
-| `font.family`, `font.size` | The log views' font; empty and 0 are the platform's monospace font and size | empty, 0 | Tools > Options, View |
+| `font.family`, `font.size` | The log views' font; empty and 0 are the platform's monospace font and size | empty, 0 | Tools > Preferences, View |
 | `font.zoom` | 4 to 72: the size zooming chose; 0 is not zoomed | 0 | `Ctrl`+wheel, View > Zoom In, Zoom Out, Reset Zoom |
-| `font.bold`, `font.antialias` | `true`, `false` | `false` | Tools > Options, View |
-| `recent.count` | 1 to 50: files File > Open Recent keeps | 20 | Tools > Options, General |
-| `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Open Recent > Clean Up |
+| `font.bold`, `font.antialias` | `true`, `false` | `false` | Tools > Preferences, View |
+| `recent.count` | 1 to 50: files File > Recent Files keeps | 20 | Tools > Preferences, General |
+| `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
 | `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear |
 | `favorite.N` | Favorite file paths, at most 100 | none | File > Favorites |
-| `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Options, File |
-| `encoding.default` | The charset detection falls back to | `ISO-8859-1` | Tools > Options, File |
-| `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Options, General |
-| `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Options, General |
-| `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Options, Shortcuts |
+| `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Preferences, File |
+| `encoding.default` | The charset detection falls back to | `ISO-8859-1` | Tools > Preferences, File |
+| `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Preferences, General |
+| `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
+| `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Preferences, Shortcuts |
 | `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit; `--window-*` options win for that run | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
@@ -123,7 +123,7 @@ file name order.
 | Key | Value |
 |---|---|
 | `dark` | `true` or `false`: the palette's side, which picks the default color label variants |
-| `name` | The name in Tools > Options; blank, or holding a control character, shows the id; cut at 64 chars |
+| `name` | The name in Tools > Preferences; blank, or holding a control character, shows the id; cut at 64 chars |
 | Each `Palette.COLOR_NAMES` entry | `#rrggbb` |
 
 Other keys are ignored. A file is skipped with one WARN naming it when its id is

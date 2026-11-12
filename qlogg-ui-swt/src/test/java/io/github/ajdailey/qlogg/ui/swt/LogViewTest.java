@@ -8,13 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -34,7 +37,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
@@ -454,9 +459,9 @@ class LogViewTest {
                 "Open",
                 "Open from Clipboard",
                 "-",
-                "Open Recent",
-                "Recently Closed",
+                "Recent Files",
                 "Reopen Closed Tab",
+                "Recently Closed",
                 "Favorites",
                 "-",
                 "Open Containing Folder",
@@ -610,7 +615,7 @@ class LogViewTest {
         labels(bar.getItem(5).getMenu()));
     assertEquals(
         onThisPlatform(
-            List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Options")),
+            List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Preferences")),
         labels(bar.getItem(7).getMenu()));
     assertEquals(
         List.of(
@@ -626,7 +631,7 @@ class LogViewTest {
     assertEquals(
         onThisPlatform(
             List.of(
-                "Documentation",
+                "User Guide",
                 "Keyboard Shortcuts",
                 "Command-Line Options",
                 "-",
@@ -682,7 +687,11 @@ class LogViewTest {
         labels(menu.getItem(13).getMenu()));
   }
 
-  /** Every menu, cascade and context menu gives each mnemonic letter to one item. */
+  /**
+   * Every menu, cascade and context menu gives each item a mnemonic letter of its own. Listed
+   * entries (paths, open files, sets, charsets, timestamp formats, color labels, tabs) and the
+   * placeholders of empty lists carry none.
+   */
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
     List<String> repeated = new ArrayList<String>();
@@ -699,11 +708,64 @@ class LogViewTest {
     assertEquals(List.of(), repeated);
   }
 
-  /** Records each letter a menu repeats, then walks its cascades, each filled as when shown. */
+  /**
+   * Theme, the filtered view modes and Encoding > Auto are radio items; a choice runs the chosen
+   * item's command only, though SWT also fires for the item it clears.
+   */
+  @Test
+  void choicesAreRadioItemsThatRunTheChosenCommand() {
+    Menu bar = window.shell().getMenuBar();
+    for (CommandId command : MenuTable.RADIO) {
+      assertTrue((nestedItem(bar, command).getStyle() & SWT.RADIO) != 0, command.name());
+    }
+    MenuItem both = nestedItem(bar, CommandId.SHOW_MARKS_AND_MATCHES);
+    MenuItem marks = nestedItem(bar, CommandId.SHOW_MARKS);
+    CommandStates states = new CommandStates(controller);
+    assertTrue(states.checked(CommandId.SHOW_MARKS_AND_MATCHES));
+    both.setSelection(false);
+    marks.setSelection(true);
+    both.notifyListeners(SWT.Selection, new Event());
+    marks.notifyListeners(SWT.Selection, new Event());
+    assertTrue(states.checked(CommandId.SHOW_MARKS));
+    marks.setSelection(false);
+    both.setSelection(true);
+    marks.notifyListeners(SWT.Selection, new Event());
+    assertTrue(states.checked(CommandId.SHOW_MARKS));
+    both.notifyListeners(SWT.Selection, new Event());
+    assertTrue(states.checked(CommandId.SHOW_MARKS_AND_MATCHES));
+  }
+
+  /** Returns a command's item in a menu or its cascades. */
+  private static MenuItem nestedItem(Menu menu, CommandId command) {
+    MenuItem found = findNested(menu, command);
+    assertNotNull(found, command.name());
+    return found;
+  }
+
+  private static MenuItem findNested(Menu menu, CommandId command) {
+    for (MenuItem item : menu.getItems()) {
+      if (item.getData() == command) {
+        return item;
+      }
+      MenuItem found = item.getMenu() == null ? null : findNested(item.getMenu(), command);
+      if (found != null) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Records each letter a menu repeats and each fixed label without one, then walks its cascades,
+   * each filled as when shown.
+   */
   private static void mnemonics(String name, Menu menu, List<String> repeated) {
     menu.notifyListeners(SWT.Show, new Event());
     List<Character> seen = new ArrayList<Character>();
     for (MenuItem item : menu.getItems()) {
+      if ((item.getStyle() & SWT.SEPARATOR) != 0) {
+        continue;
+      }
       String text = item.getText();
       int tab = text.indexOf('\t');
       text = tab < 0 ? text : text.substring(0, tab);
@@ -711,11 +773,31 @@ class LogViewTest {
       if (key != 0 && seen.contains(key)) {
         repeated.add(name + ": '" + key + "' again in " + text);
       }
+      boolean listed = (item.getStyle() & SWT.RADIO) != 0 && !(item.getData() instanceof CommandId);
+      if (key == 0 && !listed && fixedLabel(text)) {
+        repeated.add(name + ": no mnemonic in " + text);
+      }
       seen.add(key);
       if (item.getMenu() != null) {
         mnemonics(name + " > " + text, item.getMenu(), repeated);
       }
     }
+  }
+
+  /** Reports whether a menu text is a bundle label rather than a listed entry or a placeholder. */
+  private static boolean fixedLabel(String text) {
+    Set<UiText> placeholders =
+        EnumSet.of(
+            UiText.RECENT_NONE,
+            UiText.CLOSED_NONE,
+            UiText.FAVORITES_NONE,
+            UiText.TIME_SYNC_NO_TABS);
+    for (UiText label : UiText.values()) {
+      if (!placeholders.contains(label) && label.text().equals(text)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Returns the lower-case letter after the first single {@code &}, or 0. */
@@ -741,7 +823,7 @@ class LogViewTest {
     }
     List<String> kept = new ArrayList<String>();
     for (String label : expected) {
-      if (label.equals("Exit") || label.equals("Options") || label.equals("About QLogg")) {
+      if (label.equals("Exit") || label.equals("Preferences") || label.equals("About QLogg")) {
         continue;
       }
       if (label.equals("-") && (kept.isEmpty() || kept.get(kept.size() - 1).equals("-"))) {

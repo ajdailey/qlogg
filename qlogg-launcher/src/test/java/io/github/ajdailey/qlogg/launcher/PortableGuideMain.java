@@ -24,7 +24,7 @@ import org.eclipse.swt.widgets.Shell;
 /**
  * A child process for {@code PortableGuideTest}: a run over the settings directory given, in
  * portable ({@code portable}) or {@code --settings} mode ({@code settings}), which opens Help >
- * Documentation unless the third argument is {@code false}, then quits. Prints {@link #GUIDE} and
+ * User Guide unless the third argument is {@code false}, then quits. Prints {@link #GUIDE} and
  * whether a guide window opened, then {@link #EXIT} and the status.
  */
 public final class PortableGuideMain {
@@ -65,7 +65,7 @@ public final class PortableGuideMain {
             final long deadline = System.nanoTime() + BOUND_NANOS;
             final long[] settled = {0};
             if (open) {
-              controller.execute(CommandId.DOCUMENTATION);
+              controller.execute(CommandId.USER_GUIDE);
             }
             display.timerExec(
                 50,

@@ -29,7 +29,7 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * The main window's menu bar: one menu per {@link CommandGroup} with its {@link MenuTable}
- * commands, Window > Opened Files, File > Open Recent, Recently Closed and Favorites, the
+ * commands, Window > Opened Files, File > Recent Files, Recently Closed and Favorites, the
  * highlighter sets, Highlighters > Color Label and the encodings. Item state comes from {@link
  * CommandStates}; this class only applies it.
  *
@@ -635,7 +635,7 @@ final class MainMenuBar {
   }
 
   /**
-   * Returns File > Open Recent.
+   * Returns File > Recent Files.
    *
    * @return the cascade, filled when its top menu shows
    */

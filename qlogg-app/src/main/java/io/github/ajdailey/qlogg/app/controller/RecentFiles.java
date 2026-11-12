@@ -17,11 +17,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * File > Recently Closed and Open All on it and on Open Recent. Closing a tab lists its file first
- * in Recently Closed, at most {@link UiState#MAX_CLOSED}; opening the file in a tab drops it. The
- * list is {@code closed.N} in {@code qlogg.conf}. A reopened file opens at its remembered position
- * through the normal open path. Reopen Closed Tab takes the newest entry off the list and opens it.
- * Confined to the UI thread.
+ * File > Recently Closed, Open All on it and on Recent Files, and Clear Recent Files. Closing a tab
+ * lists its file first in Recently Closed, at most {@link UiState#MAX_CLOSED}; opening the file in
+ * a tab drops it. The list is {@code closed.N} in {@code qlogg.conf}. A reopened file opens at its
+ * remembered position through the normal open path. Reopen Closed Tab takes the newest entry off
+ * the list and opens it. Confined to the UI thread.
  *
  * <p>Open All checks each listed file on a {@code qlogg-lifecycle-} worker, then opens the regular,
  * readable ones in list order; a file open already shows its tab. One notice names the files
@@ -69,6 +69,13 @@ final class RecentFiles {
   /** Empties Recently Closed. */
   void clearClosed() {
     setState(application.preferences().state().withClosedFiles(List.of()));
+  }
+
+  // Clear Recent Files.
+
+  /** Empties Recent Files. */
+  void clearRecent() {
+    setState(application.preferences().state().withRecentFiles(List.of()));
   }
 
   private void setState(UiState state) {

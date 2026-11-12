@@ -38,16 +38,17 @@ public interface ApplicationListener {
    */
   default void tabRenamed(DocumentController document) {}
 
-  // Options dialog and zoom.
+  // Preferences dialog and zoom.
 
   /** The key bindings changed; the menus and views take the new keymap. Does nothing by default. */
   default void keymapChanged() {}
 
-  /** The log font changed, from Options or a zoom. Does nothing by default. */
+  /** The log font changed, from Preferences or a zoom. Does nothing by default. */
   default void fontChanged() {}
 
   /**
-   * An option other than the key bindings and the font changed in Options. Does nothing by default.
+   * An option other than the key bindings and the font changed in Preferences. Does nothing by
+   * default.
    */
   default void optionsChanged() {}
 

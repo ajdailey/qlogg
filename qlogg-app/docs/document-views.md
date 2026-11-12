@@ -236,7 +236,7 @@ visible rows.
 | Toggle Fold | Classifies around the caret's line and collapses its entry, or expands a collapsed one |
 | Collapse All Folds | Collapses each entry as the region around the visible rows is classified; an entry the user expands stays expanded until the next Collapse All |
 | Expand All Folds | Expands every entry |
-| New rules (Tools > Options, Folding, through `setViewOptions`) | Reach the open files of every window and expand their folds |
+| New rules (Tools > Preferences, Folding, through `setViewOptions`) | Reach the open files of every window and expand their folds |
 
 - A fold change keeps the top line and the selection on their lines.
 - Go to line, find next and previous, mark jumps, filtered-view clicks and

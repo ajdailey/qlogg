@@ -558,7 +558,7 @@ class WindowSetTest {
   void documentationWritesTheGuideThenShowsItOrNamesTheFile() throws Exception {
     final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
     firstView.browser = true;
-    first.execute(CommandId.DOCUMENTATION);
+    first.execute(CommandId.USER_GUIDE);
     runUntil(
         new BooleanSupplier() {
           @Override
@@ -571,7 +571,7 @@ class WindowSetTest {
     assertTrue(firstView.launched.isEmpty());
 
     firstView.browser = false;
-    first.execute(CommandId.DOCUMENTATION);
+    first.execute(CommandId.USER_GUIDE);
     runUntil(
         new BooleanSupplier() {
           @Override
@@ -582,7 +582,7 @@ class WindowSetTest {
     assertEquals(copy, firstView.launched.get(0));
 
     firstView.launchResult = false;
-    first.execute(CommandId.DOCUMENTATION);
+    first.execute(CommandId.USER_GUIDE);
     runUntil(
         new BooleanSupplier() {
           @Override
@@ -593,13 +593,13 @@ class WindowSetTest {
     assertEquals(UiText.NOTICE_GUIDE_AT.format(copy), firstView.lastNotice());
   }
 
-  /** Without the embedded guide, Documentation opens the copy elsewhere though the view has one. */
+  /** Without the embedded guide, User Guide opens the copy elsewhere though the view has one. */
   @Test
   void documentationWithoutTheEmbeddedGuideOpensItElsewhere() throws Exception {
     final Path copy = temp.toRealPath().resolve("cache").resolve("guide.html");
     set.setEmbeddedGuide(false);
     firstView.browser = true;
-    first.execute(CommandId.DOCUMENTATION);
+    first.execute(CommandId.USER_GUIDE);
     runUntil(
         new BooleanSupplier() {
           @Override

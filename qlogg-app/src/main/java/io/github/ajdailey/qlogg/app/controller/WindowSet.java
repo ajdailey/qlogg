@@ -165,7 +165,7 @@ public final class WindowSet {
   }
 
   /**
-   * Sets whether Help > Documentation may show the guide in the embedded browser; see {@link
+   * Sets whether Help > User Guide may show the guide in the embedded browser; see {@link
    * io.github.ajdailey.qlogg.app.about.UserGuide#embedded}. True until set.
    *
    * @param embedded false to open the guide in the system's HTML application instead
@@ -175,7 +175,7 @@ public final class WindowSet {
   }
 
   /**
-   * Reports whether Help > Documentation may show the guide in the embedded browser.
+   * Reports whether Help > User Guide may show the guide in the embedded browser.
    *
    * @return the value given to {@link #setEmbeddedGuide}
    */

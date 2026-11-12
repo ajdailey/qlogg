@@ -24,8 +24,9 @@ and a restored session.
   given to `onCloseRequest`. The controller disposes the window when shutdown
   ends.
 - The palette listener leaves the shared theme when the shell is disposed.
-- Options, Keyboard Shortcuts, the highlighter, filter and history dialogs and
-  text windows open at their remembered size and report it when they close.
+- Preferences, Keyboard Shortcuts, the highlighter, filter and history dialogs
+  and text windows open at their remembered size and report it when they
+  close.
 
 ## Top row
 

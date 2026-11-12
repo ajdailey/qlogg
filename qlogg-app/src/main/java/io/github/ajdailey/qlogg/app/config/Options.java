@@ -10,11 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The settings of the Options dialog that {@link Preferences} does not hold elsewhere, plus the
+ * The settings of the Preferences dialog that {@link Preferences} does not hold elsewhere, plus the
  * favorites. Immutable.
  *
  * @param font the log views' font
- * @param recentCount {@code recent.count}: entries File > Open Recent keeps, 1 to {@link
+ * @param recentCount {@code recent.count}: entries File > Recent Files keeps, 1 to {@link
  *     #MAX_RECENT}
  * @param monitor {@code monitor.pollMillis} and {@code monitor.watchService}
  * @param defaultEncoding {@code encoding.default}: the charset detection falls back to

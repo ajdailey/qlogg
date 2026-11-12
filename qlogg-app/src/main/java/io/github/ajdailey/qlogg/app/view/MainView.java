@@ -195,10 +195,10 @@ public interface MainView
   /** Shows the Automatic Highlighters dialog. */
   void showSelectorsDialog();
 
-  // Options dialog, zoom and remembered window state.
+  // Preferences dialog, zoom and remembered window state.
 
-  /** Opens the Options dialog. */
-  void showOptions();
+  /** Opens the Preferences dialog. */
+  void showPreferences();
 
   /**
    * Returns the platform's default font size for the log views.

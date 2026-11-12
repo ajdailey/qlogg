@@ -120,21 +120,27 @@ in a text field.
 
 `CommandId` lists every command in menu order with its menu (`CommandGroup`),
 label, section break and cascade (`submenu()`, Search > Search Options). A
-`CommandId` with `check()` shows as a check item. The menus are File, Edit,
+`CommandId` with `check()` shows as a check item, or as a radio item when it is
+in `MenuTable.RADIO`. The menus are File, Edit,
 Search, Go, View, Highlighters, Encoding, Tools, Window and Help. `LOG_VIEW`
 commands have no menu-bar item; some of them are in the log view's context
 menu.
 
 `MenuTable.commands(group, appMenu)` lists a menu's commands. With the macOS
-application menu present it leaves out About, Options and Exit, which that menu
-holds as About, Preferences and Quit. `MenuTable` also names the cascades
-filled from state (`cascadeBefore`, `cascadeAfter`) and the Time Spread radio
-cascade (`nestedCascade`, `radio`).
+application menu present it leaves out About, Preferences and Exit, which that
+menu holds as About, Preferences and Quit. `MenuTable` also names the cascades
+filled from state (`cascadeBefore`, `cascadeAfter`), the Time Spread cascade
+(`nestedCascade`) and the radio items (`RADIO`: Theme, the filtered view
+modes, Encoding > Auto, Time Spread).
 
-No two items of a menu, cascade or context menu share a mnemonic
-(`MenuTableTest` for the menu bar's commands, `LogViewTest` for every built
-menu). The log view's context menu shows `CommandId.label()`, so a command in
-both keeps one letter free in both; Wrap New Files and Toggle Fold have none.
+Every item of a menu, cascade or context menu has a mnemonic no other item
+there shares (`MenuTableTest` for the menu bar and the context menu tables,
+`LogViewTest` for every built menu); listed entries have none. `MenuTable` holds
+the context menus' layout: `LOG_VIEW_MENU` with `logViewCascade` and
+`LOG_VIEW_CASCADES`, `TAB_MENU`, `PATH_MENU` and `SEARCH_FIELD_MENU`; null is a
+separator. The log view's
+context menu shows `CommandId.label()`, so a command in both takes a letter
+free in both.
 
 File > Close Multiple Tabs runs `CLOSE_OTHERS`, `CLOSE_LEFT` and `CLOSE_RIGHT`
 on the active tab, enabled from `CommandStates.tabItems`; the tab menu runs
