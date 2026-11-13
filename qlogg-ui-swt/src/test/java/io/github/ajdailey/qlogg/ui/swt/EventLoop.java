@@ -10,7 +10,10 @@ public final class EventLoop {
 
   /**
    * Dispatches events until the condition holds or the bound passes. A repeating 20 ms timer wakes
-   * {@code Display.sleep} so the condition is rechecked without other events.
+   * {@code Display.sleep} so the condition is rechecked without other events. Do not use an empty
+   * queue as the condition: the timer queues an event after every sleep, so the condition holds
+   * only by chance and the call can run to its bound (measured on the Windows runners). Drain with
+   * {@code while (display.readAndDispatch())} instead.
    *
    * @param display the Display, on the calling thread
    * @param condition checked between events

@@ -61,10 +61,11 @@ import org.junit.jupiter.api.io.TempDir;
  * On win32 under a dark startup setting, dialog bodies draw the dark dialog color with light text,
  * matching the dark title bar and push buttons; under a light one they draw as before. The check
  * reads screen pixels, since {@code getBackground} can differ from what win32 draws. Where a screen
- * read does not show the dialog, as on the {@code windows-11-arm} runner, whose desktop lies under
- * the Windows setup screen, it reads the first label through {@code Control.print} and checks its
- * text against its background. Each dialog is saved to {@code
- * target/diagnostics/win32-dark-dialogs/}.
+ * read does not show the main window, as on the {@code windows-11-arm} runner, whose desktop lies
+ * under the Windows setup screen, the test skips every body check and reads the first label through
+ * {@code Control.print}, checking its text against its background; the same applies to a single
+ * dialog a screen read does not show. Each dialog is saved to {@code
+ * target/diagnostics/win32-dark-dialogs/}, with the read of each check in the report there.
  */
 @Tag("swt")
 class Win32DarkDialogsTest {
@@ -104,6 +105,9 @@ class Win32DarkDialogsTest {
   private Workers workers;
   private MainWindow window;
   private ApplicationController controller;
+
+  /** Whether a screen read shows the main window; probed once per test. */
+  private boolean screenShows;
 
   private void open(ThemeMode mode) throws IOException {
     assumeTrue("win32".equals(SWT.getPlatform()), "win32 colors dialogs under a dark start");
@@ -159,6 +163,15 @@ class Win32DarkDialogsTest {
               }
             },
             BOUND));
+    screenShows = shows(window.shell());
+    if (!screenShows) {
+      String reason =
+          "the screen does not show the test window on "
+              + System.getProperty("os.arch")
+              + ": body checks skipped, labels read through Control.print";
+      System.err.println("Win32DarkDialogsTest: " + reason);
+      report.append(reason).append('\n');
+    }
   }
 
   @AfterEach
@@ -311,7 +324,7 @@ class Win32DarkDialogsTest {
 
   private void check(Shell dialog, String name, boolean dark, List<String> wrong) {
     settle();
-    boolean screen = shows(dialog);
+    boolean screen = screenShows && shows(dialog);
     // The bottom left corner of the client area lies in the layout margin, past any frame. A
     // printed Shell lays its children out off their places on windows-11-arm (measured), so a print
     // read checks the label alone.
@@ -332,7 +345,7 @@ class Win32DarkDialogsTest {
     String ink = "none";
     double contrast = 0;
     if (label != null) {
-      ImageData data = screen ? capture(screenArea(label)) : print(label);
+      ImageData data = screen ? capture(screenArea(label)) : printed(label);
       RGB ground = mode(data);
       RGB strongest = strongest(data, ground);
       ink = hex(strongest) + " on " + hex(ground);
@@ -422,16 +435,12 @@ class Win32DarkDialogsTest {
     return null;
   }
 
+  /** Dispatches pending events without sleeping (see {@link EventLoop#runUntil}), then paints. */
   private void settle() {
-    EventLoop.runUntil(
-        display,
-        new BooleanSupplier() {
-          @Override
-          public boolean getAsBoolean() {
-            return !display.readAndDispatch();
-          }
-        },
-        BOUND);
+    long deadline = System.nanoTime() + BOUND.toNanos();
+    while (System.nanoTime() < deadline && display.readAndDispatch()) {
+      // Runs queued work.
+    }
     display.update();
   }
 
@@ -460,6 +469,27 @@ class Win32DarkDialogsTest {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /**
+   * Prints a label, dispatching events for up to 2 s until the print holds more than one color. A
+   * label printed before it paints reads one color, black on the {@code windows-11-arm} runner
+   * (measured).
+   */
+  private ImageData printed(final Label label) {
+    final ImageData[] data = new ImageData[1];
+    EventLoop.runUntil(
+        display,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            data[0] = print(label);
+            RGB ground = mode(data[0]);
+            return contrast(strongest(data[0], ground), ground) > 1;
+          }
+        },
+        Duration.ofSeconds(2));
+    return data[0];
   }
 
   /**
