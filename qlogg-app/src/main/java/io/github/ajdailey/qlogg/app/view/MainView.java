@@ -10,8 +10,9 @@ import java.util.List;
 
 /**
  * The main window as the controllers see it. Every method is called on the UI thread and returns
- * without waiting for the user, except {@link #chooseFilesToOpen}, which runs the platform chooser,
- * and the {@link ActivityIndicator} methods, which are callable from any thread.
+ * without waiting for the user, except {@link #chooseFilesToOpen} and {@link #chooseSaveFile},
+ * which run the platform chooser, and the {@link ActivityIndicator} methods, which are callable
+ * from any thread.
  */
 public interface MainView
     extends FileDialogService, ClipboardService, NotificationService, ActivityIndicator {

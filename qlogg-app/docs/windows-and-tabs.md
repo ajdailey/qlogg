@@ -22,9 +22,9 @@ shared services through `services()`.
 
 `WindowSet` holds the windows and what they share: the settings and their
 saves, the theme, the key bindings, the file monitor, the document services,
-the recent log lines and the debug log file. The six-argument constructors
-create a set with one window; `new ApplicationController(set, view)` adds a
-window to a set.
+the recent log lines and the debug log file. `ApplicationController`'s six- and
+seven-argument constructors create a set with one window; `new
+ApplicationController(set, view)` adds a window to a set.
 
 New Window (`WindowSet.newWindow`) opens an empty window through the set's
 `Factory`. `windowActivated` records the window the user activated last.
@@ -242,6 +242,7 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | Go to Time, Scroll All Tabs to This Time, Time Offset, Time Zone | - | The shown document has a timestamp format |
 | Recent Files > Open All, Clear Recent Files; Recently Closed > Open All, Clear Recently Closed | - | The list is not empty |
 | Reopen Closed Tab | - | Recently Closed is not empty |
+| Clear Results | - | The shown document's search is not `IDLE` |
 
 `CommandStates` also lists the highlighter sets (`highlightSets`), the open
 files (`openedFiles`) and a tab menu's enabled items (`tabItems`). An ArchUnit

@@ -3,7 +3,7 @@
 `SwtThemeService` applies `ui.theme` to native widgets and reports system
 appearance changes; `CocoaChrome` recolors native widgets on macOS;
 `DialogColors` colors dialogs on a dark Windows start;
-`MainWindow.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
+`TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
 images. Module overview: [../README.md](../README.md).
 
 ## Palette
@@ -80,7 +80,7 @@ its logo, and `Dialogs.disabledText` the gray of a disabled table row.
 
 ## Tab strip colors
 
-`MainWindow.colorTabs` colors the main, results and scratchpad tab strips from
+`TabStrip.colorTabs` colors the main, results and scratchpad tab strips from
 the palette on every platform, at creation and on each palette change.
 `CTabFolder` copies the Display's list colors when created, and the Display
 reads them once, so an uncolored strip keeps them through a theme change

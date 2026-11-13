@@ -36,7 +36,8 @@ worker never waits on the UI thread.
 
 `MainView` is the main window as controllers see it. Every method is called on
 the UI thread and returns without waiting for the user, except
-`chooseFilesToOpen`, which runs the platform chooser. It extends
+`chooseFilesToOpen` and `chooseSaveFile`, which run the platform chooser. It
+extends
 `FileDialogService`, `ClipboardService`, `NotificationService` (a one-line
 status-bar notice through `showNotice`) and `ActivityIndicator`.
 

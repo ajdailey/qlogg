@@ -20,6 +20,15 @@ overview: [qlogg-core](README.md).
 | `IndexerTest` | Every `lineStart` and `lineEnd`, and `lineAt` at every offset for content up to 20,000 bytes (above that at each line's first, second and last byte and inside its LF, since each sparse lookup reads the file). `lineStart` backward and in a strided order, so a sparse lookup that started from a remembered line past its target fails. 4 MiB blocks with one 64 MiB line. The sparse fallback (150,000 bytes refuses the first full block) and the failure when sparse mode does not fit (3,000 bytes). A sparse `lineAt` 2 MiB into a 16 MiB line reads, through a counting `ByteSource`, at most that distance plus two cache blocks; a UTF-16 sparse index stops on a unit. Cancel and close at a known block. An indexer created to keep its pool holding it past the minimum after an operation, and `trim()` returning it |
 | `GrowableLineIndexTest` | `retainedBytes()` against the allocation formula for full mode at widths 4-16 and for sparse mode, and equal to the `LINE_INDEX` reservation |
 | `LargeFileTest` | A 2.2 GB sparse file, offsets past 2^31 |
+| `LineScannerTest` | The line-feed bit scan against a byte-by-byte scan over 2,000 random buffers in UTF-8, UTF-16LE and BE, UTF-32LE and IBM037; a line-feed byte inside a UTF-16 unit not counted |
+
+## Text and encodings
+
+| Class | Covers |
+|---|---|
+| `EncodingDetectorTest` | UTF-8, UTF-16 and UTF-32 byte order marks, UTF-32 checked before UTF-16; the UTF-16 zero-byte pattern without a BOM, zeros at both parities read as UTF-8; valid UTF-8 with a truncated last sequence; malformed UTF-8 falling back to ISO-8859-1; the head buffer left unmoved; a forced charset skipping only its own BOM; `TextEncoding` unit width, line feed and ASCII compatibility, EBCDIC included |
+| `LineDecoderTest` | One trailing CR dropped, a UTF-16 unit containing `0x0d` kept, a malformed byte decoded as U+FFFD, decoding stopping when the output is full |
+| `LogTextTest` | `oneLine` replacing every line break and control character, a forged log entry kept on one line, the `MAX_CHARS` cap, null written as `null` |
 
 Regression cases:
 
@@ -43,6 +52,7 @@ Regression cases:
 | `MutableLineSetTest` | Random adds, toggles, batches and `removeFrom` against a `TreeSet`: `select` and `rank` at every member; `ceiling`, `floor`, `contains` and `rank` around every member and bucket edge, over 4 buckets and over 2^40 lines. The array-to-bitmap switch at 4,097 entries and the return at 2,048; `retainedBytes()` against the formula and equal to the `RESULTS` reservation |
 | `LargeFileSearchTest` | A 2.2 GB sparse file of 1 MiB lines with matches at the first line, just past 2^31 bytes and in the partial last line; a second line longer than `MAX_LINE_BYTES` skipped with the lines after it matched |
 | `FolderSearchTest` | The walk: name globs, path order, subfolders, exclude globs, a NUL byte listed as not text and a UTF-16LE file with a BOM searched. A 64 MiB file under a 32 MiB budget searched with the match count of a line-by-line reference. The `RESULTS` share of a 4 MiB budget stopping the search with the lines listed so far and no later file, and a refusal the listener frees by `resultsRefused` retried to a complete listing. Cancel while a runaway regex runs ending within 1 s with every reservation returned. POSIX only: an unreadable file and folder and a dangling link listed, a linked file searched, a linked folder not entered, a link to an ancestor walked once. A missing folder, a file given as the folder and a regex that does not compile failing the search |
+| `ExpressionParserTest` | Combine expressions: precedence `not`, `and`, `xor`, `or`; `nand`, `nor` and `xnor` as negations, case-insensitive and without spaces; quoted terms keeping regex escapes and `\"`; a text without a quote as one term; each parse error with its reason and column; nesting to `MAX_DEPTH` |
 | `SearchLifecycleTest` | 25 rounds of open, index, search and close with cancels and closes at random points; then no thread survives `Workers.close()`, every file is closed, and `LINE_INDEX` and `RESULTS` are back to 0 |
 
 - Catastrophic backtracking uses `(.*a){25}x` on 60 `a`s. Java's regex
@@ -80,6 +90,10 @@ Regression cases:
 | `OverviewBinsTest` | `lineAt` against `BigInteger` up to `Long.MAX_VALUE` lines, `rowOf` past 2^31 lines, bins for dense, sparse, fewer-lines-than-pixels and uneven-span cases |
 | `MarkToggleTest` | A contiguous range marked and unmarked, listed rows, unmarking the marks view while walking it, cancel from the progress callback, the results share stop over 2^32 lines |
 | `LineFinderTest` | Quick find over a tab and a CRLF line: columns after tab expansion, forward and backward from a column, no match either way, the CR excluded, rows limited by a cursor, reads through `readRows`, a canceled token |
+| `ContextRowsTest` | `ContextRows` against a brute-force expansion at every match density and line-count cut; an extension continuing from the covered matches, and a rebuild when the last covered match changed; the last match's context following the line count; checkpoints charged to `RESULTS` and a refusal leaving a partial build; the filtered view listing context and marks with group starts, nothing before the build is installed, and a build from replaced rows dropped |
+| `MarkCommentsTest` | `clean` replacing control characters, trimming and capping at `MAX_LENGTH`; put, replace and remove charged to `RESULTS`; refusal past `MAX_COMMENTS` and past the budget; removal by lines and from a line; `addAll` keeping only marked lines' comments; unmarking removing the comments |
+| `CommentTemplateTest` | `%L %F %P %N %M %E` expanded from the line and path, other `%` kept, path placeholders empty without a file; `{regex}{replacement}` pairs with nested and escaped braces, an incomplete pair kept as text; a regex that does not compile failing every expansion; a missing group or a backtracking regex failing one; the `MAX_EXPANDED_CHARS` cut |
+| `TriggersTest` | Over a real document: only enabled rules with an action and a pattern act; every matching rule acts, the higher rule's comment wins, quiet and loud lines counted; an existing comment kept; a failing template keeping its text and reported once; a comment past the cap refused with the mark kept; marks the budget refuses not added; a scan reading at most `BATCH_LINES` and nothing when canceled |
 | `ViewportTest` | The scroll bar mapping at line counts up to 2^52: exact endpoints, monotonic both ways, a round trip within one scroll unit, the 2^30 boundary, clamping |
 
 `LogDocumentFollowTest` cases:
@@ -143,6 +157,11 @@ missing.
 
 | Class | Covers |
 |---|---|
+| `BuiltInFormatTest` | Each built-in layout, 0 to 9 fraction digits with dot or comma, each offset form, invalid fields, a leading bracket and CLF inside the line, epoch seconds and milliseconds, DST overlap and gap, two-digit years, the syslog year from the modification month, id round trip |
+| `FormatDetectorTest` | Detection with 80% stack-trace lines, none below 20% or three lines, day-first only with a first field over 12, ties in table order, only the first 200 non-empty lines counted, a UTF-16LE head after its BOM left unconsumed |
+| `UserFormatTest` | A user pattern's group located and parsed; an offset in the text; month and day taking the file year, a time alone giving no stamp; the bound and a `StackOverflowError` giving no stamp; invalid definitions refused; two-digit years; fraction digits from the pattern |
+| `TimeReaderTest` | `at` walking back through a stack trace, stopping after 10,000 lines or 1 MiB; `next` from a mid-line offset, a final line without LF, stopping after 10,000 lines; lines spanning several buffers; CRLF and UTF-16; a canceled token |
+| `TimeSamplesTest` | Evenly spaced samples over a full index, given lines with one past the end reading the last, an empty snapshot, samples snapped to sparse-index checkpoints, `retainedBytes` and `bytesFor` |
 | `TimeSearchTest` | `locate` and `locateLinear` against an in-memory oracle for every millisecond target across generated files with equal stamps and continuation lines, from before the first stamp to after the last; `bisectionOverThreeGigabytes` over `GeneratedSource`; descents and jitter; bracket cases |
 | `TimeSpreadTest` | Samples built directly (`TimeSamples.of`), so each level boundary, the clamp at 16 and the rows left out of the averages have exact expected values |
 
@@ -161,10 +180,14 @@ missing.
   whose `charAt` throws it: the 256-char prefix is too short to overflow the
   regex stack on every platform.
 
-## Threads and file monitoring
+## Threads, memory and file access
 
 | Class | Covers |
 |---|---|
+| `MemoryBudgetTest` | Shares dividing the maximum, `reserve` refused past the share and `release`, `charge` overdrawing until released, negative amounts rejected, `CancellationToken` throwing once canceled |
+| `ReadBuffersTest` | Two direct little-endian buffers even with an empty `IO_BUFFERS` share; the share and the cap bounding allocation; `trim` dropping free buffers past the minimum; a waiting `acquire` ending on cancel |
+| `FileByteSourceTest` | Positional reads, path, real path, size and head digest; a read after close throwing `ClosedChannelException`; a directory and a missing file refused |
+| `UtilTest` | `Checks` messages naming the argument; `Streams.readLimited` accepting the limit and refusing more |
 | `WorkersTest` | `noTaskRunsAfterCloseReturns` races `tryStart` against `close` 50 times |
 | `OperationGateTest` | Admission, refusal after close, the idle wait |
 | `ChangeDetectorTest` | Growth, truncation, a renamed file replaced under the name, a rewritten head, a same-size edit past the head digest, a touch with the same bytes, a missing path or a directory |
@@ -203,5 +226,5 @@ missing.
 | `SafePathsTest` `/dev/null` | Where the device is absent |
 | `SafePathsTest` symbolic links | On Windows |
 | `LogDocumentFollowTest`, `ChangeDetectorTest` symbolic links | On Windows without `SeCreateSymbolicLinkPrivilege` |
-| Held lock's link case | Where the file system has no file key |
+| `SafePathsTest` held-lock links | Where the file system has no file key |
 | `TestkitTest` read-only directory (`TempTrees.delete` rethrows after its bound) | Without POSIX attributes, or when the user can write to it anyway (root) |

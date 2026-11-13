@@ -6,8 +6,9 @@ watchdog and the scratchpad transforms in [qlogg-app](../README.md):
 
 ## Help commands
 
-Each window's `HelpController` runs the Help commands. A result that arrives
-after the window began closing is dropped.
+Each window's `HelpController` runs the Help commands except Keyboard
+Shortcuts and Command-Line Options, which `ApplicationController.execute` runs.
+A result that arrives after the window began closing is dropped.
 
 | Item | Behavior |
 |---|---|
@@ -17,6 +18,8 @@ after the window began closing is dropped.
 | Report an Issue | Collects the About details on a worker, puts them on the clipboard and opens `AboutInfo.ISSUES_URL` through `MainView.launchUrl` |
 | User Guide | Writes the guide's copy, then shows it ([User guide](#user-guide)) |
 | About | About facts and the license notices are read on a `qlogg-lifecycle-` worker, then shown |
+| Keyboard Shortcuts | `ApplicationController` calls `MainView.showKeyboardShortcuts` |
+| Command-Line Options | `ApplicationController` shows `CommandLineParser.usage()` through `MainView.showText` |
 
 ## About
 
@@ -31,9 +34,9 @@ this module's jar.
 
 ### Build
 
-At `generate-resources` the build copies commonmark-java 0.28.0 and its GFM
-tables extension (BSD-2-Clause, build only) and runs
-`src/build/GuideRenderer.java` with the Java source launcher.
+At `generate-resources` the build copies commonmark-java (`commonmark.version`
+in the root POM) and its GFM tables extension (BSD-2-Clause, build only) and
+runs `src/build/GuideRenderer.java` with the Java source launcher.
 `docs/user-guide.md` becomes one HTML page under
 `target/generated-resources/guide`, with each image a `data:` URI and each
 heading an `<a id>` with its GitHub anchor.
@@ -81,7 +84,8 @@ after each one.
   whole delay once it runs (`recovered`, INFO).
 - It never interrupts the UI thread.
 - It ends at `stop` or when the workers close.
-- `enabled()` is true when its logger takes DEBUG (`-d 2` and above).
+- `enabled()` is true when its logger takes DEBUG: at `-d 2` and above, or
+  with the debug log file attached (`-l`, `log.file`).
 
 ## Scratchpad transforms
 

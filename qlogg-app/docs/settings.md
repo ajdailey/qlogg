@@ -74,15 +74,15 @@ continuation patterns and at least one pattern in all are allowed.
 | `search.historySize` | 1 to 1000 | 50 | Search > Edit Search History; Tools > Preferences |
 | `search.history.N` | Search text, most recent first | none | Each search; Search > Clear Search History |
 | `search.maxResults` | 0 (no limit) or the match count that stops a search; read at startup | 0 | Tools > Preferences, Advanced |
-| `search.runOnAdd` | `true`, `false` | `true` | Search > Search Options > Search After Add, Exclude or Replace |
+| `search.runOnAdd` | `true`, `false` | `true` | Search > Search Options > Search After Add, Exclude or Replace; Tools > Preferences, General |
 | `filter.N.name`, `filter.N.pattern`, `filter.N.regex` | A predefined filter | none | Tools > Predefined Filters, Save as Filter |
-| `quickFind.incremental`, `quickFind.regex` | `true`, `false` | `true`, `false` | The quick find bar |
+| `quickFind.incremental`, `quickFind.regex` | `true`, `false` | `true`, `false` | The quick find bar; Tools > Preferences, General |
 | `view.splitPercent` | 10 to 90: the main view's share of the split | 70 | View > Filtered View > Save Splitter Position |
 | `view.overview` | `true`, `false` | `true` | View > Overview Bar |
 | `view.timeSpread` | `off`, `activity`, `pauses` | `off` | View > Timestamps > Time Spread |
 | `view.colors` | `follow`, `light`, `dark`, a bundled scheme id (`sandstone`, `nightwater`, `garden-light`, `garden-dark`, `legal-pad`, `paper`, `midnight`, `phosphor`, `graphite`), or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. `light` and `dark` pin `Palette.LIGHT` and `Palette.DARK`. An id that names no scheme follows the theme and stays saved | `follow` | Tools > Preferences, View |
-| `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files |
-| `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll |
+| `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files; Tools > Preferences, General |
+| `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll; Tools > Preferences, General |
 | `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Preferences, Advanced |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |
 | `label.N.name`, `.fore`, `.back`, `.cycle` | Color label N, 0 to 8 | 9 labels, all in the cycle | Configure Highlighters, Color Labels tab |
@@ -97,7 +97,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `font.bold`, `font.antialias` | `true`, `false` | `false` | Tools > Preferences, View |
 | `recent.count` | 1 to 50: files File > Recent Files keeps | 20 | Tools > Preferences, General |
 | `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
-| `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear |
+| `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear Recently Closed |
 | `favorite.N` | Favorite file paths, at most 100 | none | File > Favorites |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Preferences, File |
 | `encoding.default` | The charset detection falls back to; one that can encode | `ISO-8859-1` | Tools > Preferences, File |
@@ -107,7 +107,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit; `--window-*` options win for that run | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
-| `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers |
+| `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers, Line Numbers in Filtered View |
 | `open.directory` | Where File > Open starts with no file shown | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
 | `folderSearch.folder`, `.names`, `.recursive`, `.exclude` | Search in Folder's folder, file name globs, Include subfolders and exclude globs (text at most 4,096 chars each) | none, `*.log*`, `false`, none | Each folder search |

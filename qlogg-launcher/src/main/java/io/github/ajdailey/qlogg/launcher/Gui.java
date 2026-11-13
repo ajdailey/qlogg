@@ -53,7 +53,8 @@ import org.slf4j.LoggerFactory;
  * only at the next start; on cocoa native controls follow the system. Startup after the Display
  * exists does not block it: the command-line files open on workers once the first window is shown,
  * each in a tab, following with {@code -f}; each further window of a restored session opens with
- * its tabs. At {@code -d 2} and above an {@link EventLoopWatchdog} logs UI-thread stalls. A primary
+ * its tabs. When {@link EventLoopWatchdog#enabled} is true at start ({@code -d 2} and above, or the
+ * debug log file attached), an {@link EventLoopWatchdog} logs UI-thread stalls. A primary
  * instance's {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the
  * command-line files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit
  * closes it before the workers, and so does a run that ends before the first window. A JVM shutdown

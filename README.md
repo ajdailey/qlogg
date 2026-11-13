@@ -116,14 +116,15 @@ scripts/container.sh ./mvnw -B spotless:check
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
-every pushed `v*` tag. Actions are pinned by commit SHA. Linux jobs install
-Xvfb and GTK 3 from the Ubuntu archive when the runner image lacks them.
+every pushed `v*` tag, and on manual dispatch. Actions are pinned by commit SHA.
+Linux jobs install Xvfb and GTK 3 from the Ubuntu archive when the runner image
+lacks them.
 
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`); then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME` |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
 
@@ -194,16 +195,23 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `-m`, `--multi` | Run as an independent instance: no handoff, and it never replaces the saved session |
 | `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on |
 | `-f`, `--follow` | Follow the files given |
-| `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; default 1024 x 768 |
+| `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows |
 | `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
 | `--` | End of options |
 | `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f` and `+line:N` |
 
-Options combine: `-mf`, `--opt=value`, `-d2`. An unknown option or a bad value
-prints a message to stderr and exits 1. An SWT start failure, such as missing
-GTK libraries, exits 3.
+Options combine: `-mf`, `--opt=value`, `-d2`. A command-line error prints a
+message to stderr. Exit statuses:
+
+| Status | Meaning |
+|---|---|
+| `0` | Normal exit, or the files went to the running instance |
+| `1` | Command-line error: unknown option, bad value, `-s` with `-n`, `+line:N` without a file, unusable `--settings` |
+| `2` | Unsupported platform or Java, not started from `qlogg.jar`, or the macOS main-thread relaunch failed |
+| `3` | The SWT natives could not be prepared or the display could not start, for example without the GTK libraries |
+| `4` | A Java `Error` on the UI thread, or more than 10 runtime exceptions there within 1 s, ended the run; the session is saved |
 
 ## Settings directory
 
@@ -226,7 +234,8 @@ An empty `qlogg.conf` in either place selects portable mode.
 | `instance.lock`, `instance.endpoint` | Single-instance lock and handoff endpoint |
 | `logs/` | Debug log files |
 | `colors/` | User color schemes, `<id>.properties` ([format](qlogg-app/docs/settings.md#color-scheme-files)) |
-| `cache/` | The user guide's copy; on Windows, the guide browser's data in `cache\webview2` |
+| `cache/` | The user guide's copy; the universal jar's SWT natives in `cache/swt` (explicit and portable mode); on Windows, the guide browser's data in `cache\webview2` |
+| `qlogg.conf.invalid` and the like | A malformed file's last copy, kept at the next save |
 
 - In explicit and portable mode on Linux, `user.home` is the settings
   directory, so GTK's `.swt/trims.prefs` lands there too.

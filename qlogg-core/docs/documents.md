@@ -7,12 +7,14 @@ quick find. Folding, highlighting, marks and the filtered view are in
 ## LogDocument
 
 `LogDocument` is one open file. `DocumentServices` carries the shared
-`Workers`, `Indexer`, `SearchEngine`, `BlockCache`, `MemoryBudget` and
-fallback charset.
+`Workers`, `Indexer`, `SearchEngine`, `BlockCache`, `MemoryBudget`, fallback
+charset and the held instance lock (`SafePaths.HeldLock`, null without one).
+The six-argument constructor, without the lock, is for tests and benchmarks;
+`withFallbackCharset` keeps the lock.
 
 | Method | Contract |
 |---|---|
-| `open(path, forcedCharset, services)` | Validates the path (`FileByteSource.open`), reads the first 64 KiB, detects the encoding and the timestamp format from those bytes (`FormatDetector`), and creates the line index. Blocks; run it on a worker |
+| `open(path, forcedCharset, services)` | Validates the path against the held lock (`FileByteSource.open`), reads the first 64 KiB, detects the encoding and the timestamp format from those bytes (`FormatDetector`), and creates the line index. Blocks; run it on a worker |
 | `open(..., detectTimeFormat)` | `false` skips the format detection, for a file whose format the owner remembers |
 | `open(..., detectTimeFormat, keepClosed)` | `true` reads through a `ReopeningByteSource` ([Keep file closed](#keep-file-closed)) |
 | `ofText(name, text, maxBytes, services)` | A document over pasted text, below |

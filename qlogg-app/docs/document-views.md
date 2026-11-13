@@ -93,9 +93,10 @@ Copy holds the `ActivityIndicator` active until it ends.
 
 Save Selection writes the selected lines, or the block's columns; Save Filtered
 Results writes every filtered row. Both write UTF-8 through
-`AtomicFiles.writeUserFile` on the copy worker, so a new file takes the default
-mode and a replaced one keeps its group and mode. A line over `LineReader.MAX_LINE_BYTES` is saved cut, and the
-saved notice counts those lines; a block save does not count them.
+`AtomicFiles.writeUserFile` on a `qlogg-read-` worker, so a new file takes the
+default mode and a replaced one keeps its group and mode. A line over
+`LineReader.MAX_LINE_BYTES` is saved cut, and the saved notice counts those
+lines; a block save does not count them.
 
 The chosen path passes `SafePaths.logFile` on a `qlogg-lifecycle-` worker. A
 path whose real path is the `realPath()` of a document open in any window is

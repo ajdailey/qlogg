@@ -75,7 +75,7 @@ document's controllers, which hold the viewport, selection and rows.
 | Close button, middle click | `closeDocument`, the last tab included |
 | Mouse wheel over the strip or its buttons | `TabList.scroll`; see [Tab strip buttons](#tab-strip-buttons) |
 | Drag onto another tab of the strip | Recreates the item at that position (a `CTabItem` cannot move) and calls `moveDocument` |
-| Release off the tab under the press | `dropTab`; see [Tab drag between windows](#tab-drag-between-windows) |
+| Release off every tab of the strip | `dropTab`; see [Tab drag between windows](#tab-drag-between-windows) |
 | Right click | `showTabMenu` |
 
 Disposing the selected item makes `CTabFolder` select a neighbor and send
@@ -135,11 +135,13 @@ disabled at the ends, the path and name items for clipboard text.
 A `&` is doubled in every tab text and tab tooltip, document and result tabs
 alike: `CTabItem` draws text with mnemonics, and SWT drops a single `&` from a
 tooltip. `tabTitle` stays unescaped; each consumer escapes for its widget.
+Result tabs take their text and tips already escaped from `ResultTabs`
+(`qlogg-app`).
 
 ### Tab drag between windows
 
-A tab drag released off the tab under the press goes to `dropTab` with the
-display point and the control under the pointer (`Display.getCursorControl`,
+A tab drag released off the strip's tabs goes to `dropTab` with the display
+point and the control under the pointer (`Display.getCursorControl`,
 through a replaceable `PointerProbe`). The press grabs the pointer, so the
 folder also gets a release outside the window. No `DragSource` is used.
 
@@ -147,7 +149,6 @@ folder also gets a release outside the window. No `DragSource` is used.
 |---|---|
 | Over another main window (found through its shell's data) | `moveToWindow`: before the tab under the point, else last |
 | No QLogg control under the pointer, outside this shell's bounds | `moveToNewWindow` opens a window with its corner at the point; GTK 4 and Wayland ignore the position |
-| Another tab of the same strip | Reorders |
 | Anything else | Nothing |
 
 `documentMovedOut` removes the tab and views as a close does;

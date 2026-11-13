@@ -27,8 +27,9 @@ without a display. `qlogg-ui-swt` implements the view contracts and
 ## Controller threading
 
 Every controller is confined to the UI thread and never blocks it.
-`ArchitectureTest` rejects `Future.get`, `Thread.join`, `Thread.sleep`,
-`OperationHandle.await` and `CountDownLatch.await` in `app.controller`.
+`ArchitectureTest` (`qlogg-launcher`) rejects `Future.get`, `Thread.join`,
+`Thread.sleep`, `OperationHandle.await` and `CountDownLatch.await` in
+`app.controller` and `app.command`.
 Controllers read no system property or environment variable; the platform comes
 from the view. Public controller methods return `LineSet`, never
 `MutableLineSet`.
@@ -53,7 +54,7 @@ Controllers run work on these `Workers` pools:
 | Thread prefix | Work |
 |---|---|
 | `qlogg-index-` | Open, paste, reload, reopen, session restore; indexing |
-| `qlogg-read-` | Row reads, caret times, fold classification, first-line selector match, marks list |
+| `qlogg-read-` | Row reads, copy, save and selected text, caret times, the format editor's preview line, fold classification, first-line selector match, marks list |
 | `qlogg-search-` | Search, folder search, quick find, mark toggle, range selection, overview bins, time search, trigger scans, filtered-view snapshots |
 | `qlogg-lifecycle-` | Settings writes, document close, quit, imports and exports, path checks (save target, Open in Editor, Clean Up, Open All), About facts, Help folder and guide actions |
 

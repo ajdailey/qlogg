@@ -76,7 +76,8 @@ window as with `-m`. A launch that stays opens the debug log file when `-l` or
 4. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
    services: an `Indexer` with default settings, a `BlockCache` of 64 KiB
    blocks holding the `BLOCK_CACHE` share up to 64 MiB, and
-   `encoding.default` as the fallback charset.
+   `encoding.default` as the fallback charset, and the primary server's held
+   lock (null without one).
 5. Creates the dispatcher and the `WindowSet` with `LogConfigurator.RECENT` and
    the `FileLog`, and connects the macOS application menu (`AppMenu.hook`, a
    no-op elsewhere).
@@ -127,8 +128,10 @@ shows, and the event loop continues. More than 10 runtime exceptions within
 
 ### Event loop watchdog
 
-At `-d 2` and above `Gui` starts an `EventLoopWatchdog` (`qlogg-app`) on a
-`qlogg-watchdog-` thread. It posts a probe through the dispatcher every 250 ms
+When QLogg's loggers take DEBUG at start (`-d 2` and above, or the debug log
+file attached by `-l` or `log.file`), `Gui` starts an `EventLoopWatchdog`
+(`qlogg-app`) on a `qlogg-watchdog-` thread. Turning on Help > Debug Log File
+later does not start it. It posts a probe through the dispatcher every 250 ms
 and logs a WARN with the UI thread's stack when one waits over 100 ms, then an
 INFO with the whole delay. It never interrupts the UI thread.
 
@@ -193,11 +196,10 @@ a live instance's file: its process runs, and its writes keep it young.
 ## Architecture rules
 
 `ArchitectureTest` checks every class except the bootstrap; test classes and
-test jars are not imported. `rulesFailOnTheirFixtures` and the other fixture
-tests run the view, controller, thread, platform, OS and dialog color rules
-against the violating classes in `ui.swt.archfixture` and
-`app.controller.archfixture` (test sources), so a rule that stops matching
-fails:
+test jars are not imported. Each rule with a fixture test
+(`...FailsOnItsFixture`, `...FailOnTheirFixtures`) runs against the violating
+classes in `ui.swt.archfixture` and `app.controller.archfixture` (test
+sources), so a rule that stops matching fails:
 
 | Rule | Why |
 |---|---|

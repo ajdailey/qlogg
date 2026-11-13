@@ -58,7 +58,8 @@ public final class EventLoopWatchdog {
       };
 
   /**
-   * Reports whether the watchdog's logger takes DEBUG, as {@code -d 2} and above set it.
+   * Reports whether the watchdog's logger takes DEBUG, as {@code -d 2} and above set it, and as the
+   * debug log file does while attached ({@code -l}, {@code log.file}).
    *
    * @return true when the watchdog should run
    */

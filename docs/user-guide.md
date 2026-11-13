@@ -76,7 +76,7 @@ Encoding menu forces another one, and the choice is remembered for the file.
 - The status bar shows indexing, follow and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
 
-![The tab list open over a row of twelve tabs](images/guide/tab-list.png)
+![The tab list open over a row of fourteen tabs](images/guide/tab-list.png)
 
 ## Moving around
 
@@ -130,6 +130,22 @@ The icon toggles beside the field; the keys work in a log view:
 | Keep results | `9` | The next search adds a result tab instead of replacing the results |
 | Range | | Every line from a line matching the pattern through the next line matching the range end |
 
+With Combine on, a search text containing a double quote is an expression:
+terms in double quotes (`\"` is a quote inside a term), joined by the operators
+below and grouped with parentheses. Operator words are case-insensitive;
+operators of equal precedence apply left to right. A text without a double
+quote is one term.
+
+| Operator | A line matches when | Precedence |
+|---|---|---|
+| `not`, `!` | The operand does not match | 1, first |
+| `and`, `&` | Both operands match | 2 |
+| `nand` | Not both match | 2 |
+| `xor` | Exactly one matches | 3 |
+| `xnor` | Both or neither match | 3 |
+| `or`, `\|` | Either matches | 4 |
+| `nor` | Neither matches | 4 |
+
 ### Limits, views and filters
 
 - Search > Search Limits > Set Search Start and Set Search End limit every
@@ -177,7 +193,9 @@ matching the end, both lines included.
 
 Search > Search All Open Files (`Ctrl+Shift+S`) runs the search in every tab;
 each tab's filtered view gets the results for its file. It ignores In
-selection; each tab's search start and end lines apply.
+selection; each tab's search start and end lines apply. The Search in Open
+Files window lists each file with its match count and state under a summary;
+choosing a row shows that tab, and Stop stops every file's search.
 
 ### Searching a folder
 
@@ -541,8 +559,9 @@ epoch time.
 QLogg restores the last session at start when no file is given (Tools >
 Preferences, General; `-s` and `-n` decide for one run): the tabs of each
 window, the shown tab, tab names, follow, marks, mark comments, time offsets,
-time sync groups and each window's Always on Top. Each file's position and
-forced encoding are remembered; `+line:N` wins over the position.
+time sync groups and each window's Always on Top. A session keeps at most 1,000
+mark comments over all tabs; a notice counts any left out. Each file's position
+and forced encoding are remembered; `+line:N` wins over the position.
 
 File > Recent Files lists recent files; Clean Up drops missing ones and Clear
 Recent Files empties the list. File > Reopen Closed Tab (`Ctrl+Shift+T`) takes
@@ -598,7 +617,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format, Edit Formats; Time Zone, Time Offset; Time Spread: Off, Activity, Pauses), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
@@ -640,8 +659,6 @@ Tools > Preferences (on macOS, QLogg > Preferences) has these tabs:
 | Advanced | Keep file closed | Off | [Keep file closed](#keep-file-closed) |
 | Folding | Entry start pattern, Continuation patterns | The rules in [Folding multi-line entries](#folding-multi-line-entries) | Restore Defaults brings the built-in rules back |
 
-![Keyboard Shortcuts](images/guide/shortcuts.png)
-
 ## Help menu and logs
 
 | Item | Action |
@@ -655,6 +672,8 @@ Tools > Preferences (on macOS, QLogg > Preferences) has these tabs:
 | Report an Issue | Copies the runtime details, then opens the project's issue page in the browser |
 | About QLogg | Version, license and runtime details; on macOS in the QLogg menu |
 
+![Keyboard Shortcuts](images/guide/shortcuts.png)
+
 ## Command line
 
 ```text
@@ -665,26 +684,26 @@ qlogg [options] [[+line:N] file]...
 |---|---|
 | `-h`, `--help`, `--help-all` | Print usage and exit |
 | `-v`, `--version` | Print the version and exit |
-| `-d`, `--debug <level>` | Log level on stderr: `1` INFO, `2` DEBUG, `3` TRACE, or a level name |
+| `-d`, `--debug <level>` | Log level on stderr: `1` INFO, `2` DEBUG, `3` or more TRACE, or a level name; WARN by default |
 | `-l`, `--log` | Also write the debug log file for this run |
 | `-m`, `--multi` | Run as an independent instance: no handoff, and the saved session stays as it is |
 | `-s`, `--load-session` | Restore the last session |
 | `-n`, `--new-session` | Start without the last session |
 | `-f`, `--follow` | Follow the files given |
-| `--window-width <px>`, `--window-height <px>` | Window size; default 1024 x 768 |
-| `--window-x <px>`, `--window-y <px>` | Window position |
+| `--window-width <px>`, `--window-height <px>` | Window size; without them, the size at the last exit, else 1024 x 768 |
+| `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
 | `--settings <dir>` | Settings directory |
 | `+line:N` | Open the next file at line N |
 | `--` | End of options; the remaining arguments are files |
 
 QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
-`~/.config/qlogg`, Windows `%APPDATA%\QLogg`, macOS
-`~/Library/Application Support/QLogg`, or the installation directory when a
-`qlogg.conf` exists there (portable mode). On Linux a `qlogg.conf` beside the
+`$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`,
+macOS `~/Library/Application Support/QLogg`, or the installation directory when
+a `qlogg.conf` exists there (portable mode). On Linux a `qlogg.conf` beside the
 `bin/qlogg` script also selects portable mode, with the settings in `bin/`,
 unless the installation directory has one. On Linux in portable mode and with
-`--settings`, Help > User Guide opens this guide in your system browser,
-because the embedded browser keeps its cache in your home folder. GTK's input
-method support still creates an empty `~/.config/ibus/bus` folder there, and
-with the experimental GTK 4 backend (`SWT_GTK4=1`) the graphics driver writes
-its shader cache to `~/.cache/mesa_shader_cache` on every run.
+`--settings`, Help > User Guide opens this guide in your system browser, because
+the embedded browser keeps its cache in your home folder. GTK's input method
+support still creates an empty `~/.config/ibus/bus` folder there, and with the
+experimental GTK 4 backend (`SWT_GTK4=1`) the graphics driver writes its shader
+cache to `~/.cache/mesa_shader_cache` on every run.
