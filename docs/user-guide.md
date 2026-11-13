@@ -54,7 +54,8 @@ Encoding menu forces another one, and the choice is remembered for the file.
   path, opens the folder, renames the tab or moves it to a new window; a middle
   click closes it. File > Close Multiple Tabs closes the tabs around the shown
   one. Closing the shown tab shows the next tab, else the previous one;
-  Tools > Preferences, General can show the last used tab instead. Closing the
+  Tools > Preferences, General can show the last used tab instead, which falls
+  back to the next tab when no other tab was shown since opening. Closing the
   last tab leaves an empty window, unless Close the window with its last tab
   is on in Tools > Preferences, General; in the last window that quits QLogg.
   Window > Opened Files and Switch to File (`Ctrl+Shift+O`) list the tabs.

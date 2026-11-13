@@ -58,7 +58,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 | View | Reload, Stop Loading |
 | Tools | Preferences |
 | Window | New Window |
-| Help | User Guide, About |
+| Help | User Guide, About QLogg |
 | Log view context menu | Copy |
 
 - Check, radio, cascade and listed items show no icon, so Follow has none.

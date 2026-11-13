@@ -101,8 +101,10 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
 
 - Closing the shown tab shows the one after it, else the one before. With
   `tabs.closeShowsLastUsed` on, `TabUse` shows the open tab shown most
-  recently instead; a tab opened and never shown does not count. `TabUse`
-  drops a closed or moved-out tab and keeps a reloaded tab's place.
+  recently instead; a tab opened and never shown does not count. With no open
+  tab shown since it opened (after a session restore or a burst of opens), the
+  tab after it, else the one before, is shown. `TabUse` drops a closed or
+  moved-out tab and keeps a reloaded tab's place.
 - `closeAll`, `closeOthers` and `closeSide` close the shown tab last, so no
   other tab is shown, and its views built, on the way. `closeOthers` and
   `closeSide` show their kept tab before that close, under either setting.
