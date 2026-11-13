@@ -30,13 +30,13 @@ import org.slf4j.LoggerFactory;
 final class RecentFiles {
   private static final Logger LOG = LoggerFactory.getLogger(RecentFiles.class);
 
-  private final ApplicationController application;
+  private final RecentFilesHost host;
   private final Workers workers;
   private final UiDispatcher ui;
   private final MainView view;
 
-  RecentFiles(ApplicationController application, Workers workers, UiDispatcher ui, MainView view) {
-    this.application = application;
+  RecentFiles(RecentFilesHost host, Workers workers, UiDispatcher ui, MainView view) {
+    this.host = host;
     this.workers = workers;
     this.ui = ui;
     this.view = view;
@@ -49,7 +49,7 @@ final class RecentFiles {
    */
   void closed(LogDocument document) {
     if (!document.inMemory()) {
-      setState(application.preferences().state().addClosed(document.path().toString()));
+      setState(host.preferences().state().addClosed(document.path().toString()));
     }
   }
 
@@ -57,31 +57,31 @@ final class RecentFiles {
 
   /** Drops the newest Recently Closed file from the list and opens it, if the list has one. */
   void reopenClosed() {
-    List<String> closed = application.preferences().state().closedFiles();
+    List<String> closed = host.preferences().state().closedFiles();
     if (closed.isEmpty()) {
       return;
     }
     String path = closed.get(0);
-    setState(application.preferences().state().removeClosed(path));
-    application.openListed(path);
+    setState(host.preferences().state().removeClosed(path));
+    host.openListed(path);
   }
 
   /** Empties Recently Closed. */
   void clearClosed() {
-    setState(application.preferences().state().withClosedFiles(List.of()));
+    setState(host.preferences().state().withClosedFiles(List.of()));
   }
 
   // Clear Recent Files.
 
   /** Empties Recent Files. */
   void clearRecent() {
-    setState(application.preferences().state().withRecentFiles(List.of()));
+    setState(host.preferences().state().withRecentFiles(List.of()));
   }
 
   private void setState(UiState state) {
-    Preferences current = application.preferences();
+    Preferences current = host.preferences();
     if (!state.equals(current.state())) {
-      application.setPreferences(current.withState(state));
+      host.setPreferences(current.withState(state));
     }
   }
 
@@ -132,10 +132,10 @@ final class RecentFiles {
         new Runnable() {
           @Override
           public void run() {
-            if (application.isShuttingDown()) {
+            if (host.isShuttingDown()) {
               return;
             }
-            application.open(requests);
+            host.open(requests);
             if (!skipped.isEmpty()) {
               view.showNotice(
                   UiText.NOTICE_OPEN_ALL_SKIPPED.format(

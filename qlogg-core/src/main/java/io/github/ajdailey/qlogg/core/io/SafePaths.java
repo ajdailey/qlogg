@@ -26,43 +26,46 @@ public final class SafePaths {
   private static final Set<PosixFilePermission> OWNER_DIR =
       PosixFilePermissions.fromString("rwx------");
 
-  private static volatile HeldLock heldLock;
-
   private SafePaths() {}
 
-  /** The file this process holds its instance lock on. */
-  private record HeldLock(Path real, Object fileKey, String refusal) {}
-
   /**
-   * Names the file this process holds its instance lock on. {@link #logPath(Path)} then rejects it
-   * under any name, hard links included, so nothing reads or replaces it: on POSIX a close of any
-   * channel on the file ends the process's lock, and a replace of the name leaves the lock on the
-   * old file.
-   *
-   * @param file the lock file
-   * @param refusal the message of the rejection, shown to the user
-   * @throws IOException when the file cannot be read
+   * A file an instance holds its lock on. The log path checks reject it under any name, hard links
+   * included, so nothing reads or replaces it: on POSIX a close of any channel on the file ends the
+   * process's lock, and a replace of the name leaves the lock on the old file. Immutable; the
+   * instance that claims the lock creates it and passes it to the checks through {@code
+   * DocumentServices}.
    */
-  public static void holdLock(Path file, String refusal) throws IOException {
-    Object key = Files.readAttributes(file, BasicFileAttributes.class).fileKey();
-    heldLock = new HeldLock(file.toRealPath(), key, refusal);
-  }
+  public static final class HeldLock {
+    private final Path real;
+    private final Object fileKey;
+    private final String refusal;
 
-  /** Forgets the file named to {@link #holdLock}. */
-  public static void releaseLock() {
-    heldLock = null;
-  }
-
-  private static void checkNotHeld(Path real) throws IOException {
-    HeldLock held = heldLock;
-    if (held == null) {
-      return;
+    private HeldLock(Path real, Object fileKey, String refusal) {
+      this.real = real;
+      this.fileKey = fileKey;
+      this.refusal = refusal;
     }
-    Object key = held.fileKey();
-    if (real.equals(held.real())
-        || (key != null
-            && key.equals(Files.readAttributes(real, BasicFileAttributes.class).fileKey()))) {
-      throw new IOException(held.refusal());
+
+    /**
+     * Names a held lock file.
+     *
+     * @param file the lock file
+     * @param refusal the message of the rejection, shown to the user
+     * @return the held lock
+     * @throws IOException when the file cannot be read
+     */
+    public static HeldLock of(Path file, String refusal) throws IOException {
+      Object key = Files.readAttributes(file, BasicFileAttributes.class).fileKey();
+      return new HeldLock(file.toRealPath(), key, refusal);
+    }
+
+    private void check(Path checked) throws IOException {
+      if (checked.equals(real)
+          || (fileKey != null
+              && fileKey.equals(
+                  Files.readAttributes(checked, BasicFileAttributes.class).fileKey()))) {
+        throw new IOException(refusal);
+      }
     }
   }
 
@@ -77,16 +80,16 @@ public final class SafePaths {
   /**
    * Validates a log file path from the command line, a handoff, the recent list or a session. The
    * path is made absolute and normalized; an existing path resolves to its real path and must be a
-   * regular file (a FIFO blocks the reader and a device never ends) and not the file named to
-   * {@link #holdLock}; a missing path needs an existing parent directory, so a log that appears
-   * later can be watched. Validate again on every open: a symbolic link can be retargeted between
-   * two opens.
+   * regular file (a FIFO blocks the reader and a device never ends) and not the held lock file; a
+   * missing path needs an existing parent directory, so a log that appears later can be watched.
+   * Validate again on every open: a symbolic link can be retargeted between two opens.
    *
    * @param path the path as given; a relative path resolves against the working directory
+   * @param held the lock file the process holds, or null when it holds none
    * @return the absolute path as given and the real path
    * @throws IOException naming the reason when the path is rejected
    */
-  public static LogPath logPath(Path path) throws IOException {
+  public static LogPath logPath(Path path, HeldLock held) throws IOException {
     checkForm(path.toString());
     Path absolute = path.toAbsolutePath().normalize();
     if (Files.exists(absolute)) {
@@ -94,7 +97,9 @@ public final class SafePaths {
       if (!Files.isRegularFile(real, LinkOption.NOFOLLOW_LINKS)) {
         throw new IOException(real + " is not a regular file");
       }
-      checkNotHeld(real);
+      if (held != null) {
+        held.check(real);
+      }
       return new LogPath(absolute, real);
     }
     Path parent = absolute.getParent();
@@ -106,36 +111,39 @@ public final class SafePaths {
   }
 
   /**
-   * Validates a log file path as {@link #logPath(Path)} does.
+   * Validates a log file path as {@link #logPath} does.
    *
    * @param path the path as given; a relative path resolves against the working directory
+   * @param held the lock file the process holds, or null when it holds none
    * @return the real path of an existing file, or the absolute path of a missing one under its
    *     parent's real path
    * @throws IOException naming the reason when the path is rejected
    */
-  public static Path logFile(Path path) throws IOException {
-    return logPath(path).real();
+  public static Path logFile(Path path, HeldLock held) throws IOException {
+    return logPath(path, held).real();
   }
 
   /**
    * Validates a log file path given as text.
    *
    * @param path the path as given
-   * @return as {@link #logFile(Path)}
+   * @param held the lock file the process holds, or null when it holds none
+   * @return as {@link #logFile(Path, HeldLock)}
    * @throws IOException when the text is not a path or the path is rejected
    */
-  public static Path logFile(String path) throws IOException {
+  public static Path logFile(String path, HeldLock held) throws IOException {
     checkForm(path);
     try {
-      return logFile(Path.of(path));
+      return logFile(Path.of(path), held);
     } catch (InvalidPathException e) {
       throw new IOException("Not a valid path: " + e.getReason(), e);
     }
   }
 
   /**
-   * Validates a folder of logs to search: checked as {@link #logFile(String)} checks a path's form,
-   * made absolute and normalized, then resolved to its real path, which must be a directory.
+   * Validates a folder of logs to search: checked as {@link #logFile(String, HeldLock)} checks a
+   * path's form, made absolute and normalized, then resolved to its real path, which must be a
+   * directory.
    *
    * @param path the folder as given; a relative path resolves against the working directory
    * @return the real path of the directory

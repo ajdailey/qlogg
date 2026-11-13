@@ -24,8 +24,11 @@ owns or others can write.
 
 ### Lock file guard
 
-Until `close`, `SafePaths.logPath` rejects the lock file with
-`INSTANCE_LOCK_REFUSED`, which every open, import and export shows. The POSIX
+`claim` names `instance.lock` in a `SafePaths.HeldLock`, and the launcher puts
+`heldLock()` in `DocumentServices`. Every open, import, export and save passes
+it to `SafePaths.logPath`, which rejects the lock file with
+`INSTANCE_LOCK_REFUSED`. Each server's lock is its own value, so closing one
+`InstanceServer` leaves another in the same JVM protected. The POSIX
 lock ends at the close of any channel on the file, the file watch's included,
 and a second primary's endpoint is then deleted when the first quits. A
 restored session holding the file shows the error once and saves without that

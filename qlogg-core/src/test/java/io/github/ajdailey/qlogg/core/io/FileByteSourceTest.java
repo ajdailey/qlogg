@@ -29,7 +29,7 @@ class FileByteSourceTest {
     }
     Path file = dir.resolve("a.log");
     Files.write(file, content);
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       assertEquals(file.toAbsolutePath().normalize(), source.path());
       assertEquals(file.toRealPath(), source.realPath());
       assertEquals(10_000, source.size());
@@ -51,7 +51,7 @@ class FileByteSourceTest {
   void readAfterCloseThrowsClosedChannel() throws Exception {
     Path file = dir.resolve("b.log");
     Files.write(file, "x\n".getBytes(StandardCharsets.US_ASCII));
-    final FileByteSource source = FileByteSource.open(file);
+    final FileByteSource source = FileByteSource.open(file, null);
     source.close();
     assertFalse(source.isOpen());
     assertThrows(
@@ -72,7 +72,7 @@ class FileByteSourceTest {
         new Executable() {
           @Override
           public void execute() throws IOException {
-            FileByteSource.open(dir).close();
+            FileByteSource.open(dir, null).close();
           }
         });
     assertThrows(
@@ -80,7 +80,7 @@ class FileByteSourceTest {
         new Executable() {
           @Override
           public void execute() throws IOException {
-            FileByteSource.open(dir.resolve("missing.log")).close();
+            FileByteSource.open(dir.resolve("missing.log"), null).close();
           }
         });
   }

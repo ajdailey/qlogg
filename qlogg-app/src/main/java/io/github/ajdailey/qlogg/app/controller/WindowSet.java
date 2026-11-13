@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>{@link #timeSync} holds the time sync groups, which span the windows.
  */
-public final class WindowSet {
+public final class WindowSet implements RememberedStateHost {
   /** Creates and opens a main window. */
   public interface Factory {
     /**
@@ -439,6 +439,7 @@ public final class WindowSet {
    *
    * @return the latest settings
    */
+  @Override
   public Preferences settings() {
     return preferences.get();
   }
@@ -502,20 +503,24 @@ public final class WindowSet {
     sessionOwner = owner;
   }
 
-  void setPreferences(Preferences changed) {
+  /** Replaces the settings and schedules their save. */
+  @Override
+  public void setPreferences(Preferences changed) {
     preferences.set(changed);
     preferencesDirty = true;
     scheduleSave();
   }
 
   /** Marks the settings changed without scheduling a save; quit and window close save them. */
-  void preferencesChanged(Preferences changed) {
+  @Override
+  public void preferencesChanged(Preferences changed) {
     preferences.set(changed);
     preferencesDirty = true;
   }
 
   /** Saves {@link ApplicationController#SAVE_DELAY_MILLIS} after the last call. */
-  void scheduleSave() {
+  @Override
+  public void scheduleSave() {
     if (quitting) {
       return;
     }

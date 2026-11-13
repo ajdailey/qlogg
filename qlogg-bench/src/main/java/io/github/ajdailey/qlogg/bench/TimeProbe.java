@@ -100,7 +100,7 @@ public class TimeProbe {
     if (!Files.exists(file)) {
       new LogGenerator(LogGenerator.Profile.TIMED, 1).write(file, (long) fileMib << 20);
     }
-    source = FileByteSource.open(file);
+    source = FileByteSource.open(file, null);
     MemoryBudget budget = MemoryBudget.fromRuntime();
     BlockCache cache = BlockCache.fromBudget(budget);
     TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);

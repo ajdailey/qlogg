@@ -700,7 +700,7 @@ class LogViewTest {
     Menu context = window.canvas().control().getMenu();
     context.setVisible(false);
     mnemonics("log view", context, repeated);
-    Menu tab = window.showTabMenu(controller.activeDocument(), 0, 0);
+    Menu tab = window.tabStrip().showTabMenu(controller.activeDocument(), 0, 0);
     tab.setVisible(false);
     mnemonics("tab", tab, repeated);
     mnemonics("path field", window.pathField().getMenu(), repeated);

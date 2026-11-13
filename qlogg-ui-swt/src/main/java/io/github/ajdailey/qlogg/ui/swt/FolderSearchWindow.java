@@ -6,14 +6,13 @@ import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.controller.FolderResultSet;
 import io.github.ajdailey.qlogg.app.controller.FolderSearchController;
+import io.github.ajdailey.qlogg.app.controller.FolderSearchText;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.FolderRequest;
 import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.folder.FileHits;
-import io.github.ajdailey.qlogg.core.folder.FolderProgress;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
@@ -363,7 +362,7 @@ final class FolderSearchWindow {
     FolderSearchState state = search.state();
     listed = search.files();
     String searched = shownSet == null ? "" : shownSet.request().text();
-    summary.setText(summary(state, searched, listed, search.limited()));
+    summary.setText(FolderSearchText.summary(state, searched, listed, search.limited()));
     bar.setSelection(
         state.phase() == FolderSearchState.Phase.DONE ? 100 : state.progress().percent());
     stop.setEnabled(
@@ -397,7 +396,7 @@ final class FolderSearchWindow {
     }
     String[] items = new String[kept.size()];
     for (int i = 0; i < items.length; i++) {
-      items[i] = setText(kept.get(i));
+      items[i] = FolderSearchText.set(kept.get(i));
     }
     if (items.length != setList.getItemCount()) {
       setList.setItems(items);
@@ -420,77 +419,6 @@ final class FolderSearchWindow {
     clearAll.setEnabled(!kept.isEmpty());
   }
 
-  /** A set's line in the set list. */
-  static String setText(FolderResultSet set) {
-    String text =
-        UiText.FOLDER_SET.format(
-            set.request().text(), lastName(set.request().folder()), set.matches());
-    if (set.state().phase() == FolderSearchState.Phase.RUNNING) {
-      text = UiText.FOLDER_SET_RUNNING.format(text);
-    }
-    return set.pinned() ? UiText.FOLDER_SET_PINNED.format(text) : text;
-  }
-
-  /** The summary line for a state. */
-  static String summary(
-      FolderSearchState state, String searched, List<FileHits> files, boolean limited) {
-    long matches = 0;
-    long withMatches = 0;
-    for (FileHits file : files) {
-      matches += file.matches();
-      if (file.matches() > 0) {
-        withMatches++;
-      }
-    }
-    FolderProgress progress = state.progress();
-    return switch (state.phase()) {
-      case IDLE -> UiText.FOLDER_IDLE.text();
-      case RUNNING -> {
-        if (progress.filesTotal() < 0) {
-          yield UiText.FOLDER_WALKING.text();
-        }
-        Path file = progress.file() == null ? null : progress.file().getFileName();
-        yield UiText.FOLDER_RUNNING.format(
-            file == null ? "" : file.toString(),
-            Math.min(progress.filesDone() + 1, progress.filesTotal()),
-            progress.filesTotal(),
-            progress.percent(),
-            progress.matches());
-      }
-      case DONE ->
-          limited
-              ? UiText.FOLDER_LIMITED.format(searched, matches)
-              : UiText.FOLDER_DONE.format(searched, matches, withMatches, files.size());
-      case CANCELED -> UiText.FOLDER_STOPPED.format(searched, matches, withMatches);
-      case FAILED -> state.message();
-    };
-  }
-
-  /** A file row's status column. */
-  static String status(FileHits file) {
-    return switch (file.status()) {
-      case SEARCHED ->
-          file.complete()
-              ? UiText.FOLDER_STATUS_DONE.text()
-              : UiText.FOLDER_STATUS_PARTIAL.format(file.size());
-      case UNREADABLE -> UiText.FOLDER_STATUS_UNREADABLE.format(String.valueOf(file.detail()));
-      case NOT_TEXT -> UiText.FOLDER_STATUS_NOT_TEXT.text();
-      case FAILED -> UiText.FOLDER_STATUS_FAILED.format(String.valueOf(file.detail()));
-    };
-  }
-
-  /** The last name of a folder as typed, without parsing it as a path. */
-  static String lastName(String folder) {
-    String trimmed = folder.strip();
-    int end = trimmed.length();
-    while (end > 1 && (trimmed.charAt(end - 1) == '/' || trimmed.charAt(end - 1) == '\\')) {
-      end--;
-    }
-    int start = Math.max(trimmed.lastIndexOf('/', end - 1), trimmed.lastIndexOf('\\', end - 1));
-    String name = trimmed.substring(start + 1, end);
-    return name.isEmpty() ? trimmed : name;
-  }
-
   private void fillFile(TableItem item) {
     int i = files.indexOf(item);
     if (i < 0 || i >= listed.size()) {
@@ -501,7 +429,7 @@ final class FolderSearchWindow {
         new String[] {
           file.path().toString(),
           file.status() == FileHits.Status.SEARCHED ? String.valueOf(file.matches()) : "",
-          status(file)
+          FolderSearchText.status(file)
         });
   }
 

@@ -2,7 +2,8 @@
 
 The window and tab controllers in `app.controller` of
 [qlogg-app](../README.md): `ApplicationController`, `WindowSet`,
-`DocumentOpener`, `CommandStates` and `EncodingChoices`.
+`DocumentOpener`, `RememberedState`, `PathCommands`, `CommandStates` and
+`EncodingChoices`.
 
 ## Windows
 
@@ -10,6 +11,14 @@ The window and tab controllers in `app.controller` of
 the tabs: one `DocumentController` per open file in tab order (`documents()`)
 and the shown one (`activeDocument()`). Each window holds a `DocumentOpener`
 and a `HelpController` ([Help, logs and scratchpad](help-and-logs.md)).
+
+`QuickFindController`, `ViewFeatures`, `TimeFeatures`, `RecentFiles` and
+`FolderSearchController` each take a host interface with only the calls they
+make (`QuickFindHost`, `ViewFeaturesHost`, `TimeFeaturesHost`,
+`RecentFilesHost`, `FolderSearchHost`), which `ApplicationController`
+implements. A helper does not call `ApplicationController.windowSet()`
+(ArchUnit); it reads every window's tabs through `allDocuments()` and the
+shared services through `services()`.
 
 `WindowSet` holds the windows and what they share: the settings and their
 saves, the theme, the key bindings, the file monitor, the document services,
@@ -97,8 +106,8 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
   `tabs.closeWindowWithLastTab` on, the window closes through `closeWindow`, so
   the last window quits. Close All in an empty window does nothing.
 - `Ctrl+PageDown` and `Ctrl+PageUp` show the next and previous tab.
-- The tab context menu calls `closeOthers`, `closeSide`, `copyPath`,
-  `copyFileName`, `openContainingFolder`, `renameTab` and `resetTabName`. A tab
+- The tab context menu calls `closeOthers`, `closeSide`, `renameTab`,
+  `resetTabName` and, through `pathCommands()`, the path commands. A tab
   name is kept per path for the session and saved with it. File > Close
   Multiple Tabs calls `closeOthers` and `closeSide` on the active tab.
 - Window > Switch to File (`Ctrl+Shift+O`) calls `MainView.showOpenedFiles`.
@@ -110,9 +119,9 @@ a document entry, reads included, before it closes the file.
 
 ### Path commands
 
-`copyPath`, `copyFileName` (Edit menu), `openContainingFolder` and
-`openInEditor` (File menu) act on the file's path; the tab menu has all but
-`openInEditor`. The folder and the file open through
+`PathCommands` runs `copyPath`, `copyFileName` (Edit menu),
+`openContainingFolder` and `openInEditor` (File menu) on the file's path; the
+tab menu has all but `openInEditor`. The folder and the file open through
 `MainView.launch`, which runs no shell. `openInEditor` first checks on a
 `qlogg-lifecycle-` worker whether the system would run the file instead of
 opening it: an executable file, or an extension in `WINDOWS_EXECUTABLE` where
@@ -269,10 +278,14 @@ names the others in one notice. File > Reopen Closed Tab (`Ctrl+Shift+T`) takes
 the newest entry off the list, then opens it through `openListed`, so a missing
 file leaves the list too.
 
-`UiState` receives the search toggles, line number toggles, the Open dialog's
-directory and dialog sizes (`rememberDialogSize`). When a window closes, and at
-quit for the window activated last, `rememberWindow` records the normal bounds,
-maximized state and split.
+`RememberedState` writes each window's remembered state: tab positions to the
+`PositionStore`, and to `UiState` the recent files, search toggles, line number
+toggles, the Open dialog's directory and dialog sizes (`rememberDialogSize`).
+When a window closes, and at quit for the window activated last,
+`rememberWindow` records the normal bounds, maximized state and split.
+`RememberedState` reads and replaces the settings and schedules saves through
+`RememberedStateHost`, which `WindowSet` implements. The view reaches dialog
+sizes through `ApplicationController.rememberedState()`.
 
 ### Settings saves
 

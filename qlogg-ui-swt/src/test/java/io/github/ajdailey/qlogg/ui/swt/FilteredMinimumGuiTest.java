@@ -105,7 +105,7 @@ class FilteredMinimumGuiTest {
                 return document != null
                     && !document.state().indexing()
                     && window.results() != null
-                    && window.tabs().isVisible();
+                    && window.tabStrip().tabs().isVisible();
               }
             }));
   }

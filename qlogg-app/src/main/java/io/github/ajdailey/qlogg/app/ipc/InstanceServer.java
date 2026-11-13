@@ -101,6 +101,7 @@ public final class InstanceServer implements AutoCloseable {
   private final Path directory;
   private final FileChannel lockChannel;
   private final FileLock lock;
+  private final SafePaths.HeldLock heldLock;
   private final ServerSocketChannel server;
   private final byte[] token;
   private final long windowDeadline;
@@ -115,15 +116,28 @@ public final class InstanceServer implements AutoCloseable {
       Path directory,
       FileChannel lockChannel,
       FileLock lock,
+      SafePaths.HeldLock heldLock,
       ServerSocketChannel server,
       byte[] token,
       long windowDeadline) {
     this.directory = directory;
     this.lockChannel = lockChannel;
     this.lock = lock;
+    this.heldLock = heldLock;
     this.server = server;
     this.token = token;
     this.windowDeadline = windowDeadline;
+  }
+
+  /**
+   * Returns the lock file this server holds, for {@code DocumentServices}: every log path check
+   * rejects it under any name.
+   *
+   * @return the held lock; it outlasts {@link #close}, so a check after close still rejects the
+   *     file
+   */
+  public SafePaths.HeldLock heldLock() {
+    return heldLock;
   }
 
   /**
@@ -171,9 +185,10 @@ public final class InstanceServer implements AutoCloseable {
         byte[] token = Protocol.secret();
         new Endpoint(port, token).write(directory);
         long windowDeadline = System.nanoTime() + windowBound.toNanos();
-        SafePaths.holdLock(
-            SafePaths.child(directory, Endpoint.LOCK), UiText.INSTANCE_LOCK_REFUSED.text());
-        claimed = new InstanceServer(directory, channel, lock, server, token, windowDeadline);
+        SafePaths.HeldLock held =
+            SafePaths.HeldLock.of(
+                SafePaths.child(directory, Endpoint.LOCK), UiText.INSTANCE_LOCK_REFUSED.text());
+        claimed = new InstanceServer(directory, channel, lock, held, server, token, windowDeadline);
         return claimed;
       } finally {
         if (claimed == null && server != null) {
@@ -428,7 +443,6 @@ public final class InstanceServer implements AutoCloseable {
     } catch (IOException e) {
       LOG.warn("Cannot delete the handoff endpoint: {}", LogText.oneLine(e.getMessage()));
     }
-    SafePaths.releaseLock();
     try {
       lock.release();
     } catch (IOException e) {

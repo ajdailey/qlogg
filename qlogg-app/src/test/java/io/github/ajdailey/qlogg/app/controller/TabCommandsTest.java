@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -173,11 +174,62 @@ class TabCommandsTest {
     assertTrue(fixture.view.notices.contains("No application opened it"));
   }
 
+  private static final List<CommandId> PATH_COMMANDS =
+      List.of(
+          CommandId.COPY_PATH,
+          CommandId.COPY_FILE_NAME,
+          CommandId.OPEN_FOLDER,
+          CommandId.OPEN_IN_EDITOR);
+
+  @Test
+  void copyFileNameUsesTheShownFile() throws Exception {
+    List<DocumentController> tabs = openThree();
+    fixture.application.execute(CommandId.COPY_FILE_NAME);
+    assertEquals("c.log", fixture.view.clipboard);
+    fixture.application.pathCommands().copyFileName(tabs.get(0));
+    assertEquals("a.log", fixture.view.clipboard);
+  }
+
+  @Test
+  void pathCommandsWithoutATabDoNothing() throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    for (CommandId command : PATH_COMMANDS) {
+      fixture.application.execute(command);
+    }
+    fixture.runUntilIdle();
+    fixture.ui.runPending();
+    assertEquals(List.of(), fixture.view.notices);
+    assertNull(fixture.view.clipboard);
+    assertEquals(List.of(), fixture.view.launched);
+  }
+
+  @Test
+  void pathCommandsOnPastedTextShowTheNoFileNotice() throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    fixture.view.clipboard = "pasted";
+    fixture.application.execute(CommandId.OPEN_CLIPBOARD);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.application.activeDocument() != null;
+          }
+        });
+    for (CommandId command : PATH_COMMANDS) {
+      fixture.application.execute(command);
+    }
+    fixture.runUntilIdle();
+    fixture.ui.runPending();
+    assertEquals(Collections.nCopies(4, UiText.NOTICE_NO_FILE.text()), fixture.view.notices);
+    assertEquals("pasted", fixture.view.clipboard);
+    assertEquals(List.of(), fixture.view.launched);
+  }
+
   @Test
   void programsAreNotOpenedInAnEditor() throws Exception {
-    assertTrue(ApplicationController.runsInsteadOfOpening(Path.of("setup.EXE"), true));
-    assertTrue(ApplicationController.runsInsteadOfOpening(Path.of("run.bat"), true));
-    assertFalse(ApplicationController.runsInsteadOfOpening(Path.of("app.log"), true));
+    assertTrue(PathCommands.runsInsteadOfOpening(Path.of("setup.EXE"), true));
+    assertTrue(PathCommands.runsInsteadOfOpening(Path.of("run.bat"), true));
+    assertFalse(PathCommands.runsInsteadOfOpening(Path.of("app.log"), true));
   }
 
   @Test
@@ -201,7 +253,7 @@ class TabCommandsTest {
   @DisabledOnOs(OS.WINDOWS)
   void aPlainFileIsNotAProgramOnPosix() throws Exception {
     Path log = Files.writeString(temp.resolve("plain.log"), "x\n");
-    assertFalse(ApplicationController.runsInsteadOfOpening(log, false));
+    assertFalse(PathCommands.runsInsteadOfOpening(log, false));
   }
 
   @Test

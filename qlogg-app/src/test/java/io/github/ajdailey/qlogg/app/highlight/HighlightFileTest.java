@@ -74,8 +74,8 @@ class HighlightFileTest {
   @Test
   void exportAndImportAddOnlyNewIds() throws Exception {
     Path file = temp.resolve("sets.conf");
-    HighlightFile.write(file, List.of(sample("a"), sample("b")));
-    List<HighlightSet> read = HighlightFile.read(file);
+    HighlightFile.write(file, List.of(sample("a"), sample("b")), null);
+    List<HighlightSet> read = HighlightFile.read(file, null);
     assertEquals(List.of(sample("a"), sample("b")), read);
     assertTrue(Files.readString(file, StandardCharsets.ISO_8859_1).startsWith("highlight.set."));
     HighlightSettings current =
@@ -110,7 +110,7 @@ class HighlightFileTest {
   @Test
   void anExportWithAUtf8ByteOrderMarkImports() throws Exception {
     Path file = temp.resolve("sets.conf");
-    HighlightFile.write(file, List.of(sample("a")));
+    HighlightFile.write(file, List.of(sample("a")), null);
     byte[] written = Files.readAllBytes(file);
     byte[] marked = new byte[written.length + 3];
     marked[0] = (byte) 0xEF;
@@ -118,7 +118,7 @@ class HighlightFileTest {
     marked[2] = (byte) 0xBF;
     System.arraycopy(written, 0, marked, 3, written.length);
     Files.write(file, marked);
-    assertEquals(List.of(sample("a")), HighlightFile.read(file));
+    assertEquals(List.of(sample("a")), HighlightFile.read(file, null));
   }
 
   private static void assertRejected(final Path file) {
@@ -127,7 +127,7 @@ class HighlightFileTest {
         new Executable() {
           @Override
           public void execute() throws Exception {
-            HighlightFile.read(file);
+            HighlightFile.read(file, null);
           }
         });
   }
@@ -167,8 +167,8 @@ class HighlightFileTest {
   @Test
   void triggersRoundTripThroughExportAndProperties() throws Exception {
     Path file = temp.resolve("triggers.conf");
-    HighlightFile.write(file, List.of(triggered("a")));
-    assertEquals(List.of(triggered("a")), HighlightFile.read(file));
+    HighlightFile.write(file, List.of(triggered("a")), null);
+    assertEquals(List.of(triggered("a")), HighlightFile.read(file, null));
     Properties properties = new Properties();
     HighlightSettings settings =
         new HighlightSettings(
@@ -180,10 +180,10 @@ class HighlightFileTest {
   @Test
   void aFileWithoutTriggersLoadsWithoutActions() throws Exception {
     Path file = temp.resolve("old.conf");
-    HighlightFile.write(file, List.of(sample("a")));
+    HighlightFile.write(file, List.of(sample("a")), null);
     String text = Files.readString(file, StandardCharsets.ISO_8859_1);
     assertTrue(!text.contains("stopFollow") && !text.contains(".quiet"), text);
-    HighlightSet read = HighlightFile.read(file).get(0);
+    HighlightSet read = HighlightFile.read(file, null).get(0);
     assertEquals(sample("a"), read);
     assertEquals(RuleTrigger.NONE, read.rules().get(0).trigger());
   }
@@ -191,13 +191,13 @@ class HighlightFileTest {
   @Test
   void aMalformedTriggerValueTurnsOnlyThatActionOff() throws Exception {
     Path file = temp.resolve("bad.conf");
-    HighlightFile.write(file, List.of(triggered("a")));
+    HighlightFile.write(file, List.of(triggered("a")), null);
     String text =
         Files.readString(file, StandardCharsets.ISO_8859_1)
             .replace("rule.0.stopFollow=true", "rule.0.stopFollow=yes")
             .replace("rule.1.comment=kept", "rule.1.comment=" + "c".repeat(1001));
     Files.writeString(file, text, StandardCharsets.ISO_8859_1);
-    HighlightSet read = HighlightFile.read(file).get(0);
+    HighlightSet read = HighlightFile.read(file, null).get(0);
     assertEquals(
         new RuleTrigger(false, true, "at %L {x(\\d)}{$1}", true), read.rules().get(0).trigger());
     assertEquals(RuleTrigger.NONE, read.rules().get(1).trigger());

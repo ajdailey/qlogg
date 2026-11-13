@@ -27,7 +27,7 @@ class ReopeningByteSourceTest {
   @TempDir Path dir;
 
   private static ReopeningByteSource open(Path file) throws IOException {
-    try (FileByteSource opened = FileByteSource.open(file)) {
+    try (FileByteSource opened = FileByteSource.open(file, null)) {
       return ReopeningByteSource.of(opened);
     }
   }

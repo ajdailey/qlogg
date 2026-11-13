@@ -39,14 +39,14 @@ class FilterFileTest {
   @Test
   void exportThenImportRoundTrips() throws IOException {
     Path file = temp.resolve("filters.conf");
-    FilterFile.write(file, FILTERS);
-    assertEquals(FILTERS, FilterFile.read(file));
+    FilterFile.write(file, FILTERS, null);
+    assertEquals(FILTERS, FilterFile.read(file, null));
     String text = Files.readString(file, StandardCharsets.ISO_8859_1);
     assertTrue(text.startsWith("filter.0.name=Errors\n"), text);
     assertTrue(text.contains("version=1\n"), text);
     assertFalse(text.contains("#"), text);
-    FilterFile.write(file, FILTERS.subList(0, 1));
-    assertEquals(FILTERS.subList(0, 1), FilterFile.read(file));
+    FilterFile.write(file, FILTERS.subList(0, 1), null);
+    assertEquals(FILTERS.subList(0, 1), FilterFile.read(file, null));
     List<String> names = new ArrayList<String>();
     try (DirectoryStream<Path> entries = Files.newDirectoryStream(temp)) {
       for (Path entry : entries) {
@@ -64,7 +64,7 @@ class FilterFileTest {
         new Executable() {
           @Override
           public void execute() throws Throwable {
-            FilterFile.read(file);
+            FilterFile.read(file, null);
           }
         });
   }
@@ -86,7 +86,7 @@ class FilterFileTest {
         new Executable() {
           @Override
           public void execute() throws Throwable {
-            FilterFile.read(temp);
+            FilterFile.read(temp, null);
           }
         });
   }
@@ -94,28 +94,28 @@ class FilterFileTest {
   @Test
   void anEmptyExportHasNoFilters() throws IOException {
     Path file = temp.resolve("empty.conf");
-    FilterFile.write(file, List.of());
-    assertEquals(List.of(), FilterFile.read(file));
+    FilterFile.write(file, List.of(), null);
+    assertEquals(List.of(), FilterFile.read(file, null));
   }
 
   @Test
   void anExportWithAUtf8ByteOrderMarkImports() throws IOException {
     Path file = temp.resolve("filters.conf");
-    FilterFile.write(file, FILTERS);
+    FilterFile.write(file, FILTERS, null);
     Files.write(file, withBom(Files.readAllBytes(file)));
-    assertEquals(FILTERS, FilterFile.read(file));
+    assertEquals(FILTERS, FilterFile.read(file, null));
   }
 
   @Test
   void anExportEditedAsUtf8OrLatin1KeepsItsNonAsciiText() throws IOException {
     Path file = temp.resolve("filters.conf");
-    FilterFile.write(file, FILTERS);
+    FilterFile.write(file, FILTERS, null);
     String text = Files.readString(file, StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("\\u00E9"), text);
     String typed = text.replace("\\u00E9", "\u00e9");
     Files.writeString(file, typed, StandardCharsets.UTF_8);
-    assertEquals(FILTERS, FilterFile.read(file));
+    assertEquals(FILTERS, FilterFile.read(file, null));
     Files.writeString(file, typed, StandardCharsets.ISO_8859_1);
-    assertEquals(FILTERS, FilterFile.read(file));
+    assertEquals(FILTERS, FilterFile.read(file, null));
   }
 }

@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.app.ipc.InstanceServer;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
+import io.github.ajdailey.qlogg.core.io.SafePaths;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -77,7 +78,7 @@ public final class LaunchMain {
       String line = in.readLine();
       while (line != null && line.startsWith(ROUTE)) {
         String route = line.substring(ROUTE.length());
-        run(route, directory.resolve("instance.lock"));
+        run(route, directory.resolve("instance.lock"), server.heldLock());
         say(DONE + route);
         line = in.readLine();
       }
@@ -86,13 +87,13 @@ public final class LaunchMain {
   }
 
   /** Runs one way a QLogg process reaches a file the user names, on the lock file. */
-  private static void run(String route, Path lock) {
+  private static void run(String route, Path lock, SafePaths.HeldLock held) {
     try {
       switch (route) {
-        case "tab" -> FileByteSource.open(lock).close();
-        case "filterImport" -> FilterFile.read(lock);
-        case "highlightImport" -> HighlightFile.read(lock);
-        case "export" -> FilterFile.write(lock, List.of());
+        case "tab" -> FileByteSource.open(lock, held).close();
+        case "filterImport" -> FilterFile.read(lock, held);
+        case "highlightImport" -> HighlightFile.read(lock, held);
+        case "export" -> FilterFile.write(lock, List.of(), held);
         default -> throw new IllegalArgumentException(route);
       }
     } catch (IOException e) {

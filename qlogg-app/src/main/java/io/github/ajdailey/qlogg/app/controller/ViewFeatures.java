@@ -40,7 +40,7 @@ final class ViewFeatures {
 
   private static final Logger LOG = LoggerFactory.getLogger(ViewFeatures.class);
 
-  private final ApplicationController application;
+  private final ViewFeaturesHost host;
   private final Workers workers;
   private final UiDispatcher ui;
   private final MainView view;
@@ -49,12 +49,17 @@ final class ViewFeatures {
   private final FolderSearchController folderSearch;
   private boolean blockMode;
 
-  ViewFeatures(ApplicationController application, Workers workers, UiDispatcher ui, MainView view) {
-    this.application = application;
+  ViewFeatures(
+      ViewFeaturesHost host,
+      FolderSearchController folderSearch,
+      Workers workers,
+      UiDispatcher ui,
+      MainView view) {
+    this.host = host;
+    this.folderSearch = folderSearch;
     this.workers = workers;
     this.ui = ui;
     this.view = view;
-    this.folderSearch = new FolderSearchController(application, ui, view);
   }
 
   /** The search across open files. */
@@ -74,7 +79,7 @@ final class ViewFeatures {
 
   /** Applies the view settings to a new document and picks its highlighter set. */
   void configure(DocumentController document) {
-    ViewOptions options = application.preferences().view();
+    ViewOptions options = host.preferences().view();
     document.document().setHideAnsi(options.hideAnsi());
     document.setWrapBoth(options.wrapOnOpen());
     document.setWhitespaceBoth(options.showWhitespace());
@@ -93,21 +98,21 @@ final class ViewFeatures {
    * @return false when the command is not one of them
    */
   boolean execute(CommandId command) {
-    DocumentController document = application.activeDocument();
-    ViewOptions options = application.preferences().view();
+    DocumentController document = host.activeDocument();
+    ViewOptions options = host.preferences().view();
     switch (command) {
       case WRAP_ON_OPEN -> setView(options.withWrapOnOpen(!options.wrapOnOpen()));
       case TOGGLE_WHITESPACE -> {
         boolean on = !options.showWhitespace();
         setView(options.withShowWhitespace(on));
-        for (DocumentController open : application.documents()) {
+        for (DocumentController open : host.documents()) {
           open.setWhitespaceBoth(on);
         }
       }
       case HIDE_ANSI -> {
         boolean on = !options.hideAnsi();
         setView(options.withHideAnsi(on));
-        for (DocumentController open : application.documents()) {
+        for (DocumentController open : host.documents()) {
           open.document().setHideAnsi(on);
           open.changed();
           open.filtered().changed();
@@ -153,23 +158,21 @@ final class ViewFeatures {
    * @param options the settings
    */
   void setView(ViewOptions options) {
-    Preferences current = application.preferences();
-    application.setPreferences(current.withView(options));
+    Preferences current = host.preferences();
+    host.setPreferences(current.withView(options));
     if (!options.folds().equals(current.view().folds())) {
-      for (ApplicationController window : application.windowSet().windows()) {
-        for (DocumentController open : window.documents()) {
-          open.setFoldRules(options.folds());
-        }
+      for (DocumentController open : host.allDocuments()) {
+        open.setFoldRules(options.folds());
       }
     }
     // View colors.
     if (!options.colors().equals(current.view().colors())) {
-      application.theme().setColors(options.colors());
+      host.theme().setColors(options.colors());
     }
   }
 
   private void sendToScratchpad(final boolean replace) {
-    LineViewController target = application.focusedView();
+    LineViewController target = host.focusedView();
     if (target == null) {
       return;
     }
@@ -183,7 +186,7 @@ final class ViewFeatures {
   }
 
   private void searchAllFiles() {
-    DocumentController document = application.activeDocument();
+    DocumentController document = host.activeDocument();
     if (document == null) {
       return;
     }
@@ -192,17 +195,17 @@ final class ViewFeatures {
       view.showNotice(UiText.MULTI_NO_TEXT.text());
       return;
     }
-    multiSearch.run(application.documents(), text, document.search().options());
+    multiSearch.run(host.documents(), text, document.search().options());
     view.showMultiSearch();
   }
 
   /** Asks for a target, validates it on a worker, then saves the selection or the filtered view. */
   private void save(final boolean filtered) {
-    final DocumentController document = application.activeDocument();
+    final DocumentController document = host.activeDocument();
     if (document == null) {
       return;
     }
-    final LineViewController target = filtered ? document.filtered() : application.focusedView();
+    final LineViewController target = filtered ? document.filtered() : host.focusedView();
     if (target == null) {
       return;
     }
@@ -211,13 +214,14 @@ final class ViewFeatures {
       return;
     }
     final Path given = chosen;
+    final SafePaths.HeldLock held = host.services().heldLock();
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
             new Runnable() {
               @Override
               public void run() {
-                validate(given, target, filtered);
+                validate(given, held, target, filtered);
               }
             });
     if (!started) {
@@ -226,11 +230,15 @@ final class ViewFeatures {
   }
 
   @WorkerThread
-  private void validate(Path given, final LineViewController target, final boolean filtered) {
+  private void validate(
+      Path given,
+      SafePaths.HeldLock held,
+      final LineViewController target,
+      final boolean filtered) {
     Path checked = null;
     String error = null;
     try {
-      checked = SafePaths.logFile(given);
+      checked = SafePaths.logFile(given, held);
     } catch (IOException e) {
       error = UiText.SAVE_FAILED.format(LogText.oneLine(e.getMessage()));
     }
@@ -253,12 +261,10 @@ final class ViewFeatures {
       view.showError(UiText.SAVE_TITLE.text(), error);
       return;
     }
-    for (ApplicationController window : application.windowSet().windows()) {
-      for (DocumentController open : window.documents()) {
-        if (!open.document().inMemory() && open.document().realPath().equals(file)) {
-          view.showError(UiText.SAVE_TITLE.text(), UiText.SAVE_OPEN_FILE.text());
-          return;
-        }
+    for (DocumentController open : host.allDocuments()) {
+      if (!open.document().inMemory() && open.document().realPath().equals(file)) {
+        view.showError(UiText.SAVE_TITLE.text(), UiText.SAVE_OPEN_FILE.text());
+        return;
       }
     }
     if (filtered) {

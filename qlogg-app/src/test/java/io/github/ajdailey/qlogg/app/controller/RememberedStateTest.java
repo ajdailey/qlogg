@@ -16,6 +16,7 @@ import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
@@ -620,5 +621,120 @@ class RememberedStateTest {
           List.of(missing.toAbsolutePath().normalize().toString()),
           run.application.preferences().state().closedFiles());
     }
+  }
+
+  // Remembered-state writes made by one window.
+
+  @Test
+  void dialogSizesAreKeptAndAnEmptySizeIsIgnored() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      assertNull(fixture.application.rememberedState().dialogSize("Marks"));
+      fixture.application.rememberedState().rememberDialogSize("Marks", 0, 300);
+      assertNull(fixture.application.rememberedState().dialogSize("Marks"));
+      fixture.application.rememberedState().rememberDialogSize("Marks", 400, 300);
+      assertEquals(
+          new UiState.Size(400, 300), fixture.application.rememberedState().dialogSize("Marks"));
+      Preferences kept = fixture.application.preferences();
+      fixture.application.rememberedState().rememberDialogSize("Marks", 400, 300);
+      assertSame(kept, fixture.application.preferences());
+    }
+  }
+
+  @Test
+  void theWindowsPlacementIsKeptWithTheSplitClamped() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      WindowState window = new WindowState(5, 6, 700, 500, false);
+      fixture.application.rememberedState().rememberWindow(window, Preferences.MAX_SPLIT + 5);
+      assertEquals(window, fixture.application.preferences().state().window());
+      assertEquals(Preferences.MAX_SPLIT, fixture.application.preferences().state().split());
+      fixture.application.rememberedState().rememberWindow(window, 0);
+      assertEquals(Preferences.MIN_SPLIT, fixture.application.preferences().state().split());
+    }
+  }
+
+  @Test
+  void openRemembersTheChosenFolder() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Path file = fixture.lines("chosen.log", 3);
+      fixture.view.chosen = List.of(file);
+      fixture.application.execute(CommandId.OPEN);
+      assertEquals(
+          file.getParent().toString(), fixture.application.preferences().state().openDirectory());
+    }
+  }
+
+  @Test
+  void searchTogglesAndLineNumbersAreKeptForTheNextTab() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      fixture.open(fixture.lines("first.log", 3));
+      boolean caseSensitive = fixture.application.initialOptions().caseSensitive();
+      fixture.application.execute(CommandId.TOGGLE_CASE);
+      assertEquals(
+          !caseSensitive, fixture.application.preferences().state().search().caseSensitive());
+      assertEquals(!caseSensitive, fixture.application.initialOptions().caseSensitive());
+      boolean numbers = fixture.application.preferences().state().lineNumbers();
+      fixture.application.execute(CommandId.TOGGLE_LINE_NUMBERS);
+      assertEquals(!numbers, fixture.application.preferences().state().lineNumbers());
+      DocumentController second = fixture.open(fixture.lines("second.log", 3));
+      assertEquals(!caseSensitive, second.search().options().caseSensitive());
+      assertEquals(!numbers, second.lineNumbers());
+    }
+  }
+
+  /** Records the host calls {@link RememberedState} makes. */
+  private static final class FakeHost implements RememberedStateHost {
+    Preferences settings = Preferences.DEFAULTS;
+    int saves;
+    int scheduled;
+
+    @Override
+    public Preferences settings() {
+      return settings;
+    }
+
+    @Override
+    public void setPreferences(Preferences changed) {
+      settings = changed;
+      saves++;
+    }
+
+    @Override
+    public void preferencesChanged(Preferences changed) {
+      settings = changed;
+    }
+
+    @Override
+    public void scheduleSave() {
+      scheduled++;
+    }
+  }
+
+  @Test
+  void aDialogSizeSavesAndTheWindowPlacementWaitsForClose() {
+    FakeHost host = new FakeHost();
+    final boolean[] closing = {false};
+    RememberedState state =
+        new RememberedState(
+            host,
+            null,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return closing[0];
+              }
+            });
+    state.rememberDialogSize("Marks", 400, 300);
+    assertEquals(new UiState.Size(400, 300), state.dialogSize("Marks"));
+    assertEquals(1, host.saves);
+    WindowState window = new WindowState(5, 6, 700, 500, false);
+    state.rememberWindow(window, Preferences.MAX_SPLIT + 5);
+    assertEquals(window, host.settings.state().window());
+    assertEquals(Preferences.MAX_SPLIT, host.settings.state().split());
+    assertEquals(1, host.saves);
+    state.scheduleSave();
+    assertEquals(1, host.scheduled);
+    closing[0] = true;
+    state.scheduleSave();
+    assertEquals(1, host.scheduled);
   }
 }

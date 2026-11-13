@@ -215,6 +215,8 @@ fails:
 | Views do not depend on `LogDocument`, `MutableLineSet`, `LineReader` or `FoldMap`, and do not call `Viewport` mutators | The controller owns the document, the sets and the viewport |
 | Views do not call `Highlighter.of` or `compile` | `HighlightComposer` and `HighlightSetsEditor` compose and validate rules |
 | `ui.swt` does not call `ApplicationController.isFavorite`, `debugLogFile`, `runSearchOnAdd` or `ThemeController.mode` | `CommandStates` computes check item state |
+| `app.controller` classes other than `WindowSet` and `ApplicationController` do not call `ApplicationController.windowSet()` (`helpersDoNotReachTheWindowSet`) | Each helper takes a narrow host interface |
+| Main code does not call the `DocumentServices` constructor without the held lock (`mainCodeCarriesTheHeldLock`) | Every path check rejects the instance lock file |
 | `app.controller.TextExporter` does not depend on `app.view` | The exporter runs on a worker; its caller posts the result to the UI thread |
 | Public `app.controller` methods do not return `MutableLineSet` | Views cannot change marks or results |
 | `app.controller` reads no system property or environment variable | Tests choose the platform through the view |

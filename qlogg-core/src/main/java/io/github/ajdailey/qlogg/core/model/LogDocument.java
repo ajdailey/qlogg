@@ -205,7 +205,7 @@ public final class LogDocument implements LineSource, Closeable {
       boolean detectTimeFormat,
       boolean keepClosed)
       throws IOException {
-    FileByteSource held = FileByteSource.open(path);
+    FileByteSource held = FileByteSource.open(path, services.heldLock());
     boolean opened = false;
     try {
       // Read through the held channel: a rotation here must not fail the open.

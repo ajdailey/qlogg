@@ -3,10 +3,9 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.controller.ResultTabs;
 import io.github.ajdailey.qlogg.app.controller.SearchController;
-import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
-import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import java.util.List;
@@ -142,44 +141,20 @@ final class ResultsPane {
       new CTabItem(sets, sets.getItemCount() == 0 ? SWT.NONE : SWT.CLOSE);
     }
     SearchViewState state = search.state();
-    String current =
-        state.text().isEmpty()
-            ? UiText.RESULTS_CURRENT_EMPTY.text()
-            : UiText.RESULTS_TAB.format(
-                shorten(label(state.text(), state.options())), search.resultCount());
-    // A CTabItem takes a single & as a mnemonic, and SWT drops one from a tool tip.
-    sets.getItem(0).setText(current.replace("&", "&&"));
+    sets.getItem(0).setText(ResultTabs.current(state, search.resultCount()));
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);
       // Selection and close match the set by identity.
       item.setData(set);
-      item.setText(
-          UiText.RESULTS_TAB
-              .format(shorten(label(set.text(), set.options())), set.lineCount())
-              .replace("&", "&&"));
-      item.setToolTipText(label(set.text(), set.options()).replace("&", "&&"));
+      item.setText(ResultTabs.kept(set));
+      item.setToolTipText(ResultTabs.tip(set.text(), set.options()));
     }
-    sets.getItem(0).setToolTipText(label(state.text(), state.options()).replace("&", "&&"));
+    sets.getItem(0).setToolTipText(ResultTabs.tip(state.text(), state.options()));
     sets.setSelection(search.shown() + 1);
     // Accessible names.
     canvas
         .accessibleName()
-        .set(
-            state.text().isEmpty() && search.shown() < 0
-                ? UiText.ACCESSIBLE_FILTERED_VIEW.text()
-                : UiText.ACCESSIBLE_FILTERED_VIEW_COUNT.format(
-                    search.shown() < 0
-                        ? search.resultCount()
-                        : kept.get(search.shown()).lineCount()));
-  }
-
-  /** A search's text, with a range search's end after it. */
-  private static String label(String text, SearchOptions options) {
-    return options.range() ? UiText.RESULTS_RANGE.format(text, options.rangeEnd()) : text;
-  }
-
-  private static String shorten(String text) {
-    return text.length() > 32 ? text.substring(0, 31) + "..." : text;
+        .set(ResultTabs.accessibleName(state, search.shown(), search.resultCount(), kept));
   }
 }

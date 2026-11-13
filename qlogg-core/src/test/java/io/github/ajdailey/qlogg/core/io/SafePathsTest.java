@@ -14,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,27 +21,21 @@ import org.junit.jupiter.api.io.TempDir;
 class SafePathsTest {
   @TempDir Path temp;
 
-  @AfterEach
-  void release() {
-    SafePaths.releaseLock();
-  }
-
   @Test
-  void rejectsTheHeldLockFileUntilItIsReleased() throws Exception {
+  void rejectsTheHeldLockFileOnlyWhenTheLockIsGiven() throws Exception {
     final Path lock = Files.createFile(temp.resolve("instance.lock"));
-    SafePaths.holdLock(lock, "mock refusal");
+    final SafePaths.HeldLock held = SafePaths.HeldLock.of(lock, "mock refusal");
     IOException refused =
         assertThrows(
             IOException.class,
             new Executable() {
               @Override
               public void execute() throws IOException {
-                SafePaths.logPath(lock);
+                SafePaths.logPath(lock, held);
               }
             });
     assertEquals("mock refusal", refused.getMessage());
-    SafePaths.releaseLock();
-    assertEquals(lock.toRealPath(), SafePaths.logFile(lock));
+    assertEquals(lock.toRealPath(), SafePaths.logFile(lock, null));
   }
 
   @Test
@@ -51,14 +44,14 @@ class SafePathsTest {
     assumeTrue(Files.readAttributes(lock, BasicFileAttributes.class).fileKey() != null);
     final Path hard = Files.createLink(temp.resolve("hard"), lock);
     final Path soft = Files.createSymbolicLink(temp.resolve("soft"), lock);
-    SafePaths.holdLock(lock, "mock refusal");
+    final SafePaths.HeldLock held = SafePaths.HeldLock.of(lock, "mock refusal");
     for (final Path link : List.of(hard, soft)) {
       assertThrows(
           IOException.class,
           new Executable() {
             @Override
             public void execute() throws IOException {
-              SafePaths.logFile(link);
+              SafePaths.logFile(link, held);
             }
           });
     }
@@ -67,8 +60,9 @@ class SafePathsTest {
   @Test
   void acceptsOtherFilesWhileALockIsHeld() throws Exception {
     Path other = Files.createFile(temp.resolve("mock.log"));
-    SafePaths.holdLock(Files.createFile(temp.resolve("instance.lock")), "mock refusal");
-    assertEquals(other.toRealPath(), SafePaths.logFile(other));
+    SafePaths.HeldLock held =
+        SafePaths.HeldLock.of(Files.createFile(temp.resolve("instance.lock")), "mock refusal");
+    assertEquals(other.toRealPath(), SafePaths.logFile(other, held));
   }
 
   private static void rejects(final String path) {
@@ -77,7 +71,7 @@ class SafePathsTest {
         new Executable() {
           @Override
           public void execute() throws Throwable {
-            SafePaths.logFile(path);
+            SafePaths.logFile(path, null);
           }
         },
         path);
@@ -87,7 +81,7 @@ class SafePathsTest {
   void existingFileResolvesToRealPath() throws Exception {
     Path file = Files.createFile(temp.resolve("app.log"));
     Path dotted = temp.resolve("sub").resolve("..").resolve("app.log");
-    assertEquals(file.toRealPath(), SafePaths.logFile(dotted.toString()));
+    assertEquals(file.toRealPath(), SafePaths.logFile(dotted.toString(), null));
   }
 
   @Test
@@ -95,7 +89,7 @@ class SafePathsTest {
     assumeTrue(File.separatorChar == '/', "symbolic links need privileges on Windows");
     Path target = Files.createFile(temp.resolve("app-1.log"));
     Path link = Files.createSymbolicLink(temp.resolve("app.log"), target);
-    SafePaths.LogPath checked = SafePaths.logPath(link);
+    SafePaths.LogPath checked = SafePaths.logPath(link, null);
     assertEquals(link.toAbsolutePath().normalize(), checked.given());
     assertEquals(target.toRealPath(), checked.real());
     Path dir = Files.createDirectory(temp.resolve("dir"));
@@ -130,7 +124,7 @@ class SafePathsTest {
   void missingFileNeedsParentDirectory() throws Exception {
     assertEquals(
         temp.toRealPath().resolve("later.log"),
-        SafePaths.logFile(temp.resolve("later.log").toString()));
+        SafePaths.logFile(temp.resolve("later.log").toString(), null));
     rejects(temp.resolve("nodir").resolve("x.log").toString());
   }
 

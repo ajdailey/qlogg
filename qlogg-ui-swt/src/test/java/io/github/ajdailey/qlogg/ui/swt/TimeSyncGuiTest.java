@@ -112,7 +112,7 @@ class TimeSyncGuiTest {
               @Override
               public boolean getAsBoolean() {
                 DocumentController shown = controller.activeDocument();
-                return window.tabs().getItemCount() == 3
+                return window.tabStrip().tabs().getItemCount() == 3
                     && shown != null
                     && window.canvas() != null
                     && !shown.state().indexing()
@@ -165,7 +165,7 @@ class TimeSyncGuiTest {
   }
 
   private Menu tabCascade(DocumentController document) {
-    Menu menu = window.showTabMenu(document, 0, 0);
+    Menu menu = window.tabStrip().showTabMenu(document, 0, 0);
     menu.setVisible(false);
     MenuItem cascade = item(menu, UiText.MENU_TIME_SYNC.text());
     assertNotNull(cascade);
@@ -173,7 +173,7 @@ class TimeSyncGuiTest {
   }
 
   private String tip(int index) {
-    CTabItem item = window.tabs().getItem(index);
+    CTabItem item = window.tabStrip().tabs().getItem(index);
     return item.getToolTipText();
   }
 
@@ -191,11 +191,11 @@ class TimeSyncGuiTest {
 
   @Test
   void anAmpersandInATabTitleShowsLiterally() {
-    CTabItem item = window.tabs().getItem(0);
+    CTabItem item = window.tabStrip().tabs().getItem(0);
     assertEquals("first && one.log", item.getText());
     assertEquals("first & one.log", controller.tabTitle(tab(0)));
     assertTrue(item.getToolTipText().endsWith("first && one.log"), item.getToolTipText());
-    GC gc = new GC(window.tabs());
+    GC gc = new GC(window.tabStrip().tabs());
     try {
       // The tab draws with mnemonics on; escaped, its text is as wide as the title drawn without.
       assertEquals(

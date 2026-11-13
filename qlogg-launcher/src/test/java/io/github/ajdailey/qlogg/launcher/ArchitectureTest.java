@@ -33,15 +33,20 @@ import io.github.ajdailey.qlogg.app.about.UserGuide;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.PositionStore;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
+import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.WorkerThread;
 import io.github.ajdailey.qlogg.app.highlight.HighlightFile;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
+import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
+import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.FoldClassifier;
 import io.github.ajdailey.qlogg.core.model.FoldMap;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
@@ -51,6 +56,7 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.RangeFinder;
+import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimeSamples;
 import io.github.ajdailey.qlogg.core.time.TimeSearch;
@@ -972,6 +978,65 @@ class ArchitectureTest {
         return call.getTarget().getOwner().isAssignableTo(type);
       }
     };
+  }
+
+  // Window controller hosts.
+
+  /** A helper of {@code ApplicationController} reaches its window through its host interface. */
+  @Test
+  void helpersDoNotReachTheWindowSet() {
+    helpersDoNotReachTheWindowSetRule().check(classes);
+  }
+
+  @Test
+  void windowSetRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        helpersDoNotReachTheWindowSetRule(),
+        ROOT + ".app.controller.archfixture.ControllerViolations$ReachesTheWindowSet",
+        "ApplicationController.windowSet()");
+  }
+
+  private static ArchRule helpersDoNotReachTheWindowSetRule() {
+    return noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".app.controller..")
+        .and()
+        .haveNameNotMatching(
+            ROOT.replace(".", "\\.")
+                + "\\.app\\.controller\\.(WindowSet|ApplicationController)(\\$.*)?")
+        .should()
+        .callMethodWhere(call(ApplicationController.class, "windowSet"))
+        .because("each helper takes a narrow host, as DocumentController takes DocumentHost");
+  }
+
+  // Document services.
+
+  /** Main code builds {@code DocumentServices} with the held lock or copies existing services. */
+  @Test
+  void mainCodeCarriesTheHeldLock() {
+    mainCodeCarriesTheHeldLockRule().check(classes);
+  }
+
+  @Test
+  void heldLockRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        mainCodeCarriesTheHeldLockRule(),
+        ROOT + ".app.controller.archfixture.ControllerViolations$DropsTheHeldLock",
+        "DocumentServices.<init>");
+  }
+
+  private static ArchRule mainCodeCarriesTheHeldLockRule() {
+    return noClasses()
+        .should()
+        .callConstructor(
+            DocumentServices.class,
+            Workers.class,
+            Indexer.class,
+            SearchEngine.class,
+            BlockCache.class,
+            MemoryBudget.class,
+            Charset.class)
+        .because("the constructor without the held lock is for tests and benchmarks");
   }
 
   // Operating system checks.

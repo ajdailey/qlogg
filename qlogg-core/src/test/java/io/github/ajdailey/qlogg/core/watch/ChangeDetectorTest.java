@@ -24,7 +24,7 @@ class ChangeDetectorTest {
 
   /** Opens the file and takes a baseline covering its whole content. */
   private static Baseline baseline(Path file) throws IOException {
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       long size = source.size();
       int head = (int) Math.min(size, FileIdentity.HEAD_BYTES);
       return new Baseline(
@@ -129,7 +129,7 @@ class ChangeDetectorTest {
   void truncateThenRegrowOfAFileOpenedEmptyIsReplaced() throws Exception {
     Path file = write("regrow.log", "");
     FileIdentity opened;
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       opened = source.identity();
     }
     Files.writeString(file, "old line one\nold line two\n".repeat(4), StandardCharsets.US_ASCII);

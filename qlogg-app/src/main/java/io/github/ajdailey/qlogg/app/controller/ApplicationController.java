@@ -10,7 +10,6 @@ import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.PositionStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
-import io.github.ajdailey.qlogg.app.config.SearchToggles;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.UiState;
@@ -36,10 +35,10 @@ import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
-import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.text.LogText;
@@ -56,7 +55,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,7 +104,13 @@ import org.slf4j.LoggerFactory;
  * before it closes the file. Closing the window and quitting are {@link WindowSet#close} and {@link
  * WindowSet#quit}. The UI thread never waits.
  */
-public final class ApplicationController implements DocumentHost {
+public final class ApplicationController
+    implements DocumentHost,
+        QuickFindHost,
+        ViewFeaturesHost,
+        TimeFeaturesHost,
+        RecentFilesHost,
+        FolderSearchHost {
   /** Points of the window's height that {@code +} and {@code -} move the split. */
   public static final int SPLIT_STEP = 5;
 
@@ -115,12 +119,6 @@ public final class ApplicationController implements DocumentHost {
 
   /** Longest tab name. */
   public static final int TAB_NAME_CHARS = 128;
-
-  /** File name extensions Windows runs rather than opens; lower case, with the dot. */
-  static final List<String> WINDOWS_EXECUTABLE =
-      List.of(
-          ".bat", ".cmd", ".com", ".cpl", ".exe", ".hta", ".js", ".jse", ".lnk", ".msc", ".msi",
-          ".pif", ".ps1", ".reg", ".scr", ".url", ".vbe", ".vbs", ".wsf", ".wsh");
 
   /** Longest predefined filter name made by Save as Filter. */
   public static final int FILTER_NAME_CHARS = 64;
@@ -160,6 +158,10 @@ public final class ApplicationController implements DocumentHost {
   private CommandPalette palette;
   // Always on Top.
   private final AlwaysOnTop alwaysOnTop;
+  // Positions, recent files, toggles, folders, window placement and dialog sizes; saves.
+  private final RememberedState remembered;
+  // Copy Path, Copy File Name, Open Containing Folder and Open in Editor.
+  private final PathCommands paths;
 
   /**
    * Creates the only window of a new {@link WindowSet} with a system setting that is always light.
@@ -216,12 +218,14 @@ public final class ApplicationController implements DocumentHost {
     this.view = view;
     this.config = set.config();
     this.preferences = set.preferences();
+    this.remembered = new RememberedState(set, config, this::isShuttingDown);
     Preferences current = preferences.get();
     this.quickFind = new QuickFindController(this, workers, ui, view, view);
     quickFind.applyPreferences(current.quickFindIncremental(), current.quickFindRegex());
     this.theme = set.theme();
-    this.features = new ViewFeatures(this, workers, ui, view);
-    this.time = new TimeFeatures(this, workers, ui, view, config);
+    this.features =
+        new ViewFeatures(this, new FolderSearchController(this, ui, view), workers, ui, view);
+    this.time = new TimeFeatures(this, set.timeSync(), workers, ui, view, config);
     this.monitor = set.monitor();
     this.opener =
         new DocumentOpener(
@@ -236,12 +240,13 @@ public final class ApplicationController implements DocumentHost {
               }
             });
     this.help = new HelpController(set, view, this::isShuttingDown);
+    this.paths = new PathCommands(workers, ui, view, help, this::isShuttingDown);
     // Recently Closed and Open All.
     this.recent = new RecentFiles(this, workers, ui, view);
     // Tab data dot.
     addListener(tabData);
     // Always on Top.
-    this.alwaysOnTop = new AlwaysOnTop(view, this::scheduleSave);
+    this.alwaysOnTop = new AlwaysOnTop(view, remembered::scheduleSave);
     set.register(this);
   }
 
@@ -380,6 +385,7 @@ public final class ApplicationController implements DocumentHost {
       final Path path,
       final List<HighlightSet> sets,
       final SettingsFileListener<HighlightSet> listener) {
+    final SafePaths.HeldLock held = set.services().heldLock();
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
@@ -390,9 +396,9 @@ public final class ApplicationController implements DocumentHost {
                 String failure = null;
                 try {
                   if (sets == null) {
-                    result = HighlightFile.read(path);
+                    result = HighlightFile.read(path, held);
                   } else {
-                    HighlightFile.write(path, sets);
+                    HighlightFile.write(path, sets, held);
                   }
                 } catch (IOException e) {
                   failure = LogText.oneLine(e.getMessage());
@@ -492,6 +498,20 @@ public final class ApplicationController implements DocumentHost {
     return Collections.unmodifiableList(documents);
   }
 
+  @Override
+  public List<DocumentController> allDocuments() {
+    List<DocumentController> all = new ArrayList<DocumentController>();
+    for (ApplicationController window : set.windows()) {
+      all.addAll(window.documents);
+    }
+    return all;
+  }
+
+  @Override
+  public DocumentServices services() {
+    return set.services();
+  }
+
   /**
    * Records which view has focus, so its commands go to it.
    *
@@ -518,12 +538,12 @@ public final class ApplicationController implements DocumentHost {
 
   @Override
   public SearchOptions initialOptions() {
-    return options(preferences.get().state().search());
+    return remembered.searchOptions();
   }
 
   @Override
   public void searchRan(String text, SearchOptions options) {
-    rememberSearchOptions(options);
+    remembered.rememberSearchOptions(options);
     Preferences current = preferences.get();
     List<String> history = current.searchHistory();
     if (options.range()) {
@@ -615,6 +635,7 @@ public final class ApplicationController implements DocumentHost {
       final Path path,
       final List<PredefinedFilter> filters,
       final SettingsFileListener<PredefinedFilter> listener) {
+    final SafePaths.HeldLock held = set.services().heldLock();
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
@@ -625,9 +646,9 @@ public final class ApplicationController implements DocumentHost {
                 String failure = null;
                 try {
                   if (filters == null) {
-                    result = FilterFile.read(path);
+                    result = FilterFile.read(path, held);
                   } else {
-                    FilterFile.write(path, filters);
+                    FilterFile.write(path, filters, held);
                   }
                 } catch (IOException e) {
                   failure = LogText.oneLine(e.getMessage());
@@ -715,7 +736,7 @@ public final class ApplicationController implements DocumentHost {
         }
       }
       start(shown);
-      rememberRecent(document);
+      remembered.rememberRecent(document);
       shown.time().setOffset(opening.timeOffset());
       set.timeSync().restore(opening.syncGroup(), shown);
     }
@@ -809,7 +830,7 @@ public final class ApplicationController implements DocumentHost {
     if (following) {
       shown.setFollowing(true);
     }
-    scheduleSave();
+    remembered.scheduleSave();
   }
 
   /**
@@ -925,7 +946,7 @@ public final class ApplicationController implements DocumentHost {
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.tabRenamed(document);
     }
-    scheduleSave();
+    remembered.scheduleSave();
   }
 
   /**
@@ -968,116 +989,6 @@ public final class ApplicationController implements DocumentHost {
     if (removeDocuments(side)) {
       closeWindowAfterLastTab();
     }
-  }
-
-  /**
-   * Puts a tab's full path on the clipboard.
-   *
-   * @param document an open document's controller
-   */
-  public void copyPath(DocumentController document) {
-    Path path = document.document().path();
-    if (path == null) {
-      view.showNotice(UiText.NOTICE_NO_FILE.text());
-      return;
-    }
-    view.setText(path.toString());
-  }
-
-  /**
-   * Puts a tab's file name on the clipboard.
-   *
-   * @param document an open document's controller
-   */
-  public void copyFileName(DocumentController document) {
-    Path path = document.document().path();
-    Path name = path == null ? null : path.getFileName();
-    if (name == null) {
-      view.showNotice(UiText.NOTICE_NO_FILE.text());
-      return;
-    }
-    view.setText(name.toString());
-  }
-
-  /**
-   * Opens the folder holding a tab's file in the system file manager.
-   *
-   * @param document an open document's controller
-   */
-  public void openContainingFolder(DocumentController document) {
-    Path path = document.document().path();
-    Path folder = path == null ? null : path.getParent();
-    if (folder == null) {
-      view.showNotice(UiText.NOTICE_NO_FILE.text());
-      return;
-    }
-    help.launch(folder);
-  }
-
-  /**
-   * Opens a tab's file in the application the system associates with it. A file the system would
-   * run instead is refused: an executable file, or on Windows a {@link #WINDOWS_EXECUTABLE}
-   * extension. The check reads the file's attributes on a worker.
-   *
-   * @param document an open document's controller
-   */
-  public void openInEditor(DocumentController document) {
-    final Path path = document.document().path();
-    if (path == null) {
-      view.showNotice(UiText.NOTICE_NO_FILE.text());
-      return;
-    }
-    final boolean windows = view.launchesByExtension();
-    boolean started =
-        workers.tryStart(
-            Workers.Kind.LIFECYCLE,
-            new Runnable() {
-              @Override
-              public void run() {
-                final boolean runnable = runsInsteadOfOpening(path, windows);
-                ui.asyncExec(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        if (shuttingDown) {
-                          return;
-                        }
-                        if (runnable) {
-                          view.showNotice(
-                              UiText.NOTICE_EDITOR_REFUSED.format(
-                                  String.valueOf(path.getFileName())));
-                        } else {
-                          help.launch(path);
-                        }
-                      }
-                    });
-              }
-            });
-    if (!started) {
-      LOG.debug("Editor not opened: workers are closed");
-    }
-  }
-
-  /**
-   * Reports whether the system would run a file rather than open it.
-   *
-   * @param path the file
-   * @param windows true on Windows, which decides by extension
-   * @return true for an executable file or extension
-   */
-  @WorkerThread
-  static boolean runsInsteadOfOpening(Path path, boolean windows) {
-    if (windows) {
-      Path name = path.getFileName();
-      String text = name == null ? "" : name.toString().toLowerCase(Locale.ROOT);
-      for (String extension : WINDOWS_EXECUTABLE) {
-        if (text.endsWith(extension)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return Files.isExecutable(path);
   }
 
   private DocumentController find(Path path) {
@@ -1139,7 +1050,7 @@ public final class ApplicationController implements DocumentHost {
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.activeDocumentChanged(document);
     }
-    scheduleSave();
+    remembered.scheduleSave();
   }
 
   /**
@@ -1151,7 +1062,7 @@ public final class ApplicationController implements DocumentHost {
   public void moveDocument(DocumentController document, int index) {
     if (documents.remove(document)) {
       documents.add(Math.max(0, Math.min(index, documents.size())), document);
-      scheduleSave();
+      remembered.scheduleSave();
     }
   }
 
@@ -1284,12 +1195,12 @@ public final class ApplicationController implements DocumentHost {
     reopening.remove(document);
     quickFind.cancelRunning(document);
     features.documentClosed(document);
-    rememberPosition(document);
+    remembered.rememberPosition(document);
     // Recently Closed.
     if (!shuttingDown) {
       recent.closed(document.document());
     }
-    scheduleSave();
+    remembered.scheduleSave();
     document.close();
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.documentClosed(document);
@@ -1467,7 +1378,7 @@ public final class ApplicationController implements DocumentHost {
       case CLOSE_ALL -> closeAll();
       case COPY_PATH, COPY_FILE_NAME, OPEN_FOLDER, OPEN_IN_EDITOR -> {
         if (active != null) {
-          pathCommand(command, active);
+          paths.run(command, active);
         }
       }
       case RELOAD -> {
@@ -1702,15 +1613,6 @@ public final class ApplicationController implements DocumentHost {
     }
   }
 
-  private void pathCommand(CommandId command, DocumentController document) {
-    switch (command) {
-      case COPY_PATH -> copyPath(document);
-      case COPY_FILE_NAME -> copyFileName(document);
-      case OPEN_FOLDER -> openContainingFolder(document);
-      default -> openInEditor(document);
-    }
-  }
-
   /** Runs a command of the shown document's search, filtered view or focused view. */
   private void documentCommand(CommandId command) {
     final DocumentController document = active;
@@ -1728,7 +1630,7 @@ public final class ApplicationController implements DocumentHost {
           TOGGLE_KEEP_RESULTS,
           TOGGLE_RANGE -> {
         search.toggle(command);
-        rememberSearchOptions(search.options());
+        remembered.rememberSearchOptions(search.options());
       }
       case SELECT_RANGE -> search.selectRange();
       // Clear Results.
@@ -1743,11 +1645,11 @@ public final class ApplicationController implements DocumentHost {
           document.filtered().setVisibility(document.filtered().visibility().previous());
       case TOGGLE_FILTERED_LINE_NUMBERS -> {
         document.filtered().toggleLineNumbers();
-        rememberLineNumbers(document);
+        remembered.rememberLineNumbers(document);
       }
       case TOGGLE_LINE_NUMBERS -> {
         document.toggleLineNumbers();
-        rememberLineNumbers(document);
+        remembered.rememberLineNumbers(document);
       }
       // Navigation history: Go Back and Go Forward.
       case NEXT_MARK, PREVIOUS_MARK, FOLLOW, STOP, GO_BACK, GO_FORWARD -> document.execute(command);
@@ -1817,8 +1719,8 @@ public final class ApplicationController implements DocumentHost {
     view.focusQuickFind();
   }
 
-  /** Called by quick find when it opened itself for a selection. */
-  void quickFindOpened() {
+  @Override
+  public void quickFindOpened() {
     view.focusQuickFind();
   }
 
@@ -1892,7 +1794,7 @@ public final class ApplicationController implements DocumentHost {
     if (active != null && !active.document().inMemory()) {
       initial = active.document().path().getParent();
     } else {
-      initial = rememberedDirectory();
+      initial = remembered.rememberedDirectory();
     }
     List<Path> chosen = view.chooseFilesToOpen(initial);
     List<FileRequest> requests = new ArrayList<FileRequest>();
@@ -1901,11 +1803,7 @@ public final class ApplicationController implements DocumentHost {
     }
     Path parent = chosen.isEmpty() ? null : chosen.get(0).getParent();
     if (parent != null) {
-      UiState state = preferences.get().state();
-      String directory = parent.toString();
-      if (!directory.equals(state.openDirectory())) {
-        setPreferences(preferences.get().withState(state.withOpenDirectory(directory)));
-      }
+      remembered.rememberOpenDirectory(parent);
     }
     open(requests, false);
   }
@@ -1992,7 +1890,7 @@ public final class ApplicationController implements DocumentHost {
     quickFind.cancelRunning();
     features.folderSearch().clear();
     for (DocumentController document : documents) {
-      rememberPosition(document);
+      remembered.rememberPosition(document);
     }
     final List<DocumentController> closing = new ArrayList<DocumentController>(documents);
     documents.clear();
@@ -2052,7 +1950,7 @@ public final class ApplicationController implements DocumentHost {
     if (droppedComments > 0 && !shuttingDown) {
       view.showNotice(
           UiText.NOTICE_COMMENTS_DROPPED.format(droppedComments, SessionStore.MAX_COMMENTS));
-      scheduleSave();
+      remembered.scheduleSave();
     }
     droppedComments = 0;
   }
@@ -2068,7 +1966,7 @@ public final class ApplicationController implements DocumentHost {
 
   @Override
   public void documentStateChanged() {
-    scheduleSave();
+    remembered.scheduleSave();
   }
 
   // Keyword triggers.
@@ -2094,19 +1992,22 @@ public final class ApplicationController implements DocumentHost {
     return alwaysOnTop;
   }
 
-  /** Saves {@link #SAVE_DELAY_MILLIS} after the last call. */
-  private void scheduleSave() {
-    if (!shuttingDown) {
-      set.scheduleSave();
-    }
+  /**
+   * Returns this window's tab path commands.
+   *
+   * @return the commands
+   */
+  public PathCommands pathCommands() {
+    return paths;
   }
 
   /**
-   * Captures the settings, the open tabs' positions and the session of every window on the UI
-   * thread and writes them on a worker. Quit does the same on its own worker.
+   * Returns this window's remembered state.
+   *
+   * @return the state
    */
-  public void flushSettings() {
-    set.flushSettings();
+  public RememberedState rememberedState() {
+    return remembered;
   }
 
   /** A tab joined or left a time sync group; the views show its membership again. */
@@ -2119,7 +2020,7 @@ public final class ApplicationController implements DocumentHost {
   /** Remembers each tab's position for the next save. */
   void rememberPositions() {
     for (DocumentController document : documents) {
-      rememberPosition(document);
+      remembered.rememberPosition(document);
     }
   }
 
@@ -2148,110 +2049,10 @@ public final class ApplicationController implements DocumentHost {
     return new WindowSet.WindowDraft(tabs, shown, alwaysOnTop.saved());
   }
 
-  private void rememberPosition(DocumentController document) {
-    if (document.document().inMemory()) {
-      return;
-    }
-    TextPosition caret = document.selection().caret();
-    config
-        .positions()
-        .put(
-            document.document().path(),
-            document.viewport().topLine(),
-            caret.line(),
-            caret.column());
-  }
-
-  private void rememberRecent(LogDocument document) {
-    if (document.inMemory()) {
-      return;
-    }
-    Preferences current = preferences.get();
-    UiState state =
-        current
-            .state()
-            .addRecent(document.path().toString(), current.options().recentCount())
-            .removeClosed(document.path().toString());
-    if (!state.equals(current.state())) {
-      setPreferences(current.withState(state));
-    }
-  }
-
-  private void rememberSearchOptions(SearchOptions options) {
-    UiState state = preferences.get().state();
-    SearchToggles toggles =
-        new SearchToggles(
-            options.mode() == MatchMode.REGEX,
-            options.caseSensitive(),
-            options.wholeWord(),
-            options.inverse(),
-            options.combining(),
-            options.autoRefresh(),
-            options.keepResults(),
-            options.range(),
-            options.rangeEnd(),
-            options.contextBefore(),
-            options.contextAfter());
-    if (!toggles.equals(state.search())) {
-      setPreferences(preferences.get().withState(state.withSearch(toggles)));
-    }
-  }
-
-  private static SearchOptions options(SearchToggles toggles) {
-    return new SearchOptions(
-        toggles.regex() ? MatchMode.REGEX : MatchMode.LITERAL,
-        toggles.caseSensitive(),
-        toggles.wholeWord(),
-        toggles.inverse(),
-        toggles.combining(),
-        false,
-        toggles.autoRefresh(),
-        toggles.keepResults(),
-        toggles.range(),
-        toggles.rangeEnd(),
-        toggles.contextBefore(),
-        toggles.contextAfter());
-  }
-
-  private void rememberLineNumbers(DocumentController document) {
-    UiState state = preferences.get().state();
-    UiState next = state.withLineNumbers(document.lineNumbers(), document.filtered().lineNumbers());
-    if (!next.equals(state)) {
-      setPreferences(preferences.get().withState(next));
-    }
-  }
-
-  private Path rememberedDirectory() {
-    String text = preferences.get().state().openDirectory();
-    if (text.isEmpty()) {
-      return null;
-    }
-    try {
-      return Path.of(text);
-    } catch (InvalidPathException e) {
-      return null;
-    }
-  }
-
-  /**
-   * Records the window's placement and split for the next start; shutdown calls it.
-   *
-   * @param window the normal bounds and maximized state
-   * @param split the main view's share, clamped to the split range
-   */
-  public void rememberWindow(WindowState window, int split) {
-    int percent = Math.max(Preferences.MIN_SPLIT, Math.min(Preferences.MAX_SPLIT, split));
-    UiState state = preferences.get().state();
-    UiState next = state.withWindow(window, percent);
-    if (!next.equals(state)) {
-      set.preferencesChanged(preferences.get().withState(next));
-    }
-  }
-
   /** Records this window's placement and split for the next start and the next new window. */
   void rememberWindow() {
     WindowGeometry.Request bounds = view.windowBounds();
-    rememberWindow(
+    remembered.rememberWindow(
         new WindowState(
             bounds.x(), bounds.y(), bounds.width(), bounds.height(), view.windowMaximized()),
         view.splitPercent());
@@ -2377,7 +2178,7 @@ public final class ApplicationController implements DocumentHost {
       return;
     }
     config.positions().setEncoding(document.document().path(), charset);
-    scheduleSave();
+    remembered.scheduleSave();
     view.showNotice(
         UiText.NOTICE_ENCODING.format(
             document.state().title(),
@@ -2427,15 +2228,7 @@ public final class ApplicationController implements DocumentHost {
       monitor.setSettings(next.monitor());
     }
     if (!next.defaultEncoding().equals(old.defaultEncoding())) {
-      DocumentServices services = set.services();
-      set.setServices(
-          new DocumentServices(
-              services.workers(),
-              services.indexer(),
-              services.search(),
-              services.cache(),
-              services.budget(),
-              next.defaultCharset()));
+      set.setServices(set.services().withFallbackCharset(next.defaultCharset()));
     }
     boolean keymap = !next.shortcuts().equals(old.shortcuts());
     boolean font = !next.font().equals(old.font());
@@ -2512,34 +2305,6 @@ public final class ApplicationController implements DocumentHost {
    */
   public void setDebugLogFile(boolean on) {
     help.setDebugLogFile(on);
-  }
-
-  /**
-   * Returns a dialog's remembered size.
-   *
-   * @param name the dialog's name
-   * @return the size, or null
-   */
-  public UiState.Size dialogSize(String name) {
-    return preferences.get().state().dialogs().get(name);
-  }
-
-  /**
-   * Remembers a dialog's size for the next time it opens.
-   *
-   * @param name the dialog's name, {@code [A-Za-z0-9]+}
-   * @param width pixels
-   * @param height pixels
-   */
-  public void rememberDialogSize(String name, int width, int height) {
-    if (width < 1 || height < 1) {
-      return;
-    }
-    UiState.Size size = new UiState.Size(width, height);
-    UiState state = preferences.get().state();
-    if (!size.equals(state.dialogs().get(name))) {
-      setPreferences(preferences.get().withState(state.withDialog(name, size)));
-    }
   }
 
   // User guide.

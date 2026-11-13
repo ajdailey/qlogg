@@ -57,7 +57,8 @@ and caret time, each after a separator.
 
 ## Tab row
 
-The tab row under the top row is a `CTabFolder` with one closable tab per open
+The tab row under the top row (`TabStrip`, which `MainWindow` drives from its
+`ApplicationListener` calls) is a `CTabFolder` with one closable tab per open
 file: text `tabTitle` (the file name unless renamed), tooltip the path, data
 its `DocumentController`. It shows while a file is open, one included, and is
 excluded from the layout with none. Its height hint is 1 px, because the folder

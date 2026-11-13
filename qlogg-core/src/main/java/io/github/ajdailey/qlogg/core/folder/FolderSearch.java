@@ -172,7 +172,8 @@ public final class FolderSearch {
             services.search(),
             services.cache(),
             services.budget(),
-            services.fallbackCharset());
+            services.fallbackCharset(),
+            services.heldLock());
     private final Tally tally = new Tally();
     private volatile int indexPercent;
     private volatile int searchPercent;

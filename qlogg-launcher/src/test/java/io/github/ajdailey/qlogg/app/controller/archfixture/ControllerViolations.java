@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.controller.archfixture;
 
+import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.WorkerThread;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
@@ -163,6 +164,30 @@ final class ControllerViolations {
   static final class AsksTheOs {
     boolean mac() {
       return OsTraits.current().macKeymap();
+    }
+  }
+
+  // Window controller hosts.
+
+  /** Reaches the window set through the window controller instead of a host. */
+  static final class ReachesTheWindowSet {
+    int windows(ApplicationController window) {
+      return window.windowSet().windows().size();
+    }
+  }
+
+  // Document services.
+
+  /** Copies services through the constructor that drops the held lock. */
+  static final class DropsTheHeldLock {
+    DocumentServices copy(DocumentServices services) {
+      return new DocumentServices(
+          services.workers(),
+          services.indexer(),
+          services.search(),
+          services.cache(),
+          services.budget(),
+          services.fallbackCharset());
     }
   }
 }

@@ -318,4 +318,6 @@ scan covers the last new match. At most 10,000 new matches are checked per
 growth; past that the growth counts as matching.
 
 `TabTips.text` builds a document tab's tooltip from its path, state and sync
-group.
+group. `ResultTabs` builds the filtered view's result-set tab text, tool tips
+and accessible name; `FolderSearchText` and `MultiSearchText` build the Search
+in Folder and Search All Open Files text.

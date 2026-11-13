@@ -18,27 +18,31 @@ public final class FileByteSource implements ByteSource {
   private final Path path;
   private final FileChannel channel;
   private final FileIdentity identity;
+  private final SafePaths.HeldLock held;
 
-  private FileByteSource(Path path, FileChannel channel, FileIdentity identity) {
+  private FileByteSource(
+      Path path, FileChannel channel, FileIdentity identity, SafePaths.HeldLock held) {
     this.path = path;
     this.channel = channel;
     this.identity = identity;
+    this.held = held;
   }
 
   /**
-   * Validates the path through {@link SafePaths#logPath(Path)} and opens its real path for reading.
+   * Validates the path through {@link SafePaths#logPath} and opens its real path for reading.
    * {@link #path} is the path as given, so a symbolic link stays a link.
    *
    * @param path the file
+   * @param held the lock file the process holds, or null when it holds none
    * @return the open source; the caller closes it
    * @throws IOException when the path is rejected, missing or unreadable
    */
-  public static FileByteSource open(Path path) throws IOException {
-    SafePaths.LogPath checked = SafePaths.logPath(path);
+  public static FileByteSource open(Path path, SafePaths.HeldLock held) throws IOException {
+    SafePaths.LogPath checked = SafePaths.logPath(path, held);
     Path real = checked.real();
     FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
     try {
-      return new FileByteSource(checked.given(), channel, identify(real, channel));
+      return new FileByteSource(checked.given(), channel, identify(real, channel), held);
     } catch (IOException e) {
       channel.close();
       throw e;
@@ -78,6 +82,15 @@ public final class FileByteSource implements ByteSource {
    */
   public Path realPath() {
     return identity.realPath();
+  }
+
+  /**
+   * Returns the held lock the path was checked against.
+   *
+   * @return the lock given to {@link #open}, or null
+   */
+  public SafePaths.HeldLock heldLock() {
+    return held;
   }
 
   @Override

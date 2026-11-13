@@ -20,7 +20,7 @@ import java.util.Properties;
  * filter.N.regex} for N from 0 with no gap, in order. {@code qlogg.conf} holds them under the same
  * keys. An export file adds {@code version=1}; {@link #read} accepts a file of at most {@link
  * #MAX_BYTES} with at most {@link #MAX_FILTERS} filters. Both file methods block, so they run on a
- * worker, and take the user's path through {@link SafePaths#logFile(Path)}.
+ * worker, and take the user's path through {@link SafePaths#logFile(Path, SafePaths.HeldLock)}.
  */
 public final class FilterFile {
   /** Largest file read. */
@@ -56,12 +56,13 @@ public final class FilterFile {
    * Reads the filters a file exports.
    *
    * @param path the user's file
+   * @param held the lock file the process holds, or null when it holds none
    * @return the filters, unmodifiable
    * @throws IOException when the path is rejected or unreadable; {@link FormatException} when the
    *     file is too large, does not parse, names another version or holds a malformed filter
    */
-  public static List<PredefinedFilter> read(Path path) throws IOException {
-    Path file = SafePaths.logFile(path);
+  public static List<PredefinedFilter> read(Path path, SafePaths.HeldLock held) throws IOException {
+    Path file = SafePaths.logFile(path, held);
     if (Files.size(file) > MAX_BYTES) {
       throw new FormatException(UiText.FILTER_FILE_TOO_LARGE.text());
     }
@@ -98,10 +99,12 @@ public final class FilterFile {
    *
    * @param path the user's file
    * @param filters the filters
+   * @param held the lock file the process holds, or null when it holds none
    * @throws IOException when the path is rejected or the write fails
    */
-  public static void write(Path path, List<PredefinedFilter> filters) throws IOException {
-    Path file = SafePaths.logFile(path);
+  public static void write(Path path, List<PredefinedFilter> filters, SafePaths.HeldLock held)
+      throws IOException {
+    Path file = SafePaths.logFile(path, held);
     Properties properties = new Properties();
     properties.setProperty(VERSION_KEY, VERSION);
     store(filters, properties);

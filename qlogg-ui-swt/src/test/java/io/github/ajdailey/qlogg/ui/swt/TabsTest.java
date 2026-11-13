@@ -106,7 +106,7 @@ class TabsTest {
               @Override
               public boolean getAsBoolean() {
                 DocumentController shown = controller.activeDocument();
-                return window.tabs().getItemCount() == 2
+                return window.tabStrip().tabs().getItemCount() == 2
                     && shown != null
                     && shown.state().title().equals("second.log")
                     && !shown.state().indexing()
@@ -139,7 +139,7 @@ class TabsTest {
 
   @Test
   void selectingATabShowsItsDocument() {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     assertTrue(
         tabs.getSize().y <= tabs.getTabHeight() + 8,
         "tab strip " + tabs.getSize().y + " px for " + tabs.getTabHeight() + " px tabs");
@@ -158,7 +158,7 @@ class TabsTest {
 
   @Test
   void draggingATabMovesItAndClosingRemovesIt() {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     DocumentController first = documentOf(tabs.getItem(0));
     Rectangle from = tabs.getItem(0).getBounds();
     Rectangle to = tabs.getItem(1).getBounds();
@@ -186,9 +186,9 @@ class TabsTest {
 
   @Test
   void theTabMenuMatchesTheTab() {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     DocumentController first = documentOf(tabs.getItem(0));
-    Menu menu = window.showTabMenu(first, 0, 0);
+    Menu menu = window.tabStrip().showTabMenu(first, 0, 0);
     MenuItem[] items = menu.getItems();
     assertEquals(15, items.length);
     assertEquals("&Close", items[0].getText());
@@ -203,7 +203,7 @@ class TabsTest {
     menu.setVisible(false);
     items[3].notifyListeners(SWT.Selection, new Event());
     assertEquals(1, tabs.getItemCount());
-    Menu again = window.showTabMenu(first, 0, 0);
+    Menu again = window.tabStrip().showTabMenu(first, 0, 0);
     again.setVisible(false);
     assertSame(menu, again);
     assertEquals(15, again.getItemCount());
@@ -214,7 +214,7 @@ class TabsTest {
 
   @Test
   void aMiddleClickClosesTabsAndNoFileHidesTheTabRow() {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     assertTrue(tabs.getVisible(), "two files show the tab row");
     DocumentController second = documentOf(tabs.getItem(1));
     middleClick(tabs, 1);
@@ -234,7 +234,7 @@ class TabsTest {
 
   @Test
   void tabsShowFileNamesAndTheTabRowFollowsTheFileCount() {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     assertEquals("first.log", tabs.getItem(0).getText());
     assertEquals("second.log", tabs.getItem(1).getText());
     assertEquals(documentOf(tabs.getItem(0)).state().path(), tabs.getItem(0).getToolTipText());
@@ -251,7 +251,7 @@ class TabsTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return window.tabs().getItemCount() == 1;
+                return window.tabStrip().tabs().getItemCount() == 1;
               }
             }));
     assertTrue(tabs.getVisible(), "a file shows the tab row again");
@@ -330,7 +330,7 @@ class TabsTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return window.tabs().getItemCount() == 3;
+                return window.tabStrip().tabs().getItemCount() == 3;
               }
             }));
   }
@@ -372,13 +372,13 @@ class TabsTest {
               @Override
               public boolean getAsBoolean() {
                 DocumentController shown = controller.activeDocument();
-                return window.tabs().getItemCount() == 3
+                return window.tabStrip().tabs().getItemCount() == 3
                     && shown != null
                     && shown.state().title().equals("third.log")
                     && window.canvas() != null;
               }
             }));
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     DocumentController dragged = documentOf(tabs.getItem(2));
     drag(tabs, 2, 0);
     assertSame(dragged, documentOf(tabs.getItem(0)));
@@ -390,7 +390,7 @@ class TabsTest {
   }
 
   private void assertShown(DocumentController document, int index) {
-    CTabFolder tabs = window.tabs();
+    CTabFolder tabs = window.tabStrip().tabs();
     assertSame(tabs.getItem(index), tabs.getSelection());
     assertSame(document, controller.activeDocument());
     assertSame(document, window.canvas().document());

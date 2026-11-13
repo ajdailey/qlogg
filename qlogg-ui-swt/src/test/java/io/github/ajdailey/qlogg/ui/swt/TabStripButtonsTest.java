@@ -160,8 +160,8 @@ class TabStripButtonsTest {
               0));
     }
     controller.open(files);
-    tabs = window.tabs();
-    buttons = window.tabButtons();
+    tabs = window.tabStrip().tabs();
+    buttons = window.tabStrip().buttons();
     assertTrue(
         runUntil(
             new BooleanSupplier() {

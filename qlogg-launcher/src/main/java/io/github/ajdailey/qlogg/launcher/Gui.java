@@ -186,7 +186,8 @@ final class Gui {
                     .withMaxResults(preferences.maxResults())),
             BlockCache.fromBudget(budget),
             budget,
-            options.defaultCharset());
+            options.defaultCharset(),
+            server == null ? null : server.heldLock());
     final SwtThemeService system = SwtThemeService.open(display, preferences.theme());
     final Palette palette =
         ThemeController.resolve(

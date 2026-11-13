@@ -39,7 +39,7 @@ import java.util.regex.PatternSyntaxException;
  * newest is dropped. Confined to the UI thread.
  */
 public final class QuickFindController {
-  private final ApplicationController application;
+  private final QuickFindHost host;
   private final Workers workers;
   private final UiDispatcher ui;
   private final ActivityIndicator activity;
@@ -58,12 +58,12 @@ public final class QuickFindController {
   private boolean originRecorded;
 
   QuickFindController(
-      ApplicationController application,
+      QuickFindHost host,
       Workers workers,
       UiDispatcher ui,
       ActivityIndicator activity,
       NotificationService notifications) {
-    this.application = application;
+    this.host = host;
     this.workers = workers;
     this.ui = ui;
     this.activity = activity;
@@ -204,7 +204,7 @@ public final class QuickFindController {
    * @param towardEnd true for the next occurrence
    */
   public void findSelection(final boolean towardEnd) {
-    LineViewController target = application.focusedView();
+    LineViewController target = host.focusedView();
     if (target == null) {
       return;
     }
@@ -223,7 +223,7 @@ public final class QuickFindController {
                     state.running(),
                     ""));
             forward = towardEnd;
-            application.quickFindOpened();
+            host.quickFindOpened();
             find(towardEnd, false);
           }
         });
@@ -250,7 +250,7 @@ public final class QuickFindController {
   }
 
   private void find(boolean towardEnd, boolean incremental) {
-    final LineViewController target = application.focusedView();
+    final LineViewController target = host.focusedView();
     final String text = state.text();
     if (target == null || text.isEmpty() || target.isClosed()) {
       return;

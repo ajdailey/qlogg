@@ -49,7 +49,7 @@ class LargeFileTest {
         };
     try (Workers workers =
             new Workers(Math.max(2, Runtime.getRuntime().availableProcessors()), handler);
-        FileByteSource source = FileByteSource.open(file)) {
+        FileByteSource source = FileByteSource.open(file, null)) {
       MemoryBudget budget = MemoryBudget.of(1L << 30);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index =

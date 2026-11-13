@@ -264,7 +264,7 @@ class GuideScreenshotsTest {
     Rectangle screen = display.getBounds();
     window.shell().setLocation(screen.width - drawn(window.shell()).width, 0);
     settle();
-    TabStripButtons buttons = window.tabButtons();
+    TabStripButtons buttons = window.tabStrip().buttons();
     buttons.tabList().show(buttons.listButton());
     settle();
     saveScreen(window.shell(), "tab-list.png");

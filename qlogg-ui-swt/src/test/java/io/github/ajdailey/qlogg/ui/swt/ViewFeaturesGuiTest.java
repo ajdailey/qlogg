@@ -13,7 +13,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
-import io.github.ajdailey.qlogg.app.controller.MultiSearchController;
+import io.github.ajdailey.qlogg.app.controller.MultiSearchText;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
@@ -545,19 +545,19 @@ class ViewFeaturesGuiTest {
             "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.MEMORY, 0, null);
     assertEquals(
         "limited.log: " + UiText.SEARCH_LIMIT_MEMORY.format(3L),
-        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), memory)));
+        MultiSearchText.text(document().state().title(), memory));
     SearchViewState skipped =
         new SearchViewState(
             "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.NONE, 2, null);
     assertEquals(
         "limited.log: " + skipped.statusText(),
-        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), skipped)));
+        MultiSearchText.text(document().state().title(), skipped));
     SearchViewState done =
         new SearchViewState(
             "hit", options, SearchViewState.Phase.DONE, 100, 3, SearchLimit.NONE, 0, null);
     assertEquals(
         UiText.MULTI_DONE.format("limited.log", 3L),
-        MultiSearchWindow.text(new MultiSearchController.FileResults(document(), done)));
+        MultiSearchText.text(document().state().title(), done));
   }
 
   @Test

@@ -109,7 +109,7 @@ class TabDotTest {
               @Override
               public boolean getAsBoolean() {
                 DocumentController shown = controller.activeDocument();
-                return window.tabs().getItemCount() == 2
+                return window.tabStrip().tabs().getItemCount() == 2
                     && shown != null
                     && shown.state().title().equals("second.log")
                     && !shown.state().indexing()
@@ -138,7 +138,7 @@ class TabDotTest {
 
   @Test
   void aGrownBackgroundTabShowsTheDotUntilShown() throws Exception {
-    final CTabFolder tabs = window.tabs();
+    final CTabFolder tabs = window.tabStrip().tabs();
     final CTabItem first = tabs.getItem(0);
     assertNull(first.getImage(), "initial indexing is not growth");
     assertNull(tabs.getItem(1).getImage());
@@ -153,12 +153,12 @@ class TabDotTest {
               }
             }));
     Image lit = first.getImage();
-    assertSame(window.tabDots().image(TabDataState.NEW_LINES), lit);
+    assertSame(window.tabStrip().tabDots().image(TabDataState.NEW_LINES), lit);
     assertTrue(first.getToolTipText().endsWith("\nNew lines"), first.getToolTipText());
     controller.setTheme(ThemeMode.DARK);
     assertNotSame(lit, first.getImage(), "a palette change recolors the dot");
     assertTrue(lit.isDisposed(), "the old palette's dots are disposed");
-    assertSame(window.tabDots().image(TabDataState.NEW_LINES), first.getImage());
+    assertSame(window.tabStrip().tabDots().image(TabDataState.NEW_LINES), first.getImage());
     Event event = new Event();
     event.item = first;
     tabs.setSelection(0);
@@ -191,7 +191,7 @@ class TabDotTest {
         controller.highlightSettings().withSets(List.of(set)).withActive(List.of("mock-stop")));
     final DocumentController background = controller.documents().get(0);
     background.setFollowing(true);
-    final CTabItem first = window.tabs().getItem(0);
+    final CTabItem first = window.tabStrip().tabs().getItem(0);
     Files.writeString(
         temp.resolve("first.log"),
         "FATAL d\n",
@@ -202,7 +202,8 @@ class TabDotTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return first.getImage() == window.tabDots().image(TabDataState.FOLLOW_STOPPED);
+                return first.getImage()
+                    == window.tabStrip().tabDots().image(TabDataState.FOLLOW_STOPPED);
               }
             }));
     assertTrue(!background.following());

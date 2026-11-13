@@ -10,13 +10,9 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.ApplicationListener;
-import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.controller.LineViewController;
-import io.github.ajdailey.qlogg.app.controller.TabDataListener;
-import io.github.ajdailey.qlogg.app.controller.TabDataState;
-import io.github.ajdailey.qlogg.app.controller.TabTips;
 import io.github.ajdailey.qlogg.app.controller.TimeController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
@@ -30,7 +26,6 @@ import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
-import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.nio.file.InvalidPathException;
@@ -43,10 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.CTabFolder;
-import org.eclipse.swt.custom.CTabFolder2Adapter;
-import org.eclipse.swt.custom.CTabFolderEvent;
-import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.DND;
@@ -56,7 +47,6 @@ import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.FileTransfer;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
-import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -92,15 +82,15 @@ import org.eclipse.swt.widgets.ToolItem;
  * with the document notes, notices and the key-prefix field. The views show the active tab:
  * switching tabs disposes them and creates them over the other document's controllers, which hold
  * the viewport, selection and rows. Tabs show file names and move by dragging, within the strip or
- * to another window ({@link #dropTab}); a tab's close button or a middle click closes its file, and
- * its context menu holds the close variants, the path commands, Rename Tab and Move to New Window.
- * The path field's context menu holds the path commands, Copy and Select All. Files dropped on the
- * window open a tab each. A palette change from the theme recolors both log views and the overview
- * bar at once; native widgets follow the system. Created, placed and opened on the UI thread; a
- * close request from the window system is vetoed and forwarded to the close handler, which ends
- * with {@link #dispose}. Every QLogg dialog returns at once. The platform file and color choosers
- * run a nested event loop, and on GTK {@link #clipboardText} waits on the UI thread for the
- * clipboard owner.
+ * to another window ({@link TabStrip#dropTab}); a tab's close button or a middle click closes its
+ * file, and its context menu holds the close variants, the path commands, Rename Tab and Move to
+ * New Window. The path field's context menu holds the path commands, Copy and Select All. Files
+ * dropped on the window open a tab each. A palette change from the theme recolors both log views
+ * and the overview bar at once; native widgets follow the system. Created, placed and opened on the
+ * UI thread; a close request from the window system is vetoed and forwarded to the close handler,
+ * which ends with {@link #dispose}. Every QLogg dialog returns at once. The platform file and color
+ * choosers run a nested event loop, and on GTK {@link #clipboardText} waits on the UI thread for
+ * the clipboard owner. {@link TabStrip} owns the tab row.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
  * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
@@ -118,10 +108,6 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   /** Widget data key marking a sash that draws its grip. */
   private static final String GRIP = "qlogg.grip";
-
-  // Tab move between windows.
-  /** Shell data key holding the shell's {@code MainWindow}. */
-  private static final String WINDOW = "qlogg.mainWindow";
 
   /** Narrowest the path field gets in the top row, in pixels. */
   static final int MIN_PATH_WIDTH = 160;
@@ -152,9 +138,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   private Palette palette;
   private final List<Image> icons;
   private final SearchBar searchBar;
-  private final CTabFolder tabs;
-  // Tab strip buttons.
-  private final TabStripButtons tabButtons;
+  private final TabStrip tabStrip;
   private final SashForm split;
   // Filtered view minimum: the main view's percent as set, before the minimum applies.
   private int wantedSplit = Preferences.DEFAULTS.splitPercent();
@@ -175,19 +159,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   private LogCanvas canvas;
   private ResultsPane results;
   private OverviewBar overviewBar;
-  private CTabItem dragged;
-  // Tab drag and tab context menu.
-  private boolean movingTab;
-  private Menu tabMenu;
-  // Tab close: the controller picks the tab shown next.
-  private boolean removingTab;
-  private PointerProbe pointer =
-      new PointerProbe() {
-        @Override
-        public Control controlAt(Point point) {
-          return shell.getDisplay().getCursorControl();
-        }
-      };
   private MainMenuBar menuBar;
   private EncodingSource encodingSource =
       new EncodingSource() {
@@ -210,9 +181,6 @@ public final class MainWindow implements MainView, ApplicationListener {
   // User guide.
   private GuideWindow guide;
   private PaletteListener paletteListener;
-  // Tab data dot.
-  private TabDots tabDots;
-  private TabDataListener tabDataListener;
   private long noticeGeneration;
   // Drop target: the drag counter and whether the current drag holds folders only.
   private int drags;
@@ -301,7 +269,6 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
-    shell.setData(WINDOW, this);
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
     shell.setImages(icons.toArray(new Image[0]));
@@ -349,17 +316,9 @@ public final class MainWindow implements MainView, ApplicationListener {
             }
           }
         });
-    tabs = new CTabFolder(shell, SWT.TOP | SWT.FLAT);
-    GridData tabsData = new GridData(SWT.FILL, SWT.TOP, true, false);
-    // The folder adds its tab row as trim around the hint, which is the empty client area.
-    tabsData.heightHint = 1;
-    tabsData.exclude = true;
-    tabs.setLayoutData(tabsData);
-    tabs.setVisible(false);
-    // Tab strip buttons.
-    tabButtons =
-        new TabStripButtons(
-            tabs,
+    tabStrip =
+        new TabStrip(
+            shell,
             palette,
             new Runnable() {
               @Override
@@ -377,7 +336,7 @@ public final class MainWindow implements MainView, ApplicationListener {
                 }
               }
             });
-    tabButtons.setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
+    tabStrip.buttons().setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
     split = new SashForm(shell, SWT.VERTICAL);
     split.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     split.setSashWidth(SASH_WIDTH);
@@ -740,7 +699,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     buildMenuBar();
     trackWindowState();
     dispatchWindowKeys();
-    listenToTabs();
+    tabStrip.attach(application, menuBar.states());
     paletteListener =
         new PaletteListener() {
           @Override
@@ -751,7 +710,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     application.theme().addListener(paletteListener);
     applyPalette(application.theme().palette());
     // Tab data dot.
-    listenToTabData(application);
+    tabStrip.listenToTabData(application);
     // Multiple windows and the warning marker.
     shell.addListener(
         SWT.Activate,
@@ -781,230 +740,7 @@ public final class MainWindow implements MainView, ApplicationListener {
         });
   }
 
-  /**
-   * Tab selection, close buttons, middle clicks and dragging go to the controller. Closing the last
-   * tab leaves an empty window unless the window closes with it.
-   */
-  private void listenToTabs() {
-    tabs.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            if (!movingTab
-                && !removingTab
-                && event.item instanceof CTabItem item
-                && !item.isDisposed()) {
-              controller.activate((DocumentController) item.getData());
-            }
-          }
-        });
-    tabs.addCTabFolder2Listener(
-        new CTabFolder2Adapter() {
-          @Override
-          public void close(CTabFolderEvent event) {
-            event.doit = false;
-            controller.closeDocument((DocumentController) event.item.getData());
-          }
-        });
-    tabs.addListener(
-        SWT.MouseDown,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            dragged = event.button == 1 ? tabs.getItem(new Point(event.x, event.y)) : null;
-          }
-        });
-    tabs.addListener(
-        SWT.MenuDetect,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            CTabItem item = tabs.getItem(tabs.toControl(event.x, event.y));
-            if (item != null && !item.isDisposed()) {
-              event.doit = false;
-              showTabMenu((DocumentController) item.getData(), event.x, event.y);
-            }
-          }
-        });
-    tabs.addListener(
-        SWT.MouseUp,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            if (event.button == 2) {
-              CTabItem middle = tabs.getItem(new Point(event.x, event.y));
-              if (middle != null && !middle.isDisposed()) {
-                controller.closeDocument((DocumentController) middle.getData());
-              }
-              return;
-            }
-            CTabItem source = dragged;
-            dragged = null;
-            if (source == null || source.isDisposed()) {
-              return;
-            }
-            CTabItem target = tabs.getItem(new Point(event.x, event.y));
-            if (target != null && source != target) {
-              moveTab(source, tabs.indexOf(target));
-            } else if (target == null) {
-              Point point = tabs.toDisplay(event.x, event.y);
-              dropTab((DocumentController) source.getData(), point, pointer.controlAt(point));
-            }
-          }
-        });
-  }
-
-  /**
-   * Opens a tab's context menu: the close variants, the path commands, the tab name, then Time Sync
-   * and Move to New Window. One menu serves every tab; each call replaces its items.
-   *
-   * @param document the tab's controller
-   * @param x display x
-   * @param y display y
-   * @return the menu, already visible
-   */
-  Menu showTabMenu(final DocumentController document, int x, int y) {
-    if (tabMenu == null || tabMenu.isDisposed()) {
-      tabMenu = new Menu(shell, SWT.POP_UP);
-    }
-    Menu menu = tabMenu;
-    for (MenuItem old : menu.getItems()) {
-      old.dispose();
-    }
-    CommandStates.TabItems state = menuBar.states().tabItems(document);
-    for (final UiText label : MenuTable.TAB_MENU) {
-      if (label == null) {
-        new MenuItem(menu, SWT.SEPARATOR);
-      } else if (label == UiText.MENU_TIME_SYNC) {
-        MenuItem timeSync = new MenuItem(menu, SWT.CASCADE);
-        timeSync.setText(label.text());
-        Menu timeSyncMenu = new Menu(menu);
-        timeSync.setMenu(timeSyncMenu);
-        TimeSyncMenu.fill(timeSyncMenu, controller.windowSet().timeSync(), document);
-      } else {
-        MenuItem item = new MenuItem(menu, SWT.PUSH);
-        item.setText(label.text());
-        item.setEnabled(tabItemEnabled(label, state));
-        item.addListener(
-            SWT.Selection,
-            new Listener() {
-              @Override
-              public void handleEvent(Event event) {
-                runTabItem(label, document);
-              }
-            });
-      }
-    }
-    menu.setLocation(x, y);
-    menu.setVisible(true);
-    return menu;
-  }
-
-  private static boolean tabItemEnabled(UiText label, CommandStates.TabItems state) {
-    return switch (label) {
-      case TAB_CLOSE_OTHERS -> state.closeOthers();
-      case TAB_CLOSE_LEFT -> state.closeLeft();
-      case TAB_CLOSE_RIGHT -> state.closeRight();
-      case TAB_COPY_PATH, TAB_COPY_FILE_NAME, TAB_OPEN_FOLDER, TAB_RENAME, TAB_RESET_NAME ->
-          state.file();
-      default -> true;
-    };
-  }
-
-  /** Runs a {@link MenuTable#TAB_MENU} item on a tab. */
-  private void runTabItem(UiText label, DocumentController document) {
-    switch (label) {
-      case TAB_CLOSE -> controller.closeDocument(document);
-      case TAB_CLOSE_OTHERS -> controller.closeOthers(document);
-      case TAB_CLOSE_LEFT -> controller.closeSide(document, true);
-      case TAB_CLOSE_RIGHT -> controller.closeSide(document, false);
-      case TAB_CLOSE_ALL -> controller.closeAll();
-      case TAB_COPY_PATH -> controller.copyPath(document);
-      case TAB_COPY_FILE_NAME -> controller.copyFileName(document);
-      case TAB_OPEN_FOLDER -> controller.openContainingFolder(document);
-      case TAB_RENAME -> controller.renameTab(document);
-      case TAB_RESET_NAME -> controller.resetTabName(document);
-      case TAB_MOVE_TO_NEW_WINDOW -> controller.moveToNewWindow(document, null, null);
-      default -> throw new IllegalArgumentException(label.name());
-    }
-  }
-
-  /**
-   * Recreates a tab at another position; a tab's control and order cannot be changed in place.
-   * Disposing the selected item makes {@code CTabFolder} select a neighbor and send {@code
-   * SWT.Selection}; the tab listener ignores it, so the shown document stays the moved one.
-   */
-  private void moveTab(CTabItem source, int index) {
-    DocumentController document = (DocumentController) source.getData();
-    boolean selected = tabs.getSelection() == source;
-    movingTab = true;
-    try {
-      source.dispose();
-      CTabItem moved = newTab(document, index);
-      if (selected) {
-        tabs.setSelection(moved);
-      }
-    } finally {
-      movingTab = false;
-    }
-    controller.moveDocument(document, index);
-  }
-
   // Tab move between windows.
-
-  /** Finds the control under a display point; the default reads the pointer's from the Display. */
-  interface PointerProbe {
-    /**
-     * Returns the control under a point.
-     *
-     * @param point display coordinates
-     * @return a control of this application, or null outside every shell of it
-     */
-    Control controlAt(Point point);
-  }
-
-  /**
-   * Sets how a tab drag finds the control it was released over.
-   *
-   * @param probe the probe
-   */
-  void setPointerProbe(PointerProbe probe) {
-    pointer = probe;
-  }
-
-  /**
-   * Ends a tab drag released off this window's tabs. Over another main window the tab moves there:
-   * before the tab under the point, else after the last tab. Outside every QLogg shell and outside
-   * this window's bounds it moves to a new window with its top-left corner at the point. A release
-   * anywhere else does nothing.
-   *
-   * @param document the dragged tab's controller
-   * @param point the release point in display coordinates
-   * @param under the control under the point, or null outside every QLogg shell
-   */
-  void dropTab(DocumentController document, Point point, Control under) {
-    if (under == null) {
-      if (!shell.getBounds().contains(point)) {
-        controller.moveToNewWindow(document, point.x, point.y);
-      }
-      return;
-    }
-    Shell other = under.getShell();
-    if (other == shell
-        || !(other.getData(WINDOW) instanceof MainWindow target)
-        || target.controller == null) {
-      return;
-    }
-    int index = target.controller.documents().size();
-    if (target.tabs.isVisible()) {
-      CTabItem item = target.tabs.getItem(target.tabs.toControl(point));
-      if (item != null) {
-        index = target.tabs.indexOf(item);
-      }
-    }
-    controller.moveToWindow(document, target.controller, index);
-  }
 
   @Override
   public void documentMovedOut(DocumentController document) {
@@ -1013,107 +749,21 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void documentMovedIn(DocumentController document, int index) {
-    newTab(document, index);
-    showTabs();
+    tabStrip.add(document, index);
     syncToolBar();
     syncEnablement();
-  }
-
-  private CTabItem newTab(DocumentController document, int index) {
-    CTabItem item = new CTabItem(tabs, SWT.CLOSE, Math.min(index, tabs.getItemCount()));
-    item.setData(document);
-    showTabTitle(item, document);
-    showTabData(item);
-    return item;
-  }
-
-  /** Sets a tab's text; a {@code CTabItem} takes a single {@code &} as a mnemonic. */
-  private void showTabTitle(CTabItem item, DocumentController document) {
-    item.setText(controller.tabTitle(document).replace("&", "&&"));
-  }
-
-  // Tab data dot.
-
-  /**
-   * Shows each tab's {@link TabDataState} as a dot from {@link TabDots}; the dots and the listener
-   * go with the shell.
-   */
-  private void listenToTabData(final ApplicationController application) {
-    tabs.setUnselectedImageVisible(true);
-    tabDataListener =
-        new TabDataListener() {
-          @Override
-          public void tabDataChanged(DocumentController document, TabDataState state) {
-            CTabItem item = tabOf(document);
-            if (item != null) {
-              showTabData(item);
-            }
-          }
-        };
-    application.tabData().addListener(tabDataListener);
-    shell.addListener(
-        SWT.Dispose,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            application.tabData().removeListener(tabDataListener);
-            if (tabDots != null) {
-              tabDots.dispose();
-              tabDots = null;
-            }
-          }
-        });
-    for (CTabItem item : tabs.getItems()) {
-      showTabData(item);
-    }
-  }
-
-  /** Sets a tab's dot and adds the state to its tooltip under the path. */
-  private void showTabData(CTabItem item) {
-    DocumentController document = (DocumentController) item.getData();
-    TabDataState state =
-        controller == null ? TabDataState.NONE : controller.tabData().state(document);
-    int group = controller == null ? 0 : controller.windowSet().timeSync().number(document);
-    item.setToolTipText(TabTips.text(document.state().path(), state, group));
-    item.setImage(tabDots == null ? null : tabDots.image(state));
-  }
-
-  /** Creates the palette's dots, moves every tab to them, then disposes the old ones. */
-  private void recolorTabDots(Palette next) {
-    TabDots old = tabDots;
-    tabDots = new TabDots(shell.getDisplay(), next);
-    for (CTabItem item : tabs.getItems()) {
-      showTabData(item);
-    }
-    if (old != null) {
-      old.dispose();
-    }
-  }
-
-  /**
-   * Returns the dots the tabs show.
-   *
-   * @return the current palette's images, or null before {@link #attach}
-   */
-  TabDots tabDots() {
-    return tabDots;
   }
 
   // Time sync.
 
   @Override
   public void timeSyncChanged() {
-    for (CTabItem item : tabs.getItems()) {
-      showTabData(item);
-    }
+    tabStrip.showData();
   }
 
   @Override
   public void tabRenamed(DocumentController document) {
-    CTabItem item = tabOf(document);
-    if (item != null) {
-      showTabTitle(item, document);
-    }
+    tabStrip.showTitle(document);
   }
 
   /**
@@ -1191,73 +841,20 @@ public final class MainWindow implements MainView, ApplicationListener {
     return pathField;
   }
 
-  private CTabItem tabOf(DocumentController document) {
-    for (CTabItem item : tabs.getItems()) {
-      if (item.getData() == document) {
-        return item;
-      }
-    }
-    return null;
-  }
-
-  /** Shows the tab row while a file is open. */
-  private void showTabs() {
-    boolean shown = tabs.getItemCount() > 0;
-    GridData data = (GridData) tabs.getLayoutData();
-    if (data.exclude == shown) {
-      data.exclude = !shown;
-      tabs.setVisible(shown);
-      shell.layout(true);
-    }
-  }
-
   /**
-   * Returns the tab strip.
+   * Returns the tab row.
    *
-   * @return the folder; each item's data is its {@link DocumentController}
+   * @return the tab folder, its buttons, menu and data dots
    */
-  CTabFolder tabs() {
-    return tabs;
-  }
-
-  // Tab strip buttons.
-
-  /**
-   * Returns the buttons at the right end of the tab strip.
-   *
-   * @return Open, the tab list and Close
-   */
-  TabStripButtons tabButtons() {
-    return tabButtons;
-  }
-
-  /**
-   * Colors a tab strip from the palette. {@code CTabFolder} copies the Display's list colors when
-   * created, and the Display reads them once, so they outlast a theme change. The selection
-   * background shows only while focus is inside the folder; elsewhere the selected tab has the
-   * strip's background and keeps the selection foreground, so that foreground must read on both.
-   * {@link CocoaChrome} leaves a folder colored here alone.
-   */
-  private static void colorTabs(CTabFolder folder, Palette next) {
-    folder.setData(CocoaChrome.PALETTE_COLORED, Boolean.TRUE);
-    folder.setBackground(color(next.gutter()));
-    folder.setForeground(color(next.text()));
-    folder.setSelectionBackground(color(next.background()));
-    folder.setSelectionForeground(color(next.text()));
-  }
-
-  private static Color color(Rgb rgb) {
-    return new Color(rgb.red(), rgb.green(), rgb.blue());
+  TabStrip tabStrip() {
+    return tabStrip;
   }
 
   /** Recolors the log views and the overview bar. */
   private void applyPalette(Palette next) {
     palette = next;
-    // Tab data dot.
-    recolorTabDots(next);
-    colorTabs(tabs, next);
-    // Tab strip buttons.
-    tabButtons.setPalette(next);
+    // Tab data dot and tab strip buttons.
+    tabStrip.setPalette(next);
     if (results != null) {
       results.tabButtons().setPalette(next);
     }
@@ -1266,10 +863,10 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     if (results != null) {
       results.canvas().setPalette(next);
-      colorTabs(results.sets(), next);
+      TabStrip.colorTabs(results.sets(), next);
     }
     if (scratchpad != null && !scratchpad.isDisposed()) {
-      colorTabs(scratchpad.tabs(), next);
+      TabStrip.colorTabs(scratchpad.tabs(), next);
     }
     if (overviewBar != null) {
       overviewBar.setPalette(next);
@@ -1546,8 +1143,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void documentOpened(DocumentController document) {
-    newTab(document, tabs.getItemCount());
-    showTabs();
+    tabStrip.add(document, tabStrip.tabs().getItemCount());
     syncToolBar();
     syncEnablement();
   }
@@ -1562,21 +1158,13 @@ public final class MainWindow implements MainView, ApplicationListener {
       clearStatus();
       return;
     }
-    CTabItem item = tabOf(document);
-    if (item != null) {
-      tabs.setSelection(item);
-    }
+    tabStrip.select(document);
     showViews(document);
   }
 
   @Override
   public void documentReplaced(DocumentController closed, DocumentController replacement) {
-    CTabItem item = tabOf(closed);
-    if (item != null) {
-      item.setData(replacement);
-      // Tab data dot.
-      showTabData(item);
-    }
+    tabStrip.replace(closed, replacement);
     if (canvas != null && canvas.document() == closed) {
       showViews(replacement);
     }
@@ -1596,7 +1184,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     canvas.addSide(overviewBar.control());
     showOverview(controller.preferences().overview());
     results = new ResultsPane(resultsHolder, document, controller, keymap, palette, prefixListener);
-    colorTabs(results.sets(), palette);
+    TabStrip.colorTabs(results.sets(), palette);
     document.addListener(statusListener);
     document.filtered().addListener(filteredListener);
     ((GridData) position.getLayoutData()).widthHint = POSITION_WIDTH;
@@ -1616,23 +1204,9 @@ public final class MainWindow implements MainView, ApplicationListener {
     removeTab(document);
   }
 
-  /**
-   * Removes a tab, and the views when they show its document. Disposing the selected item makes
-   * {@code CTabFolder} select a neighbor and send {@code SWT.Selection}; the tab listener ignores
-   * it, so a Close All does not show each remaining tab in turn and the controller picks the tab
-   * shown next.
-   */
+  /** Removes a tab, and the views when they show its document. */
   private void removeTab(DocumentController document) {
-    CTabItem item = tabOf(document);
-    if (item != null) {
-      removingTab = true;
-      try {
-        item.dispose();
-      } finally {
-        removingTab = false;
-      }
-    }
-    showTabs();
+    tabStrip.remove(document);
     if (canvas != null && canvas.document() == document) {
       searchBar.unbind();
       removeViews();
@@ -1999,7 +1573,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   public void showScratchpad(String text, boolean replace) {
     if (scratchpad == null || scratchpad.isDisposed()) {
       scratchpad = new ScratchpadWindow(shell, controller);
-      colorTabs(scratchpad.tabs(), palette);
+      TabStrip.colorTabs(scratchpad.tabs(), palette);
     }
     if (text != null) {
       scratchpad.add(text, replace);
@@ -2405,7 +1979,7 @@ public final class MainWindow implements MainView, ApplicationListener {
       }
     }
     // Tab strip buttons.
-    tabButtons.setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
+    tabStrip.buttons().setLabels(toolTip(CommandId.OPEN), toolTip(CommandId.CLOSE));
     if (shortcuts != null && !shortcuts.shell().isDisposed()) {
       shortcuts.shell().dispose();
     }
@@ -2444,7 +2018,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   /** Gives a dialog its remembered size and remembers its size when it closes. */
   private void remember(final Shell dialog, final String name) {
-    UiState.Size size = controller.dialogSize(name);
+    UiState.Size size = controller.rememberedState().dialogSize(name);
     if (size != null) {
       Rectangle owner = shell.getBounds();
       dialog.setBounds(
@@ -2460,7 +2034,7 @@ public final class MainWindow implements MainView, ApplicationListener {
           public void handleEvent(Event event) {
             if (controller != null && !controller.isShuttingDown()) {
               Point current = dialog.getSize();
-              controller.rememberDialogSize(name, current.x, current.y);
+              controller.rememberedState().rememberDialogSize(name, current.x, current.y);
             }
           }
         });

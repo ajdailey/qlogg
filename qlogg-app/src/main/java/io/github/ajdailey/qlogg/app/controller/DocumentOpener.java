@@ -591,7 +591,7 @@ final class DocumentOpener {
   private LogDocument openRemembered(Path path, DocumentServices services) throws IOException {
     PositionStore.Entry entry;
     try {
-      entry = config.positions().get(SafePaths.logPath(path).given());
+      entry = config.positions().get(SafePaths.logPath(path, services.heldLock()).given());
     } catch (IOException e) {
       entry = PositionStore.Entry.NONE;
     }

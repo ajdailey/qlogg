@@ -144,7 +144,7 @@ class IndexerTest {
     Charset utf32 = Charset.forName("UTF-32LE");
     byte[] content = (SyntheticLog.text(20, 5, "\n") + "\u0a0a end").getBytes(utf32);
     Path file = write(content);
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(utf32, 0);
       assertEquals(4, encoding.unitWidth());
       try (GrowableLineIndex index =
@@ -162,7 +162,7 @@ class IndexerTest {
     content[content.length - 3] = '\n';
     content[content.length - 1] = '\n';
     Path file = write(content);
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index =
           index(
@@ -214,7 +214,7 @@ class IndexerTest {
     Arrays.fill(content, head.length, head.length + longBytes, (byte) 'z');
     System.arraycopy(ascii("\ntail\n"), 0, content, head.length + longBytes, 6);
     Path file = write(content);
-    try (FileByteSource file0 = FileByteSource.open(file)) {
+    try (FileByteSource file0 = FileByteSource.open(file, null)) {
       CountingSource source = new CountingSource(file0);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.US_ASCII, 0);
       try (GrowableLineIndex index =
@@ -242,7 +242,7 @@ class IndexerTest {
   void indexThatFitsNoModeFails() throws Exception {
     MemoryBudget budget = MemoryBudget.of(3000);
     Path file = write(ascii(SyntheticLog.text(300, 7, "\n")));
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       RecordingListener listener = new RecordingListener();
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, budget, source, cache())) {
@@ -274,7 +274,7 @@ class IndexerTest {
     MemoryBudget budget = MemoryBudget.of(1L << 30);
     Path file = write(ascii(SyntheticLog.text(20_000, 8, "\n")));
     Indexer indexer = new Indexer(workers, new IndexSettings(4096, 8, budget), false);
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       RecordingListener listener = new RecordingListener();
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, budget, source, cache())) {
@@ -293,7 +293,7 @@ class IndexerTest {
   void growthResumesAtThePartialLine() throws Exception {
     Path file = dir.resolve("growing.log");
     Files.write(file, ascii("one\ntwo\nthr"));
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
         Indexer indexer = new Indexer(workers, new IndexSettings(8, 2, LARGE));
@@ -313,7 +313,7 @@ class IndexerTest {
   @Test
   void progressReportsPublishedSnapshots() throws Exception {
     Path file = write(ascii(SyntheticLog.text(2000, 8, "\n")));
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
         RecordingListener listener =
@@ -335,7 +335,7 @@ class IndexerTest {
   @Test
   void cancelStopsWithinOneBlock() throws Exception {
     Path file = write(ascii(SyntheticLog.text(2000, 9, "\n")));
-    try (FileByteSource file0 = FileByteSource.open(file)) {
+    try (FileByteSource file0 = FileByteSource.open(file, null)) {
       GatedSource source = new GatedSource(file0, 5);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
@@ -377,7 +377,7 @@ class IndexerTest {
             }
           }
         };
-    try (FileByteSource file0 = FileByteSource.open(file)) {
+    try (FileByteSource file0 = FileByteSource.open(file, null)) {
       final GatedSource source = new GatedSource(file0, Integer.MAX_VALUE);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       Indexer indexer = new Indexer(workers, new IndexSettings(64, 2, LARGE));
@@ -417,7 +417,7 @@ class IndexerTest {
   @Test
   void closedSourceEndsAsCanceled() throws Exception {
     Path file = write(ascii(SyntheticLog.text(500, 10, "\n")));
-    try (FileByteSource file0 = FileByteSource.open(file)) {
+    try (FileByteSource file0 = FileByteSource.open(file, null)) {
       GatedSource source = new GatedSource(file0, 2);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
@@ -438,7 +438,7 @@ class IndexerTest {
   @Test
   void oneWriterAtATime() throws Exception {
     Path file = write(ascii(SyntheticLog.text(100, 11, "\n")));
-    try (FileByteSource file0 = FileByteSource.open(file)) {
+    try (FileByteSource file0 = FileByteSource.open(file, null)) {
       final GatedSource source = new GatedSource(file0, 1);
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
@@ -464,7 +464,7 @@ class IndexerTest {
   private void check(byte[] content, int blockBytes, MemoryBudget budget, boolean expectSparse)
       throws Exception {
     Path file = write(content);
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       ByteBuffer head = ByteBuffer.allocate((int) Math.min(content.length, 65536));
       source.read(0, head);
       head.flip();
@@ -620,7 +620,7 @@ class IndexerTest {
     Path file = write(ascii("a\nb\n"));
     Indexer indexer = new Indexer(workers, new IndexSettings(8, 2, LARGE));
     TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
-    try (FileByteSource good = FileByteSource.open(file)) {
+    try (FileByteSource good = FileByteSource.open(file, null)) {
       ByteSource failing =
           new GatedSource(good, 0) {
             @Override
@@ -646,7 +646,7 @@ class IndexerTest {
   @Test
   void handleIsNotDoneBeforeFinished() throws Exception {
     Path file = write(ascii("a\nb\n"));
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       TextEncoding encoding = TextEncoding.of(StandardCharsets.UTF_8, 0);
       try (GrowableLineIndex index = new GrowableLineIndex(encoding, LARGE, source, cache())) {
         final OperationHandle[] handle = new OperationHandle[1];

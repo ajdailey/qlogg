@@ -159,8 +159,8 @@ class TabColorsGuiTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return window.tabs().getItemCount() == 2
-                    && window.tabs().getSelection() != null
+                return window.tabStrip().tabs().getItemCount() == 2
+                    && window.tabStrip().tabs().getSelection() != null
                     && !controller.documents().get(0).state().indexing()
                     && !controller.documents().get(1).state().indexing();
               }
@@ -392,10 +392,10 @@ class TabColorsGuiTest {
     window.shell().forceActive();
     settle();
     window.shell().forceFocus();
-    inspectStrip(window.tabs(), step + "-tabs-unfocused", dark);
+    inspectStrip(window.tabStrip().tabs(), step + "-tabs-unfocused", dark);
     inspectStrip(window.results().sets(), step + "-results-unfocused", dark);
-    window.tabs().forceFocus();
-    inspectStrip(window.tabs(), step + "-tabs-focused", dark);
+    window.tabStrip().tabs().forceFocus();
+    inspectStrip(window.tabStrip().tabs(), step + "-tabs-focused", dark);
     window.results().sets().forceFocus();
     inspectStrip(window.results().sets(), step + "-results-focused", dark);
   }

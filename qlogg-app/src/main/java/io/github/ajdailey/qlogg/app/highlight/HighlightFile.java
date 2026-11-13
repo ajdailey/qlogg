@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  * whole file on any malformed entry. A malformed trigger key is not a malformed entry: in either
  * method the rule loads without that action, and one warning per load names the count. Both file
  * methods block, so they run on a worker, and take the user's path through {@link
- * SafePaths#logFile(Path)}.
+ * SafePaths#logFile(Path, SafePaths.HeldLock)}.
  */
 public final class HighlightFile {
   static final String SET = "highlight.set.";
@@ -79,12 +79,13 @@ public final class HighlightFile {
    * Reads the sets a file exports.
    *
    * @param path the user's file
+   * @param held the lock file the process holds, or null when it holds none
    * @return the sets, unmodifiable
    * @throws IOException when the path is rejected or unreadable; {@link FilterFile.FormatException}
    *     when the file is too large, does not parse, names another version or holds a malformed set
    */
-  public static List<HighlightSet> read(Path path) throws IOException {
-    Path file = SafePaths.logFile(path);
+  public static List<HighlightSet> read(Path path, SafePaths.HeldLock held) throws IOException {
+    Path file = SafePaths.logFile(path, held);
     if (Files.size(file) > FilterFile.MAX_BYTES) {
       throw new FilterFile.FormatException(UiText.FILTER_FILE_TOO_LARGE.text());
     }
@@ -120,10 +121,12 @@ public final class HighlightFile {
    *
    * @param path the user's file
    * @param sets the sets
+   * @param held the lock file the process holds, or null when it holds none
    * @throws IOException when the path is rejected or the write fails
    */
-  public static void write(Path path, List<HighlightSet> sets) throws IOException {
-    Path file = SafePaths.logFile(path);
+  public static void write(Path path, List<HighlightSet> sets, SafePaths.HeldLock held)
+      throws IOException {
+    Path file = SafePaths.logFile(path, held);
     Properties properties = new Properties();
     properties.setProperty(VERSION_KEY, VERSION);
     storeSets(sets, properties);

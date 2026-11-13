@@ -57,7 +57,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Tab moves between main windows under Xvfb: the menu items, a drag released outside every window
  * or over another window's tab strip, and a drag inside the strip that still reorders. The release
- * finds the control under the pointer through a {@link MainWindow.PointerProbe} the test sets.
+ * finds the control under the pointer through a {@link TabStrip.PointerProbe} the test sets.
  */
 @Tag("swt")
 class TabMoveGuiTest {
@@ -122,7 +122,7 @@ class TabMoveGuiTest {
               @Override
               public boolean getAsBoolean() {
                 DocumentController shown = controller.activeDocument();
-                return first.tabs().getItemCount() == 2
+                return first.tabStrip().tabs().getItemCount() == 2
                     && shown != null
                     && !shown.state().indexing()
                     && first.canvas() != null;
@@ -201,13 +201,15 @@ class TabMoveGuiTest {
   }
 
   private void probe(MainWindow window, final Control under) {
-    window.setPointerProbe(
-        new MainWindow.PointerProbe() {
-          @Override
-          public Control controlAt(Point point) {
-            return under;
-          }
-        });
+    window
+        .tabStrip()
+        .setPointerProbe(
+            new TabStrip.PointerProbe() {
+              @Override
+              public Control controlAt(Point point) {
+                return under;
+              }
+            });
   }
 
   @Test
@@ -220,20 +222,20 @@ class TabMoveGuiTest {
     assertEquals(2, windows.size());
     MainWindow second = windows.get(1);
     assertSame(shown, second.canvas().document());
-    assertEquals(1, second.tabs().getItemCount());
-    assertTrue(second.tabs().getVisible(), "one tab shows the strip");
-    assertEquals(1, first.tabs().getItemCount());
+    assertEquals(1, second.tabStrip().tabs().getItemCount());
+    assertTrue(second.tabStrip().tabs().getVisible(), "one tab shows the strip");
+    assertEquals(1, first.tabStrip().tabs().getItemCount());
     assertTrue(first.canvas().document() != shown);
     assertFalse(shown.isClosed());
 
-    DocumentController last = documentOf(first.tabs(), 0);
-    Menu menu = first.showTabMenu(last, 0, 0);
+    DocumentController last = documentOf(first.tabStrip().tabs(), 0);
+    Menu menu = first.tabStrip().showTabMenu(last, 0, 0);
     menu.setVisible(false);
     MenuItem[] items = menu.getItems();
     items[items.length - 1].notifyListeners(SWT.Selection, new Event());
     assertEquals(3, windows.size());
     assertSame(last, windows.get(2).canvas().document());
-    assertEquals(0, first.tabs().getItemCount());
+    assertEquals(0, first.tabStrip().tabs().getItemCount());
     assertTrue(first.canvas() == null, "the emptied window shows no views");
     assertFalse(first.shell().isDisposed(), "the emptied window stays open");
     assertFalse(menuItem(first.shell().getMenuBar(), CommandId.MOVE_TO_NEW_WINDOW).getEnabled());
@@ -241,7 +243,7 @@ class TabMoveGuiTest {
 
   @Test
   void aTabDraggedOutsideEveryWindowOpensANewWindow() {
-    CTabFolder tabs = first.tabs();
+    CTabFolder tabs = first.tabStrip().tabs();
     DocumentController dragged = documentOf(tabs, 0);
     Rectangle bounds = first.shell().getBounds();
     probe(first, null);
@@ -272,41 +274,45 @@ class TabMoveGuiTest {
                     && !target.activeDocument().state().indexing();
               }
             }));
-    CTabFolder strip = second.tabs();
+    CTabFolder strip = second.tabStrip().tabs();
     assertTrue(strip.getVisible());
     // GTK 4 opens both windows at 0,0, so a release over the other strip would also hit this one.
-    DocumentController appended = documentOf(first.tabs(), 1);
+    DocumentController appended = documentOf(first.tabStrip().tabs(), 1);
     probe(first, second.canvas().control());
-    drag(first.tabs(), 1, first.tabs().toDisplay(10, -400));
+    drag(first.tabStrip().tabs(), 1, first.tabStrip().tabs().toDisplay(10, -400));
     assertSame(appended, target.documents().get(2), "a drop off the other strip appends");
     assertSame(appended, second.canvas().document());
-    assertEquals(1, first.tabs().getItemCount());
+    assertEquals(1, first.tabStrip().tabs().getItemCount());
     shoot(first.shell(), "tabmove-source.png");
     shoot(second.shell(), "tabmove-target.png");
 
-    DocumentController dragged = documentOf(first.tabs(), 0);
+    DocumentController dragged = documentOf(first.tabStrip().tabs(), 0);
     Rectangle over = strip.getItem(1).getBounds();
-    first.dropTab(
-        dragged, strip.toDisplay(over.x + over.width / 2, over.y + over.height / 2), strip);
+    first
+        .tabStrip()
+        .dropTab(
+            dragged, strip.toDisplay(over.x + over.width / 2, over.y + over.height / 2), strip);
     assertEquals(4, strip.getItemCount());
     assertSame(dragged, documentOf(strip, 1));
     assertSame(dragged, target.documents().get(1));
     assertSame(dragged, second.canvas().document());
-    assertEquals(0, first.tabs().getItemCount());
+    assertEquals(0, first.tabStrip().tabs().getItemCount());
     assertFalse(dragged.isClosed());
   }
 
   @Test
   void aDragInsideTheStripStillReorders() {
-    CTabFolder tabs = first.tabs();
+    CTabFolder tabs = first.tabStrip().tabs();
     DocumentController moved = documentOf(tabs, 0);
-    first.setPointerProbe(
-        new MainWindow.PointerProbe() {
-          @Override
-          public Control controlAt(Point point) {
-            throw new AssertionError("a reorder does not look for another window");
-          }
-        });
+    first
+        .tabStrip()
+        .setPointerProbe(
+            new TabStrip.PointerProbe() {
+              @Override
+              public Control controlAt(Point point) {
+                throw new AssertionError("a reorder does not look for another window");
+              }
+            });
     Rectangle to = tabs.getItem(1).getBounds();
     drag(tabs, 0, tabs.toDisplay(to.x + to.width / 2, to.y + to.height / 2));
     assertSame(moved, documentOf(tabs, 1));

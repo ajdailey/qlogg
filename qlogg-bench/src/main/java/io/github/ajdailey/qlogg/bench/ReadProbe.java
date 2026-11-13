@@ -81,7 +81,7 @@ public class ReadProbe {
     ByteBuffer buffer =
         ByteBuffer.allocateDirect(IndexSettings.DEFAULT_BLOCK_BYTES).order(ByteOrder.LITTLE_ENDIAN);
     long count = 0;
-    try (FileByteSource source = FileByteSource.open(file)) {
+    try (FileByteSource source = FileByteSource.open(file, null)) {
       long size = source.size();
       long position = 0;
       while (position < size) {

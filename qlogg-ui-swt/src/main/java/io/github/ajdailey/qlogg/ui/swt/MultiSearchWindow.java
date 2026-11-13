@@ -3,9 +3,8 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.MultiSearchController;
+import io.github.ajdailey.qlogg.app.controller.MultiSearchText;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
-import io.github.ajdailey.qlogg.app.view.SearchViewState;
-import io.github.ajdailey.qlogg.core.search.SearchLimit;
 import java.util.List;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -102,7 +101,7 @@ final class MultiSearchWindow {
       MultiSearchController.FileResults group = results.get(i);
       TableItem item = groups.getItem(i);
       item.setData(group.document());
-      item.setText(text(group));
+      item.setText(MultiSearchText.text(group.document().state().title(), group.state()));
     }
     groups.deselectAll();
     for (int i = 0; selected != null && i < results.size(); i++) {
@@ -110,21 +109,6 @@ final class MultiSearchWindow {
         groups.select(i);
       }
     }
-  }
-
-  /** One group's row; a limit or skipped lines show as the search bar words them. */
-  static String text(MultiSearchController.FileResults group) {
-    String title = group.document().state().title();
-    SearchViewState state = group.state();
-    return switch (state.phase()) {
-      case RUNNING -> UiText.MULTI_RUNNING.format(title, state.matchCount());
-      case FAILED -> UiText.MULTI_FAILED.format(title, String.valueOf(state.error()));
-      case CANCELED -> UiText.MULTI_STOPPED.format(title, state.matchCount());
-      default ->
-          state.limit() == SearchLimit.NONE && state.skippedLines() == 0
-              ? UiText.MULTI_DONE.format(title, state.matchCount())
-              : UiText.MULTI_FAILED.format(title, state.statusText());
-    };
   }
 
   Table groups() {

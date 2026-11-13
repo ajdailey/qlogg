@@ -53,7 +53,7 @@ public final class FolderSearchController {
     void changed();
   }
 
-  private final ApplicationController application;
+  private final FolderSearchHost host;
   private final UiDispatcher ui;
   private final NotificationService notices;
   private final List<Listener> listeners = new ArrayList<Listener>();
@@ -71,9 +71,8 @@ public final class FolderSearchController {
   private FileHits stepFile;
   private int stepHit = -1;
 
-  FolderSearchController(
-      ApplicationController application, UiDispatcher ui, NotificationService notices) {
-    this.application = application;
+  FolderSearchController(FolderSearchHost host, UiDispatcher ui, NotificationService notices) {
+    this.host = host;
     this.ui = ui;
     this.notices = notices;
   }
@@ -89,8 +88,8 @@ public final class FolderSearchController {
     if (request != null) {
       return request;
     }
-    FolderSearchSettings saved = application.preferences().state().folderSearch();
-    DocumentController document = application.activeDocument();
+    FolderSearchSettings saved = host.preferences().state().folderSearch();
+    DocumentController document = host.activeDocument();
     String folder = saved.folder();
     if (folder.isBlank() && document != null) {
       Path path = document.document().path();
@@ -115,9 +114,9 @@ public final class FolderSearchController {
     }
     FolderSearchSettings value =
         new FolderSearchSettings(next.folder(), next.names(), next.recursive(), next.exclude());
-    Preferences current = application.preferences();
+    Preferences current = host.preferences();
     if (!value.equals(current.state().folderSearch())) {
-      application.setPreferences(current.withState(current.state().withFolderSearch(value)));
+      host.setPreferences(current.withState(current.state().withFolderSearch(value)));
     }
   }
 
@@ -153,8 +152,8 @@ public final class FolderSearchController {
             toggles.wholeWord(),
             toggles.inverse(),
             null,
-            application.preferences().view().hideAnsi());
-    DocumentServices services = application.windowSet().services();
+            host.preferences().view().hideAnsi());
+    DocumentServices services = host.services();
     FolderResultSet set = new FolderResultSet(next, new FolderResults(services.budget()));
     try {
       set.setHandle(
@@ -374,10 +373,10 @@ public final class FolderSearchController {
     stepHit = hit;
     long line = file.line(hit) + 1;
     Path path = file.path();
-    for (DocumentController document : application.documents()) {
+    for (DocumentController document : host.documents()) {
       if (path.equals(document.document().path()) || path.equals(document.document().realPath())) {
         opening = null;
-        application.activate(document);
+        host.activate(document);
         document.goToLine(line);
         return;
       }
@@ -389,10 +388,10 @@ public final class FolderSearchController {
     }
     if (!watching) {
       watching = true;
-      application.addListener(new Opened());
+      host.addListener(new Opened());
     }
     opening = new Opening(path, line, now);
-    application.openFile(path, line);
+    host.openFile(path, line);
   }
 
   /** How long a file {@link #open} started stays the one later lines of it go to. */
@@ -424,7 +423,7 @@ public final class FolderSearchController {
           new Runnable() {
             @Override
             public void run() {
-              if (application.documents().contains(document)) {
+              if (host.documents().contains(document)) {
                 document.goToLine(line);
               }
             }

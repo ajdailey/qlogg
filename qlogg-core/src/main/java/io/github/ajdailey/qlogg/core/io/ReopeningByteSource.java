@@ -34,14 +34,16 @@ public final class ReopeningByteSource implements ByteSource {
   private final Path path;
   private final Path real;
   private final FileIdentity identity;
+  private final SafePaths.HeldLock held;
   private volatile Expected expected;
   private volatile boolean changed;
   private volatile boolean closed;
 
-  private ReopeningByteSource(Path path, FileIdentity identity) {
+  private ReopeningByteSource(Path path, FileIdentity identity, SafePaths.HeldLock held) {
     this.path = path;
     this.real = identity.realPath();
     this.identity = identity;
+    this.held = held;
     this.expected =
         new Expected(
             (int) Math.min(identity.size(), FileIdentity.HEAD_BYTES),
@@ -59,7 +61,7 @@ public final class ReopeningByteSource implements ByteSource {
    * @return the source; the caller closes it
    */
   public static ReopeningByteSource of(FileByteSource opened) {
-    return new ReopeningByteSource(opened.path(), opened.identity());
+    return new ReopeningByteSource(opened.path(), opened.identity(), opened.heldLock());
   }
 
   @Override
@@ -124,7 +126,7 @@ public final class ReopeningByteSource implements ByteSource {
   }
 
   private FileChannel verifiedChannel() throws IOException {
-    if (!real.equals(SafePaths.logFile(real))) {
+    if (!real.equals(SafePaths.logFile(real, held))) {
       throw changedFile();
     }
     FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);

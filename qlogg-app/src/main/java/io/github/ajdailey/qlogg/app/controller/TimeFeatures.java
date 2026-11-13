@@ -44,19 +44,22 @@ import org.slf4j.LoggerFactory;
 final class TimeFeatures {
   private static final Logger LOG = LoggerFactory.getLogger(TimeFeatures.class);
 
-  private final ApplicationController application;
+  private final TimeFeaturesHost host;
+  private final TimeSyncGroups timeSync;
   private final Workers workers;
   private final UiDispatcher ui;
   private final MainView view;
   private final ConfigStore config;
 
   TimeFeatures(
-      ApplicationController application,
+      TimeFeaturesHost host,
+      TimeSyncGroups timeSync,
       Workers workers,
       UiDispatcher ui,
       MainView view,
       ConfigStore config) {
-    this.application = application;
+    this.host = host;
+    this.timeSync = timeSync;
     this.workers = workers;
     this.ui = ui;
     this.view = view;
@@ -65,7 +68,7 @@ final class TimeFeatures {
 
   /** Sets a new document's format and zones. */
   void configure(DocumentController document) {
-    TimeSettings settings = application.preferences().time();
+    TimeSettings settings = host.preferences().time();
     TimestampFormat format = document.document().timeFormat();
     ZoneId zone = settings.zoneOrSystem();
     if (!document.document().inMemory()) {
@@ -84,7 +87,7 @@ final class TimeFeatures {
     }
     document.time().configure(format, zone, settings.displayZoneOrSystem());
     // Time spread.
-    document.overview().setSpreadMode(application.preferences().view().timeSpread());
+    document.overview().setSpreadMode(host.preferences().view().timeSpread());
   }
 
   /**
@@ -93,7 +96,7 @@ final class TimeFeatures {
    * @return false when the command is not one of them
    */
   boolean execute(CommandId command) {
-    DocumentController document = application.activeDocument();
+    DocumentController document = host.activeDocument();
     switch (command) {
       case GO_TO_TIME -> askGoToTime(document);
       case TIME_OFFSET -> askOffset(document);
@@ -122,7 +125,7 @@ final class TimeFeatures {
     for (BuiltInFormat format : BuiltInFormat.values()) {
       formats.add(format);
     }
-    formats.addAll(application.preferences().time().formats());
+    formats.addAll(host.preferences().time().formats());
     return formats;
   }
 
@@ -151,7 +154,7 @@ final class TimeFeatures {
    * @param zoneId a zone id, or empty for {@code time.zone}
    */
   void setZone(DocumentController document, String zoneId) {
-    TimeSettings settings = application.preferences().time();
+    TimeSettings settings = host.preferences().time();
     ZoneId zone = settings.zoneOrSystem();
     if (!zoneId.isEmpty()) {
       try {
@@ -175,26 +178,22 @@ final class TimeFeatures {
    * @param formats the formats in order
    */
   void setUserFormats(List<UserFormat> formats) {
-    TimeSettings settings = application.preferences().time().withFormats(formats);
-    application.setPreferences(application.preferences().withTime(settings));
-    for (ApplicationController window : application.windowSet().windows()) {
-      for (DocumentController open : window.documents()) {
-        TimeController time = open.time();
-        if (time.format() instanceof UserFormat user) {
-          time.configure(settings.format(user.id()), time.zone(), time.displayZone());
-        }
+    TimeSettings settings = host.preferences().time().withFormats(formats);
+    host.setPreferences(host.preferences().withTime(settings));
+    for (DocumentController open : host.allDocuments()) {
+      TimeController time = open.time();
+      if (time.format() instanceof UserFormat user) {
+        time.configure(settings.format(user.id()), time.zone(), time.displayZone());
       }
     }
   }
 
   /** Saves the time-spread mode and applies it to every open document of every window. */
   private void setSpread(SpreadMode mode) {
-    Preferences current = application.preferences();
-    application.setPreferences(current.withView(current.view().withTimeSpread(mode)));
-    for (ApplicationController window : application.windowSet().windows()) {
-      for (DocumentController open : window.documents()) {
-        open.overview().setSpreadMode(mode);
-      }
+    Preferences current = host.preferences();
+    host.setPreferences(current.withView(current.view().withTimeSpread(mode)));
+    for (DocumentController open : host.allDocuments()) {
+      open.overview().setSpreadMode(mode);
     }
   }
 
@@ -231,7 +230,7 @@ final class TimeFeatures {
       view.showNotice(UiText.NOTICE_TIME_NO_FORMAT.text());
       return;
     }
-    application.windowSet().timeSync().scrollAll(document);
+    timeSync.scrollAll(document);
   }
 
   private void askOffset(final DocumentController document) {
@@ -265,7 +264,7 @@ final class TimeFeatures {
     }
     view.askTimeZone(
         current,
-        application.preferences().time().zoneOrSystem(),
+        host.preferences().time().zoneOrSystem(),
         new MainView.NameListener() {
           @Override
           public void nameChosen(String zoneId) {
@@ -314,7 +313,7 @@ final class TimeFeatures {
                       new Runnable() {
                         @Override
                         public void run() {
-                          if (!application.isShuttingDown()) {
+                          if (!host.isShuttingDown()) {
                             showFormats(document, sample);
                           }
                         }
@@ -328,7 +327,7 @@ final class TimeFeatures {
   }
 
   private void showFormats(DocumentController document, String sample) {
-    TimeSettings settings = application.preferences().time();
+    TimeSettings settings = host.preferences().time();
     TimeController time = document == null || document.isClosed() ? null : document.time();
     view.showTimestampFormats(
         settings.formats(),
