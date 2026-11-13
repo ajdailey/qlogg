@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import java.io.IOException;
@@ -252,7 +253,7 @@ class MenuIconsTest {
 
   @Test
   void aDisabledItemOnDarkShowsAFadedCopyWhereThePlatformFades() {
-    assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
+    assumeTrue(PlatformTraits.PLATFORM.menuImages(), "this platform's menus show no images");
     bar.setBackground(new Color(30, 30, 30));
     Menu menu = menu();
     MenuIcons icons = new MenuIcons(bar);
