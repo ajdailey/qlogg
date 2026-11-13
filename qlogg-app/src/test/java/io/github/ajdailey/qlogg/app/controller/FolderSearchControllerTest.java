@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.config.FolderSearchSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
@@ -21,9 +22,11 @@ import io.github.ajdailey.qlogg.core.folder.FileHits;
 import io.github.ajdailey.qlogg.core.folder.NamePattern;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -462,5 +465,46 @@ class FolderSearchControllerTest {
     } finally {
       host.close(search);
     }
+  }
+
+  @Test
+  void anUnlistableFolderAndAnUnreadableFileShowAccessDenied() throws Exception {
+    assumeTrue(File.separatorChar == '/', "POSIX permissions");
+    Path dir = logs();
+    Path closed = Files.createDirectory(dir.resolve("closed"));
+    Files.writeString(closed.resolve("inner.log"), "hit\n", StandardCharsets.US_ASCII);
+    Path locked = Files.writeString(dir.resolve("locked.log"), "hit\n", StandardCharsets.US_ASCII);
+    Files.setPosixFilePermissions(closed, PosixFilePermissions.fromString("---------"));
+    Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("-w-------"));
+    FakeHost host = new FakeHost(Preferences.DEFAULTS);
+    FolderSearchController search = host.search();
+    try {
+      assumeTrue(!Files.isReadable(locked) && !Files.isReadable(closed), "permissions removable");
+      host.runAndWait(
+          search, new FolderRequest(dir.toString(), NamePattern.DEFAULT, true, "hit", LITERAL, ""));
+      assertEquals(
+          List.of("closed=Access denied", "locked.log=Access denied"), unsearched(search, dir));
+      host.runAndWait(search, hits(closed));
+      assertEquals(List.of("closed=Access denied"), unsearched(search, closed.getParent()));
+    } finally {
+      Files.setPosixFilePermissions(closed, PosixFilePermissions.fromString("rwx------"));
+      Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rw-------"));
+      host.close(search);
+    }
+  }
+
+  /** Lists each file not searched as its name under {@code dir} and its status text. */
+  private static List<String> unsearched(FolderSearchController search, Path dir) throws Exception {
+    Path real = dir.toRealPath();
+    List<String> rows = new ArrayList<String>();
+    for (FileHits file : search.files()) {
+      if (file.status() != FileHits.Status.SEARCHED) {
+        rows.add(
+            real.relativize(file.path()).toString().replace(File.separatorChar, '/')
+                + "="
+                + FolderSearchText.status(file));
+      }
+    }
+    return rows;
   }
 }

@@ -105,6 +105,7 @@ public final class FolderSearchText {
       case UNREADABLE -> UiText.FOLDER_STATUS_UNREADABLE.format(String.valueOf(detail));
       case NOT_TEXT -> UiText.FOLDER_STATUS_NOT_TEXT.text();
       case FAILED -> UiText.FOLDER_STATUS_FAILED.format(String.valueOf(detail));
+      case ACCESS_DENIED -> UiText.FOLDER_STATUS_ACCESS_DENIED.text();
     };
   }
 

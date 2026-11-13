@@ -62,6 +62,8 @@ final class OptionsFile {
   static final String FOLDER_SEARCH_EXCLUDE = "folderSearch.exclude";
   // Last tab.
   static final String CLOSE_WINDOW_WITH_LAST_TAB = "tabs.closeWindowWithLastTab";
+  // Last used tab.
+  static final String CLOSE_SHOWS_LAST_USED = "tabs.closeShowsLastUsed";
 
   /** Largest window coordinate or size accepted, in pixels. */
   static final int MAX_PIXELS = 100_000;
@@ -124,7 +126,8 @@ final class OptionsFile {
         ShortcutOverrides.load(p),
         list(p, FAVORITE, Options.MAX_FAVORITES),
         flag(p, LOG_FILE, d.debugLogFile(), file),
-        flag(p, CLOSE_WINDOW_WITH_LAST_TAB, d.closeWindowWithLastTab(), file));
+        flag(p, CLOSE_WINDOW_WITH_LAST_TAB, d.closeWindowWithLastTab(), file),
+        flag(p, CLOSE_SHOWS_LAST_USED, d.closeShowsLastUsed(), file));
   }
 
   /**
@@ -229,6 +232,8 @@ final class OptionsFile {
     p.setProperty(LOG_FILE, Boolean.toString(options.debugLogFile()));
     // Last tab.
     p.setProperty(CLOSE_WINDOW_WITH_LAST_TAB, Boolean.toString(options.closeWindowWithLastTab()));
+    // Last used tab.
+    p.setProperty(CLOSE_SHOWS_LAST_USED, Boolean.toString(options.closeShowsLastUsed()));
     options.shortcuts().store(p);
     storeList(p, FAVORITE, options.favorites());
     WindowState window = state.window();

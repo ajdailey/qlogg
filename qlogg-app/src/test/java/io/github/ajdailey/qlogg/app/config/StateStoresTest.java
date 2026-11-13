@@ -51,6 +51,7 @@ class StateStoresTest {
             shortcuts,
             List.of("/mock/a.log", "/mock/b.log"),
             true,
+            true,
             true);
     UiState state =
         UiState.DEFAULTS
@@ -86,6 +87,25 @@ class StateStoresTest {
         Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
             .contains("tabs.closeWindowWithLastTab=false"));
     assertFalse(new ConfigStore(location()).load().options().closeWindowWithLastTab());
+  }
+
+  // Last used tab.
+
+  @Test
+  void closeShowsLastUsedIsOffByDefaultAndRoundTripsUnderItsKey() throws Exception {
+    assertFalse(Options.DEFAULTS.closeShowsLastUsed());
+    assertFalse(new ConfigStore(location()).load().options().closeShowsLastUsed());
+    Files.writeString(
+        temp.resolve(SettingsLocation.MARKER),
+        "tabs.closeShowsLastUsed=true\n",
+        StandardCharsets.ISO_8859_1);
+    Preferences loaded = new ConfigStore(location()).load();
+    assertTrue(loaded.options().closeShowsLastUsed());
+    assertTrue(new ConfigStore(location()).save(loaded.withOptions(Options.DEFAULTS)));
+    assertTrue(
+        Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
+            .contains("tabs.closeShowsLastUsed=false"));
+    assertFalse(new ConfigStore(location()).load().options().closeShowsLastUsed());
   }
 
   // Search in a folder.

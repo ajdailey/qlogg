@@ -71,6 +71,8 @@ class FolderSearchTextTest {
         "Unreadable: mock reason",
         FolderSearchText.status(FileHits.Status.UNREADABLE, true, 0, "mock reason"));
     assertEquals("Not text", FolderSearchText.status(FileHits.Status.NOT_TEXT, true, 0, null));
+    assertEquals(
+        "Access denied", FolderSearchText.status(FileHits.Status.ACCESS_DENIED, true, 0, null));
     assertEquals("Failed: null", FolderSearchText.status(FileHits.Status.FAILED, false, 0, null));
   }
 

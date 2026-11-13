@@ -350,21 +350,22 @@ class FolderSearchTest {
     }
     Path real = dir.toRealPath();
     List<String> searched = new ArrayList<String>();
-    List<String> unreadable = new ArrayList<String>();
+    List<String> unsearched = new ArrayList<String>();
     for (FileHits file : results.files()) {
       String name = real.relativize(file.path()).toString().replace(File.separatorChar, '/');
       if (file.status() == FileHits.Status.SEARCHED) {
         assertEquals(1, file.matches(), name);
         searched.add(name);
       } else {
-        assertEquals(FileHits.Status.UNREADABLE, file.status(), name);
-        unreadable.add(name);
+        unsearched.add(name + "=" + file.status());
       }
     }
     assertEquals(List.of("a.log", "link.log", "target/t.log"), searched);
     assertTrue(
-        unreadable.containsAll(List.of("closed", "gone.log", "locked.log")), unreadable.toString());
-    assertEquals(3, unreadable.size(), unreadable.toString());
+        unsearched.containsAll(
+            List.of("closed=ACCESS_DENIED", "gone.log=UNREADABLE", "locked.log=ACCESS_DENIED")),
+        unsearched.toString());
+    assertEquals(3, unsearched.size(), unsearched.toString());
     results.close();
     assertReleased();
   }

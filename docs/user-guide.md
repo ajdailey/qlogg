@@ -53,10 +53,11 @@ Encoding menu forces another one, and the choice is remembered for the file.
 - A tab row appears while a file is open. A tab's menu closes tabs, copies the
   path, opens the folder, renames the tab or moves it to a new window; a middle
   click closes it. File > Close Multiple Tabs closes the tabs around the shown
-  one. Closing the last tab leaves an empty window, unless Close the window
-  with its last tab is on in Tools > Preferences, General; in the last window
-  that quits QLogg. Window > Opened Files and Switch to File (`Ctrl+Shift+O`)
-  list the tabs.
+  one. Closing the shown tab shows the next tab, else the previous one;
+  Tools > Preferences, General can show the last used tab instead. Closing the
+  last tab leaves an empty window, unless Close the window with its last tab
+  is on in Tools > Preferences, General; in the last window that quits QLogg.
+  Window > Opened Files and Switch to File (`Ctrl+Shift+O`) list the tabs.
 - The buttons at the right end of the tab row open files (+), list every tab
   (the arrow, with the number of tabs the row cannot show) and close the
   current tab (x). The list marks the current tab and shows each tab's dot;
@@ -212,7 +213,8 @@ searches the folders below it; links to folders are not followed.
 The upper table lists each file with its matches; selecting a file lists its
 matching lines below. Double-click a line, or press Enter, to open the file at
 that line, or to go there in the tab that already shows it. Compressed or
-binary files show Not text, and files that cannot be read show why. When
+binary files show Not text, and files that cannot be read show why, such as
+Access denied for a folder or file your account cannot read. When
 the matching lines fill the memory set aside for results, the oldest unpinned
 earlier result set is dropped first, with a notice; when none is left, the
 search stops and says so; narrow the search or the file names.
@@ -648,6 +650,7 @@ Tools > Preferences (on macOS, QLogg > Preferences) has these tabs:
 | General | Follow files when they open | Off | View > Follow New Files |
 | General | Follow when scrolling down past the last line | On | View > Follow on Overscroll |
 | General | Close the window with its last tab | Off | Closing the last tab closes the window; in the last window, QLogg quits |
+| General | After closing the shown tab, show the last used tab | Off | Closing the shown tab shows the tab you used before it, not the next tab |
 | View | Font, Size | Platform monospace font and size | The log views' font; size 4 to 72 |
 | View | Bold, Force anti-aliasing | Off | Text drawing |
 | View | View colors | Follow theme | [View colors](#view-colors) |

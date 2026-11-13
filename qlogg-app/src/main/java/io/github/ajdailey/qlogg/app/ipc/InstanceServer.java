@@ -239,11 +239,17 @@ public final class InstanceServer implements AutoCloseable {
     return held.size();
   }
 
-  private void accept(Workers workers) {
+  /**
+   * Accepts connections until {@link #close}, an accept failure or an interrupt, which stays set.
+   *
+   * @param workers starts a {@code qlogg-ipc-} thread per connection
+   */
+  void accept(Workers workers) {
     while (true) {
       try {
         slots.acquire();
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         LOG.debug("Handoff listener interrupted");
         return;
       }
@@ -314,17 +320,21 @@ public final class InstanceServer implements AutoCloseable {
   }
 
   /**
-   * Queues a request, waits for {@link #deliverTo}, then delivers everything queued, in order.
+   * Queues a request, waits for {@link #deliverTo}, then delivers everything queued, in order. An
+   * interrupt ends the wait as the window's end does and stays set.
    *
+   * @param files the requested files
+   * @param follow {@code -f} of the launch that sent them
    * @return true when the receiver took the files
    */
-  private boolean hand(List<FileRequest> files, boolean follow) {
+  boolean hand(List<FileRequest> files, boolean follow) {
     Held request = new Held(files, follow);
     held.add(request);
     boolean open = false;
     try {
       open = released.await(windowDeadline - System.nanoTime(), TimeUnit.NANOSECONDS);
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       LOG.debug("Held handoff interrupted");
     }
     // A request already polled is in a delivery; the lock in deliverHeld waits for its outcome.

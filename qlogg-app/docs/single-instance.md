@@ -50,6 +50,8 @@ that exits 0 knows the receiver has its files.
 - `close`, or 30 s after `claim` without `deliverTo`, answers the held requests
   `ERR`. A primary that dies closes the connections. Either way the client
   opens its own window, so a held file is not lost.
+- An interrupt of the accept thread ends it; an interrupt during a held wait
+  answers that request `ERR`. Either leaves the interrupt flag set.
 - Past the backlog a connect fails and the launch opens its own window.
 
 `close` stops accepting, deletes the endpoint, then releases the lock. Call it

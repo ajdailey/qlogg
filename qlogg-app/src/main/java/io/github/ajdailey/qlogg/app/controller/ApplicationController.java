@@ -158,6 +158,8 @@ public final class ApplicationController
   private CommandPalette palette;
   // Always on Top.
   private final AlwaysOnTop alwaysOnTop;
+  // Last used tab.
+  private final TabUse use = new TabUse();
   // Positions, recent files, toggles, folders, window placement and dialog sizes; saves.
   private final RememberedState remembered;
   // Copy Path, Copy File Name, Open Containing Folder and Open in Editor.
@@ -966,7 +968,7 @@ public final class ApplicationController
   public void closeOthers(DocumentController kept) {
     List<DocumentController> others = new ArrayList<DocumentController>(documents);
     others.remove(kept);
-    if (removeDocuments(others)) {
+    if (removeDocuments(others, kept)) {
       closeWindowAfterLastTab();
     }
   }
@@ -986,7 +988,7 @@ public final class ApplicationController
         left
             ? new ArrayList<DocumentController>(documents.subList(0, index))
             : new ArrayList<DocumentController>(documents.subList(index + 1, documents.size()));
-    if (removeDocuments(side)) {
+    if (removeDocuments(side, from)) {
       closeWindowAfterLastTab();
     }
   }
@@ -1046,6 +1048,7 @@ public final class ApplicationController
     quickFind.cancelRunning();
     active = document;
     focused = document;
+    use.shown(document);
     view.setTitle(UiText.WINDOW_TITLE_FILE.format(document.state().title()));
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.activeDocumentChanged(document);
@@ -1165,8 +1168,9 @@ public final class ApplicationController
 
   /**
    * Closes a tab: its controllers detach, and its document closes on a worker once every operation
-   * on it ended. The tab after it, else the one before, is shown when it was the shown one. With
-   * {@code tabs.closeWindowWithLastTab} on, closing the last tab closes the window.
+   * on it ended. When it was the shown one, the tab after it, else the one before, is shown, or
+   * with {@code tabs.closeShowsLastUsed} on the most recently shown tab. With {@code
+   * tabs.closeWindowWithLastTab} on, closing the last tab closes the window.
    *
    * @param document an open document's controller
    */
@@ -1209,8 +1213,9 @@ public final class ApplicationController
     return true;
   }
 
-  /** Shows the tab after a removed one, else the one before, when the removed one was shown. */
+  /** Shows the tab {@link TabUse#successor} picks when the removed tab was the shown one. */
   private void showAfterRemoval(DocumentController document, int index) {
+    use.removed(document);
     if (active != document) {
       return;
     }
@@ -1222,7 +1227,7 @@ public final class ApplicationController
         listener.activeDocumentChanged(null);
       }
     } else {
-      activate(documents.get(Math.min(index, documents.size() - 1)));
+      activate(use.successor(documents, index, preferences().options().closeShowsLastUsed()));
     }
   }
 
@@ -1230,18 +1235,20 @@ public final class ApplicationController
    * Closes every tab; with {@code tabs.closeWindowWithLastTab} on and a tab open, then the window.
    */
   public void closeAll() {
-    if (removeDocuments(new ArrayList<DocumentController>(documents))) {
+    if (removeDocuments(new ArrayList<DocumentController>(documents), null)) {
       closeWindowAfterLastTab();
     }
   }
 
   /**
    * Removes tabs as {@link #removeDocument} does, the shown one last, so no other tab is shown on
-   * the way: showing one builds its views on the UI thread.
+   * the way: showing one builds its views on the UI thread. When the shown one closes, {@code kept}
+   * is shown first, whatever {@code tabs.closeShowsLastUsed} would pick.
    *
+   * @param kept the tab the command keeps open, or null
    * @return true when any was open
    */
-  private boolean removeDocuments(List<DocumentController> closing) {
+  private boolean removeDocuments(List<DocumentController> closing, DocumentController kept) {
     DocumentController shown = active;
     boolean last = closing.remove(shown);
     boolean closed = false;
@@ -1249,6 +1256,9 @@ public final class ApplicationController
       closed |= removeDocument(document);
     }
     if (last) {
+      if (kept != null) {
+        activate(kept);
+      }
       closed |= removeDocument(shown);
     }
     return closed;
@@ -1315,6 +1325,7 @@ public final class ApplicationController
     long caret = Math.max(0, old.sourceLine(old.selection().caret().line()));
     LabelState labels = old.labels();
     documents.set(index, replacement);
+    use.replaced(old, replacement);
     quickFind.cancelRunning(old);
     features.documentClosed(old);
     set.timeSync().replace(old, replacement);
@@ -1895,6 +1906,7 @@ public final class ApplicationController
     final List<DocumentController> closing = new ArrayList<DocumentController>(documents);
     documents.clear();
     reopening.clear();
+    use.clear();
     active = null;
     focused = null;
     for (DocumentController document : closing) {

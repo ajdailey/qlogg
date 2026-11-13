@@ -25,6 +25,7 @@ import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystemException;
 import java.nio.file.FileSystemLoopException;
 import java.nio.file.FileVisitOption;
@@ -64,6 +65,8 @@ import java.util.regex.PatternSyntaxException;
  * and a NUL byte in its first {@link EncodingDetector#SAMPLE_BYTES} is listed {@code NOT_TEXT}
  * (compressed rotations such as {@code app.log.2.gz}); a search failure on one file lists it {@code
  * FAILED} and the walk goes on. A regex that does not compile ends the whole search {@code FAILED}.
+ * An {@link AccessDeniedException} lists the file or folder {@code ACCESS_DENIED} in place of
+ * {@code UNREADABLE}.
  *
  * <p>Memory: each walked file reserves {@link #ENTRY_BYTES} plus 2 bytes per path char from {@code
  * RESULTS}, each entered folder the same until the walk ends, and each listed line {@link
@@ -373,7 +376,7 @@ public final class FolderSearch {
         results.setLimited();
         return FileVisitResult.TERMINATE;
       }
-      results.add(FileHits.skipped(path, FileHits.Status.UNREADABLE, reason(failure), cost));
+      results.add(unread(path, failure, cost));
       return FileVisitResult.CONTINUE;
     }
 
@@ -388,9 +391,7 @@ public final class FolderSearch {
         try {
           document = LogDocument.open(file.path(), null, runServices, false);
         } catch (IOException e) {
-          results.add(
-              FileHits.skipped(
-                  file.path(), FileHits.Status.UNREADABLE, reason(e), file.reserved()));
+          results.add(unread(file.path(), e, file.reserved()));
           handedOver = true;
           return;
         }
@@ -418,8 +419,7 @@ public final class FolderSearch {
         document.setHideAnsi(query.query().hideAnsi());
         index(document);
       } catch (IOException e) {
-        return FileHits.skipped(
-            file.path(), FileHits.Status.UNREADABLE, reason(e), file.reserved());
+        return unread(file.path(), e, file.reserved());
       }
       indexPercent = 100;
       if (!document.enter()) {
@@ -525,8 +525,7 @@ public final class FolderSearch {
         }
       } catch (IOException e) {
         budget.release(MemoryShare.RESULTS, reserved - file.reserved());
-        return FileHits.skipped(
-            file.path(), FileHits.Status.UNREADABLE, reason(e), file.reserved());
+        return unread(file.path(), e, file.reserved());
       } catch (CancellationException | InterruptedException e) {
         budget.release(MemoryShare.RESULTS, reserved - file.reserved());
         throw e;
@@ -646,6 +645,14 @@ public final class FolderSearch {
 
   private static long entryBytes(Path path) {
     return ENTRY_BYTES + 2L * path.toString().length();
+  }
+
+  /** Lists a file or folder that could not be read: {@code ACCESS_DENIED} or {@code UNREADABLE}. */
+  private static FileHits unread(Path path, IOException failure, long retainedBytes) {
+    if (failure instanceof AccessDeniedException) {
+      return FileHits.skipped(path, FileHits.Status.ACCESS_DENIED, null, retainedBytes);
+    }
+    return FileHits.skipped(path, FileHits.Status.UNREADABLE, reason(failure), retainedBytes);
   }
 
   /** One line naming why a file could not be read; never the file's content. */

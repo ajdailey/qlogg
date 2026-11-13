@@ -99,9 +99,13 @@ tab moves to, starts with it off; handed files do not change it.
 tabs. Listeners get `documentOpened`, `documentClosed`,
 `activeDocumentChanged`, `documentReplaced` and `tabRenamed`.
 
-- Closing the shown tab shows the one after it, else the one before.
-  `closeAll`, `closeOthers` and `closeSide` close the shown tab last, so no
-  other tab is shown, and its views built, on the way.
+- Closing the shown tab shows the one after it, else the one before. With
+  `tabs.closeShowsLastUsed` on, `TabUse` shows the open tab shown most
+  recently instead; a tab opened and never shown does not count. `TabUse`
+  drops a closed or moved-out tab and keeps a reloaded tab's place.
+- `closeAll`, `closeOthers` and `closeSide` close the shown tab last, so no
+  other tab is shown, and its views built, on the way. `closeOthers` and
+  `closeSide` show their kept tab before that close, under either setting.
 - Closing the last tab, or Close All, leaves an empty window. With
   `tabs.closeWindowWithLastTab` on, the window closes through `closeWindow`, so
   the last window quits. Close All in an empty window does nothing.

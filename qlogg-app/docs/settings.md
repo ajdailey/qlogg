@@ -59,7 +59,7 @@ Two settings can hold text taken from a log:
 | `HighlightSettings` | `highlight.*`, `label.*`, `matchHighlight.*` | `HighlightFile` |
 | `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
-| `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab` | `OptionsFile` |
+| `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab`, `tabs.closeShowsLastUsed` | `OptionsFile` |
 | `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
 
 `FoldRulesText.parse` checks the Preferences Folding tab's text. Blank lines are
@@ -103,6 +103,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `encoding.default` | The charset detection falls back to; one that can encode | `ISO-8859-1` | Tools > Preferences, File |
 | `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Preferences, General |
 | `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
+| `tabs.closeShowsLastUsed` | `true`, `false`: closing the shown tab shows the tab shown most recently, not the one after it | `false` | Tools > Preferences, General |
 | `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Preferences, Shortcuts |
 | `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit; `--window-*` options win for that run | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |

@@ -419,6 +419,17 @@ class PreferencesAndMenusTest {
     dialog.shell().dispose();
   }
 
+  @Test
+  void theGeneralTabSetsTheLastUsedTabOption() {
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+    dialog.open();
+    assertFalse(dialog.closeShowsLastUsed().getSelection());
+    dialog.closeShowsLastUsed().setSelection(true);
+    assertTrue(dialog.apply());
+    assertTrue(controller.preferences().options().closeShowsLastUsed());
+    dialog.shell().dispose();
+  }
+
   private String menuText(CommandId command) {
     for (MenuItem header : window.shell().getMenuBar().getItems()) {
       for (MenuItem item : header.getMenu().getItems()) {

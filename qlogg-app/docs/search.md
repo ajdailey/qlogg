@@ -147,6 +147,8 @@ over a folder's files without opening tabs; core detail is in
   combined expression that does not parse, or closed workers start no set and
   make `state()` `FAILED` before the search thread; the folder is validated
   on it.
+- `FolderSearchText.status` gives a file row's status from `UiText`;
+  `ACCESS_DENIED` shows `Access denied`.
 - Mode, case, whole word, inverse and combining apply. Range, In selection,
   context and auto-refresh do not. `view.hideAnsi` applies.
 - Progress and the end reach the UI thread through the `UiDispatcher`; events

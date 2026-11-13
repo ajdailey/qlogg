@@ -24,6 +24,8 @@ import java.util.List;
  * @param debugLogFile {@code log.file}: Help > Debug Log File; the log also goes to the file
  * @param closeWindowWithLastTab {@code tabs.closeWindowWithLastTab}: closing the last tab closes
  *     the window
+ * @param closeShowsLastUsed {@code tabs.closeShowsLastUsed}: closing the shown tab shows the most
+ *     recently used tab, not the one after it
  */
 public record Options(
     FontSettings font,
@@ -35,7 +37,9 @@ public record Options(
     List<String> favorites,
     boolean debugLogFile,
     // Last tab.
-    boolean closeWindowWithLastTab) {
+    boolean closeWindowWithLastTab,
+    // Last used tab.
+    boolean closeShowsLastUsed) {
   /** Largest {@code recent.count}. */
   public static final int MAX_RECENT = 50;
 
@@ -58,6 +62,7 @@ public record Options(
           true,
           ShortcutOverrides.NONE,
           List.of(),
+          false,
           false,
           false);
 
@@ -99,6 +104,7 @@ public record Options(
    * @param favorites {@code favorite.N}
    * @param debugLogFile {@code log.file}
    * @param closeWindowWithLastTab {@code tabs.closeWindowWithLastTab}
+   * @param closeShowsLastUsed {@code tabs.closeShowsLastUsed}
    */
   public Options(
       FontSettings font,
@@ -110,7 +116,8 @@ public record Options(
       ShortcutOverrides shortcuts,
       List<String> favorites,
       boolean debugLogFile,
-      boolean closeWindowWithLastTab) {
+      boolean closeWindowWithLastTab,
+      boolean closeShowsLastUsed) {
     this(
         font,
         recentCount,
@@ -120,7 +127,8 @@ public record Options(
         shortcuts,
         favorites,
         debugLogFile,
-        closeWindowWithLastTab);
+        closeWindowWithLastTab,
+        closeShowsLastUsed);
   }
 
   /**
@@ -193,7 +201,8 @@ public record Options(
         shortcuts,
         favorites,
         debugLogFile,
-        closeWindowWithLastTab);
+        closeWindowWithLastTab,
+        closeShowsLastUsed);
   }
 
   /**
@@ -212,7 +221,8 @@ public record Options(
         value,
         favorites,
         debugLogFile,
-        closeWindowWithLastTab);
+        closeWindowWithLastTab,
+        closeShowsLastUsed);
   }
 
   /**
@@ -231,7 +241,8 @@ public record Options(
         shortcuts,
         value,
         debugLogFile,
-        closeWindowWithLastTab);
+        closeWindowWithLastTab,
+        closeShowsLastUsed);
   }
 
   /**
@@ -250,7 +261,8 @@ public record Options(
         shortcuts,
         favorites,
         value,
-        closeWindowWithLastTab);
+        closeWindowWithLastTab,
+        closeShowsLastUsed);
   }
 
   // Last tab.
@@ -271,6 +283,29 @@ public record Options(
         shortcuts,
         favorites,
         debugLogFile,
+        value,
+        closeShowsLastUsed);
+  }
+
+  // Last used tab.
+
+  /**
+   * Returns a copy with {@code tabs.closeShowsLastUsed} set.
+   *
+   * @param value true shows the most recently used tab when the shown tab closes
+   * @return the copy
+   */
+  public Options withCloseShowsLastUsed(boolean value) {
+    return new Options(
+        font,
+        recentCount,
+        monitor,
+        defaultEncoding,
+        loadLastSession,
+        shortcuts,
+        favorites,
+        debugLogFile,
+        closeWindowWithLastTab,
         value);
   }
 

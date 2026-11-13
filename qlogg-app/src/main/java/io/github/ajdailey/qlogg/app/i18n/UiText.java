@@ -1361,7 +1361,13 @@ public enum UiText {
   COMMAND_CLEAR_RECENT,
   // Decode-only encoding choice.
   /** Notice: the encoding name. */
-  NOTICE_ENCODING_UNSUPPORTED;
+  NOTICE_ENCODING_UNSUPPORTED,
+  // Access denied in Search in Folder.
+  /** File status: permissions refuse listing the folder or reading the file. */
+  FOLDER_STATUS_ACCESS_DENIED,
+  // Last used tab.
+  /** Preferences box making a close of the shown tab show the most recently used tab. */
+  PREFERENCES_CLOSE_SHOWS_LAST_USED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

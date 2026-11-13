@@ -200,6 +200,7 @@ runs a coordinator on a `qlogg-search-` virtual thread:
 |---|---|
 | `SEARCHED` | The file was searched; `matches()` counts its matching lines and `size()` the lines listed |
 | `UNREADABLE` | A file or folder the walk cannot read, a link whose target is missing, or a file that does not open or index; `detail()` gives the reason |
+| `ACCESS_DENIED` | As `UNREADABLE`, for an `AccessDeniedException`: permissions refuse listing the folder or reading the file; `detail()` is null |
 | `NOT_TEXT` | A one-byte encoding with a NUL byte in the first 64 KiB, such as a compressed rotation `app.log.2.gz` |
 | `FAILED` | That file's search failed, for example a regex that overflows the stack on one of its lines; the walk goes on |
 

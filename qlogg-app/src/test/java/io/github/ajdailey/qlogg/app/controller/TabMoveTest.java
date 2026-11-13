@@ -320,6 +320,25 @@ class TabMoveTest {
   }
 
   @Test
+  void aMovedTabLeavesTheLastUsedOrder() throws Exception {
+    first.setOptions(first.preferences().options().withCloseShowsLastUsed(true));
+    first.execute(CommandId.NEW_WINDOW);
+    ApplicationController second = set.windows().get(1);
+    DocumentController c = openIn(first, lines("c.log", 10));
+    DocumentController d = openIn(first, lines("d.log", 10));
+    DocumentController e = openIn(first, lines("e.log", 10));
+    first.activate(d);
+    first.activate(c);
+    first.activate(d);
+
+    first.moveToWindow(d, second, 0);
+
+    assertSame(c, first.activeDocument(), "the most recently shown tab, not the next");
+    first.closeDocument(c);
+    assertSame(e, first.activeDocument());
+  }
+
+  @Test
   void aMoveIntoAWindowShowingTheFileIsRefused() throws Exception {
     Path file = lines("same.log", 10);
     first.execute(CommandId.NEW_WINDOW);

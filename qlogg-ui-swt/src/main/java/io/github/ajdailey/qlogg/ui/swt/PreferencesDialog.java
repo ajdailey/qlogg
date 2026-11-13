@@ -93,6 +93,8 @@ final class PreferencesDialog {
   private final List<String> colorIds = new ArrayList<String>();
   // Last tab.
   private Button closeWindowWithLastTab;
+  // Last used tab.
+  private Button closeShowsLastUsed;
 
   PreferencesDialog(Shell parent, ApplicationController controller) {
     this.controller = controller;
@@ -199,6 +201,12 @@ final class PreferencesDialog {
             page,
             UiText.PREFERENCES_CLOSE_WINDOW_WITH_LAST_TAB,
             preferences.options().closeWindowWithLastTab());
+    // Last used tab.
+    closeShowsLastUsed =
+        check(
+            page,
+            UiText.PREFERENCES_CLOSE_SHOWS_LAST_USED,
+            preferences.options().closeShowsLastUsed());
   }
 
   private void view(Composite page) {
@@ -606,7 +614,8 @@ final class PreferencesDialog {
             overrides,
             old.favorites(),
             old.debugLogFile(),
-            closeWindowWithLastTab.getSelection()));
+            closeWindowWithLastTab.getSelection(),
+            closeShowsLastUsed.getSelection()));
     controller.setSearchHistory(
         controller.preferences().searchHistory(), historySize.getSelection());
     controller.setQuickFindOptions(quickIncremental.getSelection(), quickRegex.getSelection());
@@ -710,5 +719,10 @@ final class PreferencesDialog {
   // Last tab.
   Button closeWindowWithLastTab() {
     return closeWindowWithLastTab;
+  }
+
+  // Last used tab.
+  Button closeShowsLastUsed() {
+    return closeShowsLastUsed;
   }
 }

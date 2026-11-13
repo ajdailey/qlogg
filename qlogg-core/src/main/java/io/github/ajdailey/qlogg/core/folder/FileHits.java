@@ -17,7 +17,9 @@ public final class FileHits {
     /** A NUL byte in the first 64 KiB of a file with a one-byte code unit: compressed or binary. */
     NOT_TEXT,
     /** The search of this file failed, for example a regex that overflows on a line. */
-    FAILED
+    FAILED,
+    /** Permissions refuse listing the folder or reading the file; {@link #detail} is null. */
+    ACCESS_DENIED
   }
 
   private final Path path;
