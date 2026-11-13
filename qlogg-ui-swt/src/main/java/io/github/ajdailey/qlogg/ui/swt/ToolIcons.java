@@ -13,18 +13,25 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageDataProvider;
+import org.eclipse.swt.graphics.PaletteData;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.ToolItem;
 
 /**
- * The toolbar and toggle icons, rendered at build time from the SVG set into {@code
+ * The toolbar, toggle and menu icons, rendered at build time from the SVG set into {@code
  * icons/tool/NAME-light-16.png} (dark ink) and {@code NAME-dark-16.png} (light ink), each with a 32
  * px copy for 200% zoom. The ink follows the native widget background, not the QLogg palette,
  * because toolbars and buttons are native; on a palette-painted tab strip it follows the palette.
- * Images are created on first use on the UI thread and disposed with the owner control.
+ * GTK refreshes {@code getBackground} and sends {@code SWT.Settings} only on the first {@code
+ * Display.sleep} after {@code setDarkThemePreferred}, so {@link #reink} reads the background
+ * through {@link PlatformTraits#shownBackground}, a drawn pixel on GTK. GTK's disabled effect
+ * lightens a menu image, which on a dark background brightens it, so there {@link #showState} shows
+ * a disabled menu item a faded copy. Images are created on first use on the UI thread and disposed
+ * with the owner control.
  */
 final class ToolIcons {
   /** Opens files. */
@@ -101,6 +108,49 @@ final class ToolIcons {
   /** Lists every tab. */
   static final String TAB_LIST = "tab-list-down";
 
+  // Menu item icons.
+  /** Closes the file. */
+  static final String CLOSE = "close";
+
+  /** Quits the application. */
+  static final String QUIT = "quit";
+
+  /** Copies the selection. */
+  static final String COPY = "copy";
+
+  /** Selects the whole file. */
+  static final String SELECT_ALL = "select-all";
+
+  /** Selects the next match. */
+  static final String FIND_NEXT = "find-next";
+
+  /** Selects the previous match. */
+  static final String FIND_PREVIOUS = "find-previous";
+
+  /** Searches the files of a folder. */
+  static final String SEARCH_FOLDER = "search-folder";
+
+  /** Moves the caret to a line. */
+  static final String GO_TO_LINE = "go-to-line";
+
+  /** Opens Preferences. */
+  static final String PREFERENCES = "preferences";
+
+  /** Opens the user guide. */
+  static final String HELP = "help";
+
+  /** Opens About. */
+  static final String ABOUT = "about";
+
+  /** Suffix of a faded copy's key in the image cache. */
+  private static final String FADED = "#faded";
+
+  /** Percent of its opacity a faded copy keeps. */
+  private static final int FADE_PERCENT = 40;
+
+  /** Side of an icon at 100% zoom. */
+  private static final int SIDE = 16;
+
   /** Background luminance, 0-255, below which the light ink is used. */
   private static final int DARK_BACKGROUND = 128;
 
@@ -109,11 +159,16 @@ final class ToolIcons {
 
   private final Display display;
   private final Control owner;
+  private final Control source;
   private final Map<String, Image> images = new HashMap<String, Image>();
   private final Map<ToolItem, String> items = new LinkedHashMap<ToolItem, String>();
   private boolean darkBackground;
   // Tab strip buttons.
   private final boolean fixedInk;
+  // Menu item icons.
+  private final Map<MenuItem, String> menuItems = new LinkedHashMap<MenuItem, String>();
+  private final boolean faded = PlatformTraits.PLATFORM.fadesDisabledIcons();
+  private Image blank;
 
   /**
    * Creates the set for controls with the owner's background; the images are disposed with it.
@@ -121,7 +176,20 @@ final class ToolIcons {
    * @param owner a control whose background the icons are drawn on
    */
   ToolIcons(Control owner) {
-    this(owner, false, dark(owner.getBackground()));
+    this(owner, owner);
+  }
+
+  /**
+   * Creates the set for controls on an owner that draws no background of its own, such as a plain
+   * {@code Composite}, whose GTK print leaves the sample white in either theme. The ink is read
+   * from the source, a control that draws the same native background. The images are disposed with
+   * the owner.
+   *
+   * @param owner the control that disposes the images
+   * @param source a control whose background the icons' background matches, such as a tool bar
+   */
+  ToolIcons(Control owner, Control source) {
+    this(owner, source, false, dark(source.getBackground()));
   }
 
   // Tab strip buttons.
@@ -135,12 +203,26 @@ final class ToolIcons {
    * @param background the surface's color
    */
   ToolIcons(Control owner, Color background) {
-    this(owner, true, dark(background));
+    this(owner, owner, true, dark(background));
   }
 
-  private ToolIcons(Control owner, boolean fixedInk, boolean dark) {
+  // Menu item icons.
+
+  /**
+   * Creates the set for a background no control shows and no theme change reaches; the images are
+   * disposed with the owner.
+   *
+   * @param owner the control that disposes the images
+   * @param dark true for the light ink
+   */
+  ToolIcons(Control owner, boolean dark) {
+    this(owner, owner, true, dark);
+  }
+
+  private ToolIcons(Control owner, Control source, boolean fixedInk, boolean dark) {
     this.display = owner.getDisplay();
     this.owner = owner;
+    this.source = source;
     this.fixedInk = fixedInk;
     this.darkBackground = dark;
     final Listener settings =
@@ -181,16 +263,91 @@ final class ToolIcons {
     return true;
   }
 
+  // Menu item icons.
+
   /**
-   * Reads the owner's background again and, when it calls for the other ink, replaces the image of
-   * every item given to {@link #apply}. Native controls change background with the theme. A set
-   * created for a palette-painted surface keeps its ink.
+   * Shows an icon on a menu item and keeps it in the owner's ink across {@link #reink} until the
+   * item is disposed.
+   *
+   * @param item the item
+   * @param name one of the name constants
+   * @return false when the PNG is missing from the jar and the item shows no image
    */
-  void reink() {
-    if (fixedInk || owner.isDisposed()) {
+  boolean apply(final MenuItem item, String name) {
+    if (get(name) == null) {
+      return false;
+    }
+    menuItems.put(item, name);
+    item.addListener(
+        SWT.Dispose,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            menuItems.remove(item);
+          }
+        });
+    showState(item);
+    return true;
+  }
+
+  /**
+   * Shows the transparent image on a menu item, so its label lines up with items that show icons.
+   *
+   * @param item the item
+   */
+  void applyBlank(MenuItem item) {
+    item.setImage(blank());
+  }
+
+  /**
+   * Returns a transparent image of an icon's size, created on first use.
+   *
+   * @return the image, disposed with the owner
+   */
+  Image blank() {
+    if (blank == null) {
+      blank =
+          new Image(
+              display,
+              new ImageDataProvider() {
+                @Override
+                public ImageData getImageData(int zoom) {
+                  return zoom == 100
+                      ? transparent(SIDE)
+                      : zoom == 200 ? transparent(2 * SIDE) : null;
+                }
+              });
+    }
+    return blank;
+  }
+
+  /**
+   * Shows the image of a menu item's enabled state; call after changing it. An item not given to
+   * {@link #apply} keeps its image.
+   *
+   * @param item the item
+   */
+  void showState(MenuItem item) {
+    String name = menuItems.get(item);
+    if (name == null || item.isDisposed()) {
       return;
     }
-    swap(dark(owner.getBackground()));
+    Image image = get(faded && darkBackground && !item.getEnabled() ? name + FADED : name);
+    if (item.getImage() != image) {
+      item.setImage(image);
+    }
+  }
+
+  /**
+   * Reads the ink source's background again and, when it calls for the other ink, replaces the
+   * image of every item given to {@link #apply}. Native controls change background with the theme.
+   * A set of fixed ink keeps it.
+   */
+  void reink() {
+    if (fixedInk || owner.isDisposed() || source.isDisposed()) {
+      return;
+    }
+    swap(dark(PlatformTraits.PLATFORM.shownBackground(source)));
   }
 
   // Tab strip buttons.
@@ -218,6 +375,10 @@ final class ToolIcons {
       if (!entry.getKey().isDisposed()) {
         entry.getKey().setImage(get(entry.getValue()));
       }
+    }
+    // Menu item icons.
+    for (MenuItem item : menuItems.keySet()) {
+      showState(item);
     }
     for (Image image : old) {
       if (image != null) {
@@ -263,7 +424,10 @@ final class ToolIcons {
     return darkBackground;
   }
 
-  private Image create(String name) {
+  private Image create(String key) {
+    // Menu item icons.
+    final boolean fade = key.endsWith(FADED);
+    String name = fade ? key.substring(0, key.length() - FADED.length()) : key;
     final String prefix = "icons/tool/" + name + (darkBackground ? "-dark-" : "-light-");
     if (data(prefix + 16) == null) {
       return null;
@@ -273,9 +437,29 @@ final class ToolIcons {
         new ImageDataProvider() {
           @Override
           public ImageData getImageData(int zoom) {
-            return zoom == 100 ? data(prefix + 16) : zoom == 200 ? data(prefix + 32) : null;
+            ImageData data =
+                zoom == 100 ? data(prefix + 16) : zoom == 200 ? data(prefix + 32) : null;
+            return fade && data != null ? fade(data) : data;
           }
         });
+  }
+
+  // Menu item icons.
+
+  private static ImageData transparent(int side) {
+    ImageData data = new ImageData(side, side, 32, new PaletteData(0xff0000, 0xff00, 0xff));
+    data.alphaData = new byte[side * side];
+    return data;
+  }
+
+  private static ImageData fade(ImageData data) {
+    byte[] alpha = data.alphaData;
+    if (alpha != null) {
+      for (int i = 0; i < alpha.length; i++) {
+        alpha[i] = (byte) ((alpha[i] & 0xff) * FADE_PERCENT / 100);
+      }
+    }
+    return data;
   }
 
   private static ImageData data(String resource) {
@@ -293,5 +477,9 @@ final class ToolIcons {
       }
     }
     images.clear();
+    // Menu item icons.
+    if (blank != null) {
+      blank.dispose();
+    }
   }
 }

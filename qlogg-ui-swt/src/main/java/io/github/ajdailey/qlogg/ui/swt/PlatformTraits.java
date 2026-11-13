@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
 /**
@@ -146,4 +148,48 @@ interface PlatformTraits {
    * @return {@link Gtk4ToolItemSizing} on GTK 4, else {@link NativeToolItemSizing}
    */
   ToolItemSizing toolItemSizing();
+
+  // Menu item icons.
+
+  /**
+   * Reports whether menu items show images. cocoa menus show none, and GTK 4 SWT ignores {@code
+   * MenuItem.setImage}.
+   *
+   * @return false on cocoa and GTK 4
+   */
+  boolean menuImages();
+
+  /**
+   * Reports whether every other item of a menu with an icon holds a blank image. GTK 3 reserves no
+   * image column, so a label moves right when its item has an image.
+   *
+   * @return true on GTK
+   */
+  boolean padsMenuImages();
+
+  /**
+   * Reports whether menu icon ink comes from the native theme's startup setting. win32 menus take
+   * that setting and keep it, and the toolbar stays light under a dark one.
+   *
+   * @return true on win32
+   */
+  boolean fixedMenuInk();
+
+  /**
+   * Reports whether a disabled menu icon on a dark background takes a faded copy. GTK's disabled
+   * effect brightens an image there.
+   *
+   * @return true on GTK
+   */
+  boolean fadesDisabledIcons();
+
+  /**
+   * Returns the background a control shows now. GTK refreshes {@code getBackground} only on the
+   * first {@code Display.sleep} after a theme change, so a visible control is read from a pixel it
+   * draws.
+   *
+   * @param source the control
+   * @return the color
+   */
+  Color shownBackground(Control source);
 }

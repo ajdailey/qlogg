@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.ToolBar;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -110,5 +113,18 @@ class PlatformBehaviorTest {
     } else {
       assertEquals(GtkX11Stacking.class, stacking.getClass());
     }
+  }
+
+  // Menu item icons.
+
+  @Test
+  void menuInkIsFixedOnWin32() {
+    Shell shell = new Shell(display);
+    ToolBar bar = new ToolBar(shell, SWT.FLAT);
+    bar.setBackground(new Color(240, 240, 240));
+    MenuIcons icons = new MenuIcons(bar);
+    bar.setBackground(new Color(30, 30, 30));
+    icons.reink();
+    assertEquals(!WIN32, icons.icons().darkBackground());
   }
 }

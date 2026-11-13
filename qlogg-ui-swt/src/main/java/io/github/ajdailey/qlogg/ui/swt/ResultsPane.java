@@ -55,7 +55,8 @@ final class ResultsPane {
       final ApplicationController application,
       Keymap keymap,
       Palette palette,
-      LogCanvas.PrefixListener prefix) {
+      LogCanvas.PrefixListener prefix,
+      MenuIcons menuIcons) {
     this.document = document;
     pane = new Composite(parent, SWT.NONE);
     GridLayout layout = new GridLayout(1, false);
@@ -73,7 +74,8 @@ final class ResultsPane {
     body = new Composite(pane, SWT.NONE);
     body.setLayout(new FillLayout());
     body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-    canvas = new LogCanvas(body, document.filtered(), application, keymap, palette, prefix);
+    canvas =
+        new LogCanvas(body, document.filtered(), application, keymap, palette, prefix, menuIcons);
     sets.addListener(
         SWT.Selection,
         new Listener() {

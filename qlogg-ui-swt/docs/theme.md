@@ -101,14 +101,29 @@ reads them once, so an uncolored strip keeps them through a theme change
 | Class | Images |
 |---|---|
 | `Icons` | The 16 to 256 px application PNGs rendered by `tools/icons.sh`. `DARK` is the window and taskbar icon; `LIGHT` is for in-app use with the light palette. Owned by the views that create them |
-| `ToolIcons` | The toolbar, toggle and dialog icons: `icons/tool/NAME-light-16.png` (dark ink) or `NAME-dark-16.png` (light ink), with the 32 px PNG at 200% zoom. Created on first use and disposed with the owner |
+| `ToolIcons` | The toolbar, toggle, dialog and menu item icons: `icons/tool/NAME-light-16.png` (dark ink) or `NAME-dark-16.png` (light ink), with the 32 px PNG at 200% zoom. Created on first use and disposed with the owner |
 
-`ToolIcons` picks the ink from the owning control's background, because
-toolbars are native: on Windows they stay light under the dark palette.
-`reink` reads the background again and swaps the image of every item given to
-`apply`. It runs on `SWT.Settings`, from the Display or from `CocoaChrome` on
-the owner, and on the UI turn after a palette change, once native controls
-have restyled.
+`ToolIcons` picks the ink from the background of its ink source, the owner or
+a tool bar given as `ToolIcons(Control, Control)`, because toolbars are native:
+on Windows they stay light under the dark palette. `reink` reads the source
+through `PlatformTraits.shownBackground` and swaps the image of every item
+given to `apply`. It runs on `SWT.Settings`, from the Display or from
+`CocoaChrome` on the owner, and on the UI turn after a palette change, once
+native controls have restyled.
+
+GTK refreshes `getBackground` and sends `SWT.Settings` only on the first
+`Display.sleep` after `setDarkThemePreferred`, so on GTK `shownBackground`
+prints a visible source into a 2 px image and reads its corner pixel; a hidden
+source, or a `print` that fails (GTK 4), falls back to `getBackground`. A plain
+`Composite` prints white in either theme, so the search row and Predefined
+Filters take a tool bar of theirs as the source. win32 and cocoa read
+`getBackground`.
+
+A menu item given to `apply(MenuItem, String)` follows the same ink. On GTK a
+disabled menu item on a dark background shows a copy at 40% opacity
+(`showState`), because GTK's disabled effect brightens the image there. A set
+created with `ToolIcons(Control, boolean)` keeps that ink; `MenuIcons` uses it
+on win32. Menu icons: [menus.md](menus.md).
 
 A set created with a background color (`ToolIcons(Control, Color)`) is for a
 palette-painted surface, the tab strip buttons: `reink` leaves it alone, and

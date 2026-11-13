@@ -31,7 +31,8 @@ import org.eclipse.swt.widgets.Shell;
  * The main window's menu bar: one menu per {@link CommandGroup} with its {@link MenuTable}
  * commands, Window > Opened Files, File > Recent Files, Recently Closed and Favorites, the
  * highlighter sets, Highlighters > Color Label and the encodings. Item state comes from {@link
- * CommandStates}; this class only applies it.
+ * CommandStates}; this class only applies it. {@link MenuIcons} gives the command items their
+ * icons.
  *
  * <p>Showing a top menu syncs that menu's items and its listed entries only. Enablement of every
  * item also follows each document event ({@link #syncEnablement}), because a disabled item's
@@ -73,17 +74,21 @@ final class MainMenuBar {
   private CommandGroup favoritesGroup;
   private Menu colorLabelMenu;
   private Keymap keymap;
+  // Menu item icons.
+  private final MenuIcons icons;
 
   /**
    * Creates the menu bar's owner; {@link #build} creates the menus.
    *
    * @param shell the main window's shell
    * @param controller the window's controller
+   * @param icons the items' icons
    */
-  MainMenuBar(Shell shell, ApplicationController controller) {
+  MainMenuBar(Shell shell, ApplicationController controller, MenuIcons icons) {
     this.shell = shell;
     this.controller = controller;
     this.states = new CommandStates(controller);
+    this.icons = icons;
   }
 
   /**
@@ -217,6 +222,8 @@ final class MainMenuBar {
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
       }
+      // Menu item icons.
+      icons.decorate(menu);
       menu.addListener(
           SWT.Show,
           new Listener() {
@@ -313,9 +320,11 @@ final class MainMenuBar {
     }
   }
 
-  private static void setEnabled(MenuItem item, boolean enabled) {
+  private void setEnabled(MenuItem item, boolean enabled) {
     if (item.getEnabled() != enabled) {
       item.setEnabled(enabled);
+      // Menu item icons.
+      icons.showState(item);
     }
   }
 

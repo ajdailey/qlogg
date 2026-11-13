@@ -250,7 +250,7 @@ An empty `qlogg.conf` in either place selects portable mode.
 | `qlogg-bootstrap/` | Entry point of `qlogg.jar`: Java version check, target selection, SWT natives, nested-jar class loader |
 | `qlogg-core/` | Threads, memory budget, file access, encoding, line index, documents and viewport; no SWT, no logging dependency |
 | `qlogg-app/` | Command line, key bindings, controllers, view contracts, settings, search history and filters, About facts; no SWT |
-| `qlogg-ui-swt/` | SWT views: main window, log views, search and quick find bars, dialogs; the toolbar icon set (`src/icons/*.svg`), rendered to PNG at build time |
+| `qlogg-ui-swt/` | SWT views: main window, log views, search and quick find bars, dialogs; the toolbar and menu icon set (`src/icons/*.svg`), rendered to PNG at build time |
 | `qlogg-launcher/` | Composition, logging configuration, architecture rules |
 | `qlogg-dist/` | Universal jar, launchers, runtimes and archives; icons |
 | `qlogg-bench/` | Benchmark harness, JMH probes and comparison scripts; not shipped |

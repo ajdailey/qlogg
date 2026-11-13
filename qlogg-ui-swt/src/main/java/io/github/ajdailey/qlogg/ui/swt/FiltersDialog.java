@@ -66,8 +66,8 @@ final class FiltersDialog {
     topLayout.marginHeight = 0;
     top.setLayout(topLayout);
     top.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    icons = new ToolIcons(top);
     ToolBar rows = new ToolBar(top, SWT.FLAT);
+    icons = new ToolIcons(top, rows);
     rows.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, true, false));
     tool(rows, ToolIcons.ADD, UiText.BUTTON_ADD, this::add);
     tool(rows, ToolIcons.REMOVE, UiText.BUTTON_REMOVE, this::remove);

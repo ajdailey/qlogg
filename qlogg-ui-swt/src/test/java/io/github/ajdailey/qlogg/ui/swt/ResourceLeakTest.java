@@ -37,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.graphics.DeviceData;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.MenuItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -44,9 +45,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tab open and close, theme switches and font zoom return the Display's tracked graphics resources
- * ({@code DeviceData.tracking}) to their count before the cycles. A failure lists each leaked
- * object's allocation stack.
+ * Tab open and close, theme switches, font zoom and a menu item disabled and enabled under the dark
+ * theme return the Display's tracked graphics resources ({@code DeviceData.tracking}) to their
+ * count before the cycles. A failure lists each leaked object's allocation stack.
  */
 @Tag("swt")
 class ResourceLeakTest {
@@ -197,11 +198,29 @@ class ResourceLeakTest {
     drain();
   }
 
+  // Menu item icons.
+
+  /** Disables and enables File > Close, which shows a faded icon on a dark GTK menu. */
+  private void toggleMenuItem() {
+    for (MenuItem header : window.shell().getMenuBar().getItems()) {
+      for (MenuItem item : header.getMenu().getItems()) {
+        if (item.getData() == CommandId.CLOSE) {
+          item.setEnabled(false);
+          window.menuIcons().showState(item);
+          item.setEnabled(true);
+          window.menuIcons().showState(item);
+        }
+      }
+    }
+    drain();
+  }
+
   /** One round of every operation; the first round creates lazily cached resources. */
   private void cycle() throws IOException {
     openTab("second.log");
     closeTab();
     theme(CommandId.THEME_DARK, Palette.DARK);
+    toggleMenuItem();
     theme(CommandId.THEME_LIGHT, Palette.LIGHT);
     zoom(CommandId.ZOOM_IN);
     zoom(CommandId.ZOOM_OUT);

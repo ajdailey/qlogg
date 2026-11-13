@@ -32,7 +32,12 @@ class PlatformTraitsTest {
     "switchesThemeLive",
     "followsSystemAppearance",
     "themesAtCreation",
-    "lightChecksUnderDark"
+    "lightChecksUnderDark",
+    // Menu item icons.
+    "menuImages",
+    "padsMenuImages",
+    "fixedMenuInk",
+    "fadesDisabledIcons"
   };
 
   private static List<Object> answers(PlatformTraits traits) {
@@ -49,6 +54,11 @@ class PlatformTraitsTest {
     answers.add(traits.followsSystemAppearance());
     answers.add(traits.themesAtCreation());
     answers.add(traits.lightChecksUnderDark());
+    // Menu item icons.
+    answers.add(traits.menuImages());
+    answers.add(traits.padsMenuImages());
+    answers.add(traits.fixedMenuInk());
+    answers.add(traits.fadesDisabledIcons());
     return answers;
   }
 
@@ -74,7 +84,11 @@ class PlatformTraitsTest {
         false,
         false,
         true,
-        true);
+        true,
+        true,
+        false,
+        true,
+        false);
     assertTrue(PlatformTraits.of("win32", false).positionsWindows());
   }
 
@@ -92,6 +106,10 @@ class PlatformTraitsTest {
         true,
         false,
         true,
+        false,
+        false,
+        false,
+        false,
         false,
         false);
     assertTrue(PlatformTraits.of("cocoa", false).positionsWindows());
@@ -112,7 +130,11 @@ class PlatformTraitsTest {
         true,
         false,
         false,
-        false);
+        false,
+        true,
+        true,
+        false,
+        true);
     assertSame(NativeToolItemSizing.INSTANCE, PlatformTraits.of("gtk", false).toolItemSizing());
   }
 
@@ -131,7 +153,11 @@ class PlatformTraitsTest {
         true,
         false,
         false,
-        false);
+        false,
+        false,
+        true,
+        false,
+        true);
     assertSame(WindowStacking.WINDOW_MANAGER, PlatformTraits.of("gtk", true).stacking());
   }
 

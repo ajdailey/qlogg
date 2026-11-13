@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
 /** The cocoa answers of {@link PlatformTraits}. */
@@ -82,5 +84,32 @@ final class CocoaTraits implements PlatformTraits {
   @Override
   public ToolItemSizing toolItemSizing() {
     return NativeToolItemSizing.INSTANCE;
+  }
+
+  // Menu item icons.
+
+  @Override
+  public boolean menuImages() {
+    return false;
+  }
+
+  @Override
+  public boolean padsMenuImages() {
+    return false;
+  }
+
+  @Override
+  public boolean fixedMenuInk() {
+    return false;
+  }
+
+  @Override
+  public boolean fadesDisabledIcons() {
+    return false;
+  }
+
+  @Override
+  public Color shownBackground(Control source) {
+    return source.getBackground();
   }
 }

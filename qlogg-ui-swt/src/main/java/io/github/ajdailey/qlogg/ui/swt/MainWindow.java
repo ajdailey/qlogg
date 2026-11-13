@@ -129,6 +129,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Composite topRow;
   private final ToolBar toolBar;
   private final ToolIcons toolIcons;
+  // Menu item icons.
+  private final MenuIcons menuIcons;
   private final Text pathField;
   private final Label sizeLabel;
   private final Label encodingLabel;
@@ -300,6 +302,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     ToolBar stopBar = new ToolBar(topRow, SWT.FLAT);
     stopBar.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     toolItem(stopBar, CommandId.STOP, ToolIcons.STOP, UiText.TOOLBAR_STOP, SWT.PUSH);
+    // Menu item icons.
+    menuIcons = new MenuIcons(toolBar);
     sizeLabel = infoLabel();
     encodingLabel = infoLabel();
     position = infoLabel();
@@ -879,6 +883,8 @@ public final class MainWindow implements MainView, ApplicationListener {
             if (!shell.isDisposed()) {
               toolIcons.reink();
               searchBar.reinkIcons();
+              // Menu item icons.
+              menuIcons.reink();
             }
           }
         });
@@ -895,7 +901,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   private void buildMenuBar() {
     if (menuBar == null) {
-      menuBar = new MainMenuBar(shell, controller);
+      menuBar = new MainMenuBar(shell, controller, menuIcons);
     }
     menuBar.build(keymap);
     encodingSource.load(
@@ -940,6 +946,17 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (menuBar != null) {
       menuBar.syncEnablement();
     }
+  }
+
+  // Menu item icons.
+
+  /**
+   * Returns the menu icons.
+   *
+   * @return the icons of the menu bar and the log views' context menus
+   */
+  MenuIcons menuIcons() {
+    return menuIcons;
   }
 
   /**
@@ -1175,7 +1192,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   /** Disposes the views and creates them over a document's controllers. */
   private void showViews(DocumentController document) {
     removeViews();
-    canvas = new LogCanvas(mainHolder, document, controller, keymap, palette, prefixListener);
+    canvas =
+        new LogCanvas(mainHolder, document, controller, keymap, palette, prefixListener, menuIcons);
     canvas.frame().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     overviewBar = new OverviewBar(canvas.frame(), document, palette);
     GridData barData = new GridData(SWT.FILL, SWT.FILL, false, true);
@@ -1183,7 +1201,9 @@ public final class MainWindow implements MainView, ApplicationListener {
     overviewBar.control().setLayoutData(barData);
     canvas.addSide(overviewBar.control());
     showOverview(controller.preferences().overview());
-    results = new ResultsPane(resultsHolder, document, controller, keymap, palette, prefixListener);
+    results =
+        new ResultsPane(
+            resultsHolder, document, controller, keymap, palette, prefixListener, menuIcons);
     TabStrip.colorTabs(results.sets(), palette);
     document.addListener(statusListener);
     document.filtered().addListener(filteredListener);

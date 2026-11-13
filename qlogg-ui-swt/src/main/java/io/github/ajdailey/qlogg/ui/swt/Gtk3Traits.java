@@ -19,4 +19,11 @@ final class Gtk3Traits extends GtkTraits {
   public ToolItemSizing toolItemSizing() {
     return NativeToolItemSizing.INSTANCE;
   }
+
+  // Menu item icons.
+
+  @Override
+  public boolean menuImages() {
+    return true;
+  }
 }

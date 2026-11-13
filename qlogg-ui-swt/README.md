@@ -12,7 +12,7 @@ against the build host's SWT fragment.
 | Classes | Contents | Detail |
 |---|---|---|
 | `MainWindow`, `TabStrip`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabList`, `WindowStacking` | The main window: top row, tab row, split body, search row, filtered view, status bar, Always on Top | [docs/main-window.md](docs/main-window.md) |
-| `MainMenuBar`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu` | Menu bar, listed entries, Time Sync and Color Label cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
+| `MainMenuBar`, `MenuIcons`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu` | Menu bar, menu item icons, listed entries, Time Sync and Color Label cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
 | `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
 | `SwtThemeService`, `CocoaChrome`, `DialogColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, tab strip colors, icons | [docs/theme.md](docs/theme.md) |

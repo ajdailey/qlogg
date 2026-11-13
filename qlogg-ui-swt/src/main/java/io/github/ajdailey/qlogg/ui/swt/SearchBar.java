@@ -144,7 +144,6 @@ public final class SearchBar {
     layout.marginWidth = 2;
     layout.horizontalSpacing = 4;
     bar.setLayout(layout);
-    icons = new ToolIcons(bar);
     visibility = new Combo(bar, SWT.READ_ONLY | SWT.DROP_DOWN);
     for (UiText mode : MODES) {
       visibility.add(mode.text());
@@ -152,6 +151,7 @@ public final class SearchBar {
     visibility.setToolTipText(UiText.VISIBILITY_TOOLTIP.text());
     visibility.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     ToolBar toggles = new ToolBar(bar, SWT.FLAT);
+    icons = new ToolIcons(bar, toggles);
     toggles.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
     matchCase =
         item(toggles, SWT.CHECK, ToolIcons.CASE, UiText.SEARCH_MATCH_CASE, CommandId.TOGGLE_CASE);

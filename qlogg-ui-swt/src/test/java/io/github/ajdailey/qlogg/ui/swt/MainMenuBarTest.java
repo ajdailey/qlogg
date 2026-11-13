@@ -49,7 +49,9 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * {@link MainMenuBar}: showing a top menu syncs that menu only, and the Encoding menu's charset
  * items survive every show while the radio selection follows the shown file's forced charset, and
- * the Other cascade stays disabled and empty until the charset list arrives from its worker.
+ * the Other cascade stays disabled and empty until the charset list arrives from its worker. The
+ * command items carry their icons where the platform shows menu images: on GTK 3, and on no item on
+ * GTK 4.
  */
 @Tag("swt")
 class MainMenuBarTest {
@@ -231,6 +233,42 @@ class MainMenuBarTest {
     waiting.get(0).loaded(choices);
     assertEquals(1, other.getMenu().getItemCount());
     assertEquals(List.of("UTF-16LE"), selected(encoding));
+  }
+
+  // Menu item icons.
+
+  @Test
+  void commandItemsCarryTheirIconsWhereThePlatformShowsMenuImages() {
+    attach();
+    boolean images = PlatformTraits.PLATFORM.menuImages();
+    if ("gtk".equals(SWT.getPlatform())) {
+      assertEquals(!Gtk4.active(), images);
+    }
+    int iconed = 0;
+    for (MenuItem header : window.shell().getMenuBar().getItems()) {
+      Menu menu = header.getMenu();
+      boolean any = false;
+      for (MenuItem item : menu.getItems()) {
+        any |= item.getData() instanceof CommandId command && MenuIcons.icon(command) != null;
+      }
+      for (MenuItem item : menu.getItems()) {
+        if ((item.getStyle() & SWT.SEPARATOR) != 0) {
+          continue;
+        }
+        boolean icon =
+            item.getData() instanceof CommandId command && MenuIcons.icon(command) != null;
+        iconed += icon ? 1 : 0;
+        String name = header.getText() + " > " + item.getText();
+        if (!images) {
+          assertEquals(null, item.getImage(), name);
+        } else if (icon) {
+          assertNotNull(item.getImage(), name);
+        } else if (any && PlatformTraits.PLATFORM.padsMenuImages()) {
+          assertNotNull(item.getImage(), name + " holds the blank image");
+        }
+      }
+    }
+    assertTrue(iconed >= 13, "icon items on the menu bar: " + iconed);
   }
 
   /** Sends the menu's Show event, as opening it does. */

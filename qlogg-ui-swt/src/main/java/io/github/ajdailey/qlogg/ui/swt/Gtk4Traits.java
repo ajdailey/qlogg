@@ -17,4 +17,11 @@ final class Gtk4Traits extends GtkTraits {
   public ToolItemSizing toolItemSizing() {
     return Gtk4ToolItemSizing.create();
   }
+
+  // Menu item icons.
+
+  @Override
+  public boolean menuImages() {
+    return false;
+  }
 }

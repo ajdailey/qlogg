@@ -44,6 +44,45 @@ Favorites, Search > Search Options, View > Folding).
 - `MainWindow.syncMenu` syncs every menu; `MainWindow` also keeps the menu
   accessors the tests use.
 
+## Menu item icons
+
+`MenuIcons` shows icons on the push items of the menu bar and of the log
+view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
+
+| Menu | Items |
+|---|---|
+| File | Open, Close, Exit |
+| Edit | Copy, Select All |
+| Search | Find, Find Next, Find Previous, Search in Folder |
+| Go | Go to Line |
+| View | Reload, Stop Loading |
+| Tools | Preferences |
+| Window | New Window |
+| Help | User Guide, About |
+| Log view context menu | Copy |
+
+- Check, radio, cascade and listed items show no icon, so Follow has none.
+- `MainMenuBar.build` and `LogCanvas` call `decorate` on each built menu, which
+  covers its cascades. `MainMenuBar.setEnabled` calls `showState` after each
+  enablement change.
+- `PlatformTraits` holds the platform differences:
+
+| Trait | win32 | GTK 3 | GTK 4 | cocoa |
+|---|---|---|---|---|
+| `menuImages` | yes | yes | no: SWT ignores `MenuItem.setImage` | no |
+| `padsMenuImages` | no: the menu reserves the image column | yes | - | - |
+| `fixedMenuInk` | yes | no | - | - |
+| `fadesDisabledIcons` | no | yes | - | - |
+
+- On GTK 3 a label moves right when its item has an image, so every other item
+  of a menu with an icon holds `ToolIcons.blank`, a transparent 16 px image. A
+  menu without an icon stays bare.
+- The ink follows the main toolbar's shown background on GTK
+  (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
+  theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
+  `reink` on the UI turn after a palette change. win32 menus keep the startup dark setting
+  (`SwtThemeService.nativeDark`), and the toolbar there stays light under it.
+
 ## Listed entries
 
 | Menu | Entries |

@@ -101,6 +101,8 @@ public final class LogCanvas {
   private final KeySequencer keys;
   private final Keymap keymapRef;
   private final PrefixListener prefix;
+  // Menu item icons.
+  private final MenuIcons menuIcons;
   private Font font;
   private boolean antialias;
   private PaletteColors colors;
@@ -152,6 +154,7 @@ public final class LogCanvas {
    * @param keymap the key bindings
    * @param palette the colors
    * @param prefix receives the pending key prefix
+   * @param menuIcons the context menu's icons
    */
   public LogCanvas(
       Composite parent,
@@ -159,12 +162,14 @@ public final class LogCanvas {
       ApplicationController application,
       Keymap keymap,
       Palette palette,
-      PrefixListener prefix) {
+      PrefixListener prefix,
+      MenuIcons menuIcons) {
     this.document = document;
     this.application = application;
     this.keys = new KeySequencer(keymap);
     this.keymapRef = keymap;
     this.prefix = prefix;
+    this.menuIcons = menuIcons;
     frame = new Composite(parent, SWT.NONE);
     GridLayout layout = new GridLayout(2, false);
     layout.marginWidth = 0;
@@ -286,6 +291,8 @@ public final class LogCanvas {
             }
           });
     }
+    // Menu item icons.
+    menuIcons.decorate(menu);
     return menu;
   }
 
