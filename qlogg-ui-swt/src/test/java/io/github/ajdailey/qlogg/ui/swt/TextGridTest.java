@@ -123,6 +123,57 @@ class TextGridTest {
     assertEquals(1, grid.wrapFit(0, LINES, firstLineRows(50), height, screen));
   }
 
+  /**
+   * Regression: counting the rows left below the last line from the top alternated between two
+   * counts when the lines above the last ones wrap tall, and the canvas re-measured without end
+   * (stack overflow). Pinning the top to {@code lineCount - fit} must settle on one count with the
+   * last line whole at the bottom.
+   */
+  @Test
+  void pinningToTheEndSettlesOnOneFit() {
+    TextGrid grid = new TextGrid(15, 8);
+    int screen = 10;
+    int height = screen * 15;
+    // Every line four rows but the last two, one row each.
+    TextGrid.WrappedRows tallAbove =
+        new TextGrid.WrappedRows() {
+          @Override
+          public int rows(long line) {
+            return line >= LINES - 2 ? 1 : 4;
+          }
+        };
+    // Alternating heights.
+    TextGrid.WrappedRows mixed =
+        new TextGrid.WrappedRows() {
+          @Override
+          public int rows(long line) {
+            return line % 3 == 0 ? 3 : 1;
+          }
+        };
+    for (TextGrid.WrappedRows rows : new TextGrid.WrappedRows[] {tallAbove, mixed}) {
+      for (long start = LINES - screen; start < LINES; start++) {
+        long top = start;
+        int fit = grid.wrapFit(top, LINES, rows, height, screen);
+        int steps = 0;
+        while (top != LINES - fit) {
+          top = LINES - fit;
+          fit = grid.wrapFit(top, LINES, rows, height, screen);
+          steps++;
+          assertTrue(steps < LINES, "no settled fit from top " + start);
+        }
+        int used = 0;
+        for (long line = top; line < LINES; line++) {
+          used += rows.rows(line);
+        }
+        assertTrue(used <= screen, "the last line is whole");
+        assertTrue(used + rows.rows(top - 1) > screen, "no further line fits above the top");
+      }
+    }
+    // 1 + 1 + 4 + 4 rows fill the 10.
+    assertEquals(4, grid.wrapFit(LINES - 2, LINES, tallAbove, height, screen));
+    assertEquals(4, grid.wrapFit(LINES - 1, LINES, tallAbove, height, screen));
+  }
+
   @Test
   void wrappedHitsMapToTheirSegment() {
     for (double advance : ADVANCES) {
