@@ -48,7 +48,7 @@ fi
 printf 'mock line\n' >"$work/app.log"
 
 # Runs launcher $1 until the main window opens; passes when QLogg reports
-# java.home $2. $3 names the run's settings directory and output.
+# java.home $2 and logs no unhandled or UI task failure. $3 names the run's settings directory and output.
 check_launcher() {
   local out="$work/$3.out"
   "$1" -m -d 1 --settings "$work/settings-$3" "$work/app.log" >"$out" 2>&1 &
@@ -66,6 +66,14 @@ check_launcher() {
     || { echo "FAIL: $3 did not report java.home $2" >&2; exit 1; }
   grep -q 'Main window open' "$out" \
     || { echo "FAIL: $3 opened no main window within 60 s" >&2; exit 1; }
+  if grep -q 'Unhandled failure' "$out"; then
+    echo "FAIL: $3 logged an unhandled failure" >&2
+    exit 1
+  fi
+  if grep -q 'UI task failed' "$out"; then
+    echo "FAIL: $3 logged a UI task failure" >&2
+    exit 1
+  fi
 }
 
 check_launcher "$launcher" "$runtime" bundle

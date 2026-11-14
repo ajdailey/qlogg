@@ -1,7 +1,8 @@
 # Unpacks the $env:TARGET bundle from dist\, checks that its runtime reports
 # os.arch $env:EXPECTED_ARCH and has jdk.charsets, then starts qlogg.exe and
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
-# bundle and the image's PE machine is $env:EXPECTED_MACHINE. An ARM64 image
+# bundle, the image's PE machine is $env:EXPECTED_MACHINE and its log shows the
+# main window and no failure. An ARM64 image
 # cannot run under x86 or x64 emulation, so ARM64 proves a native arm64 JVM.
 # Then starts the universal zip's qlogg.exe, which has no runtime, and passes
 # when its child runs javaw.exe from $env:JAVA_HOME.
@@ -26,13 +27,35 @@ function Get-PeMachine([string] $Path) {
   }
 }
 
+# Reads $Path, shared with the process still writing it; empty when missing.
+function Read-Log([string] $Path) {
+  if (-not (Test-Path $Path)) { return '' }
+  $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite,Delete')
+  try {
+    $reader = New-Object System.IO.StreamReader($stream)
+    return $reader.ReadToEnd()
+  } finally {
+    $stream.Dispose()
+  }
+}
+
+# Waits up to 60 s for $Text in the log file $Path.
+function Wait-LogLine([string] $Path, [string] $Text) {
+  $deadline = (Get-Date).AddSeconds(60)
+  while ((Get-Date) -lt $deadline) {
+    if ((Read-Log $Path).Contains($Text)) { return }
+    Start-Sleep -Milliseconds 200
+  }
+}
+
 # Starts $Exe on the mock log and checks the javaw.exe child it starts: its
-# image must be $Javaw with PE machine $env:EXPECTED_MACHINE. $Name names the
-# run's settings directory.
+# image must be $Javaw with PE machine $env:EXPECTED_MACHINE, and its log
+# (-l; qlogg-<pid>.log under -m) must show the main window and no unhandled or
+# UI task failure. $Name names the run's settings directory.
 function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   $settings = Join-Path $work "settings-$Name"
   Write-Output "$Name qlogg.exe image: $(Get-PeMachine $Exe)"
-  $launcher = Start-Process -FilePath $Exe -ArgumentList @('-m', '--settings', "`"$settings`"", "`"$log`"") -PassThru
+  $launcher = Start-Process -FilePath $Exe -ArgumentList @('-m', '-l', '--settings', "`"$settings`"", "`"$log`"") -PassThru
 
   $child = $null
   $deadline = (Get-Date).AddSeconds(60)
@@ -50,11 +73,24 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   Write-Output "$Name child image: $path"
   Write-Output "$Name child image machine: $machine, expected $env:EXPECTED_MACHINE"
   Write-Output "$Name child command line: $($child.CommandLine)"
-  Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+
+  $logFile = Join-Path $settings "logs\qlogg-$($child.ProcessId).log"
+  try {
+    Wait-LogLine $logFile 'Main window open'
+    $text = Read-Log $logFile
+  } finally {
+    Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  Write-Output "--- $Name log"
+  Write-Output $text
+  Write-Output '---'
 
   if ($path -ine $Javaw) { throw "$Name child image is $path, expected $Javaw" }
   if ($machine -ne $env:EXPECTED_MACHINE) { throw "$Name child image machine is $machine" }
-  Write-Output "PASS: $Name qlogg.exe started the $machine runtime $path"
+  if (-not $text.Contains('Main window open')) { throw "$Name opened no main window within 60 s" }
+  if ($text.Contains('Unhandled failure')) { throw "$Name logged an unhandled failure" }
+  if ($text.Contains('UI task failed')) { throw "$Name logged a UI task failure" }
+  Write-Output "PASS: $Name qlogg.exe started the $machine runtime $path and opened the main window"
 }
 
 $work = Join-Path $PWD 'bundle-run'
