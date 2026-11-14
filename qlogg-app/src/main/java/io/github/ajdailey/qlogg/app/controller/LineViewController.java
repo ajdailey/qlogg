@@ -183,6 +183,11 @@ public abstract class LineViewController {
   /** Called after the user moved the view or the caret. Does nothing by default. */
   void userMoved() {}
 
+  /**
+   * Called after the viewport takes a new size, before views hear of it. Does nothing by default.
+   */
+  void resized() {}
+
   // Navigation history.
 
   /**
@@ -398,6 +403,7 @@ public abstract class LineViewController {
       return;
     }
     viewport.resize(shown, columns);
+    resized();
     changed();
   }
 

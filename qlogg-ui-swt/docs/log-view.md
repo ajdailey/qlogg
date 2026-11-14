@@ -87,7 +87,9 @@ empties the cache before a paint past that.
 
 The vertical scroll bar is a `Slider` beside the canvas in `LogCanvas.frame()`,
 so `addSide` can place a control between the text and the bar; the canvas
-keeps its native horizontal bar. The slider takes `Viewport`'s maximum, thumb
+keeps its native horizontal bar with overlay scrolling off
+(`setScrollbarsMode(SWT.NONE)`), so the bar stays visible and the client area
+ends above it; a GTK3 overlay bar fades in over the bottom row. The slider takes `Viewport`'s maximum, thumb
 and selection and hands focus back to the canvas.
 
 | Input | Effect |

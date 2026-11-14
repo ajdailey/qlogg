@@ -65,12 +65,12 @@ import org.slf4j.LoggerFactory;
  * on until the next {@code Esc}. One toggle runs at a time per document. The filtered view rebuilds
  * its marks snapshot after the toggle ends.
  *
- * <p>Follow: while following, each flush scrolls to the last line. A user move that leaves the
- * bottom releases follow; with {@code follow.onOverscroll}, scrolling down {@link #OVERSCROLL_ROWS}
- * rows past the bottom engages it. Growth the document indexes re-runs an auto-refresh search over
- * the new lines. A truncated, replaced or modified file goes to the {@link DocumentHost}, which
- * reopens it; a missing file keeps its content and shows a notice, unless a failed reopen already
- * showed one.
+ * <p>Follow: while following, each flush and each viewport resize scrolls to the last line. A user
+ * move that leaves the bottom releases follow; with {@code follow.onOverscroll}, scrolling down
+ * {@link #OVERSCROLL_ROWS} rows past the bottom engages it. Growth the document indexes re-runs an
+ * auto-refresh search over the new lines. A truncated, replaced or modified file goes to the {@link
+ * DocumentHost}, which reopens it; a missing file keeps its content and shows a notice, unless a
+ * failed reopen already showed one.
  *
  * <p>Folding ({@link FoldController}): a collapsed entry is one row, so rows map to lines through
  * the {@link FoldMap}. A fold change keeps the top line and the selection on their lines. Go to
@@ -351,6 +351,13 @@ public final class DocumentController extends LineViewController {
   void userMoved() {
     if (following && !viewport().atBottom()) {
       setFollowing(false);
+    }
+  }
+
+  @Override
+  void resized() {
+    if (following) {
+      viewport().scrollToLine(viewport().maxTop());
     }
   }
 

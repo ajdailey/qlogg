@@ -178,6 +178,9 @@ public final class LogCanvas {
     frame.setLayout(layout);
     canvas = new Canvas(frame, SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
     canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    // An overlay bar fades in over the bottom row and is left out of the client area; a fixed bar
+    // stays visible and the rows fit above it.
+    canvas.setScrollbarsMode(SWT.NONE);
     accessibleName = AccessibleName.attach(canvas, UiText.ACCESSIBLE_LOG_VIEW.text());
     vertical = new Slider(frame, SWT.VERTICAL);
     vertical.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true));

@@ -177,7 +177,8 @@ time runs, `STOP` cancels it and leaves loading for the next press.
 
 ### Follow
 
-Follow (`F`, `F10`, `setFollowing`) scrolls to the last line at each flush.
+Follow (`F`, `F10`, `setFollowing`) scrolls to the last line at each flush and
+each viewport resize.
 
 - A user move that leaves the bottom (scroll, page, caret, go to line, scroll
   bar) releases follow.

@@ -112,6 +112,17 @@ class FollowControllerTest {
   }
 
   @Test
+  void shrinkingTheViewWhileFollowingKeepsTheLastLineVisible() throws Exception {
+    DocumentController document = open(Preferences.DEFAULTS, 100);
+    document.viewportResized(10, 80);
+    fixture.application.execute(CommandId.FOLLOW);
+    assertEquals(90, document.viewport().topLine());
+    document.viewportResized(6, 80);
+    assertEquals(94, document.viewport().topLine());
+    assertTrue(document.following());
+  }
+
+  @Test
   void overscrollAtTheBottomEngagesFollowUnlessTurnedOff() throws Exception {
     DocumentController document = open(Preferences.DEFAULTS, 100);
     document.goToBottom();
