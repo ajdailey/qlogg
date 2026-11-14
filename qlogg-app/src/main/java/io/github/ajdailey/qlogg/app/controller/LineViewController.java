@@ -1282,7 +1282,7 @@ public abstract class LineViewController {
         wrap
             ? measured
             : Arrays.copyOfRange(measured, Math.min(above, measured.length), measured.length);
-    final long wrappedRow = row;
+    final Wrapped wrapped = new Wrapped(row, row < 0 ? -1 : wrappedLine, wrapColumns);
     final Highlighter colors = highlighter;
     final boolean markers = whitespace;
     readInFlight =
@@ -1291,15 +1291,7 @@ public abstract class LineViewController {
             new Runnable() {
               @Override
               public void run() {
-                read(
-                    index,
-                    first,
-                    source,
-                    firstColumn,
-                    columns,
-                    new Wrapped(wrappedRow, wrappedRow < 0 ? -1 : wrappedLine, wrapColumns),
-                    colors,
-                    markers);
+                read(index, first, source, firstColumn, columns, wrapped, colors, markers);
               }
             });
   }
