@@ -52,10 +52,11 @@ and `Gtk4ToolItemSizing` reach SWT internals by reflection, and
 
 ### GTK 4
 
-GTK 3 is the Linux default. GTK 4 is an experimental opt-in: set `SWT_GTK4=1`
-before starting QLogg (linux-x86_64 only; linux-aarch64 has no SWT GTK 4
-natives and stays on GTK 3). Open SWT GTK 4 defects affect the log view: slow
-scrolling, custom painting and missing mouse events.
+GTK 3 is the Linux default. GTK 4 is an experimental opt-in: set `SWT_GTK4=1`,
+or pass `--gtk4` to `bin/qlogg`, before starting QLogg (linux-x86_64 only;
+linux-aarch64 has no SWT GTK 4 natives and stays on GTK 3). Open SWT GTK 4
+defects affect the log view: slow scrolling, custom painting and missing mouse
+events.
 
 Under GTK 4, Help > User Guide shows a notice naming the guide's copy and
 creates no `Browser`, because WebKitGTK 6.0 aborts the JVM when the browser

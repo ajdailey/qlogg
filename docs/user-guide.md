@@ -710,6 +710,7 @@ qlogg [options] [[+line:N] file]...
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
 | `--settings <dir>` | Settings directory |
 | `+line:N` | Open the next file at line N |
+| `--gtk4` | Linux, `bin/qlogg` only: use the experimental GTK 4 backend (linux-x86_64) |
 | `--` | End of options; the remaining arguments are files |
 
 QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
@@ -731,5 +732,5 @@ On Linux in portable mode and with
 `--settings`, Help > User Guide opens this guide in your system browser, because
 the embedded browser keeps its cache in your home folder. GTK's input method
 support still creates an empty `~/.config/ibus/bus` folder there, and with the
-experimental GTK 4 backend (`SWT_GTK4=1`) the graphics driver writes its shader
+experimental GTK 4 backend (`--gtk4`) the graphics driver writes its shader
 cache to `~/.cache/mesa_shader_cache` on every run.

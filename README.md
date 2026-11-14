@@ -173,9 +173,9 @@ To fix a bad draft, delete the draft and the tag
 - Each bundle adds a Java runtime for its target, so it needs no installed
   Java.
 - Linux targets need the system GTK 3 libraries. GTK 4 is an experimental
-  opt-in on linux-x86_64: start QLogg with `SWT_GTK4=1` (GTK 4 libraries
-  required). Open SWT GTK 4 defects affect scrolling and painting in the log
-  view.
+  opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
+  (GTK 4 libraries required). Open SWT GTK 4 defects affect scrolling and
+  painting in the log view.
 - The macOS bundles are ad-hoc signed and not notarized, so macOS asks the user
   to approve the first launch.
 
@@ -199,6 +199,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows |
 | `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
+| `--gtk4` | `bin/qlogg` only: sets `SWT_GTK4=1` for the experimental GTK 4 backend and is not passed to Java, so `qlogg.jar` and `qlogg.exe` reject it |
 | `--` | End of options |
 | `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f` and `+line:N` |
 

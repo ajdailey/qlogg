@@ -1,6 +1,7 @@
 #!/bin/sh
 # Starts QLogg with the bundled runtime, else $JAVA_HOME, else java on PATH.
-# Uses no readlink -f, which older macOS lacks.
+# --gtk4 before -- sets SWT_GTK4=1 (the experimental GTK 4 backend) and is not
+# passed on. Uses no readlink -f, which older macOS lacks.
 self=$0
 while [ -h "$self" ]; do
     link=$(readlink "$self")
@@ -22,6 +23,18 @@ elif [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
 else
     java=java
 fi
+
+ended=
+for arg do
+    shift
+    if [ -z "$ended" ]; then
+        case $arg in
+            --gtk4) SWT_GTK4=1; export SWT_GTK4; continue ;;
+            --) ended=1 ;;
+        esac
+    fi
+    set -- "$@" "$arg"
+done
 
 # SWT on macOS needs the process main thread.
 if [ "$(uname -s)" = Darwin ]; then

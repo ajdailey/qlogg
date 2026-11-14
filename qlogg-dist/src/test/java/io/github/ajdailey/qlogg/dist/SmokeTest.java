@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -257,6 +258,55 @@ class SmokeTest {
       assertOpened(run);
     }
     assertOnlyTheLogFile(temp.resolve("bundle-settings").resolve("logs"));
+  }
+
+  /**
+   * The bundle's {@code bin/qlogg}, run against a stub {@code runtime/bin/java} that prints {@code
+   * SWT_GTK4} and its arguments: {@code --gtk4} before {@code --} sets {@code SWT_GTK4=1} and is
+   * not passed on; one after {@code --} is a file name.
+   */
+  @Test
+  void linuxLauncherGtk4OptionSetsTheEnvironment() throws Exception {
+    Path bundle = unpackLinuxBundle();
+    Path home = Files.createDirectory(temp.resolve("stub"));
+    Path launcher =
+        Files.copy(
+            bundle.resolve("bin").resolve("qlogg"),
+            Files.createDirectory(home.resolve("bin")).resolve("qlogg"));
+    Path java =
+        Files.writeString(
+            Files.createDirectories(home.resolve("runtime").resolve("bin")).resolve("java"),
+            "#!/bin/sh\necho \"SWT_GTK4=${SWT_GTK4:-}\"\nfor a do echo \"arg $a\"; done\n");
+    Files.setPosixFilePermissions(java, PosixFilePermissions.fromString("rwx------"));
+    Files.setPosixFilePermissions(launcher, PosixFilePermissions.fromString("rwx------"));
+    ProcessBuilder builder =
+        new ProcessBuilder(launcher.toString(), "-m", "--gtk4", "--", "--gtk4")
+            .redirectErrorStream(true);
+    builder.environment().clear();
+    builder.environment().put("PATH", "/usr/bin:/bin");
+    Process process = builder.start();
+    List<String> lines = new ArrayList<String>();
+    try (BufferedReader r =
+        new BufferedReader(
+            new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+      String line = r.readLine();
+      while (line != null) {
+        lines.add(line);
+        line = r.readLine();
+      }
+    }
+    assertTrue(process.waitFor(BOUND_SECONDS, TimeUnit.SECONDS));
+    assertEquals(
+        List.of(
+            "SWT_GTK4=1",
+            "arg -XX:MaxRAMPercentage=50",
+            "arg -XX:GCTimeRatio=1",
+            "arg -jar",
+            "arg " + home.toRealPath().resolve("lib").resolve("qlogg.jar"),
+            "arg -m",
+            "arg --",
+            "arg --gtk4"),
+        lines);
   }
 
   /**

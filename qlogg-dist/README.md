@@ -102,7 +102,7 @@ recovery are in the root `README.md` under "Continuous integration".
 
 | Launcher | Behavior |
 |---|---|
-| `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. Runs only `uname` and `readlink` besides Java |
+| `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. `--gtk4` before `--` sets `SWT_GTK4=1` and is not passed to Java. Runs only `uname` and `readlink` besides Java |
 | `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation and starting the arm64 runtime is unverified |
 | `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `-XX:MaxRAMPercentage=50` and `-XX:GCTimeRatio=1`; the layout copies jpackage's and is unverified on macOS |
 
@@ -134,4 +134,5 @@ on linux-x86_64, the extracted bundle:
 | Jar content | LF native digests and `natives.<target>` lists sorted by name, so a Windows build writes the same jar |
 | `java -jar qlogg.jar` | Opens a 900 x 600 window at 50,40 and writes no `logs` folder |
 | Linux bundle with `-l`, `PATH` holding only `uname` and `readlink` | Reports its own `runtime/` as `java.home`, opens the same window, and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's line and no other file in `logs` |
+| Linux bundle `bin/qlogg --gtk4`, stub `runtime/bin/java` | Exports `SWT_GTK4=1`, drops `--gtk4` before `--` and passes one after it as a file name |
 | Linux bundle runtime | Has `jdk.charsets` and supports every charset the Encoding menu lists (`CharsetProbe`) |
