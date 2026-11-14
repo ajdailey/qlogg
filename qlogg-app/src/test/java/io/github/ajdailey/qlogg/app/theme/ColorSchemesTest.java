@@ -108,6 +108,20 @@ class ColorSchemesTest {
     assertTrue(faults.isEmpty(), String.join("\n", faults));
   }
 
+  /** Error, warning and info levels have three distinct colors in every built-in scheme. */
+  @Test
+  void levelColorsDifferInEveryScheme() {
+    for (ColorScheme scheme : ColorSchemes.NONE.all()) {
+      TokenColors tokens = scheme.palette().tokens();
+      Rgb error = tokens.color(TokenKind.INVALID);
+      Rgb warn = tokens.color(TokenKind.ESCAPE);
+      Rgb info = tokens.color(TokenKind.TYPE);
+      assertFalse(error.equals(warn), scheme.id() + " error and warn");
+      assertFalse(warn.equals(info), scheme.id() + " warn and info");
+      assertFalse(error.equals(info), scheme.id() + " error and info");
+    }
+  }
+
   @Test
   void bundledIdsAreDistinctAndReserved() {
     Set<String> ids = new HashSet<String>();

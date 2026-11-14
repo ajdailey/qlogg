@@ -34,7 +34,7 @@ public final class ColorSchemes {
               UiText.VIEW_COLORS_SANDSTONE,
               false,
               TokenColors.of(
-                  0x606969, 0x606e00, 0xb92f72, 0xc42c2a, 0xc42c2a, 0x826300, 0x5c61a8, 0x556b71,
+                  0x606969, 0x606e00, 0xb92f72, 0xc42c2a, 0xa45217, 0x826300, 0x5c61a8, 0x556b71,
                   0x5c61a8, 0x1e6ca4, 0x826300, 0x1e736d),
               0x586c73,
               0xfdf6e3,
@@ -62,7 +62,7 @@ public final class ColorSchemes {
               UiText.VIEW_COLORS_NIGHTWATER,
               true,
               TokenColors.of(
-                  0x919fa4, 0x94a620, 0xe27cae, 0xe97e7c, 0xe97e7c, 0xbe9820, 0x9498d4, 0x93a1a1,
+                  0x919fa4, 0x94a620, 0xe27cae, 0xe97e7c, 0xe0803a, 0xbe9820, 0x9498d4, 0x93a1a1,
                   0x9498d4, 0x55a4dc, 0xbe9820, 0x45ada5),
               0x8b9b9d,
               0x002b36,
