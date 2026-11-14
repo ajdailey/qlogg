@@ -913,7 +913,7 @@ public final class LogCanvas {
   /**
    * Returns the row of the line wrapped in place, as last read.
    *
-   * @return the row, or -1 with text wrap on or while the line is not read or not in view
+   * @return the row, or -1 with text wrap on or while the line is not read; may be above the top
    */
   long wrappedRow() {
     LineBlock wrapped = document.wrappedLines();

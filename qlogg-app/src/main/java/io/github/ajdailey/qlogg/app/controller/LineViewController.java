@@ -30,6 +30,7 @@ import java.io.UncheckedIOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,16 +58,17 @@ import org.slf4j.LoggerFactory;
  * <p>A block selection ({@link #blockSelection}) covers the display columns between its anchor and
  * caret on every row between them; copy takes, per row, the chars whose first column lies inside,
  * replaces a tab partly inside with spaces and joins the rows with LF. With text wrap on ({@link
- * #wrap}) the first column stays 0, a read takes up to {@link #MAX_WRAP_COLUMNS} columns per line,
- * the viewport's rows are the lines the view reports as fitting ({@link #wrapFitted}), and a block
- * selection is refused. Save ({@link #saveLines}) builds the text like copy and writes it as UTF-8
- * through {@link io.github.ajdailey.qlogg.core.io.AtomicFiles} on the worker.
+ * #wrap}) the first column stays 0, a read takes up to {@link #MAX_WRAP_COLUMNS} columns per line
+ * and starts {@link #screenRows} rows above the top ({@link #firstRowMeasured}), the viewport's
+ * rows are the lines the view reports as fitting ({@link #wrapFitted}), and a block selection is
+ * refused. Save ({@link #saveLines}) builds the text like copy and writes it as UTF-8 through
+ * {@link io.github.ajdailey.qlogg.core.io.AtomicFiles} on the worker.
  *
  * <p>With text wrap off, one line at a time wraps in place ({@link #toggleLineWrap}), keyed by its
- * source line. While it is listed in the visible rows, the read also decodes it alone from column 0
- * into {@link #wrappedLines}, and the viewport's rows are the lines the view reports as fitting, as
- * with text wrap on. Turning text wrap on unwraps it, a new search unwraps the filtered view's, and
- * a reload builds a new controller without one.
+ * source line. While it is listed in the visible rows or the {@link #screenRows} rows above them,
+ * the read also decodes it alone from column 0 into {@link #wrappedLines}, and the viewport's rows
+ * are the lines the view reports as fitting, as with text wrap on. Turning text wrap on unwraps it,
+ * a new search unwraps the filtered view's, and a reload builds a new controller without one.
  *
  * <p>With a timestamp format ({@link DocumentController#time}), the caret line's time and, for a
  * selection over more than one row, the times of its first and last rows' lines are read by a
@@ -244,7 +246,8 @@ public abstract class LineViewController {
   /**
    * Returns the latest decoded rows.
    *
-   * @return the block; may not cover the whole viewport while a read is in flight
+   * @return the block; may not cover the whole viewport while a read is in flight. With text wrap
+   *     on it starts at {@link #firstRowMeasured}, above the top.
    */
   public LineBlock lines() {
     return lines;
@@ -466,7 +469,8 @@ public abstract class LineViewController {
    * Returns the line wrapped in place as last read: one row, from column 0, up to the view's
    * columns times its screen rows ({@link #MAX_WRAP_COLUMNS} at most).
    *
-   * @return the block, or {@link LineBlock#EMPTY} while the line is not read or not in view
+   * @return the block, or {@link LineBlock#EMPTY} while the line is not read or not among the rows
+   *     a read measures ({@link #firstRowMeasured} to the end of the view)
    */
   public LineBlock wrappedLines() {
     return wrappedLines;
@@ -507,10 +511,10 @@ public abstract class LineViewController {
   }
 
   /**
-   * Reports, with text wrap on or a line wrapped in place, how many lines from the top fit the view
-   * whole, counting a line not read yet, and each row below the last line, as one row. The
-   * viewport's rows follow it, so the last lines can scroll into view and caret moves keep the
-   * caret's line on screen; a following view stays at the end.
+   * Reports, with text wrap on or a line wrapped in place, how many lines fit the view whole: from
+   * the top, or up from the last line once every line from the top fits. The viewport's rows follow
+   * it, so the last lines can scroll into view and caret moves keep the caret's line on screen; a
+   * following view stays at the end.
    *
    * @param lines lines that fit, at least 1
    */
@@ -1234,6 +1238,19 @@ public abstract class LineViewController {
     return fewer;
   }
 
+  /**
+   * Returns the first row a read measures with text wrap on or a line wrapped in place: {@code
+   * screenRows} rows above the top. The view's fit at the end counts up from the last line past the
+   * top through at most {@code screenRows} lines, and a line outside the read counts one row.
+   *
+   * @param topLine the first visible row
+   * @param screenRows the rows the view has room for
+   * @return the first row measured, at least 0
+   */
+  public static long firstRowMeasured(long topLine, int screenRows) {
+    return Math.max(0, topLine - screenRows);
+  }
+
   private void requestLines() {
     if (closed) {
       return;
@@ -1244,19 +1261,27 @@ public abstract class LineViewController {
     }
     final LineIndex index = document.index();
     final long top = viewport.topLine();
-    final int count = Math.max(viewport.rows(), screenRows) + 1;
+    final long from = fitsLines() ? firstRowMeasured(top, screenRows) : top;
+    final int above = (int) (top - from);
     final long firstColumn = wrap ? 0 : viewport.firstColumn();
     final int wrapColumns =
         (int) Math.min(MAX_WRAP_COLUMNS, (long) viewport.columns() * screenRows);
     final int columns = wrap ? wrapColumns : viewport.columns() + COLUMN_MARGIN;
-    final long[] source = visibleSourceLines(top, count);
+    final long[] measured =
+        visibleSourceLines(from, above + Math.max(viewport.rows(), screenRows) + 1);
     long row = -1;
-    for (int i = 0; i < source.length && wrappedLine >= 0; i++) {
-      if (source[i] == wrappedLine) {
-        row = top + i;
+    for (int i = 0; i < measured.length && wrappedLine >= 0; i++) {
+      if (measured[i] == wrappedLine) {
+        row = from + i;
         break;
       }
     }
+    // With a line wrapped in place, only that line needs its height: the block starts at the top.
+    final long first = wrap ? from : top;
+    final long[] source =
+        wrap
+            ? measured
+            : Arrays.copyOfRange(measured, Math.min(above, measured.length), measured.length);
     final long wrappedRow = row;
     final Highlighter colors = highlighter;
     final boolean markers = whitespace;
@@ -1268,7 +1293,7 @@ public abstract class LineViewController {
               public void run() {
                 read(
                     index,
-                    top,
+                    first,
                     source,
                     firstColumn,
                     columns,
@@ -1282,7 +1307,7 @@ public abstract class LineViewController {
   /**
    * The line wrapped in place, as a read decodes it.
    *
-   * @param row its row, or -1 when it is not in view
+   * @param row its row, or -1 when it is not among the rows measured
    * @param line its source line
    * @param columns columns read from column 0
    */

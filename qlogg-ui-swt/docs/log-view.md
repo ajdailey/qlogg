@@ -157,7 +157,10 @@ the number and bullet on its first row, and hit testing walks the wrapped rows.
   the top, so a view at the end keeps one row count: counting down from the
   top shrinks a following view to one row, and padding that count with the
   rows below the last line alternates between two counts and re-measures
-  without end.
+  without end. The count up passes lines above the top, so the controller's
+  read starts the screen rows above it (`firstRowMeasured`): a line outside
+  the block counts one row, and a tall one just above the top moves the top up
+  and down a line on every read.
 - The horizontal scroll bar has nothing to scroll.
 
 ### Line wrap

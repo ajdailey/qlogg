@@ -455,6 +455,68 @@ class ViewFeaturesGuiTest {
             + grown.viewport().topLine());
   }
 
+  /**
+   * Regression: the read started at the top, so a tall line just above the top counted one row in
+   * the fit up from the last line, and a following view moved up and down a line until the next
+   * append, with the last line cut at the bottom.
+   */
+  @Test
+  void followingWithTextWrapSettlesWithATallLineAboveTheTop() throws IOException {
+    Path file = temp.resolve("trace.log");
+    Files.writeString(file, "first\n", StandardCharsets.US_ASCII);
+    controller.openFile(file, 0);
+    waitForDocument("trace.log");
+    controller.execute(CommandId.TOGGLE_WRAP);
+    final DocumentController trace = document();
+    trace.setFollowing(true);
+    int screen = trace.screenRows();
+    int columns = trace.viewport().columns();
+    StringBuilder more = new StringBuilder();
+    for (int i = 0; i < 2 * screen; i++) {
+      more.append("entry ").append(i).append('\n');
+    }
+    // Four rows, then short lines and a last line of three rows that leave two rows free.
+    more.append("t".repeat(3 * columns + columns / 2)).append('\n');
+    for (int i = 0; i < screen - 5; i++) {
+      more.append("\tat mock.Frame").append(i).append('\n');
+    }
+    more.append("z".repeat(2 * columns + columns / 2)).append('\n');
+    Files.writeString(file, more.toString(), StandardCharsets.US_ASCII, StandardOpenOption.APPEND);
+    final long lineCount = 3L * screen - 2;
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                Viewport viewport = trace.viewport();
+                return viewport.lineCount() == lineCount
+                    && viewport.topLine() + viewport.rows() == lineCount
+                    && trace.lines().contains(viewport.topLine())
+                    && trace.lines().contains(lineCount - 1);
+              }
+            }),
+        "top " + trace.viewport().topLine() + " of " + trace.viewport().lineCount());
+    final long top = trace.viewport().topLine();
+    assertFalse(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return trace.viewport().topLine() != top;
+              }
+            },
+            Duration.ofSeconds(1)),
+        "top moved from " + top + " to " + trace.viewport().topLine());
+    int rows = 0;
+    for (long line = top; line < lineCount; line++) {
+      rows += window.canvas().wrappedRows(trace.lines(), line);
+    }
+    assertTrue(
+        rows * window.canvas().lineHeight() <= canvas().getClientArea().height,
+        rows + " rows from top " + top);
+  }
+
   // Line wrap.
 
   /** Waits until the shown document's line {@code row} is wrapped in place and read. */

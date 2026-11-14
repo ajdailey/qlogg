@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.controller.LineViewController;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import org.junit.jupiter.api.Test;
 
@@ -172,6 +173,52 @@ class TextGridTest {
     // 1 + 1 + 4 + 4 rows fill the 10.
     assertEquals(4, grid.wrapFit(LINES - 2, LINES, tallAbove, height, screen));
     assertEquals(4, grid.wrapFit(LINES - 1, LINES, tallAbove, height, screen));
+  }
+
+  /**
+   * Regression: the read started at the top, so the count up from the last line gave a tall line
+   * just above the top one row; the top moved up, the next read measured the line, and the top
+   * moved back down without end. Each step measures only the rows a read from that top decodes
+   * ({@link LineViewController#firstRowMeasured} to {@code screen + 1} rows past the top).
+   */
+  @Test
+  void pinningToTheEndSettlesWithTheLinesAboveTheTopRead() {
+    TextGrid grid = new TextGrid(15, 8);
+    final int screen = 10;
+    int height = screen * 15;
+    // Line 93 four rows, lines 94 to 98 one row, the last line three: the end fits 94 to 99.
+    final TextGrid.WrappedRows heights =
+        new TextGrid.WrappedRows() {
+          @Override
+          public int rows(long line) {
+            return line == LINES - 7 ? 4 : line == LINES - 1 ? 3 : 1;
+          }
+        };
+    for (long start = LINES - screen; start < LINES; start++) {
+      long top = start;
+      int steps = 0;
+      int fit = grid.wrapFit(top, LINES, read(heights, top, screen), height, screen);
+      while (top != LINES - fit) {
+        top = LINES - fit;
+        fit = grid.wrapFit(top, LINES, read(heights, top, screen), height, screen);
+        steps++;
+        assertTrue(steps < LINES, "no settled fit from top " + start);
+      }
+      assertEquals(LINES - 6, top, "from top " + start);
+    }
+  }
+
+  /** The heights a read from {@code top} measures; a line outside it takes one row. */
+  private static TextGrid.WrappedRows read(
+      final TextGrid.WrappedRows heights, long top, int screen) {
+    final long from = LineViewController.firstRowMeasured(top, screen);
+    final long to = top + screen + 1;
+    return new TextGrid.WrappedRows() {
+      @Override
+      public int rows(long line) {
+        return line >= from && line < to ? heights.rows(line) : 1;
+      }
+    };
   }
 
   @Test

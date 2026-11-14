@@ -15,13 +15,16 @@ Subclasses map rows to lines (`sourceLine`, `rowOf`, `rows()`).
 ### Row reads and highlighting
 
 The visible rows (rows plus one, columns plus a 16-column margin) are mapped to
-lines on the UI thread and decoded on a `qlogg-read-` worker. At most one read
-is in flight; a viewport change during a read starts one more when it returns.
-The view paints whatever block is present.
+lines on the UI thread and decoded on a `qlogg-read-` worker. With text wrap
+on, the read also takes the screen rows above the top (`firstRowMeasured`),
+because the view's fit at the end counts up past the top and a line outside
+the block counts one row. At most one read is in flight; a viewport change
+during a read starts one more when it returns. The view paints whatever block
+is present.
 
 The read that decodes the rows also colors them with the view's `Highlighter`
 (`qlogg-core`), from each row's whole decoded line. Highlighting therefore
-costs nothing on the UI thread and covers the visible rows only. The block's
+costs nothing on the UI thread and covers only the rows read. The block's
 spans are charged to `HIGHLIGHT` while it is shown; a block whose spans the
 share refuses shows uncolored. `marked(line)` and `matched(line)` give the
 gutter's bullets with one set lookup per row.
@@ -63,10 +66,10 @@ With text wrap off, `toggleLineWrap` (Wrap Line, `W`, or the view's line
 marker) wraps one line in place per view, keyed by its source line; wrapping
 another line unwraps the first. Turning text wrap on unwraps it and disables
 the command, each `SearchController.run` unwraps the filtered view's, and a
-reload starts without one. While the line is in the
-visible rows, the read also decodes it alone from column 0 into `wrappedLines`,
-up to the view's columns times its screen rows, and the viewport's rows follow
-`wrapFitted` as with text wrap on. The other rows keep their column window.
+reload starts without one. While the line is in the visible rows or the screen
+rows above the top, the read also decodes it alone from column 0 into
+`wrappedLines`, up to the view's columns times its screen rows, and the
+viewport's rows follow `wrapFitted` as with text wrap on. The other rows keep their column window.
 
 ## Copy and save
 
