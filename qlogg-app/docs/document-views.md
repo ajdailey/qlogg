@@ -54,7 +54,8 @@ With text wrap on (`setWrap`, both views of a document at once):
 
 - the first column stays 0, and a read takes up to 65,536 columns per line;
 - the viewport's rows follow the lines the view reports as fitting whole
-  (`wrapFitted`), so the last lines can scroll into view;
+  (`wrapFitted`), so the last lines can scroll into view, and a following view
+  re-pins to the end when they change;
 - a block selection is refused with a notice;
 - a collapsed entry is still one line, wrapped.
 

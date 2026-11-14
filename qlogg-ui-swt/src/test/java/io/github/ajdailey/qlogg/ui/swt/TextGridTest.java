@@ -116,7 +116,9 @@ class TextGridTest {
     assertEquals(screen - 5 + 1, grid.wrapFit(0, LINES, firstLineRows(5), height, screen));
     assertEquals(screen, grid.wrapFit(1, LINES, firstLineRows(5), height, screen));
     assertEquals(10, grid.wrapFit(1, LINES, firstLineRows(5), height, 10));
-    assertEquals(3, grid.wrapFit(LINES - 3, LINES, firstLineRows(5), height, screen));
+    // Rows below the last line count one line each.
+    assertEquals(screen, grid.wrapFit(LINES - 3, LINES, firstLineRows(5), height, screen));
+    assertEquals(screen - 4, grid.wrapFit(0, 3, firstLineRows(5), height, screen));
     // A line taller than the view still counts one.
     assertEquals(1, grid.wrapFit(0, LINES, firstLineRows(50), height, screen));
   }

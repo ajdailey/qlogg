@@ -160,7 +160,9 @@ final class TextGrid {
   }
 
   /**
-   * Counts the lines from the top that fit a height whole when wrapped.
+   * Counts the lines from the top that fit a height whole when wrapped. Each row left below the
+   * last line counts as one line: the viewport's rows set its last top, and a count of only the
+   * lines below the top would shrink the rows at every scroll to the end, down to one.
    *
    * @param topLine the first visible line
    * @param lineCount the lines
@@ -176,11 +178,11 @@ final class TextGrid {
     for (long line = topLine; line < lineCount; line++) {
       used += rows.rows(line);
       if (used > available) {
-        break;
+        return Math.max(1, Math.min(lines, screenRows));
       }
       lines++;
     }
-    return Math.max(1, Math.min(lines, screenRows));
+    return Math.max(1, Math.min(lines + available - used, screenRows));
   }
 
   /**

@@ -30,6 +30,7 @@ import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchLimit;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -412,6 +414,45 @@ class ViewFeaturesGuiTest {
     TextPosition next = view.hit(view.gutterWidth(), segments * view.lineHeight() + 1);
     assertEquals(1, next.line());
     paint();
+  }
+
+  /**
+   * Regression: the fit counted only the lines left below the top, so a one-line file kept one
+   * viewport row after it grew, and following pinned the last line alone at the top.
+   */
+  @Test
+  void followingWithTextWrapKeepsTheLastLineAtTheBottomAsTheFileGrows() throws IOException {
+    Path file = temp.resolve("grow.log");
+    Files.writeString(file, "first\n", StandardCharsets.US_ASCII);
+    controller.openFile(file, 0);
+    waitForDocument("grow.log");
+    controller.execute(CommandId.TOGGLE_WRAP);
+    final DocumentController grown = document();
+    grown.setFollowing(true);
+    final int screen = canvas().getClientArea().height / window.canvas().lineHeight();
+    StringBuilder more = new StringBuilder();
+    for (int i = 0; i < 4 * screen; i++) {
+      more.append("line ").append(i).append('\n');
+    }
+    more.append("z".repeat(2 * grown.viewport().columns())).append('\n');
+    Files.writeString(file, more.toString(), StandardCharsets.US_ASCII, StandardOpenOption.APPEND);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                Viewport viewport = grown.viewport();
+                return viewport.lineCount() > 4L * screen
+                    && viewport.topLine() + viewport.rows() == viewport.lineCount()
+                    && viewport.rows() >= screen - 3;
+              }
+            }),
+        "rows "
+            + grown.viewport().rows()
+            + " of "
+            + screen
+            + ", top "
+            + grown.viewport().topLine());
   }
 
   // Line wrap.

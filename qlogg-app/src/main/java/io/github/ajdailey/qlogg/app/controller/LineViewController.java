@@ -508,8 +508,9 @@ public abstract class LineViewController {
 
   /**
    * Reports, with text wrap on or a line wrapped in place, how many lines from the top fit the view
-   * whole, counting a line not read yet as one row. The viewport's rows follow it, so the last
-   * lines can scroll into view and caret moves keep the caret's line on screen.
+   * whole, counting a line not read yet, and each row below the last line, as one row. The
+   * viewport's rows follow it, so the last lines can scroll into view and caret moves keep the
+   * caret's line on screen; a following view stays at the end.
    *
    * @param lines lines that fit, at least 1
    */
@@ -520,6 +521,7 @@ public abstract class LineViewController {
     }
     wrapFit = fit;
     viewport.resize(fit, viewport.columns());
+    resized();
     changed();
   }
 

@@ -151,7 +151,10 @@ the number and bullet on its first row, and hit testing walks the wrapped rows.
   (`TextGrid.wrappedWordHit`), so it selects the word at the row's end.
 - A segment's glyphs wider than the grid run past the right edge, clipped.
 - After each new snapshot the canvas counts the lines from the top that fit
-  whole, a line not read yet counting one row, and reports it (`wrapFitted`).
+  whole, a line not read yet and each row below the last line counting one
+  row, and reports it (`wrapFitted`). Counting the rows below the last line
+  keeps a view scrolled to the end at full height; without them, following a
+  growing file shrinks the viewport to one row.
 - The horizontal scroll bar has nothing to scroll.
 
 ### Line wrap
