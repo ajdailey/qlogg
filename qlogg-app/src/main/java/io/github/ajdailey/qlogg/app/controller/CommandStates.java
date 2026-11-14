@@ -43,6 +43,7 @@ public final class CommandStates {
           CommandId.WRAP_ON_OPEN,
           CommandId.TOGGLE_WHITESPACE,
           CommandId.HIDE_ANSI,
+          CommandId.SYNTAX_COLORS,
           CommandId.BLOCK_SELECTION,
           CommandId.DEBUG_LOG_FILE,
           // Time spread.
@@ -265,6 +266,7 @@ public final class CommandStates {
       case WRAP_ON_OPEN -> application.preferences().view().wrapOnOpen();
       case TOGGLE_WHITESPACE -> application.preferences().view().showWhitespace();
       case HIDE_ANSI -> application.preferences().view().hideAnsi();
+      case SYNTAX_COLORS -> application.preferences().view().syntaxColors();
       case BLOCK_SELECTION -> application.blockMode();
       case DEBUG_LOG_FILE -> application.debugLogFile();
       // Time spread.

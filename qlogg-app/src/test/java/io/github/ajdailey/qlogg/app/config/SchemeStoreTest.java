@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.theme.TokenColors;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.TokenKind;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -158,6 +160,29 @@ class SchemeStoreTest {
     assertSame(ColorSchemes.BUNDLED.get(5).palette(), store.schemes().find("paper").palette());
     assertSame(Palette.LIGHT, store.schemes().find("light").palette());
     assertSame(Palette.DARK, store.schemes().find("dark").palette());
+  }
+
+  /**
+   * Token keys are optional: a missing one takes the Light or Dark palette's color by {@code dark},
+   * a bad one the same with one WARN, and a good one is kept.
+   */
+  @Test
+  void tokenKeysFallBackToLightOrDarkByTheDarkKey() throws IOException {
+    write("mock-none.properties", complete(""));
+    write("mock-light.properties", complete("").replace("dark=true", "dark=false"));
+    write(
+        "mock-some.properties",
+        complete("token.invalid=#123456\ntoken.string=#zzzzzz\ntoken.unknown=#ffffff\n"));
+    SchemeStore store = new SchemeStore(location());
+    store.load();
+    assertEquals(Palette.DARK.tokens(), store.schemes().find("mock-none").palette().tokens());
+    assertEquals(Palette.LIGHT.tokens(), store.schemes().find("mock-light").palette().tokens());
+    TokenColors some = store.schemes().find("mock-some").palette().tokens();
+    assertEquals(Rgb.of(0x123456), some.color(TokenKind.INVALID));
+    assertEquals(Palette.DARK.tokens().color(TokenKind.STRING), some.color(TokenKind.STRING));
+    assertEquals(Palette.DARK.tokens().color(TokenKind.LINK), some.color(TokenKind.LINK));
+    assertEquals(1, warnings.size(), warnings.toString());
+    assertFalse(warnings.get(0).contains("zzzzzz"));
   }
 
   @Test

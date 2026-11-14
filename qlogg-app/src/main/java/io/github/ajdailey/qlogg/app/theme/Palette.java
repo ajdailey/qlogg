@@ -30,6 +30,7 @@ import java.util.List;
  * @param spreadPause overview bar shading of rows spanning more time than the average
  * @param spreadActivity overview bar shading of rows with more lines per second than the average
  * @param labelGray background of a default color label that keeps the line text color
+ * @param tokens text colors of syntax-color tokens
  */
 public record Palette(
     boolean dark,
@@ -58,7 +59,9 @@ public record Palette(
     Rgb spreadPause,
     Rgb spreadActivity,
     // View colors.
-    Rgb labelGray) {
+    Rgb labelGray,
+    // Syntax colors.
+    TokenColors tokens) {
   /** The default palette: navy {@code #1b2e44} text on white. */
   public static final Palette LIGHT =
       new Palette(
@@ -88,7 +91,11 @@ public record Palette(
           Rgb.of(0xa86d0c),
           Rgb.of(0x18736a),
           // View colors.
-          Rgb.of(0xbfc9d3));
+          Rgb.of(0xbfc9d3),
+          // Syntax colors.
+          TokenColors.of(
+              0x5a6a7b, 0x0a6a96, 0x8338a0, 0xc0281f, 0xa8410e, 0x18736a, 0x2c5d8c, 0x45576b,
+              0x0a6a96, 0x22507a, 0x8a5000, 0x9a5600));
 
   /** The dark palette: {@code #dce6f0} text on navy {@code #1b2e44}. */
   public static final Palette DARK =
@@ -119,11 +126,15 @@ public record Palette(
           Rgb.of(0xe0a84e),
           Rgb.of(0x7fd8c5),
           // View colors.
-          Rgb.of(0x40597a));
+          Rgb.of(0x40597a),
+          // Syntax colors.
+          TokenColors.of(
+              0x98abbf, 0x56c1f0, 0xdcaaf2, 0xff8a80, 0xf8cf8f, 0x7fd8c5, 0x93d5f5, 0xb3c3d4,
+              0x56c1f0, 0xa3cdef, 0xf3b65b, 0xf3b65b));
 
   // View colors.
 
-  /** The color components' names, in component order; a scheme file's keys. */
+  /** The {@link Rgb} components' names, in component order; a scheme file's keys. */
   public static final List<String> COLOR_NAMES =
       List.of(
           "text",
@@ -152,16 +163,17 @@ public record Palette(
    * Creates a palette from its colors in component order.
    *
    * @param dark true for a dark palette
+   * @param tokens the token colors
    * @param colors one color per {@link #COLOR_NAMES} entry
    * @return the palette
    */
-  public static Palette of(boolean dark, Rgb... colors) {
+  public static Palette of(boolean dark, TokenColors tokens, Rgb... colors) {
     if (colors.length != COLOR_NAMES.size()) {
       throw new IllegalArgumentException("one color per component is required");
     }
     Rgb[] c = colors;
     return new Palette(
         dark, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12],
-        c[13], c[14], c[15], c[16], c[17], c[18], c[19], c[20]);
+        c[13], c[14], c[15], c[16], c[17], c[18], c[19], c[20], tokens);
   }
 }

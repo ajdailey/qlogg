@@ -12,6 +12,7 @@ import java.util.List;
  * @param wrapOnOpen {@code view.wrapOnOpen}: files open with text wrap on
  * @param showWhitespace {@code view.showWhitespace}: tabs, trailing spaces and line ends are marked
  * @param hideAnsi {@code view.hideAnsi}: ANSI color sequences are removed for display and search
+ * @param syntaxColors {@code view.syntaxColors}: log structure is colored in the views
  * @param folds {@code fold.entryStart} and {@code fold.continuation.N}
  * @param selectors {@code highlight.selector.N.*}, in match order
  * @param timeSpread {@code view.timeSpread}: the overview bar's time-spread layer
@@ -21,18 +22,23 @@ public record ViewOptions(
     boolean wrapOnOpen,
     boolean showWhitespace,
     boolean hideAnsi,
+    boolean syntaxColors,
     FoldRules folds,
     List<HighlightSelector> selectors,
     // Time spread.
     SpreadMode timeSpread,
     // View colors.
     String colors) {
-  /** Every flag off, the default fold rules, no selectors and the theme's colors. */
+  /**
+   * Syntax colors on, every other flag off, the default fold rules, no selectors and the theme's
+   * colors.
+   */
   public static final ViewOptions DEFAULTS =
       new ViewOptions(
           false,
           false,
           false,
+          true,
           FoldRules.DEFAULTS,
           List.of(),
           SpreadMode.OFF,
@@ -56,7 +62,8 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withWrapOnOpen(boolean value) {
-    return new ViewOptions(value, showWhitespace, hideAnsi, folds, selectors, timeSpread, colors);
+    return new ViewOptions(
+        value, showWhitespace, hideAnsi, syntaxColors, folds, selectors, timeSpread, colors);
   }
 
   /**
@@ -66,7 +73,8 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withShowWhitespace(boolean value) {
-    return new ViewOptions(wrapOnOpen, value, hideAnsi, folds, selectors, timeSpread, colors);
+    return new ViewOptions(
+        wrapOnOpen, value, hideAnsi, syntaxColors, folds, selectors, timeSpread, colors);
   }
 
   /**
@@ -76,7 +84,19 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withHideAnsi(boolean value) {
-    return new ViewOptions(wrapOnOpen, showWhitespace, value, folds, selectors, timeSpread, colors);
+    return new ViewOptions(
+        wrapOnOpen, showWhitespace, value, syntaxColors, folds, selectors, timeSpread, colors);
+  }
+
+  /**
+   * Returns a copy with another syntax colors flag.
+   *
+   * @param value the flag
+   * @return the copy
+   */
+  public ViewOptions withSyntaxColors(boolean value) {
+    return new ViewOptions(
+        wrapOnOpen, showWhitespace, hideAnsi, value, folds, selectors, timeSpread, colors);
   }
 
   /**
@@ -87,7 +107,7 @@ public record ViewOptions(
    */
   public ViewOptions withFolds(FoldRules rules) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, rules, selectors, timeSpread, colors);
+        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, rules, selectors, timeSpread, colors);
   }
 
   /**
@@ -97,7 +117,8 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withSelectors(List<HighlightSelector> list) {
-    return new ViewOptions(wrapOnOpen, showWhitespace, hideAnsi, folds, list, timeSpread, colors);
+    return new ViewOptions(
+        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, list, timeSpread, colors);
   }
 
   // Time spread.
@@ -109,7 +130,8 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withTimeSpread(SpreadMode mode) {
-    return new ViewOptions(wrapOnOpen, showWhitespace, hideAnsi, folds, selectors, mode, colors);
+    return new ViewOptions(
+        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, selectors, mode, colors);
   }
 
   // View colors.
@@ -121,6 +143,7 @@ public record ViewOptions(
    * @return the copy
    */
   public ViewOptions withColors(String id) {
-    return new ViewOptions(wrapOnOpen, showWhitespace, hideAnsi, folds, selectors, timeSpread, id);
+    return new ViewOptions(
+        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, selectors, timeSpread, id);
   }
 }

@@ -23,10 +23,11 @@ during a read starts one more when it returns. The view paints whatever block
 is present.
 
 The read that decodes the rows also colors them with the view's `Highlighter`
-(`qlogg-core`), from each row's whole decoded line. Highlighting therefore
-costs nothing on the UI thread and covers only the rows read. The block's
-spans are charged to `HIGHLIGHT` while it is shown; a block whose spans the
-share refuses shows uncolored. `marked(line)` and `matched(line)` give the
+(`qlogg-core`), from each row's whole decoded line, and, with syntax colors on
+(`setSyntaxColors`), tokenizes them with a `LogTokens.LineMatcher`.
+Highlighting therefore costs nothing on the UI thread and covers only the rows
+read. The block's spans and tokens are charged to `HIGHLIGHT` while it is
+shown; a block whose spans the share refuses shows uncolored. `marked(line)` and `matched(line)` give the
 gutter's bullets with one set lookup per row.
 
 ### Navigation and selection

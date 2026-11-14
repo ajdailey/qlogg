@@ -171,6 +171,38 @@ public final class LineReader {
       Highlighter.LineMatcher highlights,
       boolean markers)
       throws IOException {
+    return readRows(
+        index, firstRow, sourceLines, count, firstColumn, columns, highlights, null, markers);
+  }
+
+  /**
+   * Decodes listed lines as consecutive rows as {@link #readRows(LineIndex, long, long[], int,
+   * long, int, Highlighter.LineMatcher, boolean)} does, and tokenizes each row whose highlight has
+   * no line color ({@link LineBlock#tokens}).
+   *
+   * @param index the snapshot to read
+   * @param firstRow the row of {@code sourceLines[0]}
+   * @param sourceLines ascending 0-based lines; lines past the end of the index are left out
+   * @param count lines used from the start of the array
+   * @param firstColumn first display column to keep
+   * @param columns width of the window
+   * @param highlights colors the rows, or null for none
+   * @param tokens tokenizes the rows, or null for no syntax colors
+   * @param markers true to record whitespace markers and terminators
+   * @return the block, whose {@link LineBlock#sourceLine} gives each row's line
+   * @throws IOException on a read error, including after the document closes
+   */
+  public LineBlock readRows(
+      LineIndex index,
+      long firstRow,
+      long[] sourceLines,
+      int count,
+      long firstColumn,
+      int columns,
+      Highlighter.LineMatcher highlights,
+      LogTokens.LineMatcher tokens,
+      boolean markers)
+      throws IOException {
     long lineCount = index.lineCount();
     int n = 0;
     while (n < count && sourceLines[n] < lineCount) {
@@ -180,6 +212,7 @@ public final class LineReader {
     long[] widths = new long[n];
     long[] numbers = new long[n];
     HighlightSpans[] spans = highlights == null ? null : new HighlightSpans[n];
+    TokenSpans[] kinds = tokens == null ? null : new TokenSpans[n];
     String[] whitespace = markers ? new String[n] : null;
     byte[] terminators = markers ? new byte[n] : null;
     StringBuilder out = new StringBuilder();
@@ -189,6 +222,9 @@ public final class LineReader {
       CharBuffer text = decode(index, sourceLines[i]);
       if (spans != null) {
         spans[i] = highlights.spans(text, firstColumn, columns);
+      }
+      if (kinds != null && (spans == null || !lineColored(spans[i]))) {
+        kinds[i] = tokens.spans(text, firstColumn, columns);
       }
       if (markers) {
         terminators[i] = (byte) terminator(index, sourceLines[i]).ordinal();
@@ -200,7 +236,20 @@ public final class LineReader {
       lines[i] = out.toString();
     }
     return new LineBlock(
-        firstRow, firstColumn, columns, lines, widths, numbers, spans, whitespace, terminators);
+        firstRow,
+        firstColumn,
+        columns,
+        lines,
+        widths,
+        numbers,
+        spans,
+        kinds,
+        whitespace,
+        terminators);
+  }
+
+  private static boolean lineColored(HighlightSpans spans) {
+    return spans.lineForeground() != 0 || spans.lineBackground() != 0;
   }
 
   /**

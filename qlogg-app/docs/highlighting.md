@@ -112,6 +112,27 @@ another.
   shows; quiet lines then count toward the tab dot again for that document, and
   later scans keep none.
 
+## Syntax colors and highlighters
+
+Syntax colors (`view.syntaxColors`, View > Syntax Colors) tokenize each row with
+the core `LogTokens` and paint each `TokenKind` in the palette's
+`TokenColors`. `ViewFeatures` sets the flag on each new document and, on the
+command, saves it and calls `DocumentController.setSyntaxColorsBoth` on every
+open document, which re-reads both views. Precedence on a row, highest first:
+
+| Layer | Text color |
+|---|---|
+| Selection | `selectionText` |
+| Highlighter span with a text color: a span rule, the match highlight or a color label | The span's color |
+| Highlighter span without a text color | `text` |
+| Whole-line rule with a text color or a background | Its text color, else `text`, over the whole line; no tokens are read for the row |
+| Token | Its kind's color |
+| Other text | `text` |
+
+Token colors meet 4.5:1 only on the palette's own grounds, so a highlighter
+background never shows a token color. A color label is a span rule over its
+text: the rest of a labeled line keeps its tokens.
+
 ## Palette and theme
 
 `Palette` holds the log view, gutter bullet, overview bar, time-spread and
@@ -153,9 +174,12 @@ schemes from `SchemeStore` ([Settings](settings.md#color-scheme-files)).
 | `matchMarker`, `markMarker` | `gutter`, `overview`, `currentLine` | 3 |
 | `overviewFrame` | `overview` | 3 |
 | Tab dots, `spreadPause`, `spreadActivity` | `overview`, `gutter`, `background` | 3 |
+| Each `tokens` color | `background`, `currentLine`, `contextRow`, `resultRow` | 4.5 |
 
 `LIGHT` and `DARK` start from a navy (`#1b2e44`) and white pair; each bundled
-scheme starts from a published terminal palette or a plain pair.
+scheme starts from a published terminal palette or a plain pair. `tokens`
+(`TokenColors`) holds QCaret's token foregrounds for the same scheme id, color
+only.
 A color below its floor moves toward black or white only as far as the floor
 needs. The text moves against `background`, `currentLine` and `gutter`; the
 other row colors move against the text.

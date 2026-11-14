@@ -69,6 +69,7 @@ class CommandStatesTest {
     row(CommandId.WRAP_ON_OPEN, "-e -e -e");
     row(CommandId.TOGGLE_WHITESPACE, "-e -e -e");
     row(CommandId.HIDE_ANSI, "-e -e -e");
+    row(CommandId.SYNTAX_COLORS, "ce ce ce");
     row(CommandId.SHOW_MARKS_AND_MATCHES, "-- ce ce");
     row(CommandId.SHOW_MARKS, "-- -e -e");
     row(CommandId.SHOW_MATCHES, "-- -e -e");
@@ -183,6 +184,7 @@ class CommandStatesTest {
             CommandId.WRAP_ON_OPEN,
             CommandId.TOGGLE_WHITESPACE,
             CommandId.HIDE_ANSI,
+            CommandId.SYNTAX_COLORS,
             CommandId.BLOCK_SELECTION,
             CommandId.THEME_DARK);
     for (CommandId command : toggles) {

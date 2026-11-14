@@ -9,7 +9,8 @@ overview: [../README.md](../README.md).
 ## Painting
 
 `LogCanvas` (`SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND`) paints the visible rows
-of the snapshot's `LineBlock` with their highlight spans, a bullet column, each
+of the snapshot's `LineBlock` with their highlight spans and syntax-color
+tokens, a bullet column, each
 row's source line number in a gutter sized to the document's line count, the
 current line and the selection.
 
@@ -47,8 +48,12 @@ per column (macOS Menlo, GTK 4, fractional Windows scaling).
 in this order: the background (base, or the palette's `contextRow` for a
 context line, then the current line, then the whole-line highlight), the span
 backgrounds, the selection, the text in the line's color, the text again
-clipped to each span with a text color and to the selection, then the
-whitespace markers. A translucent color is blended over the color under it.
+clipped to each token's columns outside every highlight span in the token's
+`PaletteColors.token` color, to each span with a text color and to the
+selection, then the whitespace markers. A row with a whole-line highlight color
+paints no token, and a span without a text color shows `text` over a token:
+token colors meet 4.5:1 only on the palette's own grounds. A translucent color
+is blended over the color under it.
 
 ### Rows outside printable ASCII
 

@@ -18,7 +18,7 @@ without a display. `qlogg-ui-swt` implements the view contracts and
 | `app.controller` | Windows, tabs, open, reload, close and quit | [Windows and tabs](docs/windows-and-tabs.md) |
 | `app.controller` | The main and filtered views of one document: rows, copy, save, marks, follow, folds | [Document views](docs/document-views.md) |
 | `app.controller`, `app.search` | Search, quick find, search across files, search in a folder, history and filters | [Search](docs/search.md) |
-| `app.controller`, `app.highlight`, `app.theme` | Highlighters, color labels, keyword triggers, palette | [Highlighting](docs/highlighting.md) |
+| `app.controller`, `app.highlight`, `app.theme` | Highlighters, color labels, syntax colors, keyword triggers, palette | [Highlighting](docs/highlighting.md) |
 | `app.controller` | Timestamp formats, Go to Time, time sync, time spread | [Timestamps](docs/timestamps.md) |
 | `app.config` | Settings directory, `qlogg.conf`, color scheme files, positions and session stores | [Settings](docs/settings.md) |
 | `app.ipc` | Single-instance lock, endpoint and handoff protocol | [Single instance](docs/single-instance.md) |

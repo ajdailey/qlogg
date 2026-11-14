@@ -117,6 +117,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.wrapOnOpen` | `true`, `false`: files open with text wrap on | `false` | View > Wrap New Files |
 | `view.showWhitespace` | `true`, `false` | `false` | View > Show Whitespace |
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
+| `view.syntaxColors` | `true`, `false`: log structure is colored in both views of every file ([syntax colors](highlighting.md#syntax-colors-and-highlighters)) | `true` | View > Syntax Colors |
 | `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Preferences, Folding |
 | `highlight.selector.N.glob`, `.firstLine`, `.set` | A rule picking a highlighter set for a file as it opens | none | Highlighters > Automatic Highlighters |
 | `font.family`, `font.size` | The log views' font; empty and 0 are the platform's monospace font and size | empty, 0 | Tools > Preferences, View |
@@ -155,11 +156,13 @@ file name order.
 | `dark` | `true` or `false`: the palette's side, which picks the default color label variants |
 | `name` | The name in Tools > Preferences; blank, or holding a control character, shows the id; cut at 64 chars |
 | Each `Palette.COLOR_NAMES` entry | `#rrggbb` |
+| `token.<kind>`, optional | `#rrggbb`: a `TokenKind`'s color, the kind in lowercase (`token.comment`, `token.keyword`, `token.number`, `token.invalid`, `token.escape`, `token.type`, `token.keyword2`, `token.delimiter`, `token.link`, `token.function`, `token.attribute`, `token.string`). A missing or invalid key takes `Palette.LIGHT`'s or `Palette.DARK`'s color by `dark`; an invalid one logs one WARN naming the key |
 
 Other keys are ignored. A file is skipped with one WARN naming it when its id is
 not 1 to 64 letters, digits, `-` and `_`, or is `follow`, `light`, `dark` or a
 bundled id; when it is not a regular file (links are not followed), is over 64
-KiB or does not parse; or when `dark` or a color is missing or invalid. At most
+KiB or does not parse; or when `dark` or a `Palette.COLOR_NAMES` color is
+missing or invalid. At most
 64 files are read. Values are never logged.
 
 ## Position and session stores

@@ -28,6 +28,7 @@ public final class LineBlock {
   private final long[] widths;
   private final long[] sourceLines;
   private final HighlightSpans[] spans;
+  private final TokenSpans[] tokens;
   private final String[] whitespace;
   private final byte[] terminators;
 
@@ -50,11 +51,11 @@ public final class LineBlock {
       long[] widths,
       long[] sourceLines,
       HighlightSpans[] spans) {
-    this(firstLine, firstColumn, columns, lines, widths, sourceLines, spans, null, null);
+    this(firstLine, firstColumn, columns, lines, widths, sourceLines, spans, null, null, null);
   }
 
   /**
-   * Creates a block with whitespace markers; the arrays are kept, not copied.
+   * Creates a block with tokens and whitespace markers; the arrays are kept, not copied.
    *
    * @param firstLine row of the first entry
    * @param firstColumn first display column held
@@ -63,6 +64,7 @@ public final class LineBlock {
    * @param widths the full display width of each row, in columns
    * @param sourceLines the document line of each row, or null when row n is line n
    * @param spans the highlight of each row, or null for none
+   * @param tokens the syntax-color tokens of each row, or null for none
    * @param whitespace per row, one marker per char of its text, or null for none
    * @param terminators per row, a {@link LineTerminator} ordinal, or null with no markers
    */
@@ -74,6 +76,7 @@ public final class LineBlock {
       long[] widths,
       long[] sourceLines,
       HighlightSpans[] spans,
+      TokenSpans[] tokens,
       String[] whitespace,
       byte[] terminators) {
     this.firstLine = firstLine;
@@ -83,6 +86,7 @@ public final class LineBlock {
     this.widths = widths;
     this.sourceLines = sourceLines;
     this.spans = spans;
+    this.tokens = tokens;
     this.whitespace = whitespace;
     this.terminators = terminators;
   }
@@ -122,28 +126,45 @@ public final class LineBlock {
   }
 
   /**
-   * Returns the heap the rows' highlights hold.
+   * Returns a held row's syntax-color tokens.
    *
-   * @return bytes, the sum of {@link HighlightSpans#retainedBytes}
+   * @param line a row that {@link #contains}
+   * @return the tokens, {@link TokenSpans#NONE} when the row has none
+   */
+  public TokenSpans tokens(long line) {
+    int i = index(line);
+    return tokens == null || tokens[i] == null ? TokenSpans.NONE : tokens[i];
+  }
+
+  /**
+   * Returns the heap the rows' highlights and tokens hold.
+   *
+   * @return bytes, the sum of {@link HighlightSpans#retainedBytes} and {@link
+   *     TokenSpans#retainedBytes}
    */
   public long spanBytes() {
-    if (spans == null) {
-      return 0;
-    }
     long bytes = 0;
-    for (HighlightSpans row : spans) {
-      bytes += row == null ? 0 : row.retainedBytes();
+    if (spans != null) {
+      for (HighlightSpans row : spans) {
+        bytes += row == null ? 0 : row.retainedBytes();
+      }
+    }
+    if (tokens != null) {
+      for (TokenSpans row : tokens) {
+        bytes += row == null ? 0 : row.retainedBytes();
+      }
     }
     return bytes;
   }
 
   /**
-   * Returns the block without highlights, as a read that cannot reserve their memory keeps it.
+   * Returns the block without highlights and tokens, as a read that cannot reserve their memory
+   * keeps it.
    *
    * @return a block sharing this one's text
    */
   public LineBlock withoutSpans() {
-    return spans == null
+    return spans == null && tokens == null
         ? this
         : new LineBlock(
             firstLine,
@@ -152,6 +173,7 @@ public final class LineBlock {
             lines,
             widths,
             sourceLines,
+            null,
             null,
             whitespace,
             terminators);

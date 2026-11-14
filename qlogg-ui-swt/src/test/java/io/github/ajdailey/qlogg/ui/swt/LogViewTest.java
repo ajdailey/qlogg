@@ -568,6 +568,7 @@ class LogViewTest {
             "Wrap New Files",
             "Show Whitespace",
             "Hide ANSI Colors",
+            "Syntax Colors",
             "-",
             "Folding",
             "Timestamps",
@@ -584,10 +585,10 @@ class LogViewTest {
         labels(view));
     assertEquals(
         List.of("Toggle Fold", "Collapse All Folds", "Expand All Folds"),
-        labels(view.getItem(17).getMenu()));
+        labels(view.getItem(18).getMenu()));
     assertEquals(
         List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
-        labels(view.getItem(18).getMenu()));
+        labels(view.getItem(19).getMenu()));
     assertEquals(
         List.of(
             "Marks and Matches",
@@ -600,8 +601,8 @@ class LogViewTest {
             "Grow Main View",
             "Shrink Main View",
             "Save Splitter Position"),
-        labels(view.getItem(19).getMenu()));
-    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(25).getMenu()));
+        labels(view.getItem(20).getMenu()));
+    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(26).getMenu()));
     assertEquals(
         List.of(
             "Configure Highlighters",

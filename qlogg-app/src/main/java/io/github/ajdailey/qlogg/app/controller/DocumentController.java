@@ -581,6 +581,16 @@ public final class DocumentController extends LineViewController {
   }
 
   /**
+   * Turns syntax colors on or off in both views; a change re-reads their visible rows.
+   *
+   * @param on true to color log structure
+   */
+  public void setSyntaxColorsBoth(boolean on) {
+    setSyntaxColors(on);
+    filtered.setSyntaxColors(on);
+  }
+
+  /**
    * Returns the highlighter set a selector chose for this document.
    *
    * @return the set's id, or null when the active sets apply

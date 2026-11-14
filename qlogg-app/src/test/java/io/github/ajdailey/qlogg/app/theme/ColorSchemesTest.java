@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.highlight.ColorLabel;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSetsEditor;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.TokenKind;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -78,6 +79,30 @@ class ColorSchemesTest {
           TEXT);
       if (Boolean.getBoolean("qlogg.qc.contrast")) {
         System.out.printf("QC %s lowest %.2f (%s)%n", scheme.id(), floor.lowest, floor.where);
+      }
+    }
+    assertTrue(faults.isEmpty(), String.join("\n", faults));
+  }
+
+  /**
+   * Every token color reads at 4.5:1 on the background, the current line, a context row and a
+   * result row.
+   */
+  @Test
+  void everyTokenColorMeetsTheTextFloor() {
+    List<String> faults = new ArrayList<String>();
+    for (ColorScheme scheme : ColorSchemes.NONE.all()) {
+      Palette p = scheme.palette();
+      Floor floor = new Floor(scheme.id(), faults);
+      for (TokenKind kind : TokenKind.values()) {
+        for (Rgb ground :
+            new Rgb[] {p.background(), p.currentLine(), p.contextRow(), p.resultRow()}) {
+          floor.check(TokenColors.key(kind), p.tokens().color(kind), ground, TEXT);
+        }
+      }
+      if (Boolean.getBoolean("qlogg.qc.contrast")) {
+        System.out.printf(
+            "QC %s tokens lowest %.2f (%s)%n", scheme.id(), floor.lowest, floor.where);
       }
     }
     assertTrue(faults.isEmpty(), String.join("\n", faults));
@@ -161,11 +186,13 @@ class ColorSchemesTest {
   void colorNamesFollowThePaletteComponents() {
     RecordComponent[] components = Palette.class.getRecordComponents();
     List<String> names = new ArrayList<String>();
-    for (int i = 1; i < components.length; i++) {
+    for (int i = 1; i < components.length - 1; i++) {
       names.add(components[i].getName());
     }
     assertEquals(names, Palette.COLOR_NAMES);
     assertEquals("dark", components[0].getName());
+    assertEquals("tokens", components[components.length - 1].getName());
+    assertEquals("token.keyword2", TokenColors.key(TokenKind.KEYWORD2));
   }
 
   /** Records each ratio below its floor and the lowest ratio seen. */

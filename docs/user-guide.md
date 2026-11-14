@@ -278,6 +278,17 @@ next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0` or
 context menu list the labels by name. Highlighters > Highlight Search Matches
 colors the last search's matches.
 
+### Syntax colors
+
+QLogg colors the structure of every log line: timestamps, levels (error,
+warning, info, debug, trace), `[thread]` groups, stack frames and
+`Caused by` lines, exception and class names, URLs, the names in `key=value`
+pairs and quoted strings. View > Syntax Colors turns this on or off for every
+open file; it is on by default. A row colored by a whole-line highlighter shows no
+syntax colors. A highlighter span, a color label, a search match or the
+selection shows its own text color, or the plain text color, over the text it
+covers. Each view color scheme has its own syntax colors.
+
 ### Keyword triggers
 
 A rule can also act on lines appended to an open file (Configure
@@ -490,8 +501,8 @@ it was read.
 
 The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
 Files), Wrap Line (`W`), markers for tabs, trailing spaces and line
-ends, hiding ANSI color sequences (for display, copy and search), the overview
-bar, and the light, dark and system themes. Light and dark also apply to menus, scroll bars and
+ends, hiding ANSI color sequences (for display, copy and search), syntax
+colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to menus, scroll bars and
 other controls: at once on Linux, at the next start on Windows, which says so
 when you change it. On Windows the system theme applies them too, from the
 Windows setting at start; the title bar, menu bar, buttons, scroll bars, lists
@@ -535,7 +546,8 @@ controls keep following the theme. A change applies at once.
 | Graphite | Gray on black |
 
 Text in every listed scheme reaches a contrast of 4.5:1 on each row color,
-the match highlight and the default color labels.
+the match highlight and the default color labels; each syntax color reaches
+4.5:1 on the view, the caret's line, context lines and filtered rows.
 
 To add a scheme, put a file named `<id>.properties` in the `colors` folder of
 the settings directory ([Command line](#command-line)); QLogg reads the folder
@@ -554,8 +566,20 @@ these keys as `#rrggbb`:
 | `overview`, `overviewFrame`, `spreadPause`, `spreadActivity` | Overview bar and its time spread |
 | `newLinesDot`, `newMatchesDot`, `followStoppedDot` | Tab dots; `followStoppedDot` also marks time running backward |
 
-A file with a missing or invalid value is skipped, and the log records one
-warning naming it.
+Optional keys set the syntax colors. A missing one takes the Light or Dark
+scheme's color by `dark`; an invalid one does the same, and the log records a
+warning.
+
+| Keys | Colors |
+|---|---|
+| `token.number` | Timestamps |
+| `token.invalid`, `token.escape`, `token.type`, `token.keyword2`, `token.comment` | Error, warning, info, debug and trace levels; `token.comment` also stack frames, `token.escape` also a backslash escape in a quoted string |
+| `token.keyword` | `Caused by`, `Suppressed`, `Traceback` and exception names |
+| `token.delimiter`, `token.function` | `[thread]` groups, class names |
+| `token.link`, `token.attribute`, `token.string` | URLs, the names in `key=value` pairs, quoted strings |
+
+A file with a missing or invalid `dark` or color key from the first table is
+skipped, and the log records one warning naming it.
 
 ## Scratchpad
 
@@ -632,7 +656,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |

@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
+import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -36,8 +37,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * Fold classification, column windows and block columns, whitespace markers and hidden ANSI colors
- * over files.
+ * Fold classification, column windows and block columns, whitespace markers, hidden ANSI colors and
+ * syntax-color tokens over files.
  */
 class ViewFeaturesReadTest {
   /** U+1F600, two chars at display column 2 of {@code "ab" + EMOJI + "c"}. */
@@ -309,5 +310,33 @@ class ViewFeaturesReadTest {
     document.newReader().appendText(document.index(), 0, 0, Long.MAX_VALUE, out);
     assertEquals("red and green", out.toString());
     assertFalse(out.toString().contains("\u001b"));
+  }
+
+  /** A row with a highlighter line color gets no tokens; the row beside it does. */
+  @Test
+  void aLineColoredRowGetsNoTokens() throws Exception {
+    open("ERROR one\nERROR two\n");
+    HighlightRule line =
+        new HighlightRule(
+            "two", MatchMode.LITERAL, true, true, null, Rgb.of(0xffe680), 255, 0, true);
+    LineBlock block =
+        document
+            .newReader()
+            .readRows(
+                document.index(),
+                0,
+                new long[] {0, 1},
+                2,
+                0,
+                80,
+                Highlighter.of(List.of(line)).matcher(),
+                LogTokens.matcher(),
+                false);
+    assertEquals(1, block.tokens(0).count());
+    assertEquals(TokenKind.INVALID, block.tokens(0).kind(0));
+    assertTrue(block.spans(1).lineBackground() != 0);
+    assertEquals(0, block.tokens(1).count());
+    assertEquals(
+        block.tokens(0).retainedBytes() + block.spans(1).retainedBytes(), block.spanBytes());
   }
 }

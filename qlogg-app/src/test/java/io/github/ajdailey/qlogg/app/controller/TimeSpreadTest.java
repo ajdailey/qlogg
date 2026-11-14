@@ -56,6 +56,7 @@ class TimeSpreadTest {
         }
       };
 
+  /** Syntax colors off, so the rows' tokens do not count in the {@code HIGHLIGHT} sums. */
   private ControllerFixture fixture;
 
   @BeforeEach
@@ -63,8 +64,9 @@ class TimeSpreadTest {
     fixture =
         new ControllerFixture(
             temp,
-            Preferences.DEFAULTS.withTime(
-                new TimeSettings(ZoneOffset.UTC, ZoneOffset.UTC, List.of())));
+            Preferences.DEFAULTS
+                .withTime(new TimeSettings(ZoneOffset.UTC, ZoneOffset.UTC, List.of()))
+                .withView(Preferences.DEFAULTS.view().withSyntaxColors(false)));
   }
 
   @AfterEach

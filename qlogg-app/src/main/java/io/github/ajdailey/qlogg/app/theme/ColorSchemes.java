@@ -12,6 +12,7 @@ import java.util.List;
  *
  * <p>Each bundled scheme starts from a published terminal palette or a plain pair, with each color
  * moved toward black or white only as far as the contrast floors in {@code ColorSchemesTest} need.
+ * Token colors are QCaret's for the same scheme id.
  */
 public final class ColorSchemes {
   /** The {@code view.colors} value that keeps the theme's palette. */
@@ -32,6 +33,9 @@ public final class ColorSchemes {
               "sandstone",
               UiText.VIEW_COLORS_SANDSTONE,
               false,
+              TokenColors.of(
+                  0x606969, 0x606e00, 0xb92f72, 0xc42c2a, 0xc42c2a, 0x826300, 0x5c61a8, 0x556b71,
+                  0x5c61a8, 0x1e6ca4, 0x826300, 0x1e736d),
               0x586c73,
               0xfdf6e3,
               0x2076b3,
@@ -57,6 +61,9 @@ public final class ColorSchemes {
               "nightwater",
               UiText.VIEW_COLORS_NIGHTWATER,
               true,
+              TokenColors.of(
+                  0x919fa4, 0x94a620, 0xe27cae, 0xe97e7c, 0xe97e7c, 0xbe9820, 0x9498d4, 0x93a1a1,
+                  0x9498d4, 0x55a4dc, 0xbe9820, 0x45ada5),
               0x8b9b9d,
               0x002b36,
               0x0f5a6e,
@@ -82,6 +89,9 @@ public final class ColorSchemes {
               "garden-light",
               UiText.VIEW_COLORS_GARDEN_LIGHT,
               false,
+              TokenColors.of(
+                  0x646562, 0x204a87, 0x75507b, 0xcc0000, 0xa54a00, 0x8e5902, 0x047072, 0x555753,
+                  0x3465a4, 0x3465a4, 0x8e5902, 0x3a7204),
               0x2e3436,
               0xeeeeec,
               0x3465a4,
@@ -107,6 +117,9 @@ public final class ColorSchemes {
               "garden-dark",
               UiText.VIEW_COLORS_GARDEN_DARK,
               true,
+              TokenColors.of(
+                  0xabada9, 0x8bb0d7, 0xc3a2bf, 0xf78f8f, 0xfcaf3e, 0xe9b96e, 0x34e2e2, 0xbabdb6,
+                  0x8bb0d7, 0x8bb0d7, 0xe9b96e, 0x8ae234),
               0xd3d7cf,
               0x2e3436,
               0x204a87,
@@ -132,6 +145,9 @@ public final class ColorSchemes {
               "legal-pad",
               UiText.VIEW_COLORS_LEGAL_PAD,
               false,
+              TokenColors.of(
+                  0x61625e, 0x204a87, 0x75507b, 0xc70000, 0xa14800, 0x8b5602, 0x046d6f, 0x555753,
+                  0x3363a2, 0x3363a2, 0x8b5602, 0x386f04),
               0x000000,
               0xffffdd,
               0x3874d8,
@@ -157,6 +173,9 @@ public final class ColorSchemes {
               "paper",
               UiText.VIEW_COLORS_PAPER,
               false,
+              TokenColors.of(
+                  0x676864, 0x204a87, 0x75507b, 0xcc0000, 0xaa4c00, 0x8f5902, 0x057374, 0x555753,
+                  0x3465a4, 0x3465a4, 0x8f5902, 0x3b7505),
               0x000000,
               0xffffff,
               0x3874d8,
@@ -182,6 +201,9 @@ public final class ColorSchemes {
               "midnight",
               UiText.VIEW_COLORS_MIDNIGHT,
               true,
+              TokenColors.of(
+                  0xabaca8, 0x89afd7, 0xc3a1bf, 0xf78e8e, 0xfcaf3e, 0xe9b96e, 0x34e2e2, 0xd3d7cf,
+                  0x89afd7, 0x89afd7, 0xe9b96e, 0x8ae234),
               0xffffff,
               0x000000,
               0x264f78,
@@ -207,6 +229,9 @@ public final class ColorSchemes {
               "phosphor",
               UiText.VIEW_COLORS_PHOSPHOR,
               true,
+              TokenColors.of(
+                  0xa7a8a5, 0x85acd5, 0xc09dbc, 0xf68888, 0xfcaf3e, 0xe9b96e, 0x34e2e2, 0x0ac30a,
+                  0x85acd5, 0x85acd5, 0xe9b96e, 0x8ae234),
               0x00ff00,
               0x000000,
               0x00a000,
@@ -232,6 +257,9 @@ public final class ColorSchemes {
               "graphite",
               UiText.VIEW_COLORS_GRAPHITE,
               true,
+              TokenColors.of(
+                  0xa9aaa7, 0x88aed6, 0xc29fbe, 0xf68b8b, 0xfcaf3e, 0xe9b96e, 0x34e2e2, 0xaaaaaa,
+                  0x88aed6, 0x88aed6, 0xe9b96e, 0x8ae234),
               0xaaaaaa,
               0x000000,
               0x4a4a4a,
@@ -320,12 +348,13 @@ public final class ColorSchemes {
     return null;
   }
 
-  /** Builds a bundled scheme from its colors in {@link Palette} component order. */
-  private static ColorScheme scheme(String id, UiText name, boolean dark, int... colors) {
+  /** Builds a bundled scheme from its token colors and its colors in {@link Palette} order. */
+  private static ColorScheme scheme(
+      String id, UiText name, boolean dark, TokenColors tokens, int... colors) {
     Rgb[] c = new Rgb[colors.length];
     for (int i = 0; i < colors.length; i++) {
       c[i] = Rgb.of(colors[i]);
     }
-    return new ColorScheme(id, name.text(), Palette.of(dark, c));
+    return new ColorScheme(id, name.text(), Palette.of(dark, tokens, c));
   }
 }

@@ -20,6 +20,7 @@ import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.LogTokens;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
@@ -109,6 +110,7 @@ public abstract class LineViewController {
   private boolean blockSelected;
   private boolean wrap;
   private boolean whitespace;
+  private boolean syntaxColors;
   private int screenRows = 1;
   private int wrapFit = 1;
   // Line wrap.
@@ -557,6 +559,27 @@ public abstract class LineViewController {
       whitespace = on;
       changed();
     }
+  }
+
+  /**
+   * Turns syntax colors on or off; a change re-reads the visible rows.
+   *
+   * @param on true to color log structure
+   */
+  public void setSyntaxColors(boolean on) {
+    if (on != syntaxColors) {
+      syntaxColors = on;
+      changed();
+    }
+  }
+
+  /**
+   * Reports whether syntax colors are on.
+   *
+   * @return true when rows are read with tokens
+   */
+  public boolean syntaxColors() {
+    return syntaxColors;
   }
 
   /**
@@ -1284,6 +1307,7 @@ public abstract class LineViewController {
             : Arrays.copyOfRange(measured, Math.min(above, measured.length), measured.length);
     final Wrapped wrapped = new Wrapped(row, row < 0 ? -1 : wrappedLine, wrapColumns);
     final Highlighter colors = highlighter;
+    final boolean tokens = syntaxColors;
     final boolean markers = whitespace;
     readInFlight =
         workers.tryStart(
@@ -1291,7 +1315,7 @@ public abstract class LineViewController {
             new Runnable() {
               @Override
               public void run() {
-                read(index, first, source, firstColumn, columns, wrapped, colors, markers);
+                read(index, first, source, firstColumn, columns, wrapped, colors, tokens, markers);
               }
             });
   }
@@ -1318,6 +1342,7 @@ public abstract class LineViewController {
       int columns,
       Wrapped wrapped,
       Highlighter colors,
+      boolean tokens,
       boolean markers) {
     LineBlock block = null;
     LineBlock alone = LineBlock.EMPTY;
@@ -1329,9 +1354,10 @@ public abstract class LineViewController {
         return;
       }
       Highlighter.LineMatcher matcher = colors.isEmpty() ? null : colors.matcher();
+      LogTokens.LineMatcher kinds = tokens ? LogTokens.matcher() : null;
       block =
           reader.readRows(
-              index, top, source, source.length, firstColumn, columns, matcher, markers);
+              index, top, source, source.length, firstColumn, columns, matcher, kinds, markers);
       if (wrapped.row() >= 0) {
         alone =
             reader.readRows(
@@ -1342,6 +1368,7 @@ public abstract class LineViewController {
                 0,
                 wrapped.columns(),
                 matcher,
+                kinds,
                 markers);
       }
       long bytes = block.spanBytes() + alone.spanBytes();

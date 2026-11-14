@@ -79,6 +79,7 @@ class CommandStatesTest {
     row(CommandId.WRAP_ON_OPEN, "-e -e -e");
     row(CommandId.TOGGLE_WHITESPACE, "-e -e -e");
     row(CommandId.HIDE_ANSI, "-e -e -e");
+    row(CommandId.SYNTAX_COLORS, "ce ce ce");
     row(CommandId.TIME_SPREAD_OFF, "ce ce ce");
     row(CommandId.TIME_SPREAD_ACTIVITY, "-e -e -e");
     row(CommandId.TIME_SPREAD_PAUSES, "-e -e -e");

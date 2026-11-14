@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.core.model.HighlightSpans;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.LineTerminator;
+import io.github.ajdailey.qlogg.core.model.TokenSpans;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -21,8 +22,10 @@ import org.eclipse.swt.graphics.TextLayout;
  * Paints one screen row of a log view: the plain paint passes each line once, the wrapped paint
  * each segment of a line. A row paints its background (base or context shade, current line, then
  * the whole-line highlight), the span backgrounds and the selection, the text in the line's color,
- * then the text again clipped to each span with a text color and to the selection, then the
- * whitespace markers. A translucent color is blended over the color under it.
+ * then the text again clipped to each syntax-color token outside every highlight span, to each span
+ * with a text color and to the selection, then the whitespace markers. A row with a whole-line
+ * highlight color paints no token: token colors meet their contrast floor on the palette's own
+ * grounds only. A translucent color is blended over the color under it.
  *
  * <p>Column {@code c} of a printable-ASCII row sits on the {@link TextGrid}, and the row is drawn
  * with {@code GC.drawString}. Any other row is laid out in a {@link TextLayout}, which also draws
@@ -260,6 +263,9 @@ final class RowPainter {
               : colors.cached(spans.lineForeground() & 0xffffff);
       gc.setForeground(rowText);
       drawPart();
+      if (spans.lineForeground() == 0 && spans.lineBackground() == 0) {
+        paintTokens(colors, block.tokens(row.line()), spans, rowClip);
+      }
       for (int i = 0; i < spans.count(); i++) {
         if (spanRects[i] != null && spans.foreground(i) != 0) {
           gc.setClipping(spanRects[i].intersection(rowClip));
@@ -280,6 +286,38 @@ final class RowPainter {
     this.gc = null;
     this.row = null;
     laid = null;
+  }
+
+  /** Draws each token's columns that no highlight span covers in the token's color. */
+  private void paintTokens(
+      PaletteColors colors, TokenSpans tokens, HighlightSpans spans, Rectangle rowClip) {
+    int j = 0;
+    for (int i = 0; i < tokens.count(); i++) {
+      long a = tokens.start(i);
+      long end = tokens.end(i);
+      while (j < spans.count() && spans.end(j) <= a) {
+        j++;
+      }
+      Color color = colors.token(tokens.kind(i));
+      for (int k = j; k < spans.count() && spans.start(k) < end && a < end; k++) {
+        if (spans.start(k) > a) {
+          drawClipped(color, a, spans.start(k), rowClip);
+        }
+        a = Math.max(a, spans.end(k));
+      }
+      if (a < end) {
+        drawClipped(color, a, end, rowClip);
+      }
+    }
+  }
+
+  private void drawClipped(Color color, long a, long b, Rectangle rowClip) {
+    Rectangle area = rect(a, b);
+    if (area != null) {
+      gc.setClipping(area.intersection(rowClip));
+      gc.setForeground(color);
+      drawPart();
+    }
   }
 
   /**

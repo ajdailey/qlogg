@@ -24,6 +24,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.FilteredView;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.model.LogTokens;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
@@ -866,6 +867,49 @@ public final class Harness {
     out.println("readLines.p99.us=" + format(nanos[READS * 99 / 100] / 1e3));
     out.println("readLines.max.us=" + format(nanos[READS - 1] / 1e3));
     out.println("readLines.total.ms=" + millis(total));
+    syntaxReads(document);
+  }
+
+  /**
+   * Times random 50-line row reads as the log view runs them, with syntax colors off and on: each
+   * screen is read both ways, alternating which goes first.
+   */
+  private void syntaxReads(LogDocument document) throws IOException {
+    LineIndex index = document.index();
+    long lines = index.lineCount();
+    LineReader reader = document.newReader();
+    SplittableRandom random = new SplittableRandom(7);
+    long[] off = new long[READS];
+    long[] on = new long[READS];
+    long[] source = new long[SCREEN_LINES];
+    for (int i = 0; i < READS; i++) {
+      long first = random.nextLong(Math.max(1, lines - SCREEN_LINES));
+      for (int k = 0; k < SCREEN_LINES; k++) {
+        source[k] = first + k;
+      }
+      for (int pass = 0; pass < 2; pass++) {
+        boolean colored = (i + pass) % 2 == 0;
+        long t = System.nanoTime();
+        reader.readRows(
+            index,
+            first,
+            source,
+            SCREEN_LINES,
+            0,
+            SCREEN_COLUMNS,
+            null,
+            colored ? LogTokens.matcher() : null,
+            false);
+        long elapsed = System.nanoTime() - t;
+        if (colored) {
+          on[i] = elapsed;
+        } else {
+          off[i] = elapsed;
+        }
+      }
+    }
+    percentiles("readRows.syntaxOff", off);
+    percentiles("readRows.syntaxOn", on);
   }
 
   private void endOfFile(LogDocument document) throws IOException {

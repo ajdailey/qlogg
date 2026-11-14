@@ -123,6 +123,7 @@ and copies its first MiB.
 |---|---|
 | `read(index, first, count, firstColumn, columns)` | A `LineBlock`: each line cut to the display columns `[firstColumn, firstColumn + columns)`, tabs expanded to spaces, a trailing CR dropped, plus each line's full display width. Decoded text is bounded by the window, not by the line |
 | `readRows(index, firstRow, lines, count, firstColumn, columns, highlights)` | Listed lines as consecutive rows; `LineBlock.sourceLine(row)` gives each row's line. With a `Highlighter.LineMatcher` it colors each row from the whole decoded line (`LineBlock.spans(row)`). The views read through it |
+| `readRows(..., highlights, tokens, markers)` | With a `LogTokens.LineMatcher` it also tokenizes each row whose highlight has no line color (`LineBlock.tokens(row)`) from the line after Hide ANSI Colors strips it; without one, or with `readRows(..., highlights, markers)`, a row has no tokens |
 | `readRows(..., highlights, markers)` | Also one whitespace marker per char (`LineBlock.whitespace`: tab start, trailing space, lone CR, which then shows as a space) and the line end (`LineBlock.terminator`: `LF`, `CRLF`, or `NONE` for a last line without LF, from `LineDecoder.droppedCarriageReturn()`) |
 | `appendText(index, line, fromColumn, toColumn, out)` | Appends the chars whose display column lies in the range, tabs kept, for copy |
 | `appendColumns(index, line, fromColumn, toColumn, out)` | The same for a block selection, but a tab partly inside the range becomes one space per covered column. Nothing is padded |

@@ -58,7 +58,7 @@ shares that all open documents draw from:
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `COPY` | 5 | Text being copied to the clipboard or saved |
 | `FOLDS` | 3 | Fold maps |
-| `HIGHLIGHT` | 2 | Highlight spans of the shown rows, color labels, overview bins, time samples and the time spread; row text layouts are not charged |
+| `HIGHLIGHT` | 2 | Highlight spans and syntax-color tokens of the shown rows, color labels, overview bins, time samples and the time spread; row text layouts are not charged |
 | `PASTED` | 2 | Text opened from the clipboard, while its document is open |
 
 The remaining 8% is headroom.

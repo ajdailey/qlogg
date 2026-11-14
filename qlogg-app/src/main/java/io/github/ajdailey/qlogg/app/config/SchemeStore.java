@@ -4,9 +4,11 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightFile;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.theme.TokenColors;
 import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.TokenKind;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -24,12 +26,14 @@ import org.slf4j.LoggerFactory;
 /**
  * The user's color schemes, read from {@code <id>.properties} files in the {@link #FOLDER} folder
  * of the settings directory. A file holds {@code dark} ({@code true} or {@code false}), an optional
- * {@code name}, and every {@link Palette#COLOR_NAMES} key as {@code #rrggbb}; other keys are
- * ignored. A file that is not a regular file, is over {@link #MAX_BYTES}, does not parse, lacks a
- * value or has a {@link ColorSchemes#reserved} or malformed id is skipped with one WARN naming it.
- * At most {@link #MAX_FILES} files are read, in name order. Values are never logged. Thread-safe:
- * {@link #load} blocks and runs before the Display or on a worker; {@link #schemes} touches memory
- * only.
+ * {@code name}, every {@link Palette#COLOR_NAMES} key as {@code #rrggbb}, and optional {@link
+ * TokenColors#key} keys; other keys are ignored. A token key that is missing takes the color of
+ * {@link Palette#LIGHT} or {@link Palette#DARK} by {@code dark}, as does one that does not parse,
+ * with one WARN naming it. A file that is not a regular file, is over {@link #MAX_BYTES}, does not
+ * parse, lacks a value or has a {@link ColorSchemes#reserved} or malformed id is skipped with one
+ * WARN naming it. At most {@link #MAX_FILES} files are read, in name order. Values are never
+ * logged. Thread-safe: {@link #load} blocks and runs before the Display or on a worker; {@link
+ * #schemes} touches memory only.
  */
 public final class SchemeStore {
   /** The folder in the settings directory. */
@@ -186,6 +190,20 @@ public final class SchemeStore {
       colors[i] = HighlightFile.parseColor(properties.getProperty(Palette.COLOR_NAMES.get(i)));
     }
     boolean dark = properties.getProperty("dark").strip().equals("true");
+    TokenColors fallback = (dark ? Palette.DARK : Palette.LIGHT).tokens();
+    List<Rgb> tokens = new ArrayList<Rgb>();
+    for (TokenKind kind : TokenKind.values()) {
+      String key = TokenColors.key(kind);
+      String value = properties.getProperty(key);
+      Rgb color = value == null ? null : HighlightFile.parseColor(value);
+      if (value != null && color == null) {
+        LOG.warn(
+            "Ignoring an invalid {} in the color scheme {}",
+            LogText.oneLine(key),
+            LogText.oneLine(id));
+      }
+      tokens.add(color == null ? fallback.color(kind) : color);
+    }
     String name = properties.getProperty("name", "").strip();
     if (name.length() > MAX_NAME_CHARS) {
       name = name.substring(0, MAX_NAME_CHARS).strip();
@@ -193,7 +211,7 @@ public final class SchemeStore {
     if (name.isEmpty() || !LogText.oneLine(name).equals(name)) {
       name = id;
     }
-    return new ColorScheme(id, name, Palette.of(dark, colors));
+    return new ColorScheme(id, name, Palette.of(dark, new TokenColors(tokens), colors));
   }
 
   private static void skip(String fileName, String reason) {

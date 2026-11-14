@@ -19,6 +19,7 @@ final class ViewFile {
   static final String WRAP_KEY = "view.wrapOnOpen";
   static final String WHITESPACE_KEY = "view.showWhitespace";
   static final String ANSI_KEY = "view.hideAnsi";
+  static final String SYNTAX_KEY = "view.syntaxColors";
   static final String FOLD_START_KEY = "fold.entryStart";
   static final String FOLD_CONTINUATION_KEY = "fold.continuation.";
   static final String SELECTOR_KEY = "highlight.selector.";
@@ -78,6 +79,7 @@ final class ViewFile {
         flag(properties, WRAP_KEY, defaults.wrapOnOpen()),
         flag(properties, WHITESPACE_KEY, defaults.showWhitespace()),
         flag(properties, ANSI_KEY, defaults.hideAnsi()),
+        flag(properties, SYNTAX_KEY, defaults.syntaxColors()),
         folds,
         selectors,
         spread(properties, defaults.timeSpread()),
@@ -95,6 +97,7 @@ final class ViewFile {
     properties.setProperty(WRAP_KEY, Boolean.toString(view.wrapOnOpen()));
     properties.setProperty(WHITESPACE_KEY, Boolean.toString(view.showWhitespace()));
     properties.setProperty(ANSI_KEY, Boolean.toString(view.hideAnsi()));
+    properties.setProperty(SYNTAX_KEY, Boolean.toString(view.syntaxColors()));
     properties.setProperty(TIME_SPREAD_KEY, view.timeSpread().id());
     // View colors.
     properties.setProperty(COLORS_KEY, view.colors());

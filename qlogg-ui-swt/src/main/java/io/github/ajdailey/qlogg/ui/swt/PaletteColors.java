@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.TokenKind;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +31,8 @@ final class PaletteColors {
   final Color overviewFrame;
   // Time spread.
   final Color disorder;
+  // Syntax colors.
+  private final Color[] tokens = new Color[TokenKind.values().length];
   private final Display display;
   private final List<Color> all = new ArrayList<Color>();
   private final Map<Integer, Color> cached = new HashMap<Integer, Color>();
@@ -48,6 +51,19 @@ final class PaletteColors {
     overview = color(palette.overview());
     overviewFrame = color(palette.overviewFrame());
     disorder = color(palette.followStoppedDot());
+    for (TokenKind kind : TokenKind.values()) {
+      tokens[kind.ordinal()] = color(palette.tokens().color(kind));
+    }
+  }
+
+  /**
+   * Returns a syntax-color token's text color.
+   *
+   * @param kind the token's kind
+   * @return the color
+   */
+  Color token(TokenKind kind) {
+    return tokens[kind.ordinal()];
   }
 
   private Color color(Rgb rgb) {

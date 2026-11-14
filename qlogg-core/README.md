@@ -20,7 +20,7 @@ display.
 | `core.time` | Timestamp formats and parsers, format detection, lookups by time, time spread | [Timestamps](docs/timestamps.md) |
 | `core.watch` | `FileMonitor`, `ChangeDetector` | [File monitoring](docs/file-monitoring.md) |
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
-| `core.model` | Folding, `Highlighter`, keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
+| `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
 | `core.util` | `Checks`, `Streams` | [Utilities](#utilities) |
 | `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths` | [Operating system seam](#operating-system-seam) |
 

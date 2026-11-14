@@ -241,6 +241,7 @@ class ConfigStoreTest {
                 .withWrapOnOpen(true)
                 .withShowWhitespace(true)
                 .withHideAnsi(true)
+                .withSyntaxColors(false)
                 .withFolds(new FoldRules("^\\d{4}-", List.of("^x")))
                 .withSelectors(
                     List.of(
@@ -251,6 +252,7 @@ class ConfigStoreTest {
     assertEquals(saved, store(temp).load());
     String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("view.wrapOnOpen=true"));
+    assertTrue(text.contains("view.syntaxColors=false"));
     assertTrue(text.contains("highlight.selector.1.set=web"));
   }
 
@@ -259,11 +261,13 @@ class ConfigStoreTest {
     Files.writeString(
         conf(),
         "highlight.selector.0.set=errors\nhighlight.selector.0.glob=*.err\n"
-            + "highlight.selector.0.firstLine=^x\nview.hideAnsi=maybe\nview.timeSpread=sideways\n",
+            + "highlight.selector.0.firstLine=^x\nview.hideAnsi=maybe\nview.timeSpread=sideways\n"
+            + "view.syntaxColors=maybe\n",
         StandardCharsets.ISO_8859_1);
     Preferences loaded = store(temp).load();
     assertEquals(List.of(), loaded.view().selectors());
     assertEquals(false, loaded.view().hideAnsi());
+    assertEquals(true, loaded.view().syntaxColors());
     assertEquals(SpreadMode.OFF, loaded.view().timeSpread());
   }
 

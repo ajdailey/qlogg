@@ -684,6 +684,7 @@ public enum UiText {
   COMMAND_TOGGLE_WHITESPACE,
   /** Command label. */
   COMMAND_HIDE_ANSI,
+  COMMAND_SYNTAX_COLORS,
   /** Command label. */
   COMMAND_TOGGLE_FOLD,
   /** Command label. */

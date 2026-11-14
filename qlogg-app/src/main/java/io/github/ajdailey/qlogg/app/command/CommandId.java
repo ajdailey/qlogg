@@ -220,6 +220,8 @@ public enum CommandId {
   TOGGLE_WHITESPACE(CommandGroup.VIEW, UiText.COMMAND_TOGGLE_WHITESPACE, false, true),
   /** Remove ANSI color sequences for display and search. */
   HIDE_ANSI(CommandGroup.VIEW, UiText.COMMAND_HIDE_ANSI, false, true),
+  /** Set {@code view.syntaxColors}. */
+  SYNTAX_COLORS(CommandGroup.VIEW, UiText.COMMAND_SYNTAX_COLORS, false, true),
   /** Collapse the entry at the current line, or expand it. */
   TOGGLE_FOLD(CommandGroup.VIEW, UiText.COMMAND_TOGGLE_FOLD, true, false, UiText.MENU_FOLDING),
   /** Collapse every multi-line entry as it is shown. */

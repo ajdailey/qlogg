@@ -62,6 +62,33 @@ so it wins.
   A `LineMatcher` stops coloring after 2^26 chars. A backtracking pattern
   therefore bounds a read instead of stalling it.
 
+## Syntax colors
+
+`LogTokens` holds the rules of QCaret's `log` grammar (`main` context) as
+patterns compiled once, in grammar order; a change to either rule set is sent
+to the other project. `LogTokens.matcher()` gives a `LineMatcher` for one
+thread; the view creates one per read. `TokenKind` names the 12 kinds the
+rules assign.
+
+- The scan runs left to right. At each position the rules are tried in order
+  with `lookingAt`, lookarounds seeing the whole line; the first rule matching
+  at the earliest position makes one token, and the scan resumes at its end.
+  A `"` opens a `STRING` that ends at the next `"` or the line end, with
+  `\` and the next char an `ESCAPE`.
+- A rule is tried only where it can match: first-char tables built from each
+  pattern with its lookarounds removed, a negative lookbehind that rejects
+  ASCII word chars, a leading `^`, and a leading positive lookbehind ending in
+  a literal char (`(?<=...level=)` needs a `=` before). `LogTokensTest`
+  compares the tables with a scan that tries every rule at every position.
+- The scan ends at the column window's right edge. Tokens are display columns
+  clipped to the window, sorted and without overlap, adjacent tokens of one
+  kind merged (`TokenSpans`). A line keeps at most 256. Cost: 12 bytes per
+  token plus 40.
+- Bounds are the highlighter's: a rule that reads more than
+  `8 * length + 65,536` chars of a line, or overflows the regex stack, is
+  abandoned for that line and its tokens so far stay; a `LineMatcher` stops
+  after 2^26 chars.
+
 ## Keyword triggers
 
 `RuleTrigger` holds a rule's actions on appended lines: stop follow, set a mark

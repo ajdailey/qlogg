@@ -537,6 +537,37 @@ class ViewFeaturesTest {
     }
   }
 
+  /** View > Syntax Colors saves the flag and re-reads both views of every open document. */
+  @Test
+  void syntaxColorsToggleEveryOpenDocumentInBothViews() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Path file = fixture.temp.resolve("syntax.log");
+      Files.writeString(file, "ERROR mock\nline\n", StandardCharsets.US_ASCII);
+      final DocumentController document = fixture.open(file);
+      assertTrue(document.syntaxColors());
+      assertTrue(document.filtered().syntaxColors());
+      fixture.runUntil(tokens(document, 1));
+      fixture.application.execute(CommandId.SYNTAX_COLORS);
+      assertFalse(fixture.application.preferences().view().syntaxColors());
+      assertFalse(document.syntaxColors());
+      assertFalse(document.filtered().syntaxColors());
+      fixture.runUntil(tokens(document, 0));
+      fixture.application.execute(CommandId.SYNTAX_COLORS);
+      assertTrue(fixture.application.preferences().view().syntaxColors());
+      assertTrue(document.filtered().syntaxColors());
+      fixture.runUntil(tokens(document, 1));
+    }
+  }
+
+  private static BooleanSupplier tokens(final DocumentController document, final int count) {
+    return new BooleanSupplier() {
+      @Override
+      public boolean getAsBoolean() {
+        return document.lines().contains(0) && document.lines().tokens(0).count() == count;
+      }
+    };
+  }
+
   @Test
   void selectionTextGoesToTheScratchpad() throws Exception {
     try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {

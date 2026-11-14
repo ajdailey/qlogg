@@ -27,12 +27,12 @@ import org.slf4j.LoggerFactory;
  * automatic highlighter sets. Confined to the UI thread.
  *
  * <p>A new document gets {@code view.wrapOnOpen}, {@code view.showWhitespace}, {@code
- * view.hideAnsi} and the fold rules. The {@link HighlightSelector}s are tried in order: a file-name
- * glob on the UI thread, a first-line pattern on a {@code qlogg-read-} worker over at most {@link
- * #FIRST_LINE_BYTES} decoded bytes; the first match picks the document's set. A save target is
- * validated by {@link SafePaths#logFile} on a {@code qlogg-lifecycle-} worker; a target whose real
- * path is an open document's {@link LogDocument#realPath} is refused, so QLogg never writes a file
- * it shows.
+ * view.hideAnsi}, {@code view.syntaxColors} and the fold rules. The {@link HighlightSelector}s are
+ * tried in order: a file-name glob on the UI thread, a first-line pattern on a {@code qlogg-read-}
+ * worker over at most {@link #FIRST_LINE_BYTES} decoded bytes; the first match picks the document's
+ * set. A save target is validated by {@link SafePaths#logFile} on a {@code qlogg-lifecycle-}
+ * worker; a target whose real path is an open document's {@link LogDocument#realPath} is refused,
+ * so QLogg never writes a file it shows.
  */
 final class ViewFeatures {
   /** Bytes read for a first-line selector. */
@@ -81,6 +81,7 @@ final class ViewFeatures {
   void configure(DocumentController document) {
     ViewOptions options = host.preferences().view();
     document.document().setHideAnsi(options.hideAnsi());
+    document.setSyntaxColorsBoth(options.syntaxColors());
     document.setWrapBoth(options.wrapOnOpen());
     document.setWhitespaceBoth(options.showWhitespace());
     document.setFoldRules(options.folds());
@@ -116,6 +117,13 @@ final class ViewFeatures {
           open.document().setHideAnsi(on);
           open.changed();
           open.filtered().changed();
+        }
+      }
+      case SYNTAX_COLORS -> {
+        boolean on = !options.syntaxColors();
+        setView(options.withSyntaxColors(on));
+        for (DocumentController open : host.allDocuments()) {
+          open.setSyntaxColorsBoth(on);
         }
       }
       case BLOCK_SELECTION -> blockMode = !blockMode;
