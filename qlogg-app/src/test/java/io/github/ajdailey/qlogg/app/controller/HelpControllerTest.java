@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.about.AboutInfo;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -101,8 +102,19 @@ class HelpControllerTest {
     Path target = temp.resolve("app.log");
     help.launch(target);
     assertEquals(List.of(target), view.launched);
+    assertEquals(1, view.activations.get());
     view.launchResult = false;
     help.launch(target);
     assertEquals(UiText.NOTICE_LAUNCH_FAILED.text(), view.lastNotice());
+    help.openProjectPage();
+    assertEquals(1, view.activations.get());
+  }
+
+  @Test
+  void theProjectPageOpensWithTheLaunchCursor() {
+    help.openProjectPage();
+    assertEquals(List.of(AboutInfo.PROJECT_URL), view.urls);
+    assertEquals(1, view.activations.get());
+    assertTrue(view.notices.isEmpty());
   }
 }

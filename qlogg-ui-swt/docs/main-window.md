@@ -346,5 +346,5 @@ on a `SWT.getPlatform()` call outside `PlatformTraits` and on a
 |---|---|
 | `clipboardText` | Reads the text of the `TextTransfer` clipboard, which is created on first use and disposed with the shell |
 | `launch` | `Program.launch` on a folder or file: the desktop's file association (GIO on GTK, `ShellExecuteEx` on Windows), no shell |
-| `launchUrl` | `Program.launch` on the fixed issue page |
+| `launchUrl` | `Program.launch` on the fixed issue or project page |
 | `setActive`, `setIdle` | A `BusyCounter`; while any operation is active the shell cursor is `SWT.CURSOR_APPSTARTING`, which keeps the window usable, and the last idle call restores the default. The system cursor is not disposed |

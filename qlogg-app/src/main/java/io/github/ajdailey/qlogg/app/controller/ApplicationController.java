@@ -1860,6 +1860,11 @@ public final class ApplicationController
     help.showLicenses();
   }
 
+  /** Opens the project page in the OS browser; a failure shows a notice. */
+  public void openProjectPage() {
+    help.openProjectPage();
+  }
+
   /**
    * Reports whether shutdown has begun.
    *

@@ -1025,19 +1025,23 @@ public abstract class LineViewController {
     final TextExporter.Rows taken = new TextExporter.Rows(rows(), firstRow, lastRow, firstLine);
     final CancellationToken token = exports;
     copyInFlight = true;
-    activity.setActive();
     boolean started =
-        workers.tryStart(
-            Workers.Kind.READ,
-            new Runnable() {
-              @Override
-              public void run() {
-                buildCopy(index, taken, request, listener, token);
-              }
-            });
+        new BusyWork(ui, activity) {
+          private TextExporter.Result built = TextExporter.Result.NONE;
+
+          @Override
+          @WorkerThread
+          void work() {
+            built = TextExporter.export(document, index, taken, request, budget, token);
+          }
+
+          @Override
+          void finished(boolean completed) {
+            copied(request, listener, built);
+          }
+        }.start(workers, Workers.Kind.READ);
     if (!started) {
       copyInFlight = false;
-      activity.setIdle();
     }
   }
 
@@ -1380,31 +1384,9 @@ public abstract class LineViewController {
   }
 
   /**
-   * Posts back on every outcome, so {@code copyInFlight} always clears and the reservation and the
-   * activity are always released.
+   * Applies a copy's result; runs on every outcome, so {@code copyInFlight} always clears and the
+   * reservation is always released.
    */
-  @WorkerThread
-  private void buildCopy(
-      LineIndex index,
-      TextExporter.Rows taken,
-      final Request request,
-      final TextListener listener,
-      CancellationToken token) {
-    TextExporter.Result built = TextExporter.Result.NONE;
-    try {
-      built = TextExporter.export(document, index, taken, request, budget, token);
-    } finally {
-      final TextExporter.Result result = built;
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              copied(request, listener, result);
-            }
-          });
-    }
-  }
-
   private void copied(Request request, TextListener listener, TextExporter.Result result) {
     copyInFlight = false;
     try {
@@ -1429,7 +1411,6 @@ public abstract class LineViewController {
       }
     } finally {
       budget.release(MemoryShare.COPY, result.charged());
-      activity.setIdle();
     }
   }
 }

@@ -43,7 +43,7 @@ is over it (`TableFit.cellTips`).
 | Command Palette | `CommandPaletteWindow`, resizable and modal: a filter field over a table of command, menu path and keys from `CommandPalette.filter`, refilled on each change with the first row selected. Up, Down, Page Up and Page Down in the field move the selection; Enter or a double click closes the dialog and runs the command on the next UI turn. A disabled command's row is gray and does not run |
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
 | Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
-| About QLogg | Logo at the top left (the icon variant for the window background's luminance, at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `Program.launch` with the fixed project URL |
+| About QLogg | Logo at the top left (the icon variant for the window background's luminance, at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `ApplicationController.openProjectPage` |
 | Automatic Highlighters | `SelectorsDialog`: a table of match kind, pattern and set over an editor row, with Add, Update, Remove, Move Up and Move Down; OK saves the ordered selectors |
 
 ## Configure Highlighters
@@ -62,8 +62,11 @@ chosen file whose ids are new.
 
 `PreferencesDialog` (Tools > Preferences) is modeless with General, View, File,
 Shortcuts, Advanced and Folding tabs. OK and Apply call `setOptions`,
-`setSearchHistory`, `setQuickFindOptions`, `setFollowSettings` and
-`setPreferences`.
+`setSearchHistory`, `setQuickFindOptions`, `setFollowSettings`,
+`setPreferences` and `setViewOptions`, writing only the settings whose box
+changed since the dialog opened or last applied, onto the settings as they
+stand. A zoom, a quick find bar toggle, a menu toggle or another window's
+Preferences made while the dialog is open survive Apply.
 
 | Tab | Behavior |
 |---|---|

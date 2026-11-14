@@ -767,69 +767,68 @@ public final class SearchController {
     }
     final CancellationToken token = new CancellationToken();
     findingRange = token;
-    activity.setActive();
     boolean started =
-        document
-            .workers()
-            .tryStart(
-                Workers.Kind.SEARCH,
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    findRange(query, line, token);
-                  }
-                });
+        new BusyWork(document.ui(), activity) {
+          private RangeResult result = RangeResult.NONE;
+
+          @Override
+          @WorkerThread
+          void work() {
+            result = findRange(query, line, token);
+          }
+
+          @Override
+          void finished(boolean completed) {
+            rangeFound(result.range(), result.failure(), token);
+          }
+        }.start(document.workers(), Workers.Kind.SEARCH);
     if (!started) {
       findingRange = null;
-      activity.setIdle();
     }
   }
 
-  /** Runs on a worker; posts back on every outcome, which ends the activity. */
+  /**
+   * A range search's outcome.
+   *
+   * @param range the range, or null
+   * @param failure the notice for a failure, or null
+   */
+  private record RangeResult(RangeFinder.Range range, String failure) {
+    /** No range, no failure: also the outcome of a search that threw. */
+    static final RangeResult NONE = new RangeResult(null, null);
+  }
+
   @WorkerThread
-  private void findRange(SearchQuery query, long line, final CancellationToken token) {
-    RangeFinder.Range found = null;
-    String failure = null;
-    boolean admitted = document.document().enter();
+  private RangeResult findRange(SearchQuery query, long line, CancellationToken token) {
+    if (!document.document().enter()) {
+      return RangeResult.NONE;
+    }
     try {
-      if (admitted) {
-        found =
-            RangeFinder.around(
-                document.document(),
-                document.document().index(),
-                query,
-                engine.matchers(),
-                line,
-                token);
-      }
+      return new RangeResult(
+          RangeFinder.around(
+              document.document(),
+              document.document().index(),
+              query,
+              engine.matchers(),
+              line,
+              token),
+          null);
     } catch (CancellationException e) {
       token.cancel();
+      return RangeResult.NONE;
     } catch (UncheckedIOException e) {
-      failure = UiText.SEARCH_FAILED.format(LogText.oneLine(e.getCause().getMessage()));
+      return new RangeResult(
+          null, UiText.SEARCH_FAILED.format(LogText.oneLine(e.getCause().getMessage())));
     } catch (IOException e) {
-      failure = UiText.SEARCH_FAILED.format(LogText.oneLine(e.getMessage()));
+      return new RangeResult(null, UiText.SEARCH_FAILED.format(LogText.oneLine(e.getMessage())));
     } catch (PatternSyntaxException | PatternTooComplexException e) {
-      failure = failureText(e);
+      return new RangeResult(null, failureText(e));
     } finally {
-      if (admitted) {
-        document.document().exit();
-      }
-      final RangeFinder.Range range = found;
-      final String message = failure;
-      document
-          .ui()
-          .asyncExec(
-              new Runnable() {
-                @Override
-                public void run() {
-                  rangeFound(range, message, token);
-                }
-              });
+      document.document().exit();
     }
   }
 
   private void rangeFound(RangeFinder.Range range, String failure, CancellationToken token) {
-    activity.setIdle();
     if (findingRange == token) {
       findingRange = null;
     }

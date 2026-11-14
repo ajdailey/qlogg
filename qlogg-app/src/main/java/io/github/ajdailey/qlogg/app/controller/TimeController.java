@@ -255,32 +255,35 @@ public final class TimeController {
     final int searchedFormat = formatGeneration;
     final TimeSamples cached =
         samplesIndex == index.generation() && samplesFormat == formatGeneration ? samples : null;
-    document.activity().setActive();
+    final Request request =
+        new Request(
+            current,
+            token,
+            index,
+            indexing,
+            searched,
+            searchedContext,
+            searchedFormat,
+            cached,
+            target,
+            sync);
     boolean started =
-        document
-            .workers()
-            .tryStart(
-                Workers.Kind.SEARCH,
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    search(
-                        new Request(
-                            current,
-                            token,
-                            index,
-                            indexing,
-                            searched,
-                            searchedContext,
-                            searchedFormat,
-                            cached,
-                            target,
-                            sync));
-                  }
-                });
+        new BusyWork(document.ui(), document.activity()) {
+          private Found result = Found.NONE;
+
+          @Override
+          @WorkerThread
+          void work() {
+            result = search(request);
+          }
+
+          @Override
+          void finished(boolean completed) {
+            found(request, result);
+          }
+        }.start(document.workers(), Workers.Kind.SEARCH);
     if (!started) {
       running = null;
-      document.activity().setIdle();
     }
   }
 
@@ -497,17 +500,24 @@ public final class TimeController {
    * @param samples order-check samples taken by this search, or null
    * @param charge bytes reserved for {@code samples}
    */
-  private record Found(
-      long line, UiText notice, String failure, TimeSamples samples, long charge) {}
+  private record Found(long line, UiText notice, String failure, TimeSamples samples, long charge) {
+    /** Nothing found and nothing reserved: also the result of a search that threw. */
+    static final Found NONE = new Found(-1, null, null, null, 0);
+  }
 
-  /** Runs on a worker; posts back on every outcome, which ends the activity. */
+  /**
+   * Searches for the request's time. A search that throws releases its samples' reservation first.
+   *
+   * @return what the search found
+   */
   @WorkerThread
-  private void search(final Request request) {
+  private Found search(Request request) {
     long line = -1;
     UiText notice = null;
     String failure = null;
     TimeSamples taken = null;
     long charge = 0;
+    boolean ended = false;
     LogDocument file = document.document();
     boolean admitted = file.enter();
     try {
@@ -556,27 +566,25 @@ public final class TimeController {
           }
         }
       }
+      ended = true;
     } catch (CancellationException | ClosedChannelException e) {
       request.token().cancel();
+      ended = true;
     } catch (IOException e) {
       failure = LogText.oneLine(e.getMessage());
+      ended = true;
     } catch (UncheckedIOException e) {
       failure = LogText.oneLine(e.getCause().getMessage());
+      ended = true;
     } finally {
       if (admitted) {
         file.exit();
       }
-      final Found found = new Found(line, notice, failure, taken, charge);
-      document
-          .ui()
-          .asyncExec(
-              new Runnable() {
-                @Override
-                public void run() {
-                  found(request, found);
-                }
-              });
+      if (!ended) {
+        document.budget().release(MemoryShare.HIGHLIGHT, charge);
+      }
     }
+    return new Found(line, notice, failure, taken, charge);
   }
 
   /** Posts a progress notice at most every {@link #PROGRESS_MILLIS} ms. */

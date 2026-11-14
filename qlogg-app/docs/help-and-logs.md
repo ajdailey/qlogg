@@ -8,7 +8,12 @@ watchdog and the scratchpad transforms in [qlogg-app](../README.md):
 
 Each window's `HelpController` runs the Help commands except Keyboard
 Shortcuts and Command-Line Options, which `ApplicationController.execute` runs.
-A result that arrives after the window began closing is dropped.
+A result that arrives after the window began closing is dropped. Every launch of
+a file, folder or address goes through `LaunchCursor`: when an application takes
+it, the busy cursor shows for `LaunchCursor.MILLIS` (1,000 ms) on a
+`UiDispatcher` timer, since nothing reports when that application's window
+appears. The Open in Editor and Open Containing Folder tab commands launch
+through `HelpController.launch`, and the About link through `openProjectPage`.
 
 | Item | Behavior |
 |---|---|

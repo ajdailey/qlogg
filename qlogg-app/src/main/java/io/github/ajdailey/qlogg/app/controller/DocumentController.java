@@ -947,78 +947,73 @@ public final class DocumentController extends LineViewController {
     }
     final CancellationToken token = new CancellationToken();
     marking = token;
-    activity().setActive();
     final MutableLineSet marks = document.marks();
     boolean started =
-        workers()
-            .tryStart(
-                Workers.Kind.SEARCH,
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    mark(marks, rows, firstLine, count, token);
-                  }
-                });
+        new BusyWork(ui(), activity()) {
+          private MarkToggle.Result result;
+
+          @Override
+          @WorkerThread
+          void work() {
+            result = mark(marks, rows, firstLine, count, token);
+          }
+
+          @Override
+          void finished(boolean completed) {
+            marked(result, count, token);
+          }
+        }.start(workers(), Workers.Kind.SEARCH);
     if (!started) {
       marking = null;
-      activity().setIdle();
     }
   }
 
-  /** Runs on a worker; posts back on every outcome, so the activity always ends. */
-  private void mark(
+  /**
+   * Toggles the marks.
+   *
+   * @return the result, or null when the document is closing
+   */
+  @WorkerThread
+  private MarkToggle.Result mark(
       MutableLineSet marks,
       RowCursor rows,
       long firstLine,
-      final long count,
+      long count,
       final CancellationToken token) {
     final AtomicLong lastNotice = new AtomicLong(System.nanoTime());
-    MarkToggle.Result result = null;
-    boolean admitted = document.enter();
+    if (!document.enter()) {
+      return null;
+    }
     try {
-      if (!admitted) {
-        return;
-      }
-      result =
-          MarkToggle.run(
-              marks,
-              document.markComments(),
-              rows,
-              firstLine,
-              count,
-              token,
-              new MarkToggle.Progress() {
-                @Override
-                public void progressed(long done, long total) {
-                  long now = System.nanoTime();
-                  long last = lastNotice.get();
-                  if (now - last >= PROGRESS_MILLIS * 1_000_000L
-                      && lastNotice.compareAndSet(last, now)) {
-                    final int percent = (int) (done * 100 / Math.max(1, total));
-                    ui().asyncExec(
-                            new Runnable() {
-                              @Override
-                              public void run() {
-                                if (marking == token) {
-                                  notifications().showNotice(UiText.MARK_PROGRESS.format(percent));
-                                }
-                              }
-                            });
-                  }
-                }
-              });
+      return MarkToggle.run(
+          marks,
+          document.markComments(),
+          rows,
+          firstLine,
+          count,
+          token,
+          new MarkToggle.Progress() {
+            @Override
+            public void progressed(long done, long total) {
+              long now = System.nanoTime();
+              long last = lastNotice.get();
+              if (now - last >= PROGRESS_MILLIS * 1_000_000L
+                  && lastNotice.compareAndSet(last, now)) {
+                final int percent = (int) (done * 100 / Math.max(1, total));
+                ui().asyncExec(
+                        new Runnable() {
+                          @Override
+                          public void run() {
+                            if (marking == token) {
+                              notifications().showNotice(UiText.MARK_PROGRESS.format(percent));
+                            }
+                          }
+                        });
+              }
+            }
+          });
     } finally {
-      if (admitted) {
-        document.exit();
-      }
-      final MarkToggle.Result done = result;
-      ui().asyncExec(
-              new Runnable() {
-                @Override
-                public void run() {
-                  marked(done, count, token);
-                }
-              });
+      document.exit();
     }
   }
 
@@ -1026,7 +1021,6 @@ public final class DocumentController extends LineViewController {
     if (marking == token) {
       marking = null;
     }
-    activity().setIdle();
     if (isClosed()) {
       return;
     }

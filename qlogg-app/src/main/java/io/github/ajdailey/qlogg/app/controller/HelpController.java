@@ -187,6 +187,14 @@ final class HelpController {
         });
   }
 
+  /** Opens the project page in the OS browser; a failure shows a notice. */
+  void openProjectPage() {
+    if (!LaunchCursor.launchUrl(view, ui, AboutInfo.PROJECT_URL)) {
+      LOG.warn("No application opened the project page");
+      view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
+    }
+  }
+
   /**
    * Collects the About runtime details on a worker, puts them on the clipboard and opens the
    * project's issue page in the OS browser.
@@ -205,7 +213,7 @@ final class HelpController {
                   @Override
                   public void run() {
                     view.setText(String.join(System.lineSeparator(), info.details()));
-                    if (view.launchUrl(AboutInfo.ISSUES_URL)) {
+                    if (LaunchCursor.launchUrl(view, ui, AboutInfo.ISSUES_URL)) {
                       view.showNotice(UiText.NOTICE_ISSUE_DETAILS.text());
                     } else {
                       LOG.warn("No application opened the issue page");
@@ -268,7 +276,7 @@ final class HelpController {
     if (closing.getAsBoolean()) {
       return;
     }
-    if (!view.launch(guide)) {
+    if (!LaunchCursor.launch(view, ui, guide)) {
       LOG.warn("No application opened {}", LogText.oneLine(guide));
       view.showNotice(UiText.NOTICE_GUIDE_AT.format(guide));
     }
@@ -281,7 +289,7 @@ final class HelpController {
    * @param target the file or folder
    */
   void launch(Path target) {
-    if (!view.launch(target)) {
+    if (!LaunchCursor.launch(view, ui, target)) {
       LOG.warn("No application opened {}", LogText.oneLine(target));
       view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
     }

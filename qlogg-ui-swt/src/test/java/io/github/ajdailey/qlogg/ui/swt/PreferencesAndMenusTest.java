@@ -14,9 +14,13 @@ import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.FoldRulesText;
+import io.github.ajdailey.qlogg.app.config.FollowSettings;
+import io.github.ajdailey.qlogg.app.config.FontSettings;
+import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
@@ -36,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
@@ -427,6 +432,74 @@ class PreferencesAndMenusTest {
     dialog.closeShowsLastUsed().setSelection(true);
     assertTrue(dialog.apply());
     assertTrue(controller.preferences().options().closeShowsLastUsed());
+    dialog.shell().dispose();
+  }
+
+  // Regression: Apply rebuilt every setting from the dialog's boxes, so it reverted a zoom, a
+  // quick find toggle, a menu toggle or another window's Preferences made while it was open.
+  @Test
+  void applyKeepsSettingsChangedWhileTheDialogIsOpen() {
+    PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+    dialog.open();
+    Preferences opened = controller.preferences();
+    Options options = opened.options();
+    FontSettings font = options.font();
+    controller.setOptions(
+        new Options(
+            new FontSettings("Mock Mono", 0, 0, !font.bold(), !font.antialias()),
+            options.recentCount() + 1,
+            options.pollMillis() + 100,
+            !options.useWatchService(),
+            StandardCharsets.UTF_8.name(),
+            !options.loadLastSession(),
+            options.shortcuts().with(CommandId.GO_TO_LINE, List.of()),
+            options.favorites(),
+            options.debugLogFile(),
+            !options.closeWindowWithLastTab(),
+            options.closeShowsLastUsed()));
+    controller.zoomFont(2);
+    controller.setQuickFindOptions(!opened.quickFindIncremental(), !opened.quickFindRegex());
+    controller.execute(CommandId.FOLLOW_ON_LOAD);
+    controller.execute(CommandId.FOLLOW_ON_OVERSCROLL);
+    FollowSettings follow = controller.preferences().follow();
+    controller.setFollowSettings(
+        new FollowSettings(follow.onLoad(), follow.onOverscroll(), !follow.keepClosed()));
+    controller.execute(CommandId.RUN_SEARCH_ON_ADD);
+    controller.setSearchHistory(opened.searchHistory(), opened.historySize() + 1);
+    controller.setPreferences(controller.preferences().withMaxResults(opened.maxResults() + 1));
+    ViewOptions view = controller.preferences().view();
+    controller.setViewOptions(
+        view.withColors("dark").withFolds(new FoldRules("^mock-", List.of())));
+    Preferences changed = controller.preferences();
+    // The one box changed in the dialog.
+    dialog.closeShowsLastUsed().setSelection(!options.closeShowsLastUsed());
+    assertTrue(dialog.apply());
+    Preferences applied = controller.preferences();
+    List<String> reverted = new ArrayList<String>();
+    Options expected = changed.options().withCloseShowsLastUsed(!options.closeShowsLastUsed());
+    if (!applied.options().equals(expected)) {
+      reverted.add("options " + applied.options() + " != " + expected);
+    }
+    if (applied.quickFindIncremental() != changed.quickFindIncremental()
+        || applied.quickFindRegex() != changed.quickFindRegex()) {
+      reverted.add("quick find");
+    }
+    if (!applied.follow().equals(changed.follow())) {
+      reverted.add("follow " + applied.follow());
+    }
+    if (applied.runSearchOnAdd() != changed.runSearchOnAdd()) {
+      reverted.add("run on add");
+    }
+    if (applied.historySize() != changed.historySize()) {
+      reverted.add("history size");
+    }
+    if (applied.maxResults() != changed.maxResults()) {
+      reverted.add("max results");
+    }
+    if (!applied.view().equals(changed.view())) {
+      reverted.add("view " + applied.view());
+    }
+    assertTrue(reverted.isEmpty(), "reverted: " + reverted);
     dialog.shell().dispose();
   }
 

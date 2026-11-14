@@ -296,15 +296,15 @@ public final class QuickFindController {
     final boolean regex = state.regex();
     final boolean ignoreCase = state.ignoreCase();
     publish(running(true));
-    activity.setActive();
     boolean launched =
-        workers.tryStart(
-            Workers.Kind.SEARCH,
-            new Runnable() {
-              @Override
-              public void run() {
+        new BusyWork(ui, activity) {
+          private Scan outcome = Scan.NONE;
+
+          @Override
+          @WorkerThread
+          void work() {
+            outcome =
                 scan(
-                    started,
                     target,
                     reader,
                     index,
@@ -316,19 +316,33 @@ public final class QuickFindController {
                     fromColumn,
                     direction,
                     token);
-              }
-            });
+          }
+
+          @Override
+          void finished(boolean completed) {
+            scanned(started, target, outcome, direction);
+          }
+        }.start(workers, Workers.Kind.SEARCH);
     if (!launched) {
-      activity.setIdle();
       publish(running(false));
     }
   }
 
-  /** Posts back on every outcome so the activity always ends. */
+  /**
+   * A scan's outcome.
+   *
+   * @param match the match, or null
+   * @param error the notice for a failure, or null
+   * @param canceled true when the scan was canceled or the document was closing
+   */
+  private record Scan(LineFinder.Match match, String error, boolean canceled) {
+    /** No match, no failure: also the outcome of a scan that threw. */
+    static final Scan NONE = new Scan(null, null, false);
+  }
+
   @WorkerThread
-  private void scan(
-      final long started,
-      final LineViewController target,
+  private static Scan scan(
+      LineViewController target,
       LineReader reader,
       LineIndex index,
       RowCursor rows,
@@ -337,56 +351,38 @@ public final class QuickFindController {
       boolean ignoreCase,
       long line,
       long column,
-      final boolean forward,
+      boolean forward,
       CancellationToken token) {
-    LineFinder.Match match = null;
-    String error = null;
-    boolean canceled = false;
-    boolean admitted = target.document().enter();
+    if (!target.document().enter()) {
+      return new Scan(null, null, true);
+    }
     try {
-      if (!admitted) {
-        canceled = true;
-        return;
-      }
       Pattern pattern =
           Pattern.compile(
               regex ? text : Pattern.quote(text), StandardMatchers.regexFlags(!ignoreCase));
-      match = LineFinder.find(reader, index, rows, pattern, line, column, forward, token);
+      return new Scan(
+          LineFinder.find(reader, index, rows, pattern, line, column, forward, token), null, false);
     } catch (PatternSyntaxException e) {
-      error =
+      return new Scan(
+          null,
           UiText.SEARCH_REGEX_ERROR.format(
-              Math.max(0, e.getIndex()) + 1, LogText.oneLine(e.getDescription()));
+              Math.max(0, e.getIndex()) + 1, LogText.oneLine(e.getDescription())),
+          false);
     } catch (PatternTooComplexException e) {
-      error = UiText.SEARCH_PATTERN_TOO_COMPLEX.format(e.line() + 1);
+      return new Scan(null, UiText.SEARCH_PATTERN_TOO_COMPLEX.format(e.line() + 1), false);
     } catch (CancellationException | ClosedChannelException e) {
-      canceled = true;
+      return new Scan(null, null, true);
     } catch (IOException | UncheckedIOException e) {
-      error = UiText.COPY_READ_FAILED.format(LogText.oneLine(e.getMessage()));
+      return new Scan(null, UiText.COPY_READ_FAILED.format(LogText.oneLine(e.getMessage())), false);
     } finally {
-      if (admitted) {
-        target.document().exit();
-      }
-      final LineFinder.Match found = match;
-      final String message = error;
-      final boolean dropped = canceled;
-      ui.asyncExec(
-          new Runnable() {
-            @Override
-            public void run() {
-              finished(started, target, found, message, dropped, forward);
-            }
-          });
+      target.document().exit();
     }
   }
 
-  private void finished(
-      long started,
-      LineViewController target,
-      LineFinder.Match match,
-      String error,
-      boolean canceled,
-      boolean forward) {
-    activity.setIdle();
+  private void scanned(long started, LineViewController target, Scan scan, boolean forward) {
+    LineFinder.Match match = scan.match();
+    String error = scan.error();
+    boolean canceled = scan.canceled();
     if (started != generation) {
       return;
     }

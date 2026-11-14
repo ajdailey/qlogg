@@ -23,6 +23,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.TreeSet;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.FontData;
@@ -45,11 +46,11 @@ import org.eclipse.swt.widgets.Text;
 
 /**
  * Tools > Preferences: General, View, File, Shortcuts and Advanced tabs over the settings. OK and
- * Apply hand the edited settings to the controller, which saves them and applies them at once,
- * except the result limit, read at the next start. The Shortcuts tab edits overrides on top of the
- * default keymap: a key field records one or two strokes, Add refuses keys another command holds,
- * Default returns the selected command to its defaults and Restore All Defaults drops every
- * override. Modeless; it returns at once.
+ * Apply hand the settings changed in the dialog to the controller, which saves them and applies
+ * them at once, except the result limit, read at the next start. The Shortcuts tab edits overrides
+ * on top of the default keymap: a key field records one or two strokes, Add refuses keys another
+ * command holds, Default returns the selected command to its defaults and Restore All Defaults
+ * drops every override. Modeless; it returns at once.
  */
 final class PreferencesDialog {
   private final Shell shell;
@@ -60,6 +61,8 @@ final class PreferencesDialog {
   private final FontSettings initialFont;
   private final int platformSize;
   private ShortcutOverrides overrides;
+  // The boxes' values when opened or last applied.
+  private Boxes applied;
   private Button loadSession;
   private Spinner recentCount;
   private Spinner historySize;
@@ -135,6 +138,8 @@ final class PreferencesDialog {
           }
         });
     shell.setDefaultButton(ok);
+    FoldRules shown = FoldRulesText.parse(foldStart.getText(), foldContinuation.getText()).rules();
+    applied = boxes(shown == null ? preferences.view().folds() : shown);
   }
 
   private static Composite tab(TabFolder folder, UiText title) {
@@ -563,8 +568,10 @@ final class PreferencesDialog {
   }
 
   /**
-   * Hands the edited settings to the controller, unless a fold pattern is refused: then nothing is
-   * applied, and the Folding tab shows the reason.
+   * Hands the settings changed in the dialog to the controller, unless a fold pattern is refused:
+   * then nothing is applied, and the Folding tab shows the reason. A box still holding the value it
+   * opened with, or last applied, leaves the setting as it stands, so a zoom, a quick find bar
+   * toggle, a menu toggle or another window's Preferences made while this dialog is open survive.
    *
    * @return false when a fold pattern was refused
    */
@@ -577,60 +584,143 @@ final class PreferencesDialog {
       return false;
     }
     foldError.setText("");
-    applyOthers();
-    ViewOptions view = controller.preferences().view();
-    if (!folds.rules().equals(view.folds())) {
-      controller.setViewOptions(view.withFolds(folds.rules()));
-    }
+    Boxes now = boxes(folds.rules());
+    write(applied, now);
+    applied = now;
     return true;
   }
 
-  /** Hands the settings of every tab but Folding to the controller. */
-  private void applyOthers() {
-    Preferences current = controller.preferences();
-    Options old = current.options();
+  /**
+   * The values the boxes hold: {@code family} is empty for the default font, and {@code fontSize}
+   * is the size the views draw with, zoom included.
+   */
+  private record Boxes(
+      String family,
+      int fontSize,
+      boolean bold,
+      boolean antialias,
+      int recentCount,
+      int poll,
+      boolean watch,
+      String encoding,
+      boolean loadSession,
+      ShortcutOverrides shortcuts,
+      boolean closeWindowWithLastTab,
+      boolean closeShowsLastUsed,
+      int historySize,
+      boolean quickIncremental,
+      boolean quickRegex,
+      boolean followOnLoad,
+      boolean followOnOverscroll,
+      boolean keepClosed,
+      boolean runOnAdd,
+      long maxResults,
+      String colors,
+      FoldRules folds) {}
+
+  private Boxes boxes(FoldRules folds) {
     String family = fontFamily.getSelectionIndex() == 0 ? "" : fontFamily.getText().strip();
     if (family.equals(UiText.PREFERENCES_FONT_DEFAULT.text())) {
       family = "";
     }
-    int size = fontSize.getSelection();
-    boolean sizeChanged = size != initialFont.effectiveSize(platformSize);
-    int optionsSize = sizeChanged ? size : initialFont.size();
-    int zoom = sizeChanged || !family.equals(initialFont.family()) ? 0 : initialFont.zoom();
-    FontSettings font =
-        new FontSettings(family, optionsSize, zoom, bold.getSelection(), antialias.getSelection());
-    String chosenEncoding = encoding.getText();
+    int color = viewColors.getSelectionIndex();
+    return new Boxes(
+        family,
+        fontSize.getSelection(),
+        bold.getSelection(),
+        antialias.getSelection(),
+        recentCount.getSelection(),
+        poll.getSelection(),
+        watch.getSelection(),
+        encoding.getText(),
+        loadSession.getSelection(),
+        overrides,
+        closeWindowWithLastTab.getSelection(),
+        closeShowsLastUsed.getSelection(),
+        historySize.getSelection(),
+        quickIncremental.getSelection(),
+        quickRegex.getSelection(),
+        followOnLoad.getSelection(),
+        followOnOverscroll.getSelection(),
+        keepClosed.getSelection(),
+        runOnAdd.getSelection(),
+        maxResults.getSelection(),
+        color < 0 ? null : colorIds.get(color),
+        folds);
+  }
+
+  /**
+   * Returns a box's value when the dialog changed it, else the setting as it stands.
+   *
+   * @param current the setting now
+   * @param before the box's value when opened or last applied
+   * @param box the box's value
+   */
+  private static <T> T changed(T current, T before, T box) {
+    return Objects.equals(box, before) ? current : box;
+  }
+
+  /** Writes each setting whose box differs between {@code before} and {@code now}. */
+  private void write(Boxes before, Boxes now) {
+    Preferences current = controller.preferences();
+    Options old = current.options();
+    FontSettings font = old.font();
+    boolean family = !now.family().equals(before.family());
+    boolean size = now.fontSize() != before.fontSize();
+    // A new family or size drops the zoom; the size box shows the zoomed size.
+    font =
+        new FontSettings(
+            changed(font.family(), before.family(), now.family()),
+            size ? now.fontSize() : font.size(),
+            family || size ? 0 : font.zoom(),
+            changed(font.bold(), before.bold(), now.bold()),
+            changed(font.antialias(), before.antialias(), now.antialias()));
+    String chosenEncoding = changed(old.defaultEncoding(), before.encoding(), now.encoding());
     if (Options.charset(chosenEncoding) == null) {
       chosenEncoding = old.defaultEncoding();
     }
     controller.setOptions(
         new Options(
             font,
-            recentCount.getSelection(),
-            poll.getSelection(),
-            watch.getSelection(),
+            changed(old.recentCount(), before.recentCount(), now.recentCount()),
+            changed(old.pollMillis(), before.poll(), now.poll()),
+            changed(old.useWatchService(), before.watch(), now.watch()),
             chosenEncoding,
-            loadSession.getSelection(),
-            overrides,
+            changed(old.loadLastSession(), before.loadSession(), now.loadSession()),
+            changed(old.shortcuts(), before.shortcuts(), now.shortcuts()),
             old.favorites(),
             old.debugLogFile(),
-            closeWindowWithLastTab.getSelection(),
-            closeShowsLastUsed.getSelection()));
+            changed(
+                old.closeWindowWithLastTab(),
+                before.closeWindowWithLastTab(),
+                now.closeWindowWithLastTab()),
+            changed(
+                old.closeShowsLastUsed(), before.closeShowsLastUsed(), now.closeShowsLastUsed())));
     controller.setSearchHistory(
-        controller.preferences().searchHistory(), historySize.getSelection());
-    controller.setQuickFindOptions(quickIncremental.getSelection(), quickRegex.getSelection());
+        current.searchHistory(),
+        changed(current.historySize(), before.historySize(), now.historySize()));
+    controller.setQuickFindOptions(
+        changed(current.quickFindIncremental(), before.quickIncremental(), now.quickIncremental()),
+        changed(current.quickFindRegex(), before.quickRegex(), now.quickRegex()));
+    FollowSettings follow = current.follow();
     controller.setFollowSettings(
         new FollowSettings(
-            followOnLoad.getSelection(),
-            followOnOverscroll.getSelection(),
-            keepClosed.getSelection()));
+            changed(follow.onLoad(), before.followOnLoad(), now.followOnLoad()),
+            changed(follow.onOverscroll(), before.followOnOverscroll(), now.followOnOverscroll()),
+            changed(follow.keepClosed(), before.keepClosed(), now.keepClosed())));
     controller.setPreferences(
         controller
             .preferences()
-            .withRunSearchOnAdd(runOnAdd.getSelection())
-            .withMaxResults(maxResults.getSelection()));
-    // View colors.
-    applyViewColors();
+            .withRunSearchOnAdd(
+                changed(current.runSearchOnAdd(), before.runOnAdd(), now.runOnAdd()))
+            .withMaxResults(changed(current.maxResults(), before.maxResults(), now.maxResults())));
+    ViewOptions view = controller.preferences().view();
+    ViewOptions next =
+        view.withColors(changed(view.colors(), before.colors(), now.colors()))
+            .withFolds(changed(view.folds(), before.folds(), now.folds()));
+    if (!next.equals(view)) {
+      controller.setViewOptions(next);
+    }
   }
 
   // View colors.
@@ -653,15 +743,6 @@ final class PreferencesDialog {
     }
     viewColors.select(colorIds.indexOf(current));
     note(page, UiText.PREFERENCES_VIEW_COLORS_NOTE);
-  }
-
-  /** Hands a changed color scheme to the controller. */
-  private void applyViewColors() {
-    int index = viewColors.getSelectionIndex();
-    ViewOptions view = controller.preferences().view();
-    if (index >= 0 && !colorIds.get(index).equals(view.colors())) {
-      controller.setViewOptions(view.withColors(colorIds.get(index)));
-    }
   }
 
   Combo viewColors() {

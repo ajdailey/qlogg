@@ -10,7 +10,6 @@ import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.program.Program;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -44,6 +43,7 @@ final class AboutDialog {
       Shell parent,
       final AboutInfo info,
       final Runnable showLicenses,
+      final Runnable openProjectPage,
       final ClipboardService clipboard) {
     shell = Dialogs.shell(parent, CommandId.ABOUT.title(), true);
     GridLayout layout = (GridLayout) shell.getLayout();
@@ -78,7 +78,7 @@ final class AboutDialog {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            Program.launch(AboutInfo.PROJECT_URL);
+            openProjectPage.run();
           }
         });
     line(text, UiText.ABOUT_COPYRIGHT.text());

@@ -1,8 +1,8 @@
 # QLogg User Guide
 
 QLogg shows large and growing log files without loading them into memory. It
-never connects to another computer; a second launch hands its files to the
-running QLogg over a local-only connection. On macOS, `Ctrl` in this guide is
+makes no outbound network connections; a second launch passes its files to the
+running instance over a loopback connection. On macOS, `Ctrl` in this guide is
 `Cmd` and `Alt` is `Option`; Help > Keyboard Shortcuts lists every key for your
 platform and Tools > Preferences, Shortcuts changes them. Menus on Linux show
 modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.

@@ -1765,7 +1765,14 @@ public final class MainWindow implements MainView, ApplicationListener {
             controller.showLicenses();
           }
         };
-    new AboutDialog(shell, info, licenses, this).open();
+    Runnable projectPage =
+        new Runnable() {
+          @Override
+          public void run() {
+            controller.openProjectPage();
+          }
+        };
+    new AboutDialog(shell, info, licenses, projectPage, this).open();
   }
 
   @Override
