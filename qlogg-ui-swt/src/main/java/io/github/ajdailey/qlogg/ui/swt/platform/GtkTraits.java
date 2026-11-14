@@ -1,5 +1,6 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
@@ -41,7 +42,7 @@ abstract class GtkTraits implements PlatformTraits {
 
   @Override
   public final boolean positionsWindows() {
-    return !"wayland".equals(System.getProperty(MainWindow.GDK_BACKEND));
+    return !"wayland".equals(System.getProperty(GDK_BACKEND));
   }
 
   @Override
@@ -72,6 +73,11 @@ abstract class GtkTraits implements PlatformTraits {
   @Override
   public final boolean lightChecksUnderDark() {
     return false;
+  }
+
+  @Override
+  public final int busyCursor() {
+    return SWT.CURSOR_APPSTARTING;
   }
 
   @Override

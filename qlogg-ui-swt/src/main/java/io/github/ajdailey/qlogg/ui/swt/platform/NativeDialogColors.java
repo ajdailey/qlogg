@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -8,7 +8,7 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * Dialog colors on GTK, cocoa and a light win32 start: the native theme draws every surface, so
- * nothing is set. {@link CocoaChrome} recolors cocoa shells after an appearance change.
+ * nothing is set. {@code CocoaChrome} recolors cocoa shells after an appearance change.
  */
 final class NativeDialogColors implements DialogColors {
   @Override

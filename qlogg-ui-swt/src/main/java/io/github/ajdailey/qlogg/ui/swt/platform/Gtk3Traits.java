@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 /** The GTK 3 answers of {@link PlatformTraits}. */
 final class Gtk3Traits extends GtkTraits {
@@ -10,7 +10,7 @@ final class Gtk3Traits extends GtkTraits {
   /** {@link GtkX11Stacking} on X11; under Wayland the window manager's menu offers the setting. */
   @Override
   public WindowStacking stacking() {
-    return "x11".equals(System.getProperty(MainWindow.GDK_BACKEND))
+    return "x11".equals(System.getProperty(GDK_BACKEND))
         ? new GtkX11Stacking()
         : WindowStacking.WINDOW_MANAGER;
   }

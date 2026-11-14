@@ -1,9 +1,14 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.ToolItemSizing;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -91,8 +96,8 @@ class PlatformBehaviorTest {
       SwtThemeService.open(display, ThemeMode.DARK);
       assertEquals(!COCOA, SwtThemeService.nativeDark(display));
       assertEquals(
-          WIN32 ? Win32DialogColors.class : NativeDialogColors.class,
-          DialogColors.of(display).getClass());
+          WIN32 ? "Win32DialogColors" : "NativeDialogColors",
+          DialogColors.of(display).getClass().getSimpleName());
     } finally {
       display.setDarkThemePreferred(false);
     }
@@ -101,18 +106,26 @@ class PlatformBehaviorTest {
   @Test
   void toolItemSizingAndStacking() {
     assertEquals(
-        Gtk4.active() ? Gtk4ToolItemSizing.class : NativeToolItemSizing.class,
-        ToolItemSizing.platform().getClass());
+        Gtk4.active() ? "Gtk4ToolItemSizing" : "NativeToolItemSizing",
+        ToolItemSizing.platform().getClass().getSimpleName());
     WindowStacking stacking = WindowStacking.forPlatform();
     if (WIN32) {
-      assertEquals(Win32Stacking.class, stacking.getClass());
+      assertEquals("Win32Stacking", stacking.getClass().getSimpleName());
     } else if (COCOA) {
-      assertEquals(CocoaStacking.class, stacking.getClass());
-    } else if (Gtk4.active() || !"x11".equals(System.getProperty(MainWindow.GDK_BACKEND))) {
+      assertEquals("CocoaStacking", stacking.getClass().getSimpleName());
+    } else if (Gtk4.active() || !"x11".equals(System.getProperty(PlatformTraits.GDK_BACKEND))) {
       assertEquals(WindowStacking.WINDOW_MANAGER, stacking);
     } else {
-      assertEquals(GtkX11Stacking.class, stacking.getClass());
+      assertEquals("GtkX11Stacking", stacking.getClass().getSimpleName());
     }
+  }
+
+  @Test
+  void dialogsShellIsUncoloredWithoutADarkWin32Start() {
+    Shell owner = new Shell(display);
+    Shell shell = Dialogs.shell(owner, "Mock", true);
+    assertFalse(DialogColors.colored(shell));
+    assertEquals(owner.getBackground().getRGB(), Dialogs.background(owner).getRGB());
   }
 
   // Menu item icons.

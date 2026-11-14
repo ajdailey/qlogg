@@ -32,7 +32,8 @@ import org.slf4j.LoggerFactory;
  * it, and the first save copies it to {@code qlogg.conf.invalid} before replacing it. A value that
  * does not parse falls back to its default. Saves write atomically ({@link AtomicFiles}). A
  * read-only settings directory disables saving with one WARN. Only file names and keys are logged,
- * never values.
+ * never values. Path keys pass through {@link InstallPaths}; a load that finds one the next save
+ * writes differently sets {@link #pathsStale}.
  */
 public final class ConfigStore {
   /** Largest file read; a longer one is malformed. */
@@ -60,9 +61,11 @@ public final class ConfigStore {
   private static final Logger LOG = LoggerFactory.getLogger(ConfigStore.class);
 
   private final SettingsLocation location;
+  private final InstallPaths paths;
   private final ReentrantLock lock = new ReentrantLock();
   private boolean keepInvalid;
   private boolean saveDisabled;
+  private boolean pathsStale;
   // Session and remembered positions.
   private final SessionStore sessions;
   private final PositionStore positions;
@@ -76,6 +79,7 @@ public final class ConfigStore {
    */
   public ConfigStore(SettingsLocation location) {
     this.location = location;
+    this.paths = new InstallPaths(location);
     this.sessions = new SessionStore(location);
     this.positions = new PositionStore(location);
     // View colors.
@@ -137,6 +141,22 @@ public final class ConfigStore {
   }
 
   /**
+   * Reports whether the last load found a path key the next save writes differently, such as an
+   * absolute path under the installation in portable mode. False in {@link SettingsMode#PER_USER}
+   * mode and while saving is disabled.
+   *
+   * @return true when the first save should rewrite {@code qlogg.conf}
+   */
+  public boolean pathsStale() {
+    lock.lock();
+    try {
+      return pathsStale && !saveDisabled;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
    * Reads the settings. Blocking.
    *
    * @return the settings; defaults when the file is missing or malformed
@@ -144,6 +164,7 @@ public final class ConfigStore {
   public Preferences load() {
     lock.lock();
     try {
+      pathsStale = false;
       Path dir = location.directory();
       if (Files.isDirectory(dir) && !Files.isWritable(dir)) {
         disableSaving();
@@ -159,7 +180,8 @@ public final class ConfigStore {
         malformed(file);
         return Preferences.DEFAULTS;
       }
-      return read(properties, file);
+      pathsStale = OptionsFile.stalePaths(properties, paths);
+      return read(properties, file, paths);
     } catch (IOException e) {
       LOG.warn(
           "Cannot read settings in {}: {}",
@@ -194,7 +216,8 @@ public final class ConfigStore {
         Files.copy(file, invalid, StandardCopyOption.REPLACE_EXISTING);
       }
       keepInvalid = false;
-      AtomicFiles.write(file, format(preferences));
+      AtomicFiles.write(file, format(preferences, paths));
+      pathsStale = false;
       return true;
     } catch (IOException e) {
       // A refused move says nothing about the directory: on Windows a file open elsewhere is
@@ -228,7 +251,7 @@ public final class ConfigStore {
     return properties;
   }
 
-  private static Preferences read(Properties properties, Path file) {
+  private static Preferences read(Properties properties, Path file, InstallPaths paths) {
     Preferences preferences = Preferences.DEFAULTS;
     String theme = properties.getProperty(THEME_KEY);
     if (theme != null) {
@@ -286,8 +309,8 @@ public final class ConfigStore {
         .withHighlights(HighlightFile.load(properties))
         .withView(ViewFile.load(properties))
         // Preferences dialog settings, favorites and remembered UI state.
-        .withOptions(OptionsFile.loadOptions(properties, file))
-        .withState(OptionsFile.loadState(properties, file))
+        .withOptions(OptionsFile.loadOptions(properties, file, paths))
+        .withState(OptionsFile.loadState(properties, file, paths))
         .withTime(TimeFile.load(properties));
   }
 
@@ -327,7 +350,7 @@ public final class ConfigStore {
   }
 
   /** Returns the file content: sorted keys, ISO-8859-1 with escapes, no date comment. */
-  static byte[] format(Preferences preferences) throws IOException {
+  static byte[] format(Preferences preferences, InstallPaths paths) throws IOException {
     Properties properties = new Properties();
     properties.setProperty(VERSION_KEY, VERSION);
     properties.setProperty(THEME_KEY, preferences.theme().key());
@@ -352,7 +375,7 @@ public final class ConfigStore {
     HighlightFile.store(preferences.highlights(), properties);
     ViewFile.store(preferences.view(), properties);
     // Preferences dialog settings, favorites and remembered UI state.
-    OptionsFile.store(preferences.options(), preferences.state(), properties);
+    OptionsFile.store(preferences.options(), preferences.state(), properties, paths);
     // Timestamps.
     TimeFile.store(preferences.time(), properties);
     ByteArrayOutputStream out = new ByteArrayOutputStream();

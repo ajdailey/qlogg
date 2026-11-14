@@ -1,10 +1,11 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.ui.swt.Gtk4;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
@@ -33,6 +34,7 @@ class PlatformTraitsTest {
     "followsSystemAppearance",
     "themesAtCreation",
     "lightChecksUnderDark",
+    "busyCursor",
     // Menu item icons.
     "menuImages",
     "padsMenuImages",
@@ -54,6 +56,7 @@ class PlatformTraitsTest {
     answers.add(traits.followsSystemAppearance());
     answers.add(traits.themesAtCreation());
     answers.add(traits.lightChecksUnderDark());
+    answers.add(traits.busyCursor());
     // Menu item icons.
     answers.add(traits.menuImages());
     answers.add(traits.padsMenuImages());
@@ -85,6 +88,7 @@ class PlatformTraitsTest {
         false,
         true,
         true,
+        SWT.CURSOR_APPSTARTING,
         true,
         false,
         true,
@@ -108,6 +112,7 @@ class PlatformTraitsTest {
         true,
         false,
         false,
+        SWT.CURSOR_WAIT,
         false,
         false,
         false,
@@ -131,6 +136,7 @@ class PlatformTraitsTest {
         false,
         false,
         false,
+        SWT.CURSOR_APPSTARTING,
         true,
         true,
         false,
@@ -154,6 +160,7 @@ class PlatformTraitsTest {
         false,
         false,
         false,
+        SWT.CURSOR_APPSTARTING,
         false,
         true,
         false,
@@ -163,7 +170,7 @@ class PlatformTraitsTest {
 
   @Test
   void gtkPositionsWindowsExceptUnderWayland() {
-    String backend = System.getProperty(MainWindow.GDK_BACKEND);
+    String backend = System.getProperty(PlatformTraits.GDK_BACKEND);
     assertEquals(
         !"wayland".equals(backend), PlatformTraits.of("gtk", false).positionsWindows(), backend);
   }

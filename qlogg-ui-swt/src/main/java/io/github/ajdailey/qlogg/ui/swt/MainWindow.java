@@ -28,6 +28,8 @@ import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -93,15 +95,13 @@ import org.eclipse.swt.widgets.ToolItem;
  * the clipboard owner. {@link TabStrip} owns the tab row.
  *
  * <p>{@link #setActive} and {@link #setIdle} count overlapping operations through a {@link
- * BusyCounter}: while any is active the shell shows {@code SWT.CURSOR_APPSTARTING}, which keeps the
- * window usable, and the default cursor returns when the last one ends.
+ * BusyCounter}: while any is active the shell and every shell it owns show the platform's busy
+ * cursor ({@link WindowBusyCursor}), which keeps the window usable, and the cursor clears when the
+ * last one ends.
  */
 public final class MainWindow implements MainView, ApplicationListener {
   /** How long a notice stays in the status bar. */
   static final int NOTICE_MILLIS = 5000;
-
-  /** System property SWT sets on GTK to {@code x11}, {@code wayland} or {@code unknown}. */
-  static final String GDK_BACKEND = "org.eclipse.swt.internal.gdk.backend";
 
   /** System property SWT sets on GTK to the GTK version. */
   static final String GTK_VERSION = "org.eclipse.swt.internal.gtk.version";
@@ -403,18 +403,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     GridData prefixData = new GridData(SWT.END, SWT.CENTER, false, false);
     prefixData.widthHint = 120;
     prefix.setLayoutData(prefixData);
-    busy =
-        new BusyCounter(
-            dispatcher,
-            new BusyCounter.Indicator() {
-              @Override
-              public void busyChanged(boolean active) {
-                if (!shell.isDisposed()) {
-                  shell.setCursor(
-                      active ? shell.getDisplay().getSystemCursor(SWT.CURSOR_APPSTARTING) : null);
-                }
-              }
-            });
+    busy = new BusyCounter(dispatcher, new WindowBusyCursor(shell));
     shell.addListener(
         SWT.Dispose,
         new Listener() {

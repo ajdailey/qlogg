@@ -17,7 +17,7 @@ import org.eclipse.swt.widgets.Shell;
  * Reads X11 window properties through {@code xprop} and {@code xwininfo}, for GTK 3 tests under
  * Xvfb. A missing tool skips the test.
  */
-final class XWindows {
+public final class XWindows {
   private static final Duration BOUND = Duration.ofSeconds(10);
 
   private XWindows() {}
@@ -29,7 +29,7 @@ final class XWindows {
    * @param shell a shell whose title is unique
    * @param above true to wait for the state
    */
-  static void awaitAbove(Display display, final Shell shell, final boolean above) {
+  public static void awaitAbove(Display display, final Shell shell, final boolean above) {
     final String[] state = {""};
     boolean held =
         EventLoop.runUntil(

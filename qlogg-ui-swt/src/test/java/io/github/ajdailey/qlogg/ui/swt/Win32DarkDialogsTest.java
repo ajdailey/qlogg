@@ -71,6 +71,10 @@ import org.junit.jupiter.api.io.TempDir;
 class Win32DarkDialogsTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
   private static final RGB PROBE = new RGB(0x12, 0x9a, 0x56);
+
+  /** {@code Win32DialogColors.BODY}. */
+  private static final RGB DARK_BODY = new RGB(0x20, 0x20, 0x20);
+
   private static final int TOLERANCE = 8;
 
   /** WCAG contrast a label's text keeps on the drawn body. */
@@ -334,9 +338,7 @@ class Win32DarkDialogsTest {
       Point origin = dialog.toDisplay(client.x + 2, client.y + client.height - 10);
       body = mode(capture(new Rectangle(origin.x, origin.y, 6, 6)));
       RGB expected =
-          dark
-              ? Win32DialogColors.BODY.getRGB()
-              : display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND).getRGB();
+          dark ? DARK_BODY : display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND).getRGB();
       if (!near(body, expected)) {
         wrong.add(name + " body");
       }

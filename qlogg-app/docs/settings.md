@@ -17,6 +17,33 @@ tabs](windows-and-tabs.md#settings-saves).
 
 An environment value that is not an absolute path is ignored.
 
+## Saved paths
+
+`ConfigStore`, `SessionStore` and `PositionStore` pass every file and folder
+path through `InstallPaths`. Its base is the installation directory,
+`qlogg.home`, also when the settings directory is `<qlogg.home>/bin`; a run
+without `qlogg.home` (tests, an IDE) uses the settings directory.
+
+| Mode | Write | Read |
+|---|---|---|
+| Explicit, portable | A path whose real path is the base or under it: relative to the base's real path, `/`-separated, `.` for the base. Any other path: as given | A value without a root resolves against the base's real path, never the working directory; a value with a root stays |
+| Per-user | As given | As above |
+
+Real paths make a path reached through a link into the installation relative
+and keep `..` from leaving the base; a missing file compares through its
+nearest existing parent. The keys are `recent.N`, `closed.N`, `favorite.N`,
+`open.directory` and `folderSearch.folder` in `qlogg.conf`,
+`window.W.tab.N.path` in `qlogg_session.conf` and `pos.N.path` in
+`positions.conf`. `Preferences`, `Session` and `PositionStore` hold resolved
+absolute paths, so a relative and an absolute entry for one file match.
+
+In explicit and portable mode a load that finds a path key written differently
+from what `InstallPaths.write` gives (an absolute path under the base, from an
+earlier version) marks the store changed: `ConfigStore.pathsStale` makes
+`WindowSet` save `qlogg.conf`, and `PositionStore` marks itself changed, so the
+first save rewrites the file. The session needs no mark: its owner writes it
+at every save. Per-user mode and a read-only directory rewrite nothing.
+
 ## Settings file
 
 `ConfigStore` loads and saves `Preferences`, an immutable record, in
@@ -96,9 +123,9 @@ continuation patterns and at least one pattern in all are allowed.
 | `font.zoom` | 4 to 72: the size zooming chose; 0 is not zoomed | 0 | `Ctrl`+wheel, View > Zoom In, Zoom Out, Reset Zoom |
 | `font.bold`, `font.antialias` | `true`, `false` | `false` | Tools > Preferences, View |
 | `recent.count` | 1 to 50: files File > Recent Files keeps | 20 | Tools > Preferences, General |
-| `recent.N` | Recent file paths, most recent first | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
-| `closed.N` | Closed file paths, most recent first, at most 20 | none | Each closed tab; File > Recently Closed > Clear Recently Closed |
-| `favorite.N` | Favorite file paths, at most 100 | none | File > Favorites |
+| `recent.N` | Recent file paths, most recent first ([saved paths](#saved-paths)) | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
+| `closed.N` | Closed file paths, most recent first, at most 20 ([saved paths](#saved-paths)) | none | Each closed tab; File > Recently Closed > Clear Recently Closed |
+| `favorite.N` | Favorite file paths, at most 100 ([saved paths](#saved-paths)) | none | File > Favorites |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Preferences, File |
 | `encoding.default` | The charset detection falls back to; one that can encode | `ISO-8859-1` | Tools > Preferences, File |
 | `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Preferences, General |
@@ -109,9 +136,9 @@ continuation patterns and at least one pattern in all are allowed.
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers, Line Numbers in Filtered View |
-| `open.directory` | Where File > Open starts with no file shown | none | File > Open |
+| `open.directory` | Where File > Open starts with no file shown ([saved paths](#saved-paths)) | none | File > Open |
 | `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
-| `folderSearch.folder`, `.names`, `.recursive`, `.exclude` | Search in Folder's folder, file name globs, Include subfolders and exclude globs (text at most 4,096 chars each) | none, `*.log*`, `false`, none | Each folder search |
+| `folderSearch.folder`, `.names`, `.recursive`, `.exclude` | Search in Folder's folder ([saved paths](#saved-paths)), file name globs, Include subfolders and exclude globs (text at most 4,096 chars each) | none, `*.log*`, `false`, none | Each folder search |
 | `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
 | `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |
 | `time.format.N.name`, `.locate`, `.pattern` | A user timestamp format: a name, a regex whose group `ts` holds the time, a `DateTimeFormatter` pattern; at most 32 | none | View > Timestamps > Edit Formats |
@@ -145,8 +172,8 @@ last saved file stays, so a load never finds a file over its cap.
 
 | Store | File | Contents | Limits |
 |---|---|---|---|
-| `PositionStore` | `positions.conf` | Per canonical path: top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on); per tab `window.W.tab.N.path`, `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.

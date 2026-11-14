@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayList;

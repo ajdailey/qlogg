@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
@@ -30,7 +30,7 @@ import org.eclipse.swt.widgets.Tree;
  * row, a table's grid lines and header dividers, a spinner's arrows, disabled text and a {@link
  * Browser} stay native.
  *
- * <p>A control is colored when {@link Dialogs#open} walks the shell and again at its {@code
+ * <p>A control is colored when {@code Dialogs.open} walks the shell and again at its {@code
  * SWT.Skin} event, so controls added after the dialog opens match. Only a default color is
  * replaced: a color the application set stays. The colors follow the startup setting, as win32
  * native controls do, so a theme change shows at the next start in open and new dialogs alike.

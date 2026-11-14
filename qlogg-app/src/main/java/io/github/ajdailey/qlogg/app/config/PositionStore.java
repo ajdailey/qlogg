@@ -13,9 +13,11 @@ import java.util.concurrent.locks.ReentrantLock;
  * The remembered position, encoding override and timestamp choices per file, in {@code
  * positions.conf}: {@code pos.N.path}, {@code .top}, {@code .line}, {@code .column}, {@code
  * .encoding}, {@code .timeFormat} and {@code .zone}, most recently used first. Keys are canonical
- * paths. At most {@link #MAX_ENTRIES}; the least recently used goes first. Thread-safe: {@link
- * #get}, {@link #put} and the setters touch memory only under a lock held for no I/O, so the UI
- * thread may call them; {@link #load} and {@link #save} block and run on workers.
+ * paths; {@code pos.N.path} passes through {@link InstallPaths}, and a load that finds a value the
+ * next save writes differently marks the store changed, so the first save rewrites it. At most
+ * {@link #MAX_ENTRIES}; the least recently used goes first. Thread-safe: {@link #get}, {@link #put}
+ * and the setters touch memory only under a lock held for no I/O, so the UI thread may call them;
+ * {@link #load} and {@link #save} block and run on workers.
  */
 public final class PositionStore {
   /** The file name in the settings directory. */
@@ -80,6 +82,7 @@ public final class PositionStore {
   }
 
   private final SettingsFile file;
+  private final InstallPaths paths;
   private final ReentrantLock lock = new ReentrantLock();
   private final LinkedHashMap<String, Entry> entries =
       new LinkedHashMap<String, Entry>(16, 0.75f, true);
@@ -92,13 +95,15 @@ public final class PositionStore {
    */
   public PositionStore(SettingsLocation location) {
     this.file = new SettingsFile(location, FILE, MAX_BYTES);
+    this.paths = new InstallPaths(location);
   }
 
   /** Reads the file, replacing the entries in memory. Blocking. */
   public void load() {
     Properties properties = file.load();
-    List<String> paths = new ArrayList<String>();
+    List<String> keys = new ArrayList<String>();
     List<Entry> read = new ArrayList<Entry>();
+    boolean stale = false;
     for (int i = 0; i < MAX_ENTRIES; i++) {
       String path = properties.getProperty(PREFIX + i + ".path");
       if (path == null) {
@@ -113,18 +118,20 @@ public final class PositionStore {
                 properties.getProperty(PREFIX + i + ".encoding", "").strip(),
                 properties.getProperty(PREFIX + i + ".timeFormat", "").strip(),
                 properties.getProperty(PREFIX + i + ".zone", "").strip()));
-        paths.add(path);
+        keys.add(paths.read(path));
+        stale = stale || paths.stale(path);
       } catch (IllegalArgumentException e) {
         // A malformed entry is dropped; the others stay.
       }
     }
+    boolean rewrite = stale && file.writable();
     lock.lock();
     try {
       entries.clear();
-      for (int i = paths.size() - 1; i >= 0; i--) {
-        entries.put(paths.get(i), read.get(i));
+      for (int i = keys.size() - 1; i >= 0; i--) {
+        entries.put(keys.get(i), read.get(i));
       }
-      dirty = false;
+      dirty = rewrite;
     } finally {
       lock.unlock();
     }
@@ -147,39 +154,45 @@ public final class PositionStore {
     return saved;
   }
 
-  /** Returns the entries as properties, most recently used first, or null when none changed. */
+  /**
+   * Returns the entries as properties, most recently used first, or null when none changed. The
+   * paths convert after the lock is released, because {@link InstallPaths#write} reads the disk.
+   */
   private Properties snapshot() {
+    List<Map.Entry<String, Entry>> list;
     lock.lock();
     try {
       if (!dirty) {
         return null;
       }
       dirty = false;
-      Properties properties = new Properties();
-      List<Map.Entry<String, Entry>> list =
-          new ArrayList<Map.Entry<String, Entry>>(entries.entrySet());
-      int n = 0;
-      for (int i = list.size() - 1; i >= 0; i--) {
-        Entry entry = list.get(i).getValue();
-        String key = PREFIX + n++;
-        properties.setProperty(key + ".path", list.get(i).getKey());
-        properties.setProperty(key + ".top", Long.toString(entry.top()));
-        properties.setProperty(key + ".line", Long.toString(entry.line()));
-        properties.setProperty(key + ".column", Long.toString(entry.column()));
-        if (!entry.encoding().isEmpty()) {
-          properties.setProperty(key + ".encoding", entry.encoding());
-        }
-        if (!entry.timeFormat().isEmpty()) {
-          properties.setProperty(key + ".timeFormat", entry.timeFormat());
-        }
-        if (!entry.zone().isEmpty()) {
-          properties.setProperty(key + ".zone", entry.zone());
-        }
+      list = new ArrayList<Map.Entry<String, Entry>>();
+      for (Map.Entry<String, Entry> item : entries.entrySet()) {
+        list.add(Map.entry(item.getKey(), item.getValue()));
       }
-      return properties;
     } finally {
       lock.unlock();
     }
+    Properties properties = new Properties();
+    int n = 0;
+    for (int i = list.size() - 1; i >= 0; i--) {
+      Entry entry = list.get(i).getValue();
+      String key = PREFIX + n++;
+      properties.setProperty(key + ".path", paths.write(list.get(i).getKey()));
+      properties.setProperty(key + ".top", Long.toString(entry.top()));
+      properties.setProperty(key + ".line", Long.toString(entry.line()));
+      properties.setProperty(key + ".column", Long.toString(entry.column()));
+      if (!entry.encoding().isEmpty()) {
+        properties.setProperty(key + ".encoding", entry.encoding());
+      }
+      if (!entry.timeFormat().isEmpty()) {
+        properties.setProperty(key + ".timeFormat", entry.timeFormat());
+      }
+      if (!entry.zone().isEmpty()) {
+        properties.setProperty(key + ".zone", entry.zone());
+      }
+    }
+    return properties;
   }
 
   private void markDirty() {

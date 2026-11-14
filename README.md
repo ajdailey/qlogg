@@ -211,7 +211,7 @@ message to stderr. Exit statuses:
 | `1` | Command-line error: unknown option, bad value, `-s` with `-n`, `+line:N` without a file, unusable `--settings` |
 | `2` | Unsupported platform or Java, not started from `qlogg.jar`, or the macOS main-thread relaunch failed |
 | `3` | The SWT natives could not be prepared or the display could not start, for example without the GTK libraries |
-| `4` | A Java `Error` on the UI thread, or more than 10 runtime exceptions there within 1 s, ended the run; the session is saved |
+| `4` | A Java `Error` on the UI thread, or more than 10 runtime exceptions there within 1 s, ended the run; the session is saved unless that quit failed too |
 
 ## Settings directory
 

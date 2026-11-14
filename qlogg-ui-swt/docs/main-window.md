@@ -315,12 +315,15 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
 
 Every platform difference in the view layer is a method of `PlatformTraits`,
 answered by `Win32Traits`, `CocoaTraits`, `Gtk3Traits` and `Gtk4Traits`; the
-GTK pair share `GtkTraits`. `PlatformTraits.PLATFORM` is chosen from
+GTK pair share `GtkTraits`. They live in package `ui.swt.platform` with the
+classes per platform that `dialogColors`, `stacking` and `toolItemSizing`
+return; only `PlatformTraits`, `DialogColors`, `WindowStacking` and
+`ToolItemSizing` are public. `PlatformTraits.PLATFORM` is chosen from
 `SWT.getPlatform()` and `SWT_GTK4=1` when the interface is first used.
 `PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
 checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
-on a `SWT.getPlatform()` call outside `PlatformTraits` and on a
-`System.getenv` call anywhere in `ui.swt` or the launcher.
+on a `SWT.getPlatform()` call outside `ui.swt.platform` and on a
+`System.getenv` call in `ui.swt` outside that package or in the launcher.
 
 | Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
 |---|---|---|---|---|---|
@@ -336,6 +339,7 @@ on a `SWT.getPlatform()` call outside `PlatformTraits` and on a
 | `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome` and polling, `open`, `showsNow` |
 | `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
 | `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
+| `busyCursor` | `CURSOR_APPSTARTING` | `CURSOR_WAIT` | `CURSOR_APPSTARTING` | `CURSOR_APPSTARTING` | `WindowBusyCursor` |
 | `dialogColors` | `Win32DialogColors` when started dark | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
 | `stacking` | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
 | `toolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
@@ -347,4 +351,17 @@ on a `SWT.getPlatform()` call outside `PlatformTraits` and on a
 | `clipboardText` | Reads the text of the `TextTransfer` clipboard, which is created on first use and disposed with the shell |
 | `launch` | `Program.launch` on a folder or file: the desktop's file association (GIO on GTK, `ShellExecuteEx` on Windows), no shell |
 | `launchUrl` | `Program.launch` on the fixed issue or project page |
-| `setActive`, `setIdle` | A `BusyCounter`; while any operation is active the shell cursor is `SWT.CURSOR_APPSTARTING`, which keeps the window usable, and the last idle call restores the default. The system cursor is not disposed |
+| `setActive`, `setIdle` | A `BusyCounter` driving `WindowBusyCursor`; see [Busy cursor](#busy-cursor) |
+
+## Busy cursor
+
+`setActive` and `setIdle` count overlapping operations in a `BusyCounter`.
+While any is active, `WindowBusyCursor` sets `PlatformTraits.busyCursor` on the
+main shell and on every shell it owns at any depth (`Shell.getShells`): the
+dialogs and tool windows from `Dialogs.shell`. The busy cursor keeps the window
+clickable; cocoa uses `CURSOR_WAIT` because SWT maps `CURSOR_APPSTARTING` to a
+plain arrow there (read in the SWT 3.135.0 sources, not run on a Mac). While
+busy, a Display `SWT.Show` filter sets the cursor on an owned shell that opens;
+idle removes the filter and clears each shell's cursor. A control with a
+cursor of its own keeps it (the time field's hand). Disposed shells are
+skipped, and the system cursor is not disposed.

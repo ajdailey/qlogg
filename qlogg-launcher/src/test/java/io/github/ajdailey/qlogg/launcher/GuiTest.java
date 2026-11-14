@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.launcher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
@@ -17,6 +18,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -31,6 +33,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -218,6 +221,88 @@ class GuiTest {
     assertEquals(1, saved.get(0).tabs().size());
     assertEquals(log.toString(), saved.get(0).tabs().get(0).path());
     assertEquals(ErrorExitMarker.State.PENDING, marker().read());
+  }
+
+  @Test
+  void aFailureOutOfTheEventLoopGoesToUiFailures() throws IOException {
+    Files.createDirectories(temp.resolve("settings"));
+    Display display = new Display();
+    try {
+      final Shell shell = new Shell(display);
+      final int[] quits = new int[1];
+      UiFailures failures =
+          new UiFailures(
+              System::nanoTime,
+              new Runnable() {
+                @Override
+                public void run() {
+                  quits[0]++;
+                  shell.dispose();
+                }
+              },
+              marker());
+      // No handlers on the Display: SWT rethrows out of readAndDispatch, an asyncExec failure
+      // wrapped in an SWTException and a timer task's Error as thrown.
+      final Display current = display;
+      display.asyncExec(new Failure(new IllegalStateException("mock loop failure")));
+      display.asyncExec(
+          new Runnable() {
+            @Override
+            public void run() {
+              current.timerExec(0, new Failure(new Error("mock loop error")));
+            }
+          });
+      display.timerExec(
+          (int) TimeUnit.NANOSECONDS.toMillis(BOUND_NANOS),
+          new Runnable() {
+            @Override
+            public void run() {
+              shell.dispose();
+            }
+          });
+      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, List.of(shell)));
+      assertEquals(1, quits[0]);
+      assertTrue(shell.isDisposed());
+      assertEquals(ErrorExitMarker.State.PENDING, marker().read());
+    } finally {
+      display.dispose();
+    }
+  }
+
+  @Test
+  void aQuitThatThrowsEndsTheEventLoopWithExit4() throws IOException {
+    Files.createDirectories(temp.resolve("settings"));
+    Display display = new Display();
+    try {
+      final Shell shell = new Shell(display);
+      UiFailures failures =
+          new UiFailures(
+              System::nanoTime,
+              new Runnable() {
+                @Override
+                public void run() {
+                  throw new IllegalStateException("mock quit failure");
+                }
+              },
+              marker());
+      display.setErrorHandler(failures::error);
+      display.asyncExec(new Failure(new Error("mock error")));
+      // Ends a loop that does not stop, so the assertions fail instead of the run hanging.
+      display.timerExec(
+          (int) TimeUnit.NANOSECONDS.toMillis(BOUND_NANOS),
+          new Runnable() {
+            @Override
+            public void run() {
+              shell.dispose();
+            }
+          });
+      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, List.of(shell)));
+      assertTrue(failures.quitFailed());
+      assertFalse(shell.isDisposed());
+      assertEquals(ErrorExitMarker.State.PENDING, marker().read());
+    } finally {
+      display.dispose();
+    }
   }
 
   @Test

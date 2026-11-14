@@ -24,10 +24,10 @@ class SettingsLocationTest {
     Files.createFile(home.resolve("qlogg.conf"));
     Path explicit = temp.resolve("explicit");
     assertEquals(
-        new SettingsLocation(SettingsMode.EXPLICIT, explicit),
+        new SettingsLocation(SettingsMode.EXPLICIT, explicit, home),
         resolve(explicit, home, OsTraits.of("Linux"), Map.of()));
     assertEquals(
-        new SettingsLocation(SettingsMode.PORTABLE, home),
+        new SettingsLocation(SettingsMode.PORTABLE, home, home),
         resolve(null, home, OsTraits.of("Linux"), Map.of()));
   }
 
@@ -37,7 +37,7 @@ class SettingsLocationTest {
     Path bin = Files.createDirectory(home.resolve("bin"));
     Files.createFile(bin.resolve("qlogg.conf"));
     assertEquals(
-        new SettingsLocation(SettingsMode.PORTABLE, bin),
+        new SettingsLocation(SettingsMode.PORTABLE, bin, home),
         resolve(null, home, OsTraits.of("Linux"), Map.of()));
     assertEquals(
         SettingsMode.PER_USER, resolve(null, home, OsTraits.of("Windows 11"), Map.of()).mode());
@@ -46,7 +46,7 @@ class SettingsLocationTest {
     // With both markers, the installation directory wins.
     Files.createFile(home.resolve("qlogg.conf"));
     assertEquals(
-        new SettingsLocation(SettingsMode.PORTABLE, home),
+        new SettingsLocation(SettingsMode.PORTABLE, home, home),
         resolve(null, home, OsTraits.of("Linux"), Map.of()));
   }
 
@@ -55,7 +55,7 @@ class SettingsLocationTest {
     Path home = Files.createDirectory(temp.resolve("home"));
     Files.createDirectory(home.resolve("qlogg.conf"));
     assertEquals(
-        new SettingsLocation(SettingsMode.PER_USER, temp.resolve(".config").resolve("qlogg")),
+        new SettingsLocation(SettingsMode.PER_USER, temp.resolve(".config").resolve("qlogg"), home),
         resolve(null, home, OsTraits.of("Linux"), Map.of()));
   }
 

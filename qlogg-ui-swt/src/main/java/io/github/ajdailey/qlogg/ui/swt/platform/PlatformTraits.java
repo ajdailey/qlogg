@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -7,10 +7,13 @@ import org.eclipse.swt.widgets.Display;
 
 /**
  * The view layer's platform differences: {@link Win32Traits}, {@link CocoaTraits}, {@link
- * Gtk3Traits} and {@link Gtk4Traits} each answer every question a view class asks. No other view
- * class reads {@link SWT#getPlatform} or {@code SWT_GTK4}.
+ * Gtk3Traits} and {@link Gtk4Traits} each answer every question a view class asks. No view class
+ * outside this package reads {@link SWT#getPlatform} or {@code SWT_GTK4}.
  */
-interface PlatformTraits {
+public interface PlatformTraits {
+  /** System property SWT sets on GTK to {@code x11}, {@code wayland} or {@code unknown}. */
+  String GDK_BACKEND = "org.eclipse.swt.internal.gdk.backend";
+
   /** The running platform's traits; GTK 4 is the {@code SWT_GTK4=1} environment SWT reads. */
   PlatformTraits PLATFORM = of(SWT.getPlatform(), "1".equals(System.getenv("SWT_GTK4")));
 
@@ -124,6 +127,14 @@ interface PlatformTraits {
    * @return true on win32
    */
   boolean lightChecksUnderDark();
+
+  /**
+   * Returns the busy cursor's {@link SWT} cursor style, an arrow with a progress mark that keeps
+   * the window clickable. cocoa maps {@code CURSOR_APPSTARTING} to a plain arrow.
+   *
+   * @return {@code CURSOR_WAIT} on cocoa, else {@code CURSOR_APPSTARTING}
+   */
+  int busyCursor();
 
   /**
    * Creates the Display's dialog colors.

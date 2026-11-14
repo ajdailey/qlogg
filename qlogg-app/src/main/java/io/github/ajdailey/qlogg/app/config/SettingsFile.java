@@ -40,6 +40,19 @@ final class SettingsFile {
     this.maxBytes = maxBytes;
   }
 
+  /** Returns false when the directory exists and is not writable, or saving is disabled. */
+  boolean writable() {
+    boolean disabled;
+    lock.lock();
+    try {
+      disabled = saveDisabled;
+    } finally {
+      lock.unlock();
+    }
+    Path dir = location.directory();
+    return !disabled && (!Files.isDirectory(dir) || Files.isWritable(dir));
+  }
+
   /** Returns the file's properties; empty when it is missing or malformed. */
   Properties load() {
     lock.lock();

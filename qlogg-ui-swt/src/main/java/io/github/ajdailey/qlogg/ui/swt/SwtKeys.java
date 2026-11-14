@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
 
 /** Converts between SWT key events and {@link KeyStroke}. */

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import org.eclipse.swt.SWT;
 
 /** Known SWT 3.135.0 GTK 4 failures, skipped only on the GTK 4 backend ({@code SWT_GTK4=1}). */
-final class Gtk4 {
+public final class Gtk4 {
   /**
    * {@code Control.print} returns false: the GTK 4 branch snapshots the widget's paintable, and the
    * snapshot yields no render node (SWT 3.135.0 bytecode; measured under Xvfb).
@@ -26,7 +26,7 @@ final class Gtk4 {
    *
    * @return true with {@code SWT_GTK4=1} on GTK
    */
-  static boolean active() {
+  public static boolean active() {
     return "gtk".equals(SWT.getPlatform()) && "1".equals(System.getenv("SWT_GTK4"));
   }
 

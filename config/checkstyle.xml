@@ -29,5 +29,12 @@
       <property name="illegalClassNames"
           value="NullPointerException, java.lang.NullPointerException, RuntimeException, java.lang.RuntimeException, Throwable, java.lang.Throwable"/>
     </module>
+    <!-- The event loop and the UI-failure quit route what a UI task or the quit throws. -->
+    <module name="SuppressionXpathSingleFilter">
+      <property name="checks" value="IllegalCatch"/>
+      <property name="files" value="[\\/]launcher[\\/](Gui|UiFailures)\.java$"/>
+      <property name="query"
+          value="//METHOD_DEF[./IDENT[@text='dispatch' or @text='quit']]//LITERAL_CATCH"/>
+    </module>
   </module>
 </module>

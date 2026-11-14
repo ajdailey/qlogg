@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import io.github.ajdailey.qlogg.ui.swt.Gtk4;
+import io.github.ajdailey.qlogg.ui.swt.XWindows;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -56,7 +58,7 @@ class WindowStackingTest {
   }
 
   private static boolean x11() {
-    return "x11".equals(System.getProperty(MainWindow.GDK_BACKEND));
+    return "x11".equals(System.getProperty(PlatformTraits.GDK_BACKEND));
   }
 
   @Test
@@ -135,10 +137,10 @@ class WindowStackingTest {
     CocoaStacking stacking = new CocoaStacking();
     shell.open();
     stacking.setOnTop(shell, true);
-    Shell dialog = Dialogs.shell(shell, "qlogg-dialog", true);
+    Shell dialog = new Shell(shell, SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL);
     dialog.setSize(200, 100);
     dialog.open();
-    Shell nested = Dialogs.shell(dialog, "qlogg-nested", false);
+    Shell nested = new Shell(dialog, SWT.SHELL_TRIM);
     nested.open();
     assertEquals(3, cocoaLevel(dialog));
     assertEquals(3, cocoaLevel(nested));

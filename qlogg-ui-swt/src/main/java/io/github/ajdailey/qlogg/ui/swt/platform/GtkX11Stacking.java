@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;

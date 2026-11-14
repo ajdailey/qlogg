@@ -23,6 +23,8 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -175,7 +177,8 @@ class AlwaysOnTopWindowTest {
   @Test
   void onGtk3X11TheWindowIsAboveAndItsDialogAndHistoryListStayOverIt() {
     assumeTrue(
-        !Gtk4.active() && "x11".equals(System.getProperty(MainWindow.GDK_BACKEND)), "GTK 3 on X11");
+        !Gtk4.active() && "x11".equals(System.getProperty(PlatformTraits.GDK_BACKEND)),
+        "GTK 3 on X11");
     controller.execute(CommandId.ALWAYS_ON_TOP);
     window.shell().setText("qlogg-on-top-" + System.nanoTime());
     window.open();

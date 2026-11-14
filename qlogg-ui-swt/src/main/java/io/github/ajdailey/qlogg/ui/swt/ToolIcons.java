@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.ToolItemSizing;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;

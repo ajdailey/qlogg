@@ -717,7 +717,17 @@ QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
 macOS `~/Library/Application Support/QLogg`, or the installation directory when
 a `qlogg.conf` exists there (portable mode). On Linux a `qlogg.conf` beside the
 `bin/qlogg` script also selects portable mode, with the settings in `bin/`,
-unless the installation directory has one. On Linux in portable mode and with
+unless the installation directory has one.
+
+In portable mode and with `--settings`, QLogg saves a file or folder path
+inside the installation directory relative to it: tabs, Recent Files, Recently
+Closed, favorites, File > Open's folder, the Search in Folder folder and
+remembered file positions. A moved or copied installation keeps them. A path
+outside the installation, and every path in per-user mode, is saved in full.
+Settings saved in full by an earlier version are rewritten relative at the
+first save.
+
+On Linux in portable mode and with
 `--settings`, Help > User Guide opens this guide in your system browser, because
 the embedded browser keeps its cache in your home folder. GTK's input method
 support still creates an empty `~/.config/ibus/bus` folder there, and with the

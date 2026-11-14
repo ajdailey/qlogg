@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
@@ -6,13 +6,16 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * Colors of dialog and tool window surfaces, one implementation per platform. {@link Dialogs#shell}
- * calls {@link #prepare} on each new shell and {@link Dialogs#open} calls {@link #apply} before it
+ * Colors of dialog and tool window surfaces, one implementation per platform. {@code Dialogs.shell}
+ * calls {@link #prepare} on each new shell and {@code Dialogs.open} calls {@link #apply} before it
  * shows. Confined to the UI thread.
  */
-interface DialogColors {
+public interface DialogColors {
   /** Display data key holding the Display's instance. */
   String KEY = DialogColors.class.getName();
+
+  /** Display data key: {@code Boolean.TRUE} when native controls started dark. */
+  String NATIVE_DARK = DialogColors.class.getName() + ".nativeDark";
 
   /** Shell data key: set on a shell whose surfaces {@link Win32DialogColors} colors. */
   String COLORED = DialogColors.class.getName() + ".colored";
@@ -32,6 +35,16 @@ interface DialogColors {
     DialogColors colors = PlatformTraits.PLATFORM.dialogColors(display);
     display.setData(KEY, colors);
     return colors;
+  }
+
+  /**
+   * Reports whether native controls started dark, as {@link #NATIVE_DARK} records.
+   *
+   * @param display the Display
+   * @return true when the theme service set the dark native theme at startup
+   */
+  static boolean nativeDark(Display display) {
+    return Boolean.TRUE.equals(display.getData(NATIVE_DARK));
   }
 
   /**

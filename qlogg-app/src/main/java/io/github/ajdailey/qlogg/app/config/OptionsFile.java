@@ -15,7 +15,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Reads and writes the {@link Options} and {@link UiState} keys of {@code qlogg.conf}. A value that
- * does not parse falls back to its default with one WARN naming the key.
+ * does not parse falls back to its default with one WARN naming the key. The path keys ({@code
+ * recent.N}, {@code closed.N}, {@code favorite.N}, {@code open.directory}, {@code
+ * folderSearch.folder}) pass through {@link InstallPaths}.
  */
 final class OptionsFile {
   static final String FONT_FAMILY = "font.family";
@@ -77,9 +79,10 @@ final class OptionsFile {
    *
    * @param p the file's properties
    * @param file the file, for warnings
+   * @param paths resolves the path keys
    * @return the options; defaults for keys that are absent or invalid
    */
-  static Options loadOptions(Properties p, Path file) {
+  static Options loadOptions(Properties p, Path file, InstallPaths paths) {
     Options d = Options.DEFAULTS;
     FontSettings font = d.font();
     String family = p.getProperty(FONT_FAMILY, "").strip();
@@ -124,7 +127,7 @@ final class OptionsFile {
         encoding,
         flag(p, LOAD_LAST, d.loadLastSession(), file),
         ShortcutOverrides.load(p),
-        list(p, FAVORITE, Options.MAX_FAVORITES),
+        list(p, FAVORITE, Options.MAX_FAVORITES, paths),
         flag(p, LOG_FILE, d.debugLogFile(), file),
         flag(p, CLOSE_WINDOW_WITH_LAST_TAB, d.closeWindowWithLastTab(), file),
         flag(p, CLOSE_SHOWS_LAST_USED, d.closeShowsLastUsed(), file));
@@ -135,9 +138,10 @@ final class OptionsFile {
    *
    * @param p the file's properties
    * @param file the file, for warnings
+   * @param paths resolves the path keys
    * @return the state; defaults for keys that are absent or invalid
    */
-  static UiState loadState(Properties p, Path file) {
+  static UiState loadState(Properties p, Path file, InstallPaths paths) {
     UiState d = UiState.DEFAULTS;
     WindowState window =
         new WindowState(
@@ -183,16 +187,16 @@ final class OptionsFile {
         search,
         flag(p, LINE_NUMBERS, d.lineNumbers(), file),
         flag(p, FILTERED_LINE_NUMBERS, d.filteredLineNumbers(), file),
-        p.getProperty(OPEN_DIRECTORY, ""),
-        list(p, RECENT, Options.MAX_RECENT),
+        paths.read(p.getProperty(OPEN_DIRECTORY, "")),
+        list(p, RECENT, Options.MAX_RECENT, paths),
         dialogs,
-        list(p, CLOSED, UiState.MAX_CLOSED),
-        folderSearch(p, file));
+        list(p, CLOSED, UiState.MAX_CLOSED, paths),
+        folderSearch(p, file, paths));
   }
 
   // Search in a folder.
 
-  private static FolderSearchSettings folderSearch(Properties p, Path file) {
+  private static FolderSearchSettings folderSearch(Properties p, Path file, InstallPaths paths) {
     FolderSearchSettings d = FolderSearchSettings.DEFAULTS;
     String folder = p.getProperty(FOLDER_SEARCH_FOLDER, d.folder());
     String names = p.getProperty(FOLDER_SEARCH_NAMES, d.names());
@@ -207,7 +211,7 @@ final class OptionsFile {
       exclude = d.exclude();
     }
     return new FolderSearchSettings(
-        folder, names, flag(p, FOLDER_SEARCH_RECURSIVE, d.recursive(), file), exclude);
+        paths.read(folder), names, flag(p, FOLDER_SEARCH_RECURSIVE, d.recursive(), file), exclude);
   }
 
   /**
@@ -216,8 +220,9 @@ final class OptionsFile {
    * @param options the options
    * @param state the state
    * @param p receives the keys
+   * @param paths relativizes the path keys
    */
-  static void store(Options options, UiState state, Properties p) {
+  static void store(Options options, UiState state, Properties p, InstallPaths paths) {
     FontSettings font = options.font();
     p.setProperty(FONT_FAMILY, font.family());
     p.setProperty(FONT_SIZE, Integer.toString(font.size()));
@@ -235,7 +240,7 @@ final class OptionsFile {
     // Last used tab.
     p.setProperty(CLOSE_SHOWS_LAST_USED, Boolean.toString(options.closeShowsLastUsed()));
     options.shortcuts().store(p);
-    storeList(p, FAVORITE, options.favorites());
+    storeList(p, FAVORITE, options.favorites(), paths);
     WindowState window = state.window();
     storeOptional(p, WINDOW_X, window.x());
     storeOptional(p, WINDOW_Y, window.y());
@@ -259,9 +264,9 @@ final class OptionsFile {
     p.setProperty(SEARCH_AFTER, Integer.toString(search.contextAfter()));
     p.setProperty(LINE_NUMBERS, Boolean.toString(state.lineNumbers()));
     p.setProperty(FILTERED_LINE_NUMBERS, Boolean.toString(state.filteredLineNumbers()));
-    p.setProperty(OPEN_DIRECTORY, state.openDirectory());
-    storeList(p, RECENT, state.recentFiles());
-    storeList(p, CLOSED, state.closedFiles());
+    p.setProperty(OPEN_DIRECTORY, paths.write(state.openDirectory()));
+    storeList(p, RECENT, state.recentFiles(), paths);
+    storeList(p, CLOSED, state.closedFiles(), paths);
     for (Map.Entry<String, UiState.Size> entry : state.dialogs().entrySet()) {
       p.setProperty(DIALOG + entry.getKey() + ".width", Integer.toString(entry.getValue().width()));
       p.setProperty(
@@ -269,13 +274,49 @@ final class OptionsFile {
     }
     // Search in a folder.
     FolderSearchSettings folderSearch = state.folderSearch();
-    p.setProperty(FOLDER_SEARCH_FOLDER, folderSearch.folder());
+    p.setProperty(FOLDER_SEARCH_FOLDER, paths.write(folderSearch.folder()));
     p.setProperty(FOLDER_SEARCH_NAMES, folderSearch.names());
     p.setProperty(FOLDER_SEARCH_RECURSIVE, Boolean.toString(folderSearch.recursive()));
     p.setProperty(FOLDER_SEARCH_EXCLUDE, folderSearch.exclude());
   }
 
-  private static List<String> list(Properties p, String prefix, int max) {
+  /**
+   * Reports whether a path key holds a value {@link #store} writes differently.
+   *
+   * @param p the file's properties
+   * @param paths relativizes the path keys
+   * @return true when the next save rewrites a path key
+   */
+  static boolean stalePaths(Properties p, InstallPaths paths) {
+    if (stale(p, FAVORITE, Options.MAX_FAVORITES, paths)
+        || stale(p, RECENT, Options.MAX_RECENT, paths)
+        || stale(p, CLOSED, UiState.MAX_CLOSED, paths)) {
+      return true;
+    }
+    String[] keys = {OPEN_DIRECTORY, FOLDER_SEARCH_FOLDER};
+    for (String key : keys) {
+      String value = p.getProperty(key);
+      if (value != null && paths.stale(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean stale(Properties p, String prefix, int max, InstallPaths paths) {
+    for (int i = 0; i < max; i++) {
+      String value = p.getProperty(prefix + i);
+      if (value == null) {
+        break;
+      }
+      if (paths.stale(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static List<String> list(Properties p, String prefix, int max, InstallPaths paths) {
     List<String> list = new ArrayList<String>();
     for (int i = 0; i < max; i++) {
       String value = p.getProperty(prefix + i);
@@ -283,15 +324,16 @@ final class OptionsFile {
         break;
       }
       if (!value.isEmpty()) {
-        list.add(value);
+        list.add(paths.read(value));
       }
     }
     return list;
   }
 
-  private static void storeList(Properties p, String prefix, List<String> list) {
+  private static void storeList(
+      Properties p, String prefix, List<String> list, InstallPaths paths) {
     for (int i = 0; i < list.size(); i++) {
-      p.setProperty(prefix + i, list.get(i));
+      p.setProperty(prefix + i, paths.write(list.get(i)));
     }
   }
 

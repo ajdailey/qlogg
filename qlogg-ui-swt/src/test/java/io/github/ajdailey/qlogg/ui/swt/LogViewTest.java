@@ -30,6 +30,7 @@ import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -920,7 +921,7 @@ class LogViewTest {
   @Test
   void busyCursorShowsWhileAnyOperationIsActive() {
     final Shell shell = window.shell();
-    final Cursor appStarting = display.getSystemCursor(SWT.CURSOR_APPSTARTING);
+    final Cursor busy = display.getSystemCursor(PlatformTraits.PLATFORM.busyCursor());
     window.setActive();
     window.setActive();
     window.setIdle();
@@ -932,7 +933,7 @@ class LogViewTest {
                 return window.busy().active() == 1;
               }
             }));
-    assertEquals(appStarting, shell.getCursor());
+    assertEquals(busy, shell.getCursor());
     window.setIdle();
     assertTrue(
         runUntil(

@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 /** The GTK 4 answers of {@link PlatformTraits}. */
 final class Gtk4Traits extends GtkTraits {

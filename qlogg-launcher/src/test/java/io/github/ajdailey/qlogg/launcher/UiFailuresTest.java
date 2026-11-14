@@ -88,4 +88,32 @@ class UiFailuresTest {
     assertEquals(1, quits);
     assertEquals(ErrorExitMarker.State.PENDING, marker().read());
   }
+
+  @Test
+  void aQuitThatThrowsIsLoggedAndEndsTheLoop() {
+    UiFailures failures =
+        new UiFailures(
+            new LongSupplier() {
+              @Override
+              public long getAsLong() {
+                return now;
+              }
+            },
+            new Runnable() {
+              @Override
+              public void run() {
+                quits++;
+                throw new IllegalStateException("mock quit failure");
+              }
+            },
+            marker());
+    assertFalse(failures.quitFailed());
+    failures.error(new Error("mock error"));
+    assertTrue(failures.failed());
+    assertTrue(failures.quitFailed());
+    assertEquals(1, quits);
+    assertEquals(ErrorExitMarker.State.PENDING, marker().read());
+    failures.error(new Error("mock error"));
+    assertEquals(1, quits);
+  }
 }

@@ -4,6 +4,8 @@ import io.github.ajdailey.qlogg.app.theme.ThemeController;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -32,9 +34,6 @@ import org.eclipse.swt.widgets.Listener;
  */
 public final class SwtThemeService implements ThemeService {
   private static final PlatformTraits PLATFORM = PlatformTraits.PLATFORM;
-
-  /** Display data key: true when controls start with the dark native theme. */
-  private static final String NATIVE_DARK = SwtThemeService.class.getName() + ".nativeDark";
 
   /** Milliseconds between reads of the system setting on cocoa. */
   private static final int POLL_MILLIS = 1000;
@@ -131,7 +130,7 @@ public final class SwtThemeService implements ThemeService {
     }
     boolean value = ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark();
     display.setDarkThemePreferred(value);
-    display.setData(NATIVE_DARK, value);
+    display.setData(DialogColors.NATIVE_DARK, value);
     return new SwtThemeService(display, value, SYSTEM_SETTING);
   }
 
@@ -142,14 +141,14 @@ public final class SwtThemeService implements ThemeService {
    * @return true after {@link #open} set the dark theme
    */
   static boolean nativeDark(Display display) {
-    return Boolean.TRUE.equals(display.getData(NATIVE_DARK));
+    return DialogColors.nativeDark(display);
   }
 
   /**
    * Creates a check box readable on its page. win32's dark native theme draws a check box label
    * near-white, or light gray when disabled; {@code setForeground} reaches only an enabled box. The
    * theme applies to a control when it is created, so under a dark startup setting a box on a light
-   * page is created with the theme off. A box in a dialog with {@link Win32DialogColors} sits on a
+   * page is created with the theme off. A box in a dialog with {@code Win32DialogColors} sits on a
    * dark page and keeps the theme.
    *
    * @param parent the parent

@@ -1,9 +1,10 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.ui.swt.EventLoop;
 import java.time.Duration;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
@@ -130,12 +131,5 @@ class DialogColorsTest {
     assertEquals(background, shell.getBackground().getRGB());
     assertEquals(foreground, label.getForeground().getRGB());
     assertEquals(owner.getBackground().getRGB(), colors.background(owner).getRGB());
-  }
-
-  @Test
-  void dialogsShellIsUncoloredWithoutADarkWin32Start() {
-    Shell shell = Dialogs.shell(owner, "Mock", true);
-    assertFalse(DialogColors.colored(shell));
-    assertEquals(owner.getBackground().getRGB(), Dialogs.background(owner).getRGB());
   }
 }

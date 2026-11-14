@@ -1,4 +1,4 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.widgets.Shell;
 
@@ -16,7 +16,7 @@ import org.eclipse.swt.widgets.Shell;
  *   <tr><td>GTK 3 on Wayland, GTK 4</td><td>{@link #WINDOW_MANAGER}</td></tr>
  * </table>
  */
-interface WindowStacking {
+public interface WindowStacking {
   /** Unsupported on a Linux desktop, whose window manager's window menu offers the setting. */
   WindowStacking WINDOW_MANAGER = new Unsupported(true);
 

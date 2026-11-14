@@ -1,34 +1,35 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
-/** The cocoa answers of {@link PlatformTraits}. */
-final class CocoaTraits implements PlatformTraits {
+/** The win32 answers of {@link PlatformTraits}. */
+final class Win32Traits implements PlatformTraits {
   @Override
   public String name() {
-    return "cocoa";
+    return "win32";
   }
 
   @Override
   public String monospaceFamily() {
-    return "Menlo";
+    return "Consolas";
   }
 
   @Override
   public int monospaceSize() {
-    return 12;
+    return 10;
   }
 
   @Override
   public boolean macKeys() {
-    return true;
+    return false;
   }
 
   @Override
   public boolean systemAppMenu() {
-    return true;
+    return false;
   }
 
   @Override
@@ -38,12 +39,12 @@ final class CocoaTraits implements PlatformTraits {
 
   @Override
   public boolean remeasuresTrim() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean launchesByExtension() {
-    return false;
+    return true;
   }
 
   @Override
@@ -58,27 +59,34 @@ final class CocoaTraits implements PlatformTraits {
 
   @Override
   public boolean followsSystemAppearance() {
-    return true;
+    return false;
   }
 
   @Override
   public boolean themesAtCreation() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean lightChecksUnderDark() {
-    return false;
+    return true;
+  }
+
+  @Override
+  public int busyCursor() {
+    return SWT.CURSOR_APPSTARTING;
   }
 
   @Override
   public DialogColors dialogColors(Display display) {
-    return new NativeDialogColors();
+    return DialogColors.nativeDark(display)
+        ? new Win32DialogColors(display)
+        : new NativeDialogColors();
   }
 
   @Override
   public WindowStacking stacking() {
-    return new CocoaStacking();
+    return new Win32Stacking();
   }
 
   @Override
@@ -90,7 +98,7 @@ final class CocoaTraits implements PlatformTraits {
 
   @Override
   public boolean menuImages() {
-    return false;
+    return true;
   }
 
   @Override
@@ -100,7 +108,7 @@ final class CocoaTraits implements PlatformTraits {
 
   @Override
   public boolean fixedMenuInk() {
-    return false;
+    return true;
   }
 
   @Override

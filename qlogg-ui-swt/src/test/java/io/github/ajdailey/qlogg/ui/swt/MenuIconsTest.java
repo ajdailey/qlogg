@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;

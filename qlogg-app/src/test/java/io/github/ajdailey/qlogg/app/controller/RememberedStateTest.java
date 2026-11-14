@@ -31,6 +31,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -174,6 +175,32 @@ class RememberedStateTest {
       run.untilOpen(2);
       assertFalse(run.view.notices.contains(notice));
     }
+  }
+
+  @Test
+  void aRunThatChangesNothingRewritesAnAbsolutePathUnderTheBaseOnce() throws Exception {
+    Path settings = Files.createDirectories(temp.resolve("settings"));
+    Path log = Files.writeString(settings.resolve("a.log"), "a");
+    Path conf = settings.resolve(SettingsLocation.MARKER);
+    // The first run saves the window state, so the next run starts with nothing to change.
+    try (Run run = new Run()) {
+      assertFalse(run.config.pathsStale());
+    }
+    Files.writeString(
+        conf,
+        "recent.0=" + log.toString().replace("\\", "\\\\") + "\n",
+        StandardCharsets.ISO_8859_1,
+        StandardOpenOption.APPEND);
+    try (Run run = new Run()) {
+      assertTrue(run.config.pathsStale());
+    }
+    assertTrue(Files.readString(conf, StandardCharsets.ISO_8859_1).contains("recent.0=a.log\n"));
+    // A save drops comment lines, so the comment stays only while nothing rewrites the file.
+    Files.writeString(conf, "#mock\n", StandardCharsets.ISO_8859_1, StandardOpenOption.APPEND);
+    try (Run run = new Run()) {
+      assertFalse(run.config.pathsStale());
+    }
+    assertTrue(Files.readString(conf, StandardCharsets.ISO_8859_1).contains("#mock\n"));
   }
 
   @Test

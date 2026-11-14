@@ -19,7 +19,8 @@ import java.util.Properties;
  * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
  * {@code droppedComments}, written when not 0, sums the windows' {@link Session#droppedComments}
  * and loads on the first window; a missing, malformed or negative value reads as 0. {@code
- * window.W.onTop} is written when true. Blocking; workers call it.
+ * window.W.onTop} is written when true. Tab paths pass through {@link InstallPaths}. Blocking;
+ * workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -46,6 +47,7 @@ public final class SessionStore {
   private static final int BATCH = 4096;
 
   private final SettingsFile file;
+  private final InstallPaths paths;
 
   /**
    * Creates the store.
@@ -54,6 +56,7 @@ public final class SessionStore {
    */
   public SessionStore(SettingsLocation location) {
     this.file = new SettingsFile(location, FILE, MAX_BYTES);
+    this.paths = new InstallPaths(location);
   }
 
   /**
@@ -96,7 +99,7 @@ public final class SessionStore {
         count++;
         tabs.add(
             new Session.Tab(
-                path,
+                paths.read(path),
                 p.getProperty(key + "name", ""),
                 "true".equals(p.getProperty(key + "follow", "false").strip()),
                 marks,
@@ -158,7 +161,7 @@ public final class SessionStore {
       for (int i = 0; i < tabs; i++) {
         Session.Tab tab = session.tabs().get(i);
         String key = prefix + "tab." + i + ".";
-        p.setProperty(key + "path", tab.path());
+        p.setProperty(key + "path", paths.write(tab.path()));
         if (!tab.name().isEmpty()) {
           p.setProperty(key + "name", tab.name());
         }

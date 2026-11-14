@@ -91,8 +91,8 @@ window as with `-m`. A launch that stays opens the debug log file when `-l` or
    files open in the first window on workers, a tab each, following with `-f`.
    When `qlogg_error.flag` exists, the session's tabs and windows are skipped
    (see [UI-thread failures](#ui-thread-failures)).
-8. Runs the event loop until every window is disposed, then disposes the
-   Display and returns.
+8. Runs the event loop (`Gui.loop`) until every window is disposed, or until
+   a quit `UiFailures` ran throws, then disposes the Display and returns.
 
 The instance saves the tab list only when it restored the session without
 `-m`. New Window goes through the set's `Factory` in `Gui`: a window at the
@@ -129,6 +129,14 @@ shows, and the event loop continues. More than 10 runtime exceptions within
 (`ErrorExitMarker`), runs `WindowSet.quit` once, which saves the session, and
 `Gui.run` returns status 4. No dialog is shown. The marker write runs on the UI
 thread without SWT, because a dialog or a worker may not run after an `Error`.
+
+`Gui.loop` also catches a runtime exception or `Error` that leaves
+`readAndDispatch` and passes it to `UiFailures`, which counts it the same way.
+When the quit `UiFailures` runs throws, `UiFailures` logs it at ERROR and the
+loop ends at once with status 4: the marker is written and the session is not
+saved. `Gui.run` then closes the workers within their bound and disposes the
+Display, which disposes the windows left open, and `Main` exits with
+`System.exit`.
 
 `Gui.run` reads the marker before the Display opens:
 
@@ -227,7 +235,7 @@ sources), so a rule that stops matching fails:
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
 | No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
-| `SWT.getPlatform()` only in `PlatformTraits`; no `System.getenv` in `ui.swt` or `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
+| `SWT.getPlatform()` only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
 | `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
 | A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.prepare` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
@@ -265,8 +273,8 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 
 | Class | Covers |
 |---|---|
-| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker |
-| `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits; each quit writes the marker |
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; `Gui.loop` on a Display without handlers routing a runtime exception and an `Error` out of `readAndDispatch` to `UiFailures`, the `Error` quitting with status 4; a quit that throws ending the loop with status 4 and the window still open; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker |
+| `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits; each quit writes the marker; a quit that throws sets `quitFailed` and runs once |
 | `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
 | `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it, once with the marker in the bundle and once in its `bin/`: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies in the marker's folder and the home directory is empty |

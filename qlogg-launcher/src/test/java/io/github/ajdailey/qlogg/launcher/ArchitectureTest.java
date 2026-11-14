@@ -156,10 +156,10 @@ class ArchitectureTest {
 
   /** The classes that reach SWT internals by reflection, which no import shows. */
   private static final String[] SWT_REFLECTION = {
-    ROOT + ".ui.swt.Win32Stacking",
-    ROOT + ".ui.swt.CocoaStacking",
-    ROOT + ".ui.swt.GtkX11Stacking",
-    ROOT + ".ui.swt.Gtk4ToolItemSizing"
+    ROOT + ".ui.swt.platform.Win32Stacking",
+    ROOT + ".ui.swt.platform.CocoaStacking",
+    ROOT + ".ui.swt.platform.GtkX11Stacking",
+    ROOT + ".ui.swt.platform.Gtk4ToolItemSizing"
   };
 
   /** Only the listed exception classes load classes by name or open members. */
@@ -188,8 +188,8 @@ class ArchitectureTest {
   // Platform traits.
 
   /**
-   * Only {@code PlatformTraits} reads {@code SWT.getPlatform()}, and no other view or launcher
-   * class reads the environment, where SWT takes {@code SWT_GTK4}.
+   * Only {@code ui.swt.platform} reads {@code SWT.getPlatform()} or, among view and launcher
+   * classes, the environment, where SWT takes {@code SWT_GTK4}.
    */
   @Test
   void platformOnlyInTraits() {
@@ -208,7 +208,7 @@ class ArchitectureTest {
   private static ArchRule platformOnlyInTraitsRule() {
     return noClasses()
         .that()
-        .doNotHaveFullyQualifiedName(ROOT + ".ui.swt.PlatformTraits")
+        .resideOutsideOfPackage(ROOT + ".ui.swt.platform..")
         .should()
         .callMethodWhere(call(SWT.class, "getPlatform"))
         .orShould()
@@ -1139,7 +1139,7 @@ class ArchitectureTest {
 
   private static ArchRule ownedShellsTakeDialogColorsRule() {
     final String shell = "org.eclipse.swt.widgets.Shell";
-    final String colors = ROOT + ".ui.swt.DialogColors";
+    final String colors = ROOT + ".ui.swt.platform.DialogColors";
     return codeUnits()
         .should(
             new ArchCondition<JavaCodeUnit>(

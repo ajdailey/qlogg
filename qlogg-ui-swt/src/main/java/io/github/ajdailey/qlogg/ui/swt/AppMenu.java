@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.WindowSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;

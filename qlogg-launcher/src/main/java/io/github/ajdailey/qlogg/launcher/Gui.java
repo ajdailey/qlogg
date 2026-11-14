@@ -63,9 +63,10 @@ import org.slf4j.LoggerFactory;
  * UiFailures} handles a failure of a UI-thread task. The first launch after it writes the {@link
  * ErrorExitMarker} shows a notice and records that in the marker; a launch that would restore the
  * session and finds the marker skips the session's tabs and windows and, as the session owner,
- * deletes the marker. A primary with the debug log file attached deletes other processes' old log
- * files on a lifecycle worker ({@link FileLog#prune}). The loop ends when every window is disposed,
- * then the Display is disposed and {@link #run} returns.
+ * deletes the marker. A failure that leaves {@code readAndDispatch} goes to {@link UiFailures} too;
+ * when the quit it runs throws, the loop ends at once. A primary with the debug log file attached
+ * deletes other processes' old log files on a lifecycle worker ({@link FileLog#prune}). The loop
+ * ends when every window is disposed, then the Display is disposed and {@link #run} returns.
  */
 final class Gui {
   private static final Logger LOG = LoggerFactory.getLogger(Gui.class);
@@ -128,7 +129,7 @@ final class Gui {
    * Runs until the main window closes.
    *
    * @return 0, {@link Launcher#EXIT_SWT} when the Display cannot be created, or {@link
-   *     Launcher#EXIT_UI_FAILURE} when {@link UiFailures} ran the quit
+   *     Launcher#EXIT_UI_FAILURE} when {@link UiFailures} ran the quit, also when that quit threw
    */
   int run() {
     Workers workers =
@@ -314,12 +315,7 @@ final class Gui {
       if (observer != null) {
         observer.opened(window, controller, workers);
       }
-      while (anyOpen()) {
-        if (!display.readAndDispatch()) {
-          display.sleep();
-        }
-      }
-      return failures.failed() ? Launcher.EXIT_UI_FAILURE : 0;
+      return loop(display, failures, shells);
     } finally {
       removeHook(hook);
     }
@@ -377,7 +373,39 @@ final class Gui {
     shells.add(window.shell());
   }
 
-  private boolean anyOpen() {
+  /**
+   * Runs the event loop until every shell is disposed, or until the quit {@link UiFailures} ran
+   * failed. A runtime exception or error that leaves {@code readAndDispatch} goes to {@code
+   * failures}; the loop continues. The caller disposes the Display, which disposes the shells left.
+   *
+   * @param display the Display
+   * @param failures the Display's handlers
+   * @param shells the main windows' shells
+   * @return 0, or {@link Launcher#EXIT_UI_FAILURE} once {@code failures} ran the quit
+   */
+  static int loop(Display display, UiFailures failures, List<Shell> shells) {
+    while (anyOpen(shells) && !failures.quitFailed()) {
+      if (!dispatch(display, failures)) {
+        display.sleep();
+      }
+    }
+    return failures.failed() ? Launcher.EXIT_UI_FAILURE : 0;
+  }
+
+  /** Runs one {@code readAndDispatch}; true after a failure, so the loop checks before sleeping. */
+  private static boolean dispatch(Display display, UiFailures failures) {
+    try {
+      return display.readAndDispatch();
+    } catch (RuntimeException e) {
+      failures.runtime(e);
+      return true;
+    } catch (Error e) {
+      failures.error(e);
+      return true;
+    }
+  }
+
+  private static boolean anyOpen(List<Shell> shells) {
     for (Shell shell : shells) {
       if (!shell.isDisposed()) {
         return true;

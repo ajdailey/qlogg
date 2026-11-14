@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;

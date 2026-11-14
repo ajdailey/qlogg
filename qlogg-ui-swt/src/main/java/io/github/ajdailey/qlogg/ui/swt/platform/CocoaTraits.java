@@ -1,34 +1,35 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
-/** The win32 answers of {@link PlatformTraits}. */
-final class Win32Traits implements PlatformTraits {
+/** The cocoa answers of {@link PlatformTraits}. */
+final class CocoaTraits implements PlatformTraits {
   @Override
   public String name() {
-    return "win32";
+    return "cocoa";
   }
 
   @Override
   public String monospaceFamily() {
-    return "Consolas";
+    return "Menlo";
   }
 
   @Override
   public int monospaceSize() {
-    return 10;
+    return 12;
   }
 
   @Override
   public boolean macKeys() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean systemAppMenu() {
-    return false;
+    return true;
   }
 
   @Override
@@ -38,12 +39,12 @@ final class Win32Traits implements PlatformTraits {
 
   @Override
   public boolean remeasuresTrim() {
-    return true;
+    return false;
   }
 
   @Override
   public boolean launchesByExtension() {
-    return true;
+    return false;
   }
 
   @Override
@@ -58,29 +59,32 @@ final class Win32Traits implements PlatformTraits {
 
   @Override
   public boolean followsSystemAppearance() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean themesAtCreation() {
-    return true;
+    return false;
   }
 
   @Override
   public boolean lightChecksUnderDark() {
-    return true;
+    return false;
+  }
+
+  @Override
+  public int busyCursor() {
+    return SWT.CURSOR_WAIT;
   }
 
   @Override
   public DialogColors dialogColors(Display display) {
-    return SwtThemeService.nativeDark(display)
-        ? new Win32DialogColors(display)
-        : new NativeDialogColors();
+    return new NativeDialogColors();
   }
 
   @Override
   public WindowStacking stacking() {
-    return new Win32Stacking();
+    return new CocoaStacking();
   }
 
   @Override
@@ -92,7 +96,7 @@ final class Win32Traits implements PlatformTraits {
 
   @Override
   public boolean menuImages() {
-    return true;
+    return false;
   }
 
   @Override
@@ -102,7 +106,7 @@ final class Win32Traits implements PlatformTraits {
 
   @Override
   public boolean fixedMenuInk() {
-    return true;
+    return false;
   }
 
   @Override

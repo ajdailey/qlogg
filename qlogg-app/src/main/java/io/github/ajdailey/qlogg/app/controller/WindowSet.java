@@ -140,6 +140,8 @@ public final class WindowSet implements RememberedStateHost {
     this.services = services;
     this.config = config;
     this.preferences = new AtomicReference<Preferences>(preferences);
+    // The first save rewrites absolute path keys under the base (portable, explicit mode).
+    this.preferencesDirty = config.pathsStale();
     // View colors.
     this.theme =
         new ThemeController(
