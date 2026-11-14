@@ -94,9 +94,7 @@ final class ResultsPane {
           @Override
           public void close(CTabFolderEvent event) {
             event.doit = false;
-            if (event.item.getData() instanceof SearchController.KeptResults set) {
-              document.search().removeKept(set);
-            }
+            closeTab((CTabItem) event.item);
           }
         });
     document.search().addListener(searchListener);
@@ -128,7 +126,24 @@ final class ResultsPane {
     return tabButtons;
   }
 
-  /** One tab for the current search, then one closable tab per kept set, the shown one selected. */
+  /**
+   * Closes a result tab: a kept set's tab removes the set; the current search's tab stays and its
+   * results are cleared, as {@code CLEAR_RESULTS} does.
+   *
+   * @param item a tab of {@link #sets}
+   */
+  void closeTab(CTabItem item) {
+    if (item.getData() instanceof SearchController.KeptResults set) {
+      document.search().removeKept(set);
+    } else {
+      document.search().clear();
+    }
+  }
+
+  /**
+   * One tab for the current search, closable while it holds a search, then one closable tab per
+   * kept set, the shown one selected.
+   */
   private void syncTabs() {
     if (sets.isDisposed()) {
       return;
@@ -140,10 +155,11 @@ final class ResultsPane {
       sets.getItem(sets.getItemCount() - 1).dispose();
     }
     while (sets.getItemCount() < wanted) {
-      new CTabItem(sets, sets.getItemCount() == 0 ? SWT.NONE : SWT.CLOSE);
+      new CTabItem(sets, SWT.CLOSE);
     }
     SearchViewState state = search.state();
     sets.getItem(0).setText(ResultTabs.current(state, search.resultCount()));
+    sets.getItem(0).setShowClose(state.phase() != SearchViewState.Phase.IDLE);
     for (int i = 0; i < kept.size(); i++) {
       SearchController.KeptResults set = kept.get(i);
       CTabItem item = sets.getItem(i + 1);

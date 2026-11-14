@@ -450,6 +450,21 @@ class FilteredPaneTest {
     assertEquals(1, window.results().sets().getItemCount());
   }
 
+  @Test
+  void closingTheCurrentResultTabClearsTheResultsAndKeepsTheTab() {
+    final CTabFolder sets = window.results().sets();
+    assertFalse(sets.getItem(0).getShowClose());
+    searchFor("event");
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    searchFor("line 1");
+    assertTrue(sets.getItem(0).getShowClose());
+    window.results().closeTab(sets.getItem(0));
+    assertEquals(SearchViewState.Phase.IDLE, document().search().state().phase());
+    assertEquals(2, sets.getItemCount());
+    assertFalse(sets.getItem(0).getShowClose());
+    assertEquals(1, document().search().kept().size());
+  }
+
   // Tab strip buttons.
 
   @Test

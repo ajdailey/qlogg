@@ -183,6 +183,46 @@ class TextGridTest {
     }
   }
 
+  /** Line 2 wrapped in place over 4 rows, the view scrolled 7 columns right. */
+  @Test
+  void aLineWrappedInPlaceHitsBySegmentAndOtherLinesFromTheFirstColumn() {
+    for (double advance : ADVANCES) {
+      TextGrid grid = new TextGrid(15, advance);
+      int columns = 90;
+      final long wrapped = 2;
+      TextGrid.WrappedRows rows =
+          new TextGrid.WrappedRows() {
+            @Override
+            public int rows(long line) {
+              return line == wrapped ? 4 : 1;
+            }
+          };
+      int at3 = x(grid, 3, 0.25);
+      assertEquals(
+          new TextPosition(1, 10),
+          grid.lineWrapHit(0, LINES, rows, wrapped, columns, 7, at3, y(grid, 1)));
+      assertEquals(
+          new TextPosition(2, 3),
+          grid.lineWrapHit(0, LINES, rows, wrapped, columns, 7, at3, y(grid, 2)));
+      assertEquals(
+          new TextPosition(2, 2L * columns + 3),
+          grid.lineWrapHit(0, LINES, rows, wrapped, columns, 7, at3, y(grid, 4)));
+      assertEquals(
+          new TextPosition(3, 10),
+          grid.lineWrapHit(0, LINES, rows, wrapped, columns, 7, at3, y(grid, 6)));
+      int past = x(grid, columns + 5L, 0.25);
+      assertEquals(
+          new TextPosition(2, columns - 1L),
+          grid.lineWrapWordHit(0, LINES, rows, wrapped, columns, 7, past, y(grid, 2)));
+      assertEquals(
+          new TextPosition(3, columns + 12L),
+          grid.lineWrapWordHit(0, LINES, rows, wrapped, columns, 7, past, y(grid, 6)));
+      assertEquals(new TextGrid.LineRow(2, 3), grid.lineRow(0, LINES, rows, y(grid, 5)));
+      assertEquals(
+          new TextGrid.LineRow(LINES, 0), grid.lineRow(LINES - 2, LINES, rows, y(grid, 2)));
+    }
+  }
+
   @Test
   void charIndexCountsACodePointAsOneColumn() {
     String text = "a😀b日c";

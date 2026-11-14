@@ -334,7 +334,12 @@ class RowPixelsTest {
     int at = token - columns;
     assertTrue(at >= 2 && at + WIDE.length() + 2 <= columns, "CJK at " + at + " of " + columns);
     int slack = (int) Math.ceil(view.advance());
-    int[] glyphs = ink(capture(), 1, view.gutterWidth(), canvas().getClientArea().width - 2);
+    int[] glyphs =
+        ink(
+            capture(),
+            1,
+            view.gutterWidth(),
+            canvas().getClientArea().width - view.markerMargin() - 2);
     highlight(WIDE);
     assertCovers(extent(capture(), 1, SPAN_RGB), glyphs, slack, "wrapped CJK span");
     highlight(null);
@@ -417,7 +422,8 @@ class RowPixelsTest {
     assertEquals(WIDE + "    ", document().lines().text(0));
     LogCanvas view = window.canvas();
     int gutter = view.gutterWidth();
-    int[] glyphs = ink(capture(), 0, gutter, canvas().getClientArea().width - 2);
+    int[] glyphs =
+        ink(capture(), 0, gutter, canvas().getClientArea().width - view.markerMargin() - 2);
     highlight(WIDE);
     int[] span = extent(capture(), 0, SPAN_RGB);
     assertCovers(span, glyphs, (int) Math.ceil(view.advance()), "CJK span");
@@ -432,7 +438,12 @@ class RowPixelsTest {
   void aSpanOnCjkTextAfterLeadingSpacesCoversItsGlyphs() throws IOException {
     openText("indented-wide.log", "    " + WIDE);
     LogCanvas view = window.canvas();
-    int[] glyphs = ink(capture(), 0, view.gutterWidth(), canvas().getClientArea().width - 2);
+    int[] glyphs =
+        ink(
+            capture(),
+            0,
+            view.gutterWidth(),
+            canvas().getClientArea().width - view.markerMargin() - 2);
     highlight(WIDE);
     int[] span = extent(capture(), 0, SPAN_RGB);
     assertCovers(span, glyphs, (int) Math.ceil(view.advance()), "CJK span after spaces");

@@ -367,7 +367,8 @@ class ThemeAndHighlightTest {
   void paletteSwitchRepaintsBothCanvasesAndTheOverviewBar() {
     final Canvas main = window.canvas().control();
     final Canvas filtered = window.results().canvas().control();
-    int x = main.getClientArea().width - 4;
+    // Left of the line marker strip.
+    int x = main.getClientArea().width - window.canvas().markerMargin() - 4;
     int y = window.canvas().lineHeight() * 3 + 2;
     assertEquals(rgb(Palette.LIGHT.background()), pixel(main, x, y));
     controller.execute(CommandId.THEME_DARK);
@@ -377,7 +378,10 @@ class ThemeAndHighlightTest {
     assertEquals(rgb(Palette.DARK.background()), pixel(main, x, y));
     assertEquals(
         rgb(Palette.DARK.background()),
-        pixel(filtered, filtered.getClientArea().width - 4, filtered.getClientArea().height - 4));
+        pixel(
+            filtered,
+            filtered.getClientArea().width - window.results().canvas().markerMargin() - 4,
+            filtered.getClientArea().height - 4));
     assertEquals(ThemeMode.DARK, controller.preferences().theme());
     window.syncMenu();
     controller.execute(CommandId.THEME_LIGHT);

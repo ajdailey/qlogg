@@ -464,6 +464,7 @@ public final class SearchController {
    * limits and, with {@code inSelection}, the selected lines. Empty text clears the results. A
    * combined expression that does not parse, or a regex that does not compile, ends as {@code
    * FAILED} with a message. A search that starts switches the filtered view to marks and matches.
+   * Every run unwraps the filtered view's line wrapped in place.
    *
    * @param text the search text
    * @param toggles the toggles
@@ -475,6 +476,7 @@ public final class SearchController {
     fieldText = text;
     options = toggles;
     replaceResults(toggles.keepResults());
+    document.filtered().unwrapLine();
     if (text.isEmpty()) {
       publish(
           new SearchViewState(

@@ -29,6 +29,14 @@ final class TextGrid {
     int rows(long line);
   }
 
+  /**
+   * A screen row as a line and the index of its segment.
+   *
+   * @param line the line; the line count when the row lies below the last line
+   * @param segment the 0-based segment within the line
+   */
+  record LineRow(long line, int segment) {}
+
   private final int lineHeight;
   private final double advance;
 
@@ -176,6 +184,41 @@ final class TextGrid {
   }
 
   /**
+   * Walks the wrapped rows from the top line to the row under {@code y}.
+   *
+   * @param topLine the first visible line
+   * @param lineCount the lines
+   * @param rows each line's wrapped rows
+   * @param y the y; 0 or less is the first row
+   * @return the row; below the last line's rows, the line count and the segment past it
+   */
+  LineRow lineRow(long topLine, long lineCount, WrappedRows rows, int y) {
+    int target = Math.max(0, y) / lineHeight;
+    int row = 0;
+    long line = topLine;
+    while (line < lineCount && row + rows.rows(line) <= target) {
+      row += rows.rows(line);
+      line++;
+    }
+    return new LineRow(line, target - row);
+  }
+
+  /** As {@link #lineRow}, clamped to the last line and to the line's last segment. */
+  private LineRow clampedRow(long topLine, long lineCount, WrappedRows rows, int y) {
+    LineRow at = lineRow(topLine, lineCount, rows, y);
+    long line = Math.max(0, Math.min(at.line(), lineCount - 1));
+    int last = rows.rows(line) - 1;
+    int segment = line == at.line() ? Math.min(at.segment(), last) : last;
+    return new LineRow(line, Math.max(0, segment));
+  }
+
+  /** The column boundary nearest {@code textX} within a row's segment. */
+  private TextPosition segmentHit(LineRow at, int wrapColumns, int textX) {
+    long column = Math.min(columnAt(textX), wrapColumns);
+    return new TextPosition(at.line(), (long) at.segment() * wrapColumns + column);
+  }
+
+  /**
    * Maps a point to a line and column with text wrap on: walks the wrapped rows from the top line
    * to the row under {@code y}, then takes the column boundary nearest {@code textX} within that
    * row's segment, clamped to the segment's end column.
@@ -190,17 +233,39 @@ final class TextGrid {
    */
   TextPosition wrappedHit(
       long topLine, long lineCount, WrappedRows rows, int wrapColumns, int textX, int y) {
-    int target = Math.max(0, y) / lineHeight;
-    int row = 0;
-    long line = topLine;
-    while (line < lineCount - 1 && row + rows.rows(line) <= target) {
-      row += rows.rows(line);
-      line++;
+    return segmentHit(clampedRow(topLine, lineCount, rows, y), wrapColumns, textX);
+  }
+
+  /**
+   * Maps a point to a line and column with one line wrapped in place: the rows walk as in {@link
+   * #wrappedHit}; on the wrapped line the column is taken within the row's segment, on any other
+   * line it is {@code firstColumn} plus the column boundary nearest {@code textX}, as {@link #hit}
+   * maps it.
+   *
+   * @param topLine the first visible line
+   * @param lineCount the lines; at least 1
+   * @param rows each line's rows: 1 except the wrapped line's
+   * @param wrappedLine the line wrapped in place
+   * @param wrapColumns columns per wrapped row; at least 1
+   * @param firstColumn the first visible column of the other lines
+   * @param textX the x right of the gutter
+   * @param y the y
+   * @return the position
+   */
+  TextPosition lineWrapHit(
+      long topLine,
+      long lineCount,
+      WrappedRows rows,
+      long wrappedLine,
+      int wrapColumns,
+      long firstColumn,
+      int textX,
+      int y) {
+    LineRow at = clampedRow(topLine, lineCount, rows, y);
+    if (at.line() != wrappedLine) {
+      return new TextPosition(at.line(), firstColumn + columnAt(textX));
     }
-    line = Math.max(0, Math.min(line, lineCount - 1));
-    int segment = Math.max(0, Math.min(target - row, rows.rows(line) - 1));
-    long column = Math.min(columnAt(textX), wrapColumns);
-    return new TextPosition(line, (long) segment * wrapColumns + column);
+    return segmentHit(at, wrapColumns, textX);
   }
 
   /**
@@ -219,7 +284,40 @@ final class TextGrid {
    */
   TextPosition wrappedWordHit(
       long topLine, long lineCount, WrappedRows rows, int wrapColumns, int textX, int y) {
-    TextPosition hit = wrappedHit(topLine, lineCount, rows, wrapColumns, textX, y);
+    return segmentEnd(
+        wrappedHit(topLine, lineCount, rows, wrapColumns, textX, y), rows, wrapColumns, textX);
+  }
+
+  /**
+   * Maps a double click to a column with one line wrapped in place: {@link #lineWrapHit}, with the
+   * wrapped line's segment ends mapped as {@link #wrappedWordHit} maps them.
+   *
+   * @param topLine the first visible line
+   * @param lineCount the lines; at least 1
+   * @param rows each line's rows: 1 except the wrapped line's
+   * @param wrappedLine the line wrapped in place
+   * @param wrapColumns columns per wrapped row; at least 1
+   * @param firstColumn the first visible column of the other lines
+   * @param textX the x right of the gutter
+   * @param y the y
+   * @return the position
+   */
+  TextPosition lineWrapWordHit(
+      long topLine,
+      long lineCount,
+      WrappedRows rows,
+      long wrappedLine,
+      int wrapColumns,
+      long firstColumn,
+      int textX,
+      int y) {
+    TextPosition hit =
+        lineWrapHit(topLine, lineCount, rows, wrappedLine, wrapColumns, firstColumn, textX, y);
+    return hit.line() == wrappedLine ? segmentEnd(hit, rows, wrapColumns, textX) : hit;
+  }
+
+  /** Moves a hit at or past a segment's right edge, not on the line's last, back one column. */
+  private TextPosition segmentEnd(TextPosition hit, WrappedRows rows, int wrapColumns, int textX) {
     if (columnAt(textX) < wrapColumns) {
       return hit;
     }

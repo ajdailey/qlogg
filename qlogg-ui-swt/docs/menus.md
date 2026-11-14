@@ -28,7 +28,7 @@ Favorites, Search > Search Options, View > Folding).
   `MenuTable.RADIO`: View > Theme, View > Filtered View's modes, Encoding >
   Auto and Time Spread.
 - Every item of a menu, cascade or context menu has a mnemonic of its own;
-  listed entries and the placeholders of empty lists have none.
+  listed entries, the placeholders of empty lists and Wrap Line have none.
   `MenuTableTest` checks the menu bar and the context menu tables without SWT;
   `LogViewTest.mnemonicsAreUniqueInEveryMenu` walks the built menu bar and the
   log view, tab, path field and search field context menus.

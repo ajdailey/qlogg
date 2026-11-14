@@ -222,7 +222,9 @@ toggle and Stop; and the search status. With no document the row is disabled.
 left edge, over a `LogCanvas` on the `FilteredController`. The strip holds the
 current search and one closable tab per kept set, labeled with the text and
 count; a range search's label shows the start and end expressions. Selecting a
-tab shows that set; closing one removes it.
+tab shows that set; closing one removes it. The current search's tab shows a
+close button while it holds a search; closing it runs `SearchController.clear`
+and the tab stays.
 
 The main view's canvas, the filtered view's canvas and the overview bar carry
 accessible names through `AccessibleName` (`UiText.ACCESSIBLE_*`): Log,

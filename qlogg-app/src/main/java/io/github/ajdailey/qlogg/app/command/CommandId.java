@@ -212,6 +212,8 @@ public enum CommandId {
       CommandGroup.VIEW, UiText.COMMAND_TOGGLE_FILTERED_LINE_NUMBERS, false, true),
   /** Wrap long lines in both views of the shown file. */
   TOGGLE_WRAP(CommandGroup.VIEW, UiText.COMMAND_TOGGLE_WRAP, true, true),
+  /** Wrap the caret's line in place with text wrap off, or unwrap it. */
+  WRAP_LINE(CommandGroup.VIEW, UiText.COMMAND_WRAP_LINE, false, false),
   /** Set {@code view.wrapOnOpen}. */
   WRAP_ON_OPEN(CommandGroup.VIEW, UiText.COMMAND_WRAP_ON_OPEN, false, true),
   /** Mark tabs, trailing spaces and line ends. */

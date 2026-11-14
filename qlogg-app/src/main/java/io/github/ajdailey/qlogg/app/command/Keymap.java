@@ -149,6 +149,7 @@ public final class Keymap {
     }
     // Wrap, folding, block selection, scratchpad and search across open files.
     view(b, CommandId.TOGGLE_WRAP, 0, 'w');
+    view(b, CommandId.WRAP_LINE, 0, 'W');
     view(b, CommandId.TOGGLE_FOLD, KeyStroke.ALT, KeyStroke.BACKSPACE);
     sequence(b, CommandId.COLLAPSE_ALL_FOLDS, 'c');
     sequence(b, CommandId.EXPAND_ALL_FOLDS, 'x');

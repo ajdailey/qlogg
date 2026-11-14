@@ -563,6 +563,7 @@ class LogViewTest {
             "Line Numbers in Filtered View",
             "-",
             "Text Wrap",
+            "Wrap Line",
             "Wrap New Files",
             "Show Whitespace",
             "Hide ANSI Colors",
@@ -582,10 +583,10 @@ class LogViewTest {
         labels(view));
     assertEquals(
         List.of("Toggle Fold", "Collapse All Folds", "Expand All Folds"),
-        labels(view.getItem(16).getMenu()));
+        labels(view.getItem(17).getMenu()));
     assertEquals(
         List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
-        labels(view.getItem(17).getMenu()));
+        labels(view.getItem(18).getMenu()));
     assertEquals(
         List.of(
             "Marks and Matches",
@@ -598,8 +599,8 @@ class LogViewTest {
             "Grow Main View",
             "Shrink Main View",
             "Save Splitter Position"),
-        labels(view.getItem(18).getMenu()));
-    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(24).getMenu()));
+        labels(view.getItem(19).getMenu()));
+    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(25).getMenu()));
     assertEquals(
         List.of(
             "Configure Highlighters",
@@ -676,6 +677,7 @@ class LogViewTest {
             "Replace Scratchpad with Selection",
             "-",
             "Toggle Fold",
+            "Wrap Line",
             "Scroll All Tabs to This Time",
             "Time Sync",
             "-",
@@ -689,8 +691,8 @@ class LogViewTest {
 
   /**
    * Every menu, cascade and context menu gives each item a mnemonic letter of its own. Listed
-   * entries (paths, open files, sets, charsets, timestamp formats, color labels, tabs) and the
-   * placeholders of empty lists carry none.
+   * entries (paths, open files, sets, charsets, timestamp formats, color labels, tabs), the
+   * placeholders of empty lists and Wrap Line carry none.
    */
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
@@ -774,7 +776,8 @@ class LogViewTest {
         repeated.add(name + ": '" + key + "' again in " + text);
       }
       boolean listed = (item.getStyle() & SWT.RADIO) != 0 && !(item.getData() instanceof CommandId);
-      if (key == 0 && !listed && fixedLabel(text)) {
+      boolean exempt = item.getData() == CommandId.WRAP_LINE;
+      if (key == 0 && !listed && !exempt && fixedLabel(text)) {
         repeated.add(name + ": no mnemonic in " + text);
       }
       seen.add(key);

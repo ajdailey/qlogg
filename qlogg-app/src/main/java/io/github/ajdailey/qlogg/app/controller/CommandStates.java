@@ -163,6 +163,7 @@ public final class CommandStates {
       // Clear Results.
       case CLEAR_RESULTS ->
           document != null && document.search().state().phase() != SearchViewState.Phase.IDLE;
+      case WRAP_LINE -> document != null && !document.wrap();
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }

@@ -27,6 +27,7 @@ import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
@@ -47,9 +48,12 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
 import org.junit.jupiter.api.AfterEach;
@@ -59,8 +63,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Wheel modifiers, block drags, text wrap, whitespace and fold painting, the scratchpad, the search
- * across open files and the Automatic Highlighters dialog, driven through SWT events under Xvfb.
+ * Wheel modifiers, block drags, text wrap, line wrap markers, whitespace and fold painting, the
+ * scratchpad, the search across open files and the Automatic Highlighters dialog, driven through
+ * SWT events under Xvfb.
  */
 @Tag("swt")
 class ViewFeaturesGuiTest {
@@ -406,6 +411,180 @@ class ViewFeaturesGuiTest {
     assertEquals(new TextPosition(0, columns + 2L), second);
     TextPosition next = view.hit(view.gutterWidth(), segments * view.lineHeight() + 1);
     assertEquals(1, next.line());
+    paint();
+  }
+
+  // Line wrap.
+
+  /** Waits until the shown document's line {@code row} is wrapped in place and read. */
+  private void awaitLineWrapped(final long row) {
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().wrappedLines().contains(row)
+                    && window.canvas().wrappedRow() == row;
+              }
+            }));
+  }
+
+  /** Waits until the main view holds its first rows. */
+  private void awaitRows() {
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().lines().contains(1);
+              }
+            }));
+  }
+
+  /** Reports whether any pixel of a row's cell in the marker strip differs from the color. */
+  private boolean markerInk(ImageData data, int row, Rgb color) {
+    LogCanvas view = window.canvas();
+    int right = canvas().getClientArea().width;
+    int top = row * view.lineHeight();
+    RGB wanted = new RGB(color.red(), color.green(), color.blue());
+    for (int x = right - view.markerWidth(); x < right; x++) {
+      for (int y = top; y < top + view.lineHeight(); y++) {
+        if (!wanted.equals(data.palette.getRGB(data.getPixel(x, y)))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private ImageData capture() {
+    Image image = new Image(display, canvas().getSize().x, canvas().getSize().y);
+    GC gc = new GC(image);
+    try {
+      Gtk4.assertPrinted(canvas().print(gc));
+      return image.getImageData();
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
+  }
+
+  /** Returns the context menu's item of a command after the menu's {@code SWT.Show}. */
+  private MenuItem contextItem(LogCanvas view, CommandId command) {
+    view.menuAt(10, 1);
+    Menu menu = view.control().getMenu();
+    menu.setVisible(false);
+    menu.notifyListeners(SWT.Show, new Event());
+    for (MenuItem item : menu.getItems()) {
+      if (item.getData() == command) {
+        return item;
+      }
+    }
+    throw new AssertionError(command.name());
+  }
+
+  @Test
+  void theContextMenusDisableWrapLineWithTextWrap() {
+    LogCanvas filtered = window.results().canvas();
+    assertTrue(contextItem(window.canvas(), CommandId.WRAP_LINE).isEnabled());
+    assertTrue(contextItem(filtered, CommandId.WRAP_LINE).isEnabled());
+    assertFalse(contextItem(window.canvas(), CommandId.SCROLL_TABS_TO_TIME).isEnabled());
+    controller.execute(CommandId.TOGGLE_WRAP);
+    assertFalse(contextItem(window.canvas(), CommandId.WRAP_LINE).isEnabled());
+    assertFalse(contextItem(filtered, CommandId.WRAP_LINE).isEnabled());
+    controller.execute(CommandId.TOGGLE_WRAP);
+    assertTrue(contextItem(window.canvas(), CommandId.WRAP_LINE).isEnabled());
+  }
+
+  /**
+   * With text wrap off the reported columns exclude the marker strip; with it on they take the
+   * whole width right of the gutter.
+   */
+  @Test
+  void theMarkerStripNarrowsTheColumnsWithTextWrapOff() {
+    awaitRows();
+    final LogCanvas view = window.canvas();
+    final int width = canvas().getClientArea().width - view.gutterWidth();
+    assertEquals((int) ((width - view.markerWidth()) / view.advance()), columns());
+    assertEquals(view.markerWidth(), view.markerMargin());
+    controller.execute(CommandId.TOGGLE_WRAP);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return columns() == (int) (width / view.advance());
+              }
+            }));
+    assertEquals(0, view.markerMargin());
+  }
+
+  private int columns() {
+    return document().viewport().columns();
+  }
+
+  /** Line 0 runs 400 columns past the right edge and line 1 fits: only line 0 shows a marker. */
+  @Test
+  void aWrapMarkerPaintsOnACutRowOnly() {
+    awaitRows();
+    Rgb gutter = window.canvas().palette().gutter();
+    ImageData data = capture();
+    assertTrue(markerInk(data, 0, gutter));
+    assertFalse(markerInk(data, 1, gutter));
+    assertEquals(-1, window.canvas().lineMarker(window.canvas().gutterWidth() + 2, 1));
+  }
+
+  @Test
+  void aMarkerClickWrapsAndUnwrapsWithoutMovingTheCaret() {
+    awaitRows();
+    document().select(Selection.caretAt(new TextPosition(5, 2)));
+    LogCanvas view = window.canvas();
+    int x = canvas().getClientArea().width - view.markerWidth() / 2;
+    int y = view.lineHeight() / 2;
+    view.tooltip(x, y);
+    assertEquals(UiText.TOOLTIP_WRAP_LINE.text(), canvas().getToolTipText());
+    mouse(SWT.MouseDown, x, y, 0);
+    mouse(SWT.MouseUp, x, y, 0);
+    assertEquals(0, document().wrappedLine());
+    awaitLineWrapped(0);
+    assertEquals(Selection.caretAt(new TextPosition(5, 2)), document().selection());
+    view.tooltip(x, y);
+    assertEquals(UiText.TOOLTIP_UNWRAP_LINE.text(), canvas().getToolTipText());
+    mouse(SWT.MouseDown, x, y, 0);
+    mouse(SWT.MouseUp, x, y, 0);
+    assertEquals(-1, document().wrappedLine());
+    assertEquals(Selection.caretAt(new TextPosition(5, 2)), document().selection());
+    view.tooltip(view.gutterWidth() + 2, y);
+    assertEquals(null, canvas().getToolTipText());
+  }
+
+  /**
+   * With the view scrolled 3 columns right and line 0 wrapped in place, its second row maps from
+   * column 0 by segment, and line 1 below it maps from column 3.
+   */
+  @Test
+  void aLineWrappedInPlaceHitsBySegmentAndOtherLinesByTheScroll() {
+    awaitRows();
+    wheel(-3, SWT.ALT);
+    assertEquals(3, document().viewport().firstColumn());
+    controller.execute(CommandId.WRAP_LINE);
+    awaitLineWrapped(0);
+    final int screen = canvas().getClientArea().height / window.canvas().lineHeight();
+    int columns = document().viewport().columns();
+    final int segments = (400 + columns - 1) / columns;
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return document().viewport().rows() == screen - segments + 1;
+              }
+            }));
+    LogCanvas view = window.canvas();
+    int x = view.gutterWidth() + view.columnOffset(2);
+    assertEquals(new TextPosition(0, columns + 2L), view.hit(x, view.lineHeight() + 1));
+    assertEquals(new TextPosition(1, 5), view.hit(x, segments * view.lineHeight() + 1));
+    assertEquals(3, document().viewport().firstColumn());
     paint();
   }
 

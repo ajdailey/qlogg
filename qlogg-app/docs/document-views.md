@@ -58,6 +58,15 @@ With text wrap on (`setWrap`, both views of a document at once):
 - a block selection is refused with a notice;
 - a collapsed entry is still one line, wrapped.
 
+With text wrap off, `toggleLineWrap` (Wrap Line, `W`, or the view's line
+marker) wraps one line in place per view, keyed by its source line; wrapping
+another line unwraps the first. Turning text wrap on unwraps it and disables
+the command, each `SearchController.run` unwraps the filtered view's, and a
+reload starts without one. While the line is in the
+visible rows, the read also decodes it alone from column 0 into `wrappedLines`,
+up to the view's columns times its screen rows, and the viewport's rows follow
+`wrapFitted` as with text wrap on. The other rows keep their column window.
+
 ## Copy and save
 
 Copy, save and `selectedText` run `TextExporter` on a worker. `TextExporter` is

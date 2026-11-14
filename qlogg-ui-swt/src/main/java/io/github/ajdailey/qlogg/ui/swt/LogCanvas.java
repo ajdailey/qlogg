@@ -63,6 +63,14 @@ import org.slf4j.LoggerFactory;
  * sideways and {@code Shift}+wheel by pages. With text wrap on, the view reports the lines that fit
  * whole ({@link LineViewController#wrapFitted}).
  *
+ * <p>With text wrap off, a strip at the right edge ({@link #markerMargin}) holds line markers and
+ * no text, and the columns reported to the controller exclude it. A row whose line runs past the
+ * reported columns shows a wrap marker there, and the first row of the line wrapped in place
+ * ({@link LineViewController#wrappedLines}) an unwrap marker. A click on a marker toggles the
+ * line's wrap without moving the caret. The wrapped line paints from column 0 in segments of the
+ * view's width, every other line from the first visible column, and the view reports the lines that
+ * fit whole as with text wrap on.
+ *
  * <p>The canvas sits in a {@link #frame()} with a {@link Slider} as the vertical scroll bar at its
  * right, so a side control ({@link #addSide}) goes between the text and the scroll bar. The canvas
  * keeps its native horizontal scroll bar.
@@ -136,7 +144,10 @@ public final class LogCanvas {
         @Override
         public void contentChanged() {
           if (!canvas.isDisposed()) {
-            if (document.wrap()) {
+            if (marginShown != (markerMargin() > 0)) {
+              resized();
+            }
+            if (fitsLines()) {
               document.wrapFitted(wrapFit());
             }
             updateScrollBars();
@@ -237,7 +248,7 @@ public final class LogCanvas {
   private void remeasure() {
     measure();
     resized();
-    if (document.wrap()) {
+    if (fitsLines()) {
       document.wrapFitted(wrapFit());
     }
     canvas.redraw();
@@ -296,7 +307,27 @@ public final class LogCanvas {
     }
     // Menu item icons.
     menuIcons.decorate(menu);
+    final Menu built = menu;
+    menu.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            enable(built, new CommandStates(application));
+          }
+        });
     return menu;
+  }
+
+  /** Enables each command item of a context menu and its cascades as the menu bar does. */
+  private static void enable(Menu menu, CommandStates states) {
+    for (MenuItem item : menu.getItems()) {
+      if (item.getData() instanceof CommandId command) {
+        item.setEnabled(states.enabled(command));
+      } else if (item.getMenu() != null) {
+        enable(item.getMenu(), states);
+      }
+    }
   }
 
   /** Fills a {@link MenuTable#LOG_VIEW_CASCADES} cascade as it shows. */
@@ -523,7 +554,7 @@ public final class LogCanvas {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.button == 1) {
+            if (event.button == 1 && lineMarker(event.x, event.y) < 0) {
               document.selectWordAt(wordHit(event.x, event.y));
             }
           }
@@ -555,12 +586,12 @@ public final class LogCanvas {
             }
           }
         });
-    // Mark comment tooltip.
+    // Mark comment and line marker tooltips.
     Listener tooltip =
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            commentTooltip(event.type == SWT.MouseMove ? event.x : -1, event.y);
+            tooltip(event.type == SWT.MouseMove ? event.x : -1, event.y);
           }
         };
     canvas.addListener(SWT.MouseMove, tooltip);
@@ -669,6 +700,11 @@ public final class LogCanvas {
     }
     canvas.setFocus();
     application.setFocusedView(document);
+    long marked = lineMarker(event.x, event.y);
+    if (marked >= 0) {
+      document.toggleLineWrap(marked);
+      return;
+    }
     TextPosition position = hit(event.x, event.y);
     if (event.x < bulletWidth()) {
       document.select(Selection.caretAt(new TextPosition(position.line(), 0)));
@@ -688,24 +724,31 @@ public final class LogCanvas {
   }
 
   /**
-   * Shows the comment of the mark under the pointer as the canvas tooltip while the pointer is in
-   * the bullet column, and no tooltip elsewhere.
+   * Sets the canvas tooltip for the pointer: the comment of the mark under it in the bullet column,
+   * Wrap line or Unwrap line over a line marker, and none elsewhere.
    *
    * @param x the pointer's x, or -1 when it left the canvas
    * @param y the pointer's y
    */
-  void commentTooltip(int x, int y) {
-    String comment = null;
+  void tooltip(int x, int y) {
+    String text = null;
     Viewport viewport = document.viewport();
-    boolean below =
-        !document.wrap() && viewport.topLine() + y / grid.lineHeight() >= viewport.lineCount();
+    boolean below = !document.wrap() && rowAt(y).line() >= viewport.lineCount();
     if (x >= 0 && x < bulletWidth() && !dragging && !below) {
       long source = document.sourceLine(hit(x, y).line());
-      comment = source >= 0 && document.marked(source) ? document.markComment(source) : null;
+      text = source >= 0 && document.marked(source) ? document.markComment(source) : null;
+    } else if (x >= 0 && !dragging) {
+      long row = lineMarker(x, y);
+      if (row >= 0) {
+        text =
+            row == wrappedRow()
+                ? UiText.TOOLTIP_UNWRAP_LINE.text()
+                : UiText.TOOLTIP_WRAP_LINE.text();
+      }
     }
     String shown = canvas.getToolTipText();
-    if (comment == null ? shown != null : !comment.equals(shown)) {
-      canvas.setToolTipText(comment);
+    if (text == null ? shown != null : !text.equals(shown)) {
+      canvas.setToolTipText(text);
     }
   }
 
@@ -817,10 +860,17 @@ public final class LogCanvas {
     int textX = x - gutterWidth();
     if (document.wrap()) {
       return grid.wrappedHit(
+          viewport.topLine(), viewport.lineCount(), rowsPerLine(), wrapColumns(), textX, y);
+    }
+    long wrapped = wrappedRow();
+    if (wrapped >= 0) {
+      return grid.lineWrapHit(
           viewport.topLine(),
           viewport.lineCount(),
-          wrappedRows(document.lines()),
+          rowsPerLine(),
+          wrapped,
           wrapColumns(),
+          viewport.firstColumn(),
           textX,
           y);
     }
@@ -828,21 +878,125 @@ public final class LogCanvas {
   }
 
   /**
-   * Maps a double click to a line and column: as {@link #hit}, except that with text wrap on a
+   * Maps a double click to a line and column: as {@link #hit}, except that on a wrapped line a
    * point past a segment's right edge stays on that segment ({@link TextGrid#wrappedWordHit}).
    */
   TextPosition wordHit(int x, int y) {
-    if (!document.wrap()) {
-      return hit(x, y);
-    }
     Viewport viewport = document.viewport();
-    return grid.wrappedWordHit(
-        viewport.topLine(),
-        viewport.lineCount(),
-        wrappedRows(document.lines()),
-        wrapColumns(),
-        x - gutterWidth(),
-        y);
+    int textX = x - gutterWidth();
+    if (document.wrap()) {
+      return grid.wrappedWordHit(
+          viewport.topLine(), viewport.lineCount(), rowsPerLine(), wrapColumns(), textX, y);
+    }
+    long wrapped = wrappedRow();
+    if (wrapped >= 0) {
+      return grid.lineWrapWordHit(
+          viewport.topLine(),
+          viewport.lineCount(),
+          rowsPerLine(),
+          wrapped,
+          wrapColumns(),
+          viewport.firstColumn(),
+          textX,
+          y);
+    }
+    return hit(x, y);
+  }
+
+  // Line wrap.
+
+  /** Reports whether the viewport's rows are the lines that fit whole. */
+  private boolean fitsLines() {
+    return document.wrap() || document.wrappedLine() >= 0;
+  }
+
+  /**
+   * Returns the row of the line wrapped in place, as last read.
+   *
+   * @return the row, or -1 with text wrap on or while the line is not read or not in view
+   */
+  long wrappedRow() {
+    LineBlock wrapped = document.wrappedLines();
+    return document.wrap() || wrapped.count() != 1 ? -1 : wrapped.firstLine();
+  }
+
+  /** Returns the width of a line marker at the right edge of the text area, in pixels. */
+  int markerWidth() {
+    return Math.max(grid.cellWidth(), grid.lineHeight() / 2) + 4;
+  }
+
+  /** Whether the last {@link #resized} reserved the marker strip. */
+  private boolean marginShown;
+
+  /**
+   * Returns the width of the strip at the canvas's right edge that holds the line markers, which
+   * text never paints into and the reported columns exclude.
+   *
+   * @return {@link #markerWidth} with text wrap off, else 0
+   */
+  int markerMargin() {
+    return document.wrap() ? 0 : markerWidth();
+  }
+
+  /**
+   * Reports whether a row shows a line marker: an unwrap marker on the first row of the line
+   * wrapped in place, a wrap marker on a line that runs past the right edge.
+   *
+   * @param line a row
+   * @param wrapped the row of the line wrapped in place, or -1
+   * @return false with text wrap on and for a row not read yet
+   */
+  private boolean marked(long line, long wrapped) {
+    if (document.wrap()) {
+      return false;
+    }
+    if (line == wrapped) {
+      return true;
+    }
+    LineBlock block = document.lines();
+    Viewport viewport = document.viewport();
+    return block.contains(line) && block.width(line) > viewport.firstColumn() + viewport.columns();
+  }
+
+  /**
+   * Returns the row whose line marker lies under a point.
+   *
+   * @param x the x in the canvas
+   * @param y the y in the canvas
+   * @return the row, or -1 when no marker is there
+   */
+  long lineMarker(int x, int y) {
+    if (document.wrap() || x < canvas.getClientArea().width - markerWidth()) {
+      return -1;
+    }
+    TextGrid.LineRow at = rowAt(y);
+    long line = at.line();
+    if (at.segment() != 0 || line >= document.viewport().lineCount()) {
+      return -1;
+    }
+    return marked(line, wrappedRow()) ? line : -1;
+  }
+
+  /** Returns the line and segment under a y, the line count below the last line. */
+  private TextGrid.LineRow rowAt(int y) {
+    Viewport viewport = document.viewport();
+    return grid.lineRow(viewport.topLine(), viewport.lineCount(), rowsPerLine(), y);
+  }
+
+  /** Draws a line marker in the marker strip: a chevron right to wrap, left to unwrap. */
+  private void paintLineMarker(GC gc, boolean unwrap, int y, int right) {
+    int width = markerWidth();
+    int lineHeight = grid.lineHeight();
+    int x = right - width;
+    gc.setForeground(colors.lineNumbers);
+    gc.setLineWidth(Math.max(1, lineHeight / 10));
+    int half = Math.max(2, Math.min(width - 4, lineHeight / 2) / 2);
+    int middle = y + lineHeight / 2;
+    int center = x + width / 2;
+    int tip = unwrap ? center - half / 2 : center + half / 2;
+    int back = unwrap ? tip + half : tip - half;
+    gc.drawPolyline(new int[] {back, middle - half, tip, middle, back, middle + half});
+    gc.setLineWidth(0);
   }
 
   /** Returns the width of the bullet column in pixels. */
@@ -860,7 +1014,10 @@ public final class LogCanvas {
       return;
     }
     Rectangle area = canvas.getClientArea();
-    document.viewportResized(grid.rows(area.height), grid.columns(area.width - gutterWidth()));
+    int margin = markerMargin();
+    marginShown = margin > 0;
+    document.viewportResized(
+        grid.rows(area.height), grid.columns(area.width - gutterWidth() - margin));
     updateScrollBars();
   }
 
@@ -896,17 +1053,23 @@ public final class LogCanvas {
     return TextGrid.wrappedRows(Math.min(block.width(line), (long) block.columns()), wrapColumns());
   }
 
-  private TextGrid.WrappedRows wrappedRows(final LineBlock block) {
+  /**
+   * Rows each line takes: wrapped with text wrap on; otherwise one, except the line wrapped in
+   * place.
+   */
+  private TextGrid.WrappedRows rowsPerLine() {
+    final boolean wrap = document.wrap();
+    final LineBlock block = wrap ? document.lines() : document.wrappedLines();
     return new TextGrid.WrappedRows() {
       @Override
       public int rows(long line) {
-        return wrappedRows(block, line);
+        return wrap || block.contains(line) ? wrappedRows(block, line) : 1;
       }
     };
   }
 
   /**
-   * Counts the lines from the top that fit the view whole when wrapped.
+   * Counts the lines from the top that fit the view whole, with lines wrapped as they paint.
    *
    * @return at least 1
    */
@@ -915,14 +1078,15 @@ public final class LogCanvas {
     return grid.wrapFit(
         viewport.topLine(),
         viewport.lineCount(),
-        wrappedRows(document.lines()),
+        rowsPerLine(),
         canvas.getClientArea().height,
         document.screenRows());
   }
 
   /**
-   * Paints the visible rows through the {@link RowPainter}: one screen row per line, or with text
-   * wrap on one per segment of {@link #wrapColumns} columns, then the gutter.
+   * Paints the visible rows through the {@link RowPainter}: one screen row per line, or one per
+   * segment of {@link #wrapColumns} columns for a wrapped line, then the line markers and the
+   * gutter.
    */
   private void paint(GC gc) {
     colors.trim();
@@ -938,33 +1102,45 @@ public final class LogCanvas {
     Selection selection = document.selection();
     long caretLine = selection.caret().line();
     boolean wrap = document.wrap();
+    long wrappedRow = wrappedRow();
+    TextGrid.WrappedRows rows = rowsPerLine();
     int columns = wrapColumns();
     int gutter = gutterWidth();
+    int margin = markerMargin();
     int lineHeight = grid.lineHeight();
+    List<Integer> wrapMarkers = new ArrayList<Integer>();
+    int unwrapMarker = -1;
     int y = 0;
     for (long line = viewport.topLine(); line < viewport.lineCount() && y < area.height; line++) {
       long[] selected = selectedColumns(selection, line);
-      int segments = wrap ? wrappedRows(block, line) : 1;
+      boolean wrapped = wrap || line == wrappedRow;
+      LineBlock held = line == wrappedRow ? document.wrappedLines() : block;
+      int segments = rows.rows(line);
       long source = block.contains(line) ? block.sourceLine(line) : -1;
       boolean context = source >= 0 && document.contextRow(source);
       if (source >= 0 && document.startsGroup(source)) {
         groupRules.add(y);
       }
+      if (line == wrappedRow) {
+        unwrapMarker = y;
+      } else if (marked(line, wrappedRow)) {
+        wrapMarkers.add(y);
+      }
       for (int k = 0; k < segments && y < area.height; k++) {
-        long from = wrap ? (long) k * columns : viewport.firstColumn();
+        long from = wrapped ? (long) k * columns : viewport.firstColumn();
         painter.paint(
             gc,
             colors,
             grid,
             new RowPainter.Row(
-                block,
+                held,
                 line,
                 from,
-                wrap ? from + columns : Long.MAX_VALUE,
+                wrapped ? from + columns : Long.MAX_VALUE,
                 k == segments - 1,
                 gutter,
                 y,
-                area.width,
+                area.width - margin,
                 line == caretLine,
                 selected[0],
                 selected[1],
@@ -973,8 +1149,18 @@ public final class LogCanvas {
       }
     }
     painter.endPaint();
-    paintGroupRules(gc, gutter, area.width);
-    paintGutter(gc, viewport, block, wrap, gutter, area);
+    paintGroupRules(gc, gutter, area.width - margin);
+    if (margin > 0) {
+      gc.setBackground(colors.gutter);
+      gc.fillRectangle(area.width - margin, 0, margin, area.height);
+    }
+    for (int top : wrapMarkers) {
+      paintLineMarker(gc, false, top, area.width);
+    }
+    if (unwrapMarker >= 0) {
+      paintLineMarker(gc, true, unwrapMarker, area.width);
+    }
+    paintGutter(gc, viewport, rows, gutter, area);
     if (!TEXT_PAINTED.get()
         && y > 0
         && block.contains(viewport.topLine())
@@ -1031,7 +1217,8 @@ public final class LogCanvas {
    * and, for a collapsed entry, the fold marker under the line's last row.
    */
   private void paintGutter(
-      GC gc, Viewport viewport, LineBlock block, boolean wrap, int gutter, Rectangle area) {
+      GC gc, Viewport viewport, TextGrid.WrappedRows lineRows, int gutter, Rectangle area) {
+    LineBlock block = document.lines();
     gc.setBackground(colors.gutter);
     gc.fillRectangle(0, 0, gutter, area.height);
     int lineHeight = grid.lineHeight();
@@ -1040,7 +1227,7 @@ public final class LogCanvas {
     boolean numbers = document.lineNumbers();
     int y = 0;
     for (long line = viewport.topLine(); line < viewport.lineCount() && y < area.height; line++) {
-      int rows = wrap ? wrappedRows(block, line) : 1;
+      int rows = lineRows.rows(line);
       if (block.contains(line)) {
         long source = block.sourceLine(line);
         Color marker =

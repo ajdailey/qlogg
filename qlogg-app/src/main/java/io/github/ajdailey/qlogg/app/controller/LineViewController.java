@@ -62,6 +62,12 @@ import org.slf4j.LoggerFactory;
  * selection is refused. Save ({@link #saveLines}) builds the text like copy and writes it as UTF-8
  * through {@link io.github.ajdailey.qlogg.core.io.AtomicFiles} on the worker.
  *
+ * <p>With text wrap off, one line at a time wraps in place ({@link #toggleLineWrap}), keyed by its
+ * source line. While it is listed in the visible rows, the read also decodes it alone from column 0
+ * into {@link #wrappedLines}, and the viewport's rows are the lines the view reports as fitting, as
+ * with text wrap on. Turning text wrap on unwraps it, a new search unwraps the filtered view's, and
+ * a reload builds a new controller without one.
+ *
  * <p>With a timestamp format ({@link DocumentController#time}), the caret line's time and, for a
  * selection over more than one row, the times of its first and last rows' lines are read by a
  * {@link CaretTimes} ({@link #timeStatus}); listeners hear {@code timeChanged} when they change.
@@ -103,6 +109,9 @@ public abstract class LineViewController {
   private boolean whitespace;
   private int screenRows = 1;
   private int wrapFit = 1;
+  // Line wrap.
+  private long wrappedLine = -1;
+  private LineBlock wrappedLines = LineBlock.EMPTY;
   // Caret time and selection difference.
   private final CaretTimes caretTimes;
 
@@ -384,6 +393,7 @@ public abstract class LineViewController {
       case EXTEND_BLOCK_DOWN -> extendBlock(1, 0);
       case EXTEND_BLOCK_LEFT -> extendBlock(0, -1);
       case EXTEND_BLOCK_RIGHT -> extendBlock(0, 1);
+      case WRAP_LINE -> toggleLineWrap(selection.caret().line());
       default -> {
         // Window and document commands run in ApplicationController and DocumentController.
       }
@@ -398,7 +408,7 @@ public abstract class LineViewController {
    */
   public void viewportResized(int rows, int columns) {
     screenRows = Math.max(1, rows);
-    int shown = wrap ? Math.min(screenRows, wrapFit) : screenRows;
+    int shown = fitsLines() ? Math.min(screenRows, wrapFit) : screenRows;
     if (shown == viewport.rows() && columns == viewport.columns()) {
       return;
     }
@@ -417,8 +427,8 @@ public abstract class LineViewController {
   }
 
   /**
-   * Turns text wrap on or off; turning it on scrolls to the first column and drops a block
-   * selection.
+   * Turns text wrap on or off; turning it on scrolls to the first column, unwraps the line wrapped
+   * in place and drops a block selection.
    *
    * @param on true to wrap
    */
@@ -430,6 +440,8 @@ public abstract class LineViewController {
     wrapFit = screenRows;
     if (on) {
       viewport.setFirstColumn(0);
+      wrappedLine = -1;
+      wrappedLines = LineBlock.EMPTY;
       if (blockSelected) {
         blockSelected = false;
         selection = Selection.caretAt(selection.caret());
@@ -439,16 +451,71 @@ public abstract class LineViewController {
     changed();
   }
 
+  // Line wrap.
+
   /**
-   * Reports, with text wrap on, how many lines from the top fit the view whole, counting a line not
-   * read yet as one row. The viewport's rows follow it, so the last lines can scroll into view and
-   * caret moves keep the caret's line on screen.
+   * Returns the line wrapped in place.
+   *
+   * @return the 0-based source line, or -1 for none; always -1 with text wrap on
+   */
+  public long wrappedLine() {
+    return wrappedLine;
+  }
+
+  /**
+   * Returns the line wrapped in place as last read: one row, from column 0, up to the view's
+   * columns times its screen rows ({@link #MAX_WRAP_COLUMNS} at most).
+   *
+   * @return the block, or {@link LineBlock#EMPTY} while the line is not read or not in view
+   */
+  public LineBlock wrappedLines() {
+    return wrappedLines;
+  }
+
+  /**
+   * Wraps a row's line in place, unwrapping the line wrapped before; a row whose line is wrapped is
+   * unwrapped. Ignored with text wrap on.
+   *
+   * @param row a row
+   */
+  public void toggleLineWrap(long row) {
+    long source = sourceLine(row);
+    if (wrap || closed || source < 0) {
+      return;
+    }
+    setWrappedLine(source == wrappedLine ? -1 : source);
+  }
+
+  /** Unwraps the line wrapped in place, if any; a new search does this in the filtered view. */
+  void unwrapLine() {
+    if (wrappedLine >= 0) {
+      setWrappedLine(-1);
+    }
+  }
+
+  private void setWrappedLine(long source) {
+    wrappedLine = source;
+    wrappedLines = LineBlock.EMPTY;
+    wrapFit = screenRows;
+    viewport.resize(screenRows, viewport.columns());
+    changed();
+  }
+
+  /** Reports whether the viewport's rows follow {@link #wrapFitted}. */
+  private boolean fitsLines() {
+    return wrap || wrappedLine >= 0;
+  }
+
+  /**
+   * Reports, with text wrap on or a line wrapped in place, how many lines from the top fit the view
+   * whole, counting a line not read yet as one row. The viewport's rows follow it, so the last
+   * lines can scroll into view and caret moves keep the caret's line on screen.
    *
    * @param lines lines that fit, at least 1
    */
   public void wrapFitted(int lines) {
     int fit = Math.max(1, Math.min(screenRows, lines));
-    if (!wrap || fit == wrapFit) {
+    if (!fitsLines() || fit == wrapFit) {
       return;
     }
     wrapFit = fit;
@@ -613,11 +680,12 @@ public abstract class LineViewController {
    */
   public void selectWordAt(TextPosition position) {
     long row = position.line();
-    if (!lines.contains(row)) {
+    LineBlock held = wrappedLines.contains(row) ? wrappedLines : lines;
+    if (!held.contains(row)) {
       return;
     }
-    String text = lines.text(row);
-    long column = position.column() - lines.firstColumn();
+    String text = held.text(row);
+    long column = position.column() - held.firstColumn();
     if (column < 0 || column >= text.length() || !printableAscii(text)) {
       return;
     }
@@ -636,7 +704,7 @@ public abstract class LineViewController {
     while (end < text.length() && wordChar(text.charAt(end))) {
       end++;
     }
-    long first = lines.firstColumn();
+    long first = held.firstColumn();
     select(new Selection(new TextPosition(row, first + start), new TextPosition(row, first + end)));
   }
 
@@ -1172,11 +1240,18 @@ public abstract class LineViewController {
     final long top = viewport.topLine();
     final int count = Math.max(viewport.rows(), screenRows) + 1;
     final long firstColumn = wrap ? 0 : viewport.firstColumn();
-    final int columns =
-        wrap
-            ? (int) Math.min(MAX_WRAP_COLUMNS, (long) viewport.columns() * screenRows)
-            : viewport.columns() + COLUMN_MARGIN;
+    final int wrapColumns =
+        (int) Math.min(MAX_WRAP_COLUMNS, (long) viewport.columns() * screenRows);
+    final int columns = wrap ? wrapColumns : viewport.columns() + COLUMN_MARGIN;
     final long[] source = visibleSourceLines(top, count);
+    long row = -1;
+    for (int i = 0; i < source.length && wrappedLine >= 0; i++) {
+      if (source[i] == wrappedLine) {
+        row = top + i;
+        break;
+      }
+    }
+    final long wrappedRow = row;
     final Highlighter colors = highlighter;
     final boolean markers = whitespace;
     readInFlight =
@@ -1185,10 +1260,27 @@ public abstract class LineViewController {
             new Runnable() {
               @Override
               public void run() {
-                read(index, top, source, firstColumn, columns, colors, markers);
+                read(
+                    index,
+                    top,
+                    source,
+                    firstColumn,
+                    columns,
+                    new Wrapped(wrappedRow, wrappedRow < 0 ? -1 : wrappedLine, wrapColumns),
+                    colors,
+                    markers);
               }
             });
   }
+
+  /**
+   * The line wrapped in place, as a read decodes it.
+   *
+   * @param row its row, or -1 when it is not in view
+   * @param line its source line
+   * @param columns columns read from column 0
+   */
+  private record Wrapped(long row, long line, int columns) {}
 
   /**
    * Posts back on every outcome, so {@code readInFlight} always clears; an unexpected exception
@@ -1201,9 +1293,11 @@ public abstract class LineViewController {
       long[] source,
       long firstColumn,
       int columns,
+      Wrapped wrapped,
       Highlighter colors,
       boolean markers) {
     LineBlock block = null;
+    LineBlock alone = LineBlock.EMPTY;
     String error = null;
     long charged = 0;
     boolean admitted = document.enter();
@@ -1215,11 +1309,24 @@ public abstract class LineViewController {
       block =
           reader.readRows(
               index, top, source, source.length, firstColumn, columns, matcher, markers);
-      long bytes = block.spanBytes();
+      if (wrapped.row() >= 0) {
+        alone =
+            reader.readRows(
+                index,
+                wrapped.row(),
+                new long[] {wrapped.line()},
+                1,
+                0,
+                wrapped.columns(),
+                matcher,
+                markers);
+      }
+      long bytes = block.spanBytes() + alone.spanBytes();
       if (bytes > 0 && budget.reserve(MemoryShare.HIGHLIGHT, bytes)) {
         charged = bytes;
       } else if (bytes > 0) {
         block = block.withoutSpans();
+        alone = alone.withoutSpans();
       }
     } catch (ClosedChannelException e) {
       // Closed while reading: the controller is detached and drops the result.
@@ -1231,19 +1338,20 @@ public abstract class LineViewController {
         document.exit();
       }
       final LineBlock result = block;
+      final LineBlock line = alone;
       final String message = error;
       final long reserved = charged;
       ui.asyncExec(
           new Runnable() {
             @Override
             public void run() {
-              linesRead(result, message, reserved);
+              linesRead(result, line, message, reserved);
             }
           });
     }
   }
 
-  private void linesRead(LineBlock block, String error, long reserved) {
+  private void linesRead(LineBlock block, LineBlock alone, String error, long reserved) {
     readInFlight = false;
     if (closed || block == null) {
       budget.release(MemoryShare.HIGHLIGHT, reserved);
@@ -1255,6 +1363,11 @@ public abstract class LineViewController {
       budget.release(MemoryShare.HIGHLIGHT, spanCharge);
       spanCharge = reserved;
       lines = block;
+      // A read started before the line was wrapped or unwrapped holds another line, or none.
+      wrappedLines =
+          alone.count() == 1 && alone.sourceLine(alone.firstLine()) == wrappedLine
+              ? alone
+              : LineBlock.EMPTY;
       viewport.setMaxColumns(Math.max(viewport.maxColumns(), block.maxWidth()));
       fireContent();
     } else if (error != null) {

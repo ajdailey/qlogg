@@ -158,8 +158,9 @@ quote is one term.
   stores named patterns, with import and export.
 - `Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
   exclude it, or replace the search with it.
-- Search > Clear Results stops the shown tab's search and empties its
-  results; kept result tabs stay.
+- Search > Clear Results, or the close button on the Results tab, stops the
+  shown tab's search and empties its results; kept result tabs stay. A kept
+  result tab's close button removes that tab.
 - Each search that runs, including selected log text added with `Shift+A`,
   `Shift+E` or `Shift+R`, is saved to the search history in `qlogg.conf`.
   Search > Clear Search History removes the history.
@@ -488,15 +489,21 @@ it was read.
 ## View options
 
 The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
-Files), markers for tabs, trailing spaces and line ends, hiding ANSI color
-sequences (for display, copy and search), the overview bar, and the light,
-dark and system themes. Light and dark also apply to menus, scroll bars and
+Files), Wrap Line (`W`), markers for tabs, trailing spaces and line
+ends, hiding ANSI color sequences (for display, copy and search), the overview
+bar, and the light, dark and system themes. Light and dark also apply to menus, scroll bars and
 other controls: at once on Linux, at the next start on Windows, which says so
 when you change it. On Windows the system theme applies them too, from the
 Windows setting at start; the title bar, menu bar, buttons, scroll bars, lists
 and dialogs turn dark and the main window's toolbars stay light. On Linux the
 GTK theme must have a dark variant. On macOS controls follow the system
 appearance and the theme recolors the log views.
+
+With text wrap off, a line that runs past the right edge shows a chevron in a
+narrow strip there. Clicking it, or `W` on the current line, wraps that one
+line in place; the chevron on its first row, or `W` again, unwraps it. Each
+view wraps one line at a time. Text wrap and a reload unwrap it, and a new
+search unwraps the filtered view's.
 
 ### View colors
 
@@ -620,7 +627,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
@@ -630,8 +637,8 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
 
 The log view's context menu holds the copy, mark, search, selection and save
-commands, Toggle Fold, Scroll All Tabs to This Time, and the Time Sync,
-Highlighters and Color Label cascades. Find Selection Forward and Backward,
+commands, Toggle Fold, Wrap Line, Scroll All Tabs to This Time, and the Time
+Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
 Send Selection to Scratchpad and Replace Scratchpad with Selection are only
 there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
 context menu.

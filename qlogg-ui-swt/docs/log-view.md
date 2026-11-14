@@ -34,7 +34,8 @@ Consolas or Menlo; bold and forced text anti-aliasing apply when set.
 `TextGrid` has no SWT types. Its column advance is the `GC.textExtent` width of
 1000 digits divided by 1000, kept fractional, and column `c` sits at
 `round(c * advance)`. It also sizes the gutter and maps points to columns
-(`hit`, `wrappedHit`, `wrapFit`). Hit testing always uses the grid.
+(`hit`, `wrappedHit`, `lineWrapHit`, `wrapFit`). Hit testing always uses the
+grid.
 
 A printable-ASCII row is drawn as one string with the font's own advances, so
 an advance rounded to whole pixels would drift off the glyphs by the fraction
@@ -130,10 +131,11 @@ lists Copy, Copy This Line, Copy with Line Numbers; Mark or Unmark, Edit Mark
 Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
 Selection from Search, Replace Search with Selection and the Search Limits
 cascade; Set Selection Start and End; Save Selection to File, Send Selection to
-Scratchpad, Replace Scratchpad with Selection; Toggle Fold, Scroll All Tabs to
-This Time and the Time Sync cascade; then the Highlighters (None and the sets)
+Scratchpad, Replace Scratchpad with Selection; Toggle Fold, Wrap Line, Scroll
+All Tabs to This Time and the Time Sync cascade; then the Highlighters (None and the sets)
 and Color Label (None and the label names) cascades. A right click outside the
-selection first moves the caret to that row.
+selection first moves the caret to that row. Each `SWT.Show` applies
+`CommandStates.enabled` to every command item, as the menu bar does.
 
 The menu is built on the canvas's first `MenuDetect`, not with the canvas: it
 costs 35-60 ms per view under GTK 4, which every file open would otherwise pay
@@ -151,6 +153,26 @@ the number and bullet on its first row, and hit testing walks the wrapped rows.
 - After each new snapshot the canvas counts the lines from the top that fit
   whole, a line not read yet counting one row, and reports it (`wrapFitted`).
 - The horizontal scroll bar has nothing to scroll.
+
+### Line wrap
+
+With text wrap off, one line per view wraps in place
+(`LineViewController.toggleLineWrap`, `W`). It paints from column 0 in segments
+of the view's width, as with text wrap on; every other line paints from the
+first visible column. `TextGrid.lineWrapHit` and `lineWrapWordHit` walk the
+rows as `wrappedHit` does and map a point on any other line to the first
+visible column plus the column under it. While a line is wrapped the canvas
+reports the lines that fit whole (`wrapFitted`).
+
+With text wrap off, a gutter-colored strip `markerWidth` wide at the right edge
+(`markerMargin`) holds the line markers and no text. The columns reported to
+`viewportResized` exclude it, so horizontal scrolling, line end, hit testing
+and wrapped segments use the narrower width. A row whose line runs past those
+columns shows a right chevron in the strip; the wrapped line's first row shows
+a left chevron. A click on either toggles the line's wrap without moving the
+caret or starting a drag; a double click on one selects nothing. Over a marker
+the tooltip reads Wrap line or Unwrap line. With text wrap on, the strip is
+gone and rows use the full width.
 
 ## Overview bar
 

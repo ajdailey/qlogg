@@ -673,6 +673,12 @@ public enum UiText {
   /** Command label. */
   COMMAND_TOGGLE_WRAP,
   /** Command label. */
+  COMMAND_WRAP_LINE,
+  /** Tooltip of the marker at the right edge of a row cut by the view. */
+  TOOLTIP_WRAP_LINE,
+  /** Tooltip of the marker on a line wrapped in place. */
+  TOOLTIP_UNWRAP_LINE,
+  /** Command label. */
   COMMAND_WRAP_ON_OPEN,
   /** Command label. */
   COMMAND_TOGGLE_WHITESPACE,
