@@ -573,6 +573,11 @@ time sync groups and each window's Always on Top. A session keeps at most 1,000
 mark comments over all tabs; a notice counts any left out. Each file's position
 and forced encoding are remembered; `+line:N` wins over the position.
 
+After QLogg closes on an internal error, the next start shows a status bar
+notice pointing to Help > Show Log, once. The next start that would restore the
+session opens without its tabs and windows; files named on the command line
+still open. Settings, window size and file positions are kept.
+
 File > Recent Files lists recent files; Clean Up drops missing ones and Clear
 Recent Files empties the list. File > Reopen Closed Tab (`Ctrl+Shift+T`) takes
 the newest file off Recently Closed and opens it. File > Recently Closed lists

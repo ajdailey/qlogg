@@ -1981,6 +1981,15 @@ public final class ApplicationController
     set.setSessionOwner(owner);
   }
 
+  /**
+   * Shows the notice that the last run closed after an internal error.
+   *
+   * @param tabsSkipped true when this launch did not restore the session's tabs
+   */
+  public void noticeErrorExit(boolean tabsSkipped) {
+    view.showNotice((tabsSkipped ? UiText.NOTICE_ERROR_EXIT : UiText.NOTICE_ERROR_EXIT_LOG).text());
+  }
+
   @Override
   public void documentStateChanged() {
     remembered.scheduleSave();

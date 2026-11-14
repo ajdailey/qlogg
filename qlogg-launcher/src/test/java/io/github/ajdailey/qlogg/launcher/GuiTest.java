@@ -7,11 +7,13 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.cli.SessionMode;
 import io.github.ajdailey.qlogg.app.cli.StartupRequest;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
+import io.github.ajdailey.qlogg.app.config.ErrorExitMarker;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
@@ -25,7 +27,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -212,6 +217,125 @@ class GuiTest {
     assertEquals(1, saved.size());
     assertEquals(1, saved.get(0).tabs().size());
     assertEquals(log.toString(), saved.get(0).tabs().get(0).path());
+    assertEquals(ErrorExitMarker.State.PENDING, marker().read());
+  }
+
+  @Test
+  void aRestoringLaunchAfterAnErrorExitSkipsTheSessionTabsOnceAndShowsTheNotice() throws Exception {
+    Path named = errorExit();
+    List<String> first = launch(SessionMode.LOAD, List.of(new FileRequest(named, 0)));
+    assertEquals(List.of("notice", "named.log"), first);
+    assertEquals(ErrorExitMarker.State.ABSENT, marker().read());
+
+    List<String> second = launch(SessionMode.LOAD, List.of());
+    assertEquals(List.of("named.log"), second);
+  }
+
+  @Test
+  void aLaunchWithoutRestoreShowsTheNoticeOnceAndTheNextRestoreSkipsTheTabs() throws Exception {
+    Path named = errorExit();
+    List<String> first = launch(SessionMode.DEFAULT, List.of(new FileRequest(named, 0)));
+    assertEquals(List.of("noticeLog", "named.log"), first);
+    assertEquals(ErrorExitMarker.State.SHOWN, marker().read());
+
+    List<String> second = launch(SessionMode.DEFAULT, List.of(new FileRequest(named, 0)));
+    assertEquals(List.of("named.log"), second);
+    assertEquals(ErrorExitMarker.State.SHOWN, marker().read());
+
+    List<String> restoring = launch(SessionMode.LOAD, List.of(new FileRequest(named, 0)));
+    assertEquals(List.of("named.log"), restoring);
+    assertEquals(ErrorExitMarker.State.ABSENT, marker().read());
+  }
+
+  /**
+   * Saves a session holding {@code restored.log}, writes the marker as {@link UiFailures} does, and
+   * returns {@code named.log} for the command line.
+   */
+  private Path errorExit() throws Exception {
+    Files.createDirectories(temp.resolve("settings"));
+    Path restored = temp.resolve("restored.log");
+    Path named = temp.resolve("named.log");
+    Files.writeString(restored, "one\n", StandardCharsets.US_ASCII);
+    Files.writeString(named, "two\n", StandardCharsets.US_ASCII);
+    assertTrue(
+        settings()
+            .sessions()
+            .save(
+                new Session(
+                    List.of(new Session.Tab(restored.toString(), "", false, new long[0])), 0)));
+    assertTrue(marker().write());
+    return named;
+  }
+
+  /**
+   * Runs a launch with the files, waits until one tab is indexed and 300 ms more, and returns
+   * "notice" or "noticeLog" when an error-exit notice showed at open, then the tab titles.
+   */
+  private List<String> launch(SessionMode mode, List<FileRequest> files) {
+    StartupRequest request =
+        new StartupRequest(files, false, mode, 640, 480, null, null, null, false);
+    final List<String> observed = new ArrayList<String>();
+    Gui.Observer observer =
+        new Gui.Observer() {
+          @Override
+          public void opened(
+              final MainWindow window, final ApplicationController controller, Workers workers) {
+            if (showsText(window.shell(), UiText.NOTICE_ERROR_EXIT.text())) {
+              observed.add("notice");
+            }
+            if (showsText(window.shell(), UiText.NOTICE_ERROR_EXIT_LOG.text())) {
+              observed.add("noticeLog");
+            }
+            final Display display = window.shell().getDisplay();
+            final long deadline = System.nanoTime() + BOUND_NANOS;
+            display.timerExec(
+                20,
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    boolean opened =
+                        !controller.documents().isEmpty()
+                            && !controller.documents().get(0).state().indexing();
+                    if (!opened && System.nanoTime() < deadline) {
+                      display.timerExec(20, this);
+                      return;
+                    }
+                    display.timerExec(
+                        300,
+                        new Runnable() {
+                          @Override
+                          public void run() {
+                            for (int i = 0; i < controller.documents().size(); i++) {
+                              observed.add(controller.documents().get(i).state().title());
+                            }
+                            controller.shutdown();
+                          }
+                        });
+                  }
+                });
+          }
+        };
+    assertEquals(0, run(request, observer));
+    return observed;
+  }
+
+  private static boolean showsText(Control control, String text) {
+    if (control instanceof Label label && text.equals(label.getText())) {
+      return true;
+    }
+    if (control instanceof Composite composite) {
+      for (Control child : composite.getChildren()) {
+        if (showsText(child, text)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private ErrorExitMarker marker() {
+    return new ErrorExitMarker(
+        new SettingsLocation(SettingsMode.EXPLICIT, temp.resolve("settings")));
   }
 
   private ConfigStore settings() {

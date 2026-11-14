@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.launcher;
 
+import io.github.ajdailey.qlogg.app.config.ErrorExitMarker;
 import java.util.function.LongSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,8 +9,8 @@ import org.slf4j.LoggerFactory;
  * The Display's runtime-exception and error handlers. Each failure of a listener, {@code asyncExec}
  * or timer task on the UI thread is logged at ERROR with its stack and the event loop continues.
  * More than {@link #LIMIT} runtime exceptions within {@link #WINDOW_NANOS}, or any {@link Error},
- * runs the quit once (the session is saved) and makes {@link #failed} true. Confined to the UI
- * thread.
+ * writes the {@link ErrorExitMarker} on the UI thread, then runs the quit once (the session is
+ * saved) and makes {@link #failed} true. Confined to the UI thread.
  */
 final class UiFailures {
   /** Runtime exceptions tolerated within {@link #WINDOW_NANOS}. */
@@ -22,6 +23,7 @@ final class UiFailures {
 
   private final LongSupplier clock;
   private final Runnable quit;
+  private final ErrorExitMarker marker;
   // The last LIMIT failure times, oldest at next once full.
   private final long[] times = new long[LIMIT];
   private int count;
@@ -33,10 +35,12 @@ final class UiFailures {
    *
    * @param clock nanosecond time, as {@link System#nanoTime}
    * @param quit the normal quit path; must return without waiting
+   * @param marker written before the quit
    */
-  UiFailures(LongSupplier clock, Runnable quit) {
+  UiFailures(LongSupplier clock, Runnable quit, ErrorExitMarker marker) {
     this.clock = clock;
     this.quit = quit;
+    this.marker = marker;
   }
 
   /**
@@ -81,6 +85,7 @@ final class UiFailures {
       return;
     }
     failed = true;
+    marker.write();
     quit.run();
   }
 }

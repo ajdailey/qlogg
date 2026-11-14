@@ -151,5 +151,11 @@ last saved file stays, so a load never finds a file over its cap.
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.
 
+`ErrorExitMarker` is the file `qlogg_error.flag` in the same directory,
+written empty and atomically (`AtomicFiles`) on the UI thread when `UiFailures`
+quits, and rewritten as the line `noticeShown` once a launch shows the notice.
+Other content reads as not shown. `SettingsFile` does not handle it, so it is
+written even after a session or position store disabled saving.
+
 A session's marks go into `MutableLineSet`s charged to the `RESULTS` share. A
 refusal keeps the earlier marks and shows a notice.

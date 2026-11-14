@@ -89,6 +89,8 @@ window as with `-m`. A launch that stays opens the debug log file when `-l` or
 7. Restores the session: the first window takes `window.0`'s tabs and each
    further session window opens a window with its own. Then the command-line
    files open in the first window on workers, a tab each, following with `-f`.
+   When `qlogg_error.flag` exists, the session's tabs and windows are skipped
+   (see [UI-thread failures](#ui-thread-failures)).
 8. Runs the event loop until every window is disposed, then disposes the
    Display and returns.
 
@@ -123,8 +125,27 @@ handoff listener, which deletes the endpoint file.
 which SWT calls for a failure of a listener, `asyncExec` or timer task. Each
 failure is logged at ERROR with its stack, so the recent-log warning marker
 shows, and the event loop continues. More than 10 runtime exceptions within
-1 s, or any `Error`, runs `WindowSet.quit` once, which saves the session, and
-`Gui.run` returns status 4. No dialog is shown.
+1 s, or any `Error`, writes `qlogg_error.flag` in the settings directory
+(`ErrorExitMarker`), runs `WindowSet.quit` once, which saves the session, and
+`Gui.run` returns status 4. No dialog is shown. The marker write runs on the UI
+thread without SWT, because a dialog or a worker may not run after an `Error`.
+
+`Gui.run` reads the marker before the Display opens:
+
+| Launch | Session tabs | Notice, when the marker is empty | Marker afterwards |
+|---|---|---|---|
+| Restores the session, without `-m` | Skipped | `NOTICE_ERROR_EXIT` | Deleted |
+| Restores the session, with `-m` | Skipped | `NOTICE_ERROR_EXIT` | `noticeShown` |
+| Does not restore (files given, or `-n`) | Not loaded | `NOTICE_ERROR_EXIT_LOG`, which claims no skipped tabs | `noticeShown` |
+
+A marker holding `noticeShown` shows no notice. A launch that skips the tabs
+loads no `qlogg_session.conf`: no tabs, further windows, Always on Top or
+dropped-comment notice. It opens the command-line files and owns the session
+as a restoring launch does, so its quit replaces the saved tabs. Settings,
+window geometry and per-file positions in `qlogg.conf` and `positions.conf`
+load as usual, so a file the user opens again returns to its position. The
+runtime-exception burst writes the marker too: a restored tab that throws on
+each paint repeats the quit as an `Error` does.
 
 ### Event loop watchdog
 
@@ -244,8 +265,8 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 
 | Class | Covers |
 |---|---|
-| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved |
-| `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits |
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker |
+| `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits; each quit writes the marker |
 | `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
 | `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it, once with the marker in the bundle and once in its `bin/`: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies in the marker's folder and the home directory is empty |

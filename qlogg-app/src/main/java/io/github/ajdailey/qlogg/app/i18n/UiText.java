@@ -1247,6 +1247,10 @@ public enum UiText {
   // Session mark comments.
   /** Notice after a restore: comments the last save left out; their count and the cap. */
   NOTICE_COMMENTS_DROPPED,
+  /** Notice: the last run quit for UI-thread failures and the session's tabs were skipped. */
+  NOTICE_ERROR_EXIT,
+  /** Notice: the last run quit for UI-thread failures; this launch restored no session. */
+  NOTICE_ERROR_EXIT_LOG,
   // Reopen with auto-refresh.
   /** Notice: a file changed on disk and its auto-refresh search runs again; the tab title. */
   NOTICE_FILE_SEARCH_RERUN,

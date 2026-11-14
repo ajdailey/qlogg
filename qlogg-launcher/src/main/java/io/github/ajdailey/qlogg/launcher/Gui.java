@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.cli.SessionMode;
 import io.github.ajdailey.qlogg.app.cli.StartupRequest;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
+import io.github.ajdailey.qlogg.app.config.ErrorExitMarker;
 import io.github.ajdailey.qlogg.app.config.Options;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
@@ -59,9 +60,12 @@ import org.slf4j.LoggerFactory;
  * command-line files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit
  * closes it before the workers, and so does a run that ends before the first window. A JVM shutdown
  * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. {@link
- * UiFailures} handles a failure of a UI-thread task. A primary with the debug log file attached
- * deletes other processes' old log files on a lifecycle worker ({@link FileLog#prune}). The loop
- * ends when every window is disposed, then the Display is disposed and {@link #run} returns.
+ * UiFailures} handles a failure of a UI-thread task. The first launch after it writes the {@link
+ * ErrorExitMarker} shows a notice and records that in the marker; a launch that would restore the
+ * session and finds the marker skips the session's tabs and windows and, as the session owner,
+ * deletes the marker. A primary with the debug log file attached deletes other processes' old log
+ * files on a lifecycle worker ({@link FileLog#prune}). The loop ends when every window is disposed,
+ * then the Display is disposed and {@link #run} returns.
  */
 final class Gui {
   private static final Logger LOG = LoggerFactory.getLogger(Gui.class);
@@ -143,7 +147,16 @@ final class Gui {
               || (request.session() == SessionMode.DEFAULT
                   && request.files().isEmpty()
                   && options.loadLastSession());
-      List<Session> sessions = restore ? config.sessions().loadWindows() : List.of();
+      ErrorExitMarker marker = new ErrorExitMarker(config.location());
+      ErrorExitMarker.State errorExit = marker.read();
+      boolean skipped = restore && errorExit != ErrorExitMarker.State.ABSENT;
+      boolean notice = errorExit == ErrorExitMarker.State.PENDING;
+      if (skipped && !request.multi()) {
+        marker.clear();
+      } else if (notice) {
+        marker.markShown();
+      }
+      List<Session> sessions = restore && !skipped ? config.sessions().loadWindows() : List.of();
       Display.setAppName("QLogg");
       try {
         display = new Display();
@@ -152,7 +165,7 @@ final class Gui {
         LOG.debug("SWT failed to start", e);
         return Launcher.EXIT_SWT;
       }
-      return runWindows(display, workers, options, restore, sessions);
+      return runWindows(display, workers, options, restore, skipped, notice, sessions, marker);
     } finally {
       if (server != null) {
         server.close();
@@ -174,7 +187,10 @@ final class Gui {
       Workers workers,
       Options options,
       boolean restore,
-      List<Session> sessions) {
+      boolean skipped,
+      boolean notice,
+      List<Session> sessions,
+      ErrorExitMarker marker) {
     MemoryBudget budget = MemoryBudget.fromRuntime();
     DocumentServices services =
         new DocumentServices(
@@ -203,7 +219,7 @@ final class Gui {
     final SwtUiDispatcher ui = new SwtUiDispatcher(display);
     final WindowSet set = new WindowSet(workers, ui, services, config, preferences, system);
     set.setLogging(LogConfigurator.RECENT, logFiles);
-    UiFailures failures = new UiFailures(System::nanoTime, set::quit);
+    UiFailures failures = new UiFailures(System::nanoTime, set::quit, marker);
     display.setRuntimeExceptionHandler(failures::runtime);
     display.setErrorHandler(failures::error);
     set.setEmbeddedGuide(UserGuide.embedded(config.location().mode(), OsTraits.current()));
@@ -272,6 +288,9 @@ final class Gui {
         controller.windowActivated();
       }
       controller.setSessionOwner(restore && !request.multi());
+      if (notice) {
+        controller.noticeErrorExit(skipped);
+      }
       controller.open(request.files(), request.follow());
       if (server != null) {
         server.deliverTo(

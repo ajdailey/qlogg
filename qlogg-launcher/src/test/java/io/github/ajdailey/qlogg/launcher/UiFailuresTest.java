@@ -4,10 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.config.ErrorExitMarker;
+import io.github.ajdailey.qlogg.app.config.SettingsLocation;
+import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import java.nio.file.Path;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class UiFailuresTest {
+  @TempDir Path temp;
+
   private long now;
   private int quits;
 
@@ -24,7 +31,12 @@ class UiFailuresTest {
           public void run() {
             quits++;
           }
-        });
+        },
+        marker());
+  }
+
+  private ErrorExitMarker marker() {
+    return new ErrorExitMarker(new SettingsLocation(SettingsMode.EXPLICIT, temp));
   }
 
   private static RuntimeException failure() {
@@ -39,6 +51,7 @@ class UiFailuresTest {
     }
     assertFalse(failures.failed());
     assertEquals(0, quits);
+    assertEquals(ErrorExitMarker.State.ABSENT, marker().read());
   }
 
   @Test
@@ -50,6 +63,7 @@ class UiFailuresTest {
     }
     assertTrue(failures.failed());
     assertEquals(1, quits);
+    assertEquals(ErrorExitMarker.State.PENDING, marker().read());
     failures.runtime(failure());
     failures.error(new Error("mock error"));
     assertEquals(1, quits);
@@ -72,5 +86,6 @@ class UiFailuresTest {
     failures.error(new Error("mock error"));
     assertTrue(failures.failed());
     assertEquals(1, quits);
+    assertEquals(ErrorExitMarker.State.PENDING, marker().read());
   }
 }
