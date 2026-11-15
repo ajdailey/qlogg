@@ -620,7 +620,11 @@ class LogViewTest {
         onThisPlatform(
             List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Preferences")),
         labels(bar.getItem(7).getMenu()));
-    assertEquals(
+    List<String> windowMenu = new ArrayList<String>();
+    if (PlatformTraits.PLATFORM.windowMenuControls()) {
+      windowMenu.addAll(List.of("Minimize", "Zoom", "-"));
+    }
+    windowMenu.addAll(
         List.of(
             "New Window",
             "-",
@@ -629,8 +633,8 @@ class LogViewTest {
             "Next Tab",
             "Previous Tab",
             "Switch to File",
-            "Opened Files"),
-        labels(bar.getItem(8).getMenu()));
+            "Opened Files"));
+    assertEquals(windowMenu, labels(bar.getItem(8).getMenu()));
     assertEquals(
         onThisPlatform(
             List.of(
