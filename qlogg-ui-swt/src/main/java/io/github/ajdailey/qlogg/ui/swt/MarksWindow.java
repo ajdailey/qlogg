@@ -21,9 +21,9 @@ import org.eclipse.swt.widgets.Text;
 /**
  * Go > Marks List: a modeless window listing the shown tab's marks from a {@link
  * MarksListController}, one virtual table row per mark with its line number, comment and line text.
- * {@code Enter} or a double click goes to the line, {@code Delete} removes the selected marks, and
- * {@code F2} edits the selected row's comment in place ({@code Enter} or leaving the field saves
- * it, {@code Esc} drops the edit).
+ * {@code Enter} or a double click goes to the line, {@code Delete} or {@code Backspace} removes the
+ * selected marks, and {@code F2} edits the selected row's comment in place ({@code Enter} or
+ * leaving the field saves it, {@code Esc} drops the edit).
  */
 final class MarksWindow {
   /** The comment column. */
@@ -81,7 +81,7 @@ final class MarksWindow {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.keyCode == SWT.DEL) {
+            if (event.keyCode == SWT.DEL || event.keyCode == SWT.BS) {
               remove();
             } else if (event.keyCode == SWT.F2) {
               editComment();

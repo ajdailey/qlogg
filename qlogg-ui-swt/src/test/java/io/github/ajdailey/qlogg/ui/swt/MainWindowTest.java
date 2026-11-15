@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import java.time.Duration;
 import java.util.function.BooleanSupplier;
+import org.eclipse.swt.SWTError;
+import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
@@ -56,6 +59,32 @@ class MainWindowTest {
     assertTrue(shell.getImages().length > 0);
     window.dispose();
     assertTrue(shell.isDisposed());
+  }
+
+  @Test
+  void aRefusedClipboardWriteRetriesOnceThenShowsANotice() {
+    MainWindow window = new MainWindow(display);
+    window.open();
+    final int[] writes = new int[1];
+    final int[] refusals = {1};
+    window.clipboardWriter(
+        new MainWindow.ClipboardWriter() {
+          @Override
+          public void write(String text) {
+            writes[0]++;
+            if (refusals[0]-- > 0) {
+              throw new SWTError(DND.ERROR_CANNOT_SET_CLIPBOARD);
+            }
+          }
+        });
+    window.setText("mock");
+    assertEquals(2, writes[0]);
+    assertEquals("", window.noticeText());
+    refusals[0] = 2;
+    window.setText("mock");
+    assertEquals(4, writes[0]);
+    assertEquals(UiText.NOTICE_COPY_FAILED.text(), window.noticeText());
+    window.dispose();
   }
 
   @Test

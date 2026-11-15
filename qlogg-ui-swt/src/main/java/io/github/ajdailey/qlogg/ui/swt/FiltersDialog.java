@@ -59,7 +59,7 @@ final class FiltersDialog {
   FiltersDialog(Shell parent, final ApplicationController application) {
     this.application = application;
     this.working = new ArrayList<PredefinedFilter>(application.preferences().filters());
-    shell = Dialogs.shell(parent, CommandId.PREDEFINED_FILTERS.title(), true);
+    shell = Dialogs.sizedShell(parent, CommandId.PREDEFINED_FILTERS.title());
     Composite top = new Composite(shell, SWT.NONE);
     GridLayout topLayout = new GridLayout(3, false);
     topLayout.marginWidth = 0;

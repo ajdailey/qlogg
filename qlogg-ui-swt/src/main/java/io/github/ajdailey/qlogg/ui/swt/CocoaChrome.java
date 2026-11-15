@@ -18,6 +18,7 @@ import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.Tree;
 
 /**
  * Keeps every shell readable after the system appearance changes on cocoa. AppKit redraws native
@@ -29,7 +30,8 @@ import org.eclipse.swt.widgets.Text;
  * fields get the list colors. Menus stay native, and a {@link Canvas} that paints from the palette
  * keeps its colors, as does a {@link CTabFolder} with {@link #PALETTE_COLORED} set.
  *
- * <p>Each control then receives {@link SWT#Settings}, since the Display sends none for an
+ * <p>Table and Tree headers take explicit colors of the current appearance on every change, never
+ * null. Each control then receives {@link SWT#Settings}, since the Display sends none for an
  * appearance change. Confined to the UI thread.
  */
 final class CocoaChrome {
@@ -95,7 +97,6 @@ final class CocoaChrome {
   }
 
   private void walk(Control control) {
-    Color window = differs() ? (dark ? DARK_WINDOW : LIGHT_WINDOW) : null;
     Color list = differs() ? (dark ? DARK_LIST : LIGHT_LIST) : null;
     Color text = differs() ? (dark ? DARK_TEXT : LIGHT_TEXT) : null;
     if (control instanceof CTabFolder tabs) {
@@ -116,8 +117,17 @@ final class CocoaChrome {
       control.setBackground(CLEAR);
     }
     if (control instanceof Table table) {
-      table.setHeaderBackground(window);
-      table.setHeaderForeground(text);
+      table.setHeaderBackground(headerBackground(dark));
+      table.setHeaderForeground(headerForeground(dark));
+      // A Table repaints new header colors, the area right of the last column included, only when
+      // its header is shown again; redraw() leaves that area stale.
+      if (table.getHeaderVisible()) {
+        table.setHeaderVisible(false);
+        table.setHeaderVisible(true);
+      }
+    } else if (control instanceof Tree tree) {
+      tree.setHeaderBackground(headerBackground(dark));
+      tree.setHeaderForeground(headerForeground(dark));
     }
     if (control instanceof Composite composite) {
       for (Control child : composite.getChildren()) {
@@ -125,6 +135,27 @@ final class CocoaChrome {
       }
     }
     control.notifyListeners(SWT.Settings, new Event());
+  }
+
+  /**
+   * Returns the header background of an appearance. A header always gets explicit colors: with null
+   * colors cocoa draws blank labels in dark appearance and keeps the earlier header drawing.
+   *
+   * @param dark true for dark
+   * @return the color, never null
+   */
+  static Color headerBackground(boolean dark) {
+    return dark ? DARK_WINDOW : LIGHT_WINDOW;
+  }
+
+  /**
+   * Returns the header text color of an appearance.
+   *
+   * @param dark true for dark
+   * @return the color, never null
+   */
+  static Color headerForeground(boolean dark) {
+    return dark ? DARK_TEXT : LIGHT_TEXT;
   }
 
   private static void recolor(CTabFolder tabs, Color list, Color text) {

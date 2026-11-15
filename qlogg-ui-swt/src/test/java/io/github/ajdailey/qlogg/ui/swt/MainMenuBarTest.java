@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -41,6 +42,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
+import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -121,6 +123,25 @@ class MainMenuBarTest {
     display.dispose();
     assertEquals(0, workers.liveThreads());
     assertTrue(failures.isEmpty(), failures.toString());
+  }
+
+  @Test
+  void theWindowMenuCarriesMinimizeAndZoomOnlyWhereThePlatformAsks() {
+    attach();
+    Menu windowMenu = topMenu(CommandGroup.WINDOW);
+    boolean controls = PlatformTraits.PLATFORM.windowMenuControls();
+    assertEquals(controls, UiText.MENU_MINIMIZE.text().equals(windowMenu.getItem(0).getText()));
+    Shell shell = new Shell(display);
+    Menu menu = new Menu(shell, SWT.DROP_DOWN);
+    new MenuItem(menu, SWT.PUSH).setText("mock");
+    MainMenuBar.addWindowControls(menu, shell);
+    assertEquals(4, menu.getItemCount());
+    assertEquals(UiText.MENU_MINIMIZE.text(), menu.getItem(0).getText());
+    assertEquals(SWT.MOD1 | 'M', menu.getItem(0).getAccelerator());
+    assertEquals(UiText.MENU_ZOOM.text(), menu.getItem(1).getText());
+    assertTrue((menu.getItem(2).getStyle() & SWT.SEPARATOR) != 0);
+    assertEquals("mock", menu.getItem(3).getText());
+    shell.dispose();
   }
 
   @Test

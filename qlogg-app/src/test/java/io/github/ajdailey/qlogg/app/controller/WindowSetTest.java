@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
+import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.log.RecentLog;
@@ -46,6 +47,7 @@ class WindowSetTest {
 
   private final ManualUiDispatcher ui = new ManualUiDispatcher();
   private final List<FakeView> views = new ArrayList<FakeView>();
+  private final List<WindowState> created = new ArrayList<WindowState>();
   private final FakeLogFiles logFiles = new FakeLogFiles();
   private final RecentLog recent = new RecentLog(10, 200);
   private final MemoryBudget budget = MemoryBudget.of(1L << 28);
@@ -130,7 +132,9 @@ class WindowSetTest {
     set.setFactory(
         new WindowSet.Factory() {
           @Override
-          public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
+          public ApplicationController create(
+              WindowSet owner, WindowGeometry.Request at, boolean maximized) {
+            created.add(new WindowState(at.x(), at.y(), at.width(), at.height(), maximized));
             FakeView view = new FakeView();
             views.add(view);
             return new ApplicationController(owner, view);
@@ -314,6 +318,33 @@ class WindowSetTest {
     assertEquals(2, saved.size());
     assertTrue(saved.get(0).tabs().get(0).path().endsWith("a.log"));
     assertTrue(saved.get(1).tabs().get(0).path().endsWith("b.log"));
+  }
+
+  @Test
+  void eachWindowsBoundsAreSavedAndASessionWindowOpensAtItsOwn() throws Exception {
+    first.setSessionOwner(true);
+    assertNotNull(set.openWindow(new WindowState(130, 130, 700, 500, true)));
+    assertNotNull(set.openWindow());
+    assertEquals(
+        List.of(
+            new WindowState(130, 130, 700, 500, true),
+            new WindowState(null, null, null, null, false)),
+        created);
+    firstView.window = new WindowState(78, 78, 900, 600, false);
+    views.get(1).window = new WindowState(130, 130, 700, 500, true);
+    views.get(2).window = WindowState.UNKNOWN;
+    first.execute(CommandId.QUIT);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return views.get(0).disposed && views.get(1).disposed && views.get(2).disposed;
+          }
+        });
+    List<Session> saved = config.sessions().loadWindows();
+    assertEquals(new WindowState(78, 78, 900, 600, false), saved.get(0).window());
+    assertEquals(new WindowState(130, 130, 700, 500, true), saved.get(1).window());
+    assertEquals(WindowState.UNKNOWN, saved.get(2).window());
   }
 
   @Test

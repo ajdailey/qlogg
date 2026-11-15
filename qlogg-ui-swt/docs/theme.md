@@ -20,7 +20,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 |---|---|
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
-| `CocoaChrome` shell and list colors | The system appearance; skips `PALETTE_COLORED` folders |
+| `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
 | Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
@@ -28,8 +28,8 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | Platform | `Display.setDarkThemePreferred` | System appearance change |
 |---|---|---|
 | GTK | `SwtThemeService.preferDark` calls it; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
-| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment, and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | `SWT.Settings`; native controls take a system change at the next start |
-| cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every second and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one |
+| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment, and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); native controls take a system change at the next start |
+| cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one. Table and Tree headers get explicit colors of the current appearance on every change, never null (null colors draw blank labels in dark), and a Table's header is hidden and shown again so it repaints, the area right of the last column included |
 
 `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
 into a change event.

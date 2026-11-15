@@ -19,9 +19,10 @@ import org.eclipse.swt.widgets.Listener;
 /**
  * The system's light or dark setting from {@link Display#isSystemDarkTheme}, with a change event
  * from {@code SWT.Settings}. On GTK the setting is read once when the Display is created, so a
- * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. cocoa
- * SWT sends no {@code SWT.Settings} for an appearance change, so the service polls there and {@link
- * CocoaChrome} recolors the shells.
+ * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. The
+ * service polls there every 500 ms: cocoa SWT sends no {@code SWT.Settings} for an appearance
+ * change, and win32 SWT sends it 2 s after {@code WM_SETTINGCHANGE}. On cocoa {@link CocoaChrome}
+ * recolors the shells.
  *
  * <p>Native controls take the theme from {@link Display#setDarkThemePreferred}. GTK applies a
  * change at once, so {@link #preferDark} calls it there. win32 controls read it only when created,
@@ -35,8 +36,8 @@ import org.eclipse.swt.widgets.Listener;
 public final class SwtThemeService implements ThemeService {
   private static final PlatformTraits PLATFORM = PlatformTraits.PLATFORM;
 
-  /** Milliseconds between reads of the system setting on cocoa. */
-  private static final int POLL_MILLIS = 1000;
+  /** Milliseconds between reads of the system setting on cocoa and win32. */
+  private static final int POLL_MILLIS = 500;
 
   private static final BooleanSupplier SYSTEM_SETTING =
       new BooleanSupplier() {
@@ -84,6 +85,8 @@ public final class SwtThemeService implements ThemeService {
         });
     if (PLATFORM.followsSystemAppearance()) {
       chrome = new CocoaChrome(display, dark);
+    }
+    if (PLATFORM.pollsSystemTheme()) {
       final SwtUiDispatcher timers = new SwtUiDispatcher(display);
       timers.timerExec(
           POLL_MILLIS,

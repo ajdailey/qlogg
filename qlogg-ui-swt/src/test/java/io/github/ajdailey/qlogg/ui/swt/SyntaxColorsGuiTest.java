@@ -139,7 +139,7 @@ class SyntaxColorsGuiTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas().print(gc));
-      return image.getImageData();
+      return Pixels.read(image, canvas());
     } finally {
       gc.dispose();
       image.dispose();

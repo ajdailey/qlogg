@@ -37,6 +37,18 @@ final class Dialogs {
   }
 
   /**
+   * Creates a modal dialog shell the user can resize, for a dialog whose size {@code qlogg.conf}
+   * keeps.
+   *
+   * @param parent the main window
+   * @param title the title
+   * @return the shell, laid out as one grid column
+   */
+  static Shell sizedShell(Shell parent, String title) {
+    return shell(parent, title, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.APPLICATION_MODAL);
+  }
+
+  /**
    * Creates a dialog shell with a given style, the owning shell's window icons and the platform's
    * {@link DialogColors}. The icons stay owned by the shell that created them.
    *

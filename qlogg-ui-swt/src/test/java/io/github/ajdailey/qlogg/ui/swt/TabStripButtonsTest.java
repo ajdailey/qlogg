@@ -72,10 +72,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The Open, tab list and Close buttons at the end of the main tab strip, with 30 tabs in a 700 px
- * window: one list control, the hidden count, the list menu, the wheel over the strip, Close, the
- * icon ink under every color scheme in light and dark chrome, and the About logo's variant. Events
- * go to the controls through {@code notifyListeners}. {@code -Dqlogg.tabstrip.shots=<dir>} writes
- * the window with the list open in light and dark chrome.
+ * window: one list control, the hidden count, the list menu, tab selection by the wheel over the
+ * row, Close, the icon ink under every color scheme in light and dark chrome, and the About logo's
+ * variant. Events go to the controls through {@code notifyListeners}. {@code
+ * -Dqlogg.tabstrip.shots=<dir>} writes the window with the list open in light and dark chrome.
  */
 @Tag("swt")
 class TabStripButtonsTest {
@@ -392,45 +392,69 @@ class TabStripButtonsTest {
     assertEquals(TABS, entries(menu).size());
   }
 
-  @Test
-  void theWheelShowsAHiddenTabAndKeepsTheSelection() {
-    select(15);
-    final int start = first();
-    assertTrue(start > 0, "tabs hidden left of the selection");
-    wheel(tabs, 3);
+  /** Waits until the controller shows the tab at an index. */
+  private void awaitShown(final int index) {
     assertTrue(
         runUntil(
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return first() == start - 1;
+                return tabs.getSelectionIndex() == index
+                    && controller.activeDocument() != null
+                    && controller
+                        .activeDocument()
+                        .state()
+                        .title()
+                        .equals(tabs.getItem(index).getText());
               }
             }),
-        "first shown " + first());
-    assertEquals(15, tabs.getSelectionIndex());
-    assertTrue(tabs.getItem(15).isShowing());
-    wheel(buttons.listButton(), -3);
-    assertTrue(
-        runUntil(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return first() == start;
-              }
-            }),
-        "first shown " + first());
-    assertEquals(15, tabs.getSelectionIndex());
+        "selected " + tabs.getSelectionIndex());
   }
 
   @Test
-  void theWheelLeavesTheSelectedTabShown() {
+  void theWheelOverTheRowSelectsTheNextOrPreviousTab() {
     select(15);
-    for (int i = 0; i < TABS; i++) {
-      wheel(tabs, -3);
-      settle();
-    }
-    assertEquals(15, first(), "the selected tab stays the first shown");
-    assertTrue(tabs.getItem(15).isShowing());
+    wheel(tabs, -3);
+    awaitShown(16);
+    wheel(buttons.listButton(), 3);
+    awaitShown(15);
+    wheel(tabs, -1);
+    wheel(tabs, -1);
+    assertEquals(15, tabs.getSelectionIndex());
+    wheel(tabs, 2);
+    assertEquals(15, tabs.getSelectionIndex(), "a reversal restarts the sum");
+    wheel(tabs, 1);
+    awaitShown(14);
+  }
+
+  @Test
+  void aWheelDeliveredToTheFocusControlOverTheRowSelectsATab() {
+    select(15);
+    Control view = window.canvas().control();
+    Point row = view.toControl(tabs.toDisplay(4, 4));
+    Event event = new Event();
+    event.count = -3;
+    event.x = row.x;
+    event.y = row.y;
+    view.notifyListeners(SWT.MouseVerticalWheel, event);
+    awaitShown(16);
+    wheel(window.canvas().control(), -3);
+    settle();
+    assertEquals(16, tabs.getSelectionIndex(), "a wheel over the view leaves the tab");
+  }
+
+  @Test
+  void theWheelStopsAtTheFirstAndLastTab() {
+    select(TABS - 1);
+    wheel(tabs, -3);
+    settle();
+    assertEquals(TABS - 1, tabs.getSelectionIndex());
+    select(0);
+    wheel(tabs, 3);
+    settle();
+    assertEquals(0, tabs.getSelectionIndex());
+    wheel(tabs, -3);
+    awaitShown(1);
   }
 
   /**
@@ -601,7 +625,7 @@ class TabStripButtonsTest {
     Image image = new Image(display, size.x, size.y);
     GC gc = new GC(image);
     try {
-      return control.print(gc) ? image.getImageData() : null;
+      return control.print(gc) ? Pixels.read(image, control) : null;
     } finally {
       gc.dispose();
       image.dispose();

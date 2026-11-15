@@ -247,7 +247,7 @@ class LogViewTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas().print(gc));
-      ImageData data = image.getImageData();
+      ImageData data = Pixels.read(image, canvas());
       int gutter = window.canvas().gutterWidth();
       assertTrue(gutter > 0, "gutter width " + gutter);
       int gutterBackground = data.getPixel(1, 1);
@@ -1087,7 +1087,7 @@ class LogViewTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas().print(gc));
-      return image.getImageData();
+      return Pixels.read(image, canvas());
     } finally {
       gc.dispose();
       image.dispose();

@@ -19,8 +19,9 @@ import java.util.Properties;
  * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
  * {@code droppedComments}, written when not 0, sums the windows' {@link Session#droppedComments}
  * and loads on the first window; a missing, malformed or negative value reads as 0. {@code
- * window.W.onTop} is written when true. Tab paths pass through {@link InstallPaths}. Blocking;
- * workers call it.
+ * window.W.onTop} is written when true; {@code window.W.x}, {@code .y}, {@code .width} and {@code
+ * .height} each when known (a malformed value reads as unknown), and {@code .maximized} when true.
+ * Tab paths pass through {@link InstallPaths}. Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -119,7 +120,13 @@ public final class SessionStore {
               active,
               windows.isEmpty() ? dropped(p) : 0,
               // Always on Top.
-              "true".equals(p.getProperty(prefix + "onTop", "false").strip())));
+              "true".equals(p.getProperty(prefix + "onTop", "false").strip()),
+              new WindowState(
+                  integer(p.getProperty(prefix + "x")),
+                  integer(p.getProperty(prefix + "y")),
+                  integer(p.getProperty(prefix + "width")),
+                  integer(p.getProperty(prefix + "height")),
+                  "true".equals(p.getProperty(prefix + "maximized", "false").strip()))));
     }
     return windows;
   }
@@ -158,6 +165,14 @@ public final class SessionStore {
       if (session.onTop()) {
         p.setProperty(prefix + "onTop", "true");
       }
+      WindowState window = session.window();
+      setKnown(p, prefix + "x", window.x());
+      setKnown(p, prefix + "y", window.y());
+      setKnown(p, prefix + "width", window.width());
+      setKnown(p, prefix + "height", window.height());
+      if (window.maximized()) {
+        p.setProperty(prefix + "maximized", "true");
+      }
       for (int i = 0; i < tabs; i++) {
         Session.Tab tab = session.tabs().get(i);
         String key = prefix + "tab." + i + ".";
@@ -187,6 +202,24 @@ public final class SessionStore {
       p.setProperty(DROPPED_COMMENTS, Long.toString(dropped));
     }
     return file.save(p);
+  }
+
+  private static void setKnown(Properties p, String key, Integer value) {
+    if (value != null) {
+      p.setProperty(key, value.toString());
+    }
+  }
+
+  /** Reads an integer; a missing or malformed value reads as null. */
+  private static Integer integer(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return Integer.valueOf(value.strip());
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 
   private static long dropped(Properties p) {

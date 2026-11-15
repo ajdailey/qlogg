@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -53,6 +54,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
@@ -63,9 +65,13 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
+import org.eclipse.swt.widgets.Tree;
+import org.eclipse.swt.widgets.TreeColumn;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -186,7 +192,7 @@ class ThemeAndHighlightTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas.print(gc));
-      ImageData data = image.getImageData();
+      ImageData data = Pixels.read(image, canvas);
       return data.palette.getRGB(data.getPixel(x, y));
     } finally {
       gc.dispose();
@@ -360,6 +366,40 @@ class ThemeAndHighlightTest {
     assertEquals(before, row.getBackground().getRGB());
     assertEquals(fieldBefore, field.getBackground().getRGB());
     assertEquals(2, settings[0]);
+    shell.dispose();
+  }
+
+  @Test
+  void cocoaChromeGivesHeadersExplicitColorsInBothDirections() {
+    assertNotEquals(
+        CocoaChrome.headerBackground(true).getRGB(), CocoaChrome.headerBackground(false).getRGB());
+    assertNotEquals(
+        CocoaChrome.headerForeground(true).getRGB(), CocoaChrome.headerBackground(true).getRGB());
+    assertNotEquals(
+        CocoaChrome.headerForeground(false).getRGB(), CocoaChrome.headerBackground(false).getRGB());
+    Shell shell = new Shell(display);
+    shell.setLayout(new FillLayout());
+    Table table = new Table(shell, SWT.BORDER);
+    table.setHeaderVisible(true);
+    new TableColumn(table, SWT.LEFT).setText("mock");
+    Tree tree = new Tree(shell, SWT.BORDER);
+    tree.setHeaderVisible(true);
+    new TreeColumn(tree, SWT.LEFT).setText("mock");
+    shell.open();
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    for (boolean dark : new boolean[] {true, false}) {
+      chrome.apply(dark);
+      String name = dark ? "dark" : "light";
+      assertEquals(
+          CocoaChrome.headerBackground(dark).getRGB(), table.getHeaderBackground().getRGB(), name);
+      assertEquals(
+          CocoaChrome.headerForeground(dark).getRGB(), table.getHeaderForeground().getRGB(), name);
+      assertEquals(
+          CocoaChrome.headerBackground(dark).getRGB(), tree.getHeaderBackground().getRGB(), name);
+      assertEquals(
+          CocoaChrome.headerForeground(dark).getRGB(), tree.getHeaderForeground().getRGB(), name);
+      assertTrue(table.getHeaderVisible(), name);
+    }
     shell.dispose();
   }
 

@@ -25,6 +25,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.ToolBar;
@@ -34,8 +35,8 @@ import org.eclipse.swt.widgets.ToolBar;
  * optional Open, the tab list and an optional Close. Each button is a {@code Canvas} painting a
  * {@link ToolIcons} image on the palette's {@code gutter}, the strip's background, in the ink that
  * color calls for, where a native tool bar would draw its own background. The list button shows the
- * count of hidden tabs and opens a {@link TabList}. The mouse wheel over the strip brings hidden
- * tabs into view without changing the selection.
+ * count of hidden tabs and opens a {@link TabList}. The mouse wheel over the tab row selects the
+ * previous or next tab through {@link TabWheel}.
  *
  * <p>SWT's chevron does not show: the renderer draws nothing for it and its {@code ToolBar} is held
  * at zero width, while the strip still reserves the chevron's width. A request for SWT's list
@@ -59,6 +60,7 @@ final class TabStripButtons {
   private final StripButton close;
   private Color text;
   private Color hot;
+  private final TabWheel steps = new TabWheel();
   private int hidden = -1;
 
   /** One painted button. */
@@ -89,7 +91,6 @@ final class TabStripButtons {
           new int[] {SWT.Paint, SWT.MouseEnter, SWT.MouseExit, SWT.MouseDown, SWT.MouseUp}) {
         canvas.addListener(type, mouse);
       }
-      canvas.addListener(SWT.MouseVerticalWheel, wheel());
       canvas
           .getAccessible()
           .addAccessibleListener(
@@ -218,7 +219,23 @@ final class TabStripButtons {
             update();
           }
         });
-    tabs.addListener(SWT.MouseVerticalWheel, wheel());
+    final Listener wheel =
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            wheel(event);
+          }
+        };
+    final Display display = tabs.getDisplay();
+    display.addFilter(SWT.MouseVerticalWheel, wheel);
+    tabs.addListener(
+        SWT.Dispose,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            display.removeFilter(SWT.MouseVerticalWheel, wheel);
+          }
+        });
     tabs.addCTabFolder2Listener(
         new CTabFolder2Adapter() {
           @Override
@@ -229,16 +246,35 @@ final class TabStripButtons {
         });
   }
 
-  private Listener wheel() {
-    return new Listener() {
-      @Override
-      public void handleEvent(Event event) {
-        if (event.count != 0) {
-          event.doit = false;
-          tabList.scroll(event.count > 0 ? -1 : 1);
-        }
-      }
-    };
+  /**
+   * Selects the previous or next tab for a wheel over the tab row and cancels the event. As a
+   * display filter it hit-tests a wheel event delivered to any control of the shell, so the row
+   * takes the wheel on hover when the platform delivers it to the focus control.
+   */
+  private void wheel(Event event) {
+    if (!(event.widget instanceof Control control)
+        || control.isDisposed()
+        || tabs.isDisposed()
+        || !tabs.isVisible()
+        || control.getShell() != tabs.getShell()) {
+      return;
+    }
+    Point at = control.toDisplay(event.x, event.y);
+    Point origin = tabs.toDisplay(0, 0);
+    // The strip above the client area; a folder holding no content is the strip alone.
+    Point size = tabs.getSize();
+    Rectangle row =
+        new Rectangle(origin.x, origin.y, size.x, Math.min(size.y, tabs.getClientArea().y));
+    if (!row.contains(at)) {
+      return;
+    }
+    event.type = SWT.None;
+    event.doit = false;
+    int index = tabs.getSelectionIndex();
+    int target = steps.add(event.count, index, tabs.getItemCount());
+    if (target != index) {
+      tabList.choose(tabs.getItem(target));
+    }
   }
 
   /**

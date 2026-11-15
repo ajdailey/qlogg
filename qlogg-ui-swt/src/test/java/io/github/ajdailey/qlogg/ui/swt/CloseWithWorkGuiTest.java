@@ -91,7 +91,8 @@ class CloseWithWorkGuiTest {
     set.setFactory(
         new WindowSet.Factory() {
           @Override
-          public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
+          public ApplicationController create(
+              WindowSet owner, WindowGeometry.Request at, boolean maximized) {
             return window(owner, 1150);
           }
         });

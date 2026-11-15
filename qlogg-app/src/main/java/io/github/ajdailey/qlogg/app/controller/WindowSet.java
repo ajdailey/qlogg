@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
+import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.log.LogFiles;
 import io.github.ajdailey.qlogg.app.log.RecentLog;
@@ -49,9 +50,9 @@ import org.slf4j.LoggerFactory;
  * thread, which ends the event loop. The UI thread never waits.
  *
  * <p>A save captures, on the UI thread, the settings, every tab's position and, when this instance
- * owns the session, each window's tabs as {@code window.N}; a worker writes them. Each capture
- * takes a sequence number, and a writer skips a part (settings or session) a later capture has
- * written, so a debounced save that ends after the quit save cannot replace newer state.
+ * owns the session, each window's tabs and bounds as {@code window.N}; a worker writes them. Each
+ * capture takes a sequence number, and a writer skips a part (settings or session) a later capture
+ * has written, so a debounced save that ends after the quit save cannot replace newer state.
  *
  * <p>{@link #timeSync} holds the time sync groups, which span the windows.
  */
@@ -62,11 +63,12 @@ public final class WindowSet implements RememberedStateHost {
      * Creates a window over the set, places and opens it; called on the UI thread.
      *
      * @param set the set it joins
-     * @param at the requested top-left corner in display coordinates; a null value leaves the
-     *     position to the window system, and the size is the remembered one
+     * @param at the requested top-left corner in display coordinates and client-area size; a null
+     *     position leaves it to the window system, a null size takes the remembered one
+     * @param maximized true to open maximized, keeping {@code at} as the normal bounds
      * @return the window's controller, or null when it could not be created
      */
-    ApplicationController create(WindowSet set, WindowGeometry.Request at);
+    ApplicationController create(WindowSet set, WindowGeometry.Request at, boolean maximized);
   }
 
   /**
@@ -303,14 +305,28 @@ public final class WindowSet implements RememberedStateHost {
    * @return its controller, or null while quitting, without a factory, or when it failed
    */
   public ApplicationController openWindow() {
-    return openWindow(new WindowGeometry.Request(null, null, null, null));
+    return openWindow(new WindowGeometry.Request(null, null, null, null), false);
   }
 
-  private ApplicationController openWindow(WindowGeometry.Request at) {
+  /**
+   * Opens a session window through the factory at its saved bounds and makes it the target of
+   * handed files.
+   *
+   * @param saved the bounds and maximized state the session saved; unknown values fall back as for
+   *     {@link #openWindow()}
+   * @return its controller, or null while quitting, without a factory, or when it failed
+   */
+  public ApplicationController openWindow(WindowState saved) {
+    return openWindow(
+        new WindowGeometry.Request(saved.x(), saved.y(), saved.width(), saved.height()),
+        saved.maximized());
+  }
+
+  private ApplicationController openWindow(WindowGeometry.Request at, boolean maximized) {
     if (quitting || factory == null) {
       return null;
     }
-    ApplicationController window = factory.create(this, at);
+    ApplicationController window = factory.create(this, at, maximized);
     if (window == null) {
       LOG.warn("New window not created");
     } else {
@@ -358,7 +374,7 @@ public final class WindowSet implements RememberedStateHost {
     ApplicationController destination = target;
     if (destination == null) {
       destination =
-          openWindow(new WindowGeometry.Request(placement.x(), placement.y(), null, null));
+          openWindow(new WindowGeometry.Request(placement.x(), placement.y(), null, null), false);
       if (destination == null) {
         return null;
       }
@@ -563,8 +579,8 @@ public final class WindowSet implements RememberedStateHost {
    */
   private record SaveSnapshot(long sequence, Preferences preferences, List<WindowDraft> windows) {}
 
-  /** A window's session tabs and Always on Top flag captured on the UI thread. */
-  record WindowDraft(List<DraftTab> tabs, int active, boolean onTop) {}
+  /** A window's session tabs, Always on Top flag and bounds captured on the UI thread. */
+  record WindowDraft(List<DraftTab> tabs, int active, boolean onTop, WindowState window) {}
 
   /** A session tab captured on the UI thread; its marks are read on the worker. */
   record DraftTab(
@@ -659,7 +675,7 @@ public final class WindowSet implements RememberedStateHost {
                 draft.timeOffset(),
                 draft.syncGroup()));
       }
-      sessions.add(new Session(tabs, window.active(), dropped, window.onTop()));
+      sessions.add(new Session(tabs, window.active(), dropped, window.onTop(), window.window()));
     }
     config.sessions().saveWindows(sessions);
   }

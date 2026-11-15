@@ -28,6 +28,26 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
+  public boolean opensFilesByEvent() {
+    return true;
+  }
+
+  @Override
+  public boolean windowMenuControls() {
+    return true;
+  }
+
+  @Override
+  public boolean pollsSystemTheme() {
+    return true;
+  }
+
+  @Override
+  public boolean labelsByDescription() {
+    return true;
+  }
+
+  @Override
   public boolean systemAppMenu() {
     return true;
   }

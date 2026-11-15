@@ -49,6 +49,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.accessibility.ACC;
+import org.eclipse.swt.accessibility.AccessibleControlEvent;
 import org.eclipse.swt.accessibility.AccessibleEvent;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
@@ -250,6 +251,30 @@ class FilteredPaneTest {
     controller.execute(CommandId.CLEAR_RESULTS);
     assertFilteredName(UiText.ACCESSIBLE_FILTERED_VIEW.text());
     assertEquals(0, document().search().resultCount());
+  }
+
+  @Test
+  void aDescribedNameIsAlsoTheDescriptionWithAGroupRole() {
+    Canvas plain = new Canvas(window.shell(), SWT.NONE);
+    Canvas described = new Canvas(window.shell(), SWT.NONE);
+    AccessibleName plainName = AccessibleName.attach(plain, "mock view", false);
+    AccessibleName describedName = AccessibleName.attach(described, "mock view", true);
+    AccessibleEvent event = new AccessibleEvent(plain.getAccessible());
+    event.childID = ACC.CHILDID_SELF;
+    plainName.getDescription(event);
+    assertNull(event.result);
+    event = new AccessibleEvent(described.getAccessible());
+    event.childID = ACC.CHILDID_SELF;
+    describedName.getDescription(event);
+    assertEquals("mock view", event.result);
+    assertEquals("mock view", nameOf(described, describedName));
+    AccessibleControlEvent role = new AccessibleControlEvent(described.getAccessible());
+    role.childID = ACC.CHILDID_SELF;
+    role.detail = -1;
+    AccessibleName.GROUP_ROLE.getRole(role);
+    assertEquals(ACC.ROLE_GROUP, role.detail);
+    plain.dispose();
+    described.dispose();
   }
 
   private void assertFilteredName(final String expected) {
@@ -592,7 +617,7 @@ class FilteredPaneTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas.print(gc));
-      ImageData data = image.getImageData();
+      ImageData data = Pixels.read(image, canvas);
       return data.palette.getRGB(data.getPixel(x, y));
     } finally {
       gc.dispose();

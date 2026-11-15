@@ -11,8 +11,11 @@ import java.util.List;
  * @param droppedComments mark comments the last save left out at the cap; the store keeps one count
  *     for all windows and loads it on the first
  * @param onTop true when the window stays above other windows (View > Always on Top)
+ * @param window the window's normal bounds and maximized state, {@link WindowState#UNKNOWN} when
+ *     not saved
  */
-public record Session(List<Tab> tabs, int active, long droppedComments, boolean onTop) {
+public record Session(
+    List<Tab> tabs, int active, long droppedComments, boolean onTop, WindowState window) {
   /** No tabs. */
   public static final Session EMPTY = new Session(List.of(), -1);
 
@@ -95,6 +98,18 @@ public record Session(List<Tab> tabs, int active, long droppedComments, boolean 
   }
 
   /**
+   * Creates a session without window bounds.
+   *
+   * @param tabs the tabs in order
+   * @param active the shown tab's index, or -1
+   * @param droppedComments mark comments the last save left out at the cap
+   * @param onTop true when the window stays above other windows
+   */
+  public Session(List<Tab> tabs, int active, long droppedComments, boolean onTop) {
+    this(tabs, active, droppedComments, onTop, WindowState.UNKNOWN);
+  }
+
+  /**
    * Creates a session that is not on top.
    *
    * @param tabs the tabs in order
@@ -118,6 +133,9 @@ public record Session(List<Tab> tabs, int active, long droppedComments, boolean 
   /** Checks the components and copies the list. */
   public Session {
     tabs = List.copyOf(tabs);
+    if (window == null) {
+      window = WindowState.UNKNOWN;
+    }
     if (active < -1 || active >= tabs.size()) {
       active = tabs.isEmpty() ? -1 : 0;
     }

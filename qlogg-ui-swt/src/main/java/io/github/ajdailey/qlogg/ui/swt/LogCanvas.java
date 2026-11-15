@@ -72,8 +72,9 @@ import org.slf4j.LoggerFactory;
  * fit whole as with text wrap on.
  *
  * <p>The canvas sits in a {@link #frame()} with a {@link Slider} as the vertical scroll bar at its
- * right, so a side control ({@link #addSide}) goes between the text and the scroll bar. The canvas
- * keeps its native horizontal scroll bar.
+ * right, so a side control ({@link #addSide}) goes between the text and the scroll bar. A wheel
+ * over the scroll bar scrolls as over the canvas. The canvas keeps its native horizontal scroll
+ * bar.
  */
 public final class LogCanvas {
   /** Receives the pending key prefix for the status bar. */
@@ -612,15 +613,17 @@ public final class LogCanvas {
             endDrag();
           }
         });
-    canvas.addListener(
-        SWT.MouseVerticalWheel,
+    // The scroll bar is a separate control, so a wheel over it reaches only its own listeners.
+    Listener wheel =
         new Listener() {
           @Override
           public void handleEvent(Event event) {
             event.doit = false;
             wheel(event.count, event.stateMask);
           }
-        });
+        };
+    canvas.addListener(SWT.MouseVerticalWheel, wheel);
+    vertical.addListener(SWT.MouseVerticalWheel, wheel);
     canvas.addListener(
         SWT.MouseHorizontalWheel,
         new Listener() {

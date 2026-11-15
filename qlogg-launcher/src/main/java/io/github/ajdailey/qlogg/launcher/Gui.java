@@ -227,19 +227,21 @@ final class Gui {
     set.setFactory(
         new WindowSet.Factory() {
           @Override
-          public ApplicationController create(WindowSet owner, WindowGeometry.Request at) {
+          public ApplicationController create(
+              WindowSet owner, WindowGeometry.Request at, boolean maximized) {
             WindowState remembered = owner.settings().state().window();
             return openWindow(
                 display,
                 owner,
                 palette,
                 at,
-                new WindowGeometry.Request(null, null, remembered.width(), remembered.height()));
+                new WindowGeometry.Request(null, null, remembered.width(), remembered.height()),
+                maximized);
           }
         });
     // macOS application menu.
     AppMenu.hook(display, set);
-    WindowState remembered = preferences.state().window();
+    WindowState remembered = firstWindow(sessions, preferences.state().window());
     final MainWindow window = new MainWindow(display, set.keymap(), palette);
     ApplicationController controller = new ApplicationController(set, window);
     attach(window, controller);
@@ -281,7 +283,7 @@ final class Gui {
       if (!sessions.isEmpty()) {
         controller.restoreSession(sessions.get(0));
         for (int i = 1; i < sessions.size(); i++) {
-          ApplicationController more = set.openWindow();
+          ApplicationController more = set.openWindow(sessions.get(i).window());
           if (more != null) {
             more.restoreSession(sessions.get(i));
           }
@@ -321,17 +323,35 @@ final class Gui {
     }
   }
 
+  /**
+   * Returns the first window's saved bounds: the session's when it saved any, else the single
+   * geometry of {@code qlogg.conf}.
+   */
+  static WindowState firstWindow(List<Session> sessions, WindowState conf) {
+    if (sessions.isEmpty()) {
+      return conf;
+    }
+    WindowState saved = sessions.get(0).window();
+    boolean known =
+        saved.x() != null || saved.y() != null || saved.width() != null || saved.height() != null;
+    return known ? saved : conf;
+  }
+
   /** Creates, places and opens a window after the first one. */
   private ApplicationController openWindow(
       Display display,
       WindowSet set,
       Palette palette,
       WindowGeometry.Request request,
-      WindowGeometry.Request persisted) {
+      WindowGeometry.Request persisted,
+      boolean maximized) {
     MainWindow window = new MainWindow(display, set.keymap(), palette);
     ApplicationController controller = new ApplicationController(set, window);
     attach(window, controller);
     window.place(request, persisted);
+    if (maximized) {
+      window.shell().setMaximized(true);
+    }
     window.open();
     return controller;
   }

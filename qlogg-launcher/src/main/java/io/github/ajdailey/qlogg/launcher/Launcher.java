@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.launcher;
 import io.github.ajdailey.qlogg.app.cli.CommandLine;
 import io.github.ajdailey.qlogg.app.cli.CommandLineException;
 import io.github.ajdailey.qlogg.app.cli.CommandLineParser;
+import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.cli.StartupRequest;
 import io.github.ajdailey.qlogg.app.cli.Version;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
@@ -13,9 +14,15 @@ import io.github.ajdailey.qlogg.app.ipc.InstanceServer;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
+import io.github.ajdailey.qlogg.ui.swt.OpenDocuments;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import org.eclipse.swt.SWTError;
+import org.eclipse.swt.SWTException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +37,9 @@ import org.slf4j.LoggerFactory;
  * <p>Without {@code -m}, a launch that takes the instance lock becomes the primary and {@link Gui}
  * accepts handoffs; otherwise it hands its files to the primary, waiting for a primary still
  * starting, and exits 0. Any handoff failure, or a settings directory another user owns or can
- * write, logs one WARN and the launch opens its own window, as with {@code -m}.
+ * write, logs one WARN and the launch opens its own window, as with {@code -m}. A handing launch
+ * without file arguments first collects the files the platform sends as open-document events
+ * ({@link OpenDocuments}); a primary receives them through {@code AppMenu}.
  */
 public final class Launcher {
   static final int EXIT_USAGE = 1;
@@ -131,6 +140,29 @@ public final class Launcher {
     }
   }
 
+  /**
+   * Returns the files the platform sent as open-document events, through {@link OpenDocuments}; a
+   * Display that fails to start gives none.
+   */
+  private static List<FileRequest> openedDocuments() {
+    List<String> texts;
+    try {
+      texts = OpenDocuments.await();
+    } catch (SWTError | SWTException | LinkageError e) {
+      LOG.warn("Open-document events not read: {}", LogText.oneLine(String.valueOf(e)));
+      return List.of();
+    }
+    List<FileRequest> files = new ArrayList<FileRequest>();
+    for (String text : texts) {
+      try {
+        files.add(new FileRequest(Path.of(text), 0));
+      } catch (InvalidPathException e) {
+        LOG.warn("Cannot open {}: {}", LogText.oneLine(text), LogText.oneLine(e.getMessage()));
+      }
+    }
+    return files;
+  }
+
   /** What the single-instance step decided. */
   enum Handoff {
     /** The files went to the running instance. */
@@ -170,9 +202,10 @@ public final class Launcher {
       if (primary != null) {
         return Handoff.PRIMARY;
       }
-      InstanceClient.handOff(directory, request.files(), request.follow());
+      List<FileRequest> files = request.files().isEmpty() ? openedDocuments() : request.files();
+      InstanceClient.handOff(directory, files, request.follow());
       if (LOG.isInfoEnabled()) {
-        LOG.info("Handed {} files to the running instance", request.files().size());
+        LOG.info("Handed {} files to the running instance", files.size());
       }
       return Handoff.HANDED;
     } catch (IOException e) {

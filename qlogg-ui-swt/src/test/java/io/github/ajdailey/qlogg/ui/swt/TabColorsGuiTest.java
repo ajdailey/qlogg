@@ -443,7 +443,7 @@ class TabColorsGuiTest {
     GC gc = new GC(image);
     try {
       assertTrue(control.print(gc), "print");
-      return image.getImageData();
+      return Pixels.read(image, control);
     } finally {
       gc.dispose();
       image.dispose();
@@ -456,7 +456,7 @@ class TabColorsGuiTest {
     GC gc = new GC(display);
     try {
       gc.copyArea(image, area.x, area.y);
-      return image.getImageData();
+      return Pixels.read(image, window.shell());
     } finally {
       gc.dispose();
       image.dispose();

@@ -336,6 +336,26 @@ class StateStoresTest {
   }
 
   @Test
+  void eachWindowKeepsItsOwnBoundsWrittenOnlyWhenKnown() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session placed = new Session(List.of(), -1, 0, false, new WindowState(78, -25, 900, 600, true));
+    Session unplaced = new Session(List.of(), -1, 0, false, WindowState.UNKNOWN);
+    assertTrue(store.saveWindows(List.of(placed, unplaced)));
+    String text = Files.readString(temp.resolve(SessionStore.FILE), StandardCharsets.ISO_8859_1);
+    assertFalse(text.contains("window.1.x"), text);
+    assertFalse(text.contains("window.1.maximized"), text);
+    List<Session> loaded = new SessionStore(location()).loadWindows();
+    assertEquals(new WindowState(78, -25, 900, 600, true), loaded.get(0).window());
+    assertEquals(WindowState.UNKNOWN, loaded.get(1).window());
+    Files.writeString(
+        temp.resolve(SessionStore.FILE),
+        "window.0.active=-1\nwindow.0.x=left\nwindow.0.y=40\n",
+        StandardCharsets.ISO_8859_1);
+    assertEquals(
+        new WindowState(null, 40, null, null, false), new SessionStore(location()).load().window());
+  }
+
+  @Test
   void markRangesConvertBothWays() {
     MutableLineSet marks = new MutableLineSet();
     for (long line : new long[] {1, 2, 3, 9, 70000, 70001}) {

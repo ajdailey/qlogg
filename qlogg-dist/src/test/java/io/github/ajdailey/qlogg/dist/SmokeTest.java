@@ -22,11 +22,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -109,12 +112,31 @@ class SmokeTest {
       return null;
     }
 
+    /**
+     * Destroys the process's descendants, then the process. On macOS the bootstrap relaunches a
+     * child JVM, which outlives a parent destroyed alone.
+     */
     @Override
     public void close() throws InterruptedException {
+      List<ProcessHandle> descendants = new ArrayList<ProcessHandle>();
+      Iterator<ProcessHandle> found = process.descendants().iterator();
+      while (found.hasNext()) {
+        descendants.add(found.next());
+      }
+      for (ProcessHandle descendant : descendants) {
+        descendant.destroy();
+      }
       process.destroy();
       if (!process.waitFor(BOUND_SECONDS, TimeUnit.SECONDS)) {
         process.destroyForcibly();
         process.waitFor(BOUND_SECONDS, TimeUnit.SECONDS);
+      }
+      for (ProcessHandle descendant : descendants) {
+        try {
+          descendant.onExit().get(BOUND_SECONDS, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException e) {
+          descendant.destroyForcibly();
+        }
       }
     }
   }

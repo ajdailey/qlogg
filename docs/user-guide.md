@@ -25,6 +25,7 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 - [Preferences](#preferences)
 - [Help menu and logs](#help-menu-and-logs)
 - [Command line](#command-line)
+- [Known issues](#known-issues)
 
 ## Opening files
 
@@ -62,9 +63,9 @@ Encoding menu forces another one, and the choice is remembered for the file.
 - The buttons at the right end of the tab row open files (+), list every tab
   (the arrow, with the number of tabs the row cannot show) and close the
   current tab (x). The list marks the current tab and shows each tab's dot;
-  choosing a tab shows it. The mouse wheel over the tab row scrolls hidden
-  tabs into view without changing the current tab. The result tabs have the
-  same list button.
+  choosing a tab shows it. The mouse wheel over the tab row shows the previous
+  or next tab, one per notch, and stops at the first and last tab. The result
+  tabs have the same list button.
 - A tab that is not shown gets a dot when its file grows: green for new lines,
   orange when the tab's search, with Auto-refresh on, found new matches,
   purple when a highlighter trigger stopped follow. A reload or truncation
@@ -252,8 +253,8 @@ comment. Unmarking a line drops its comment. A comment is one line of at most
 
 Go > Marks List lists the shown tab's marks with line number, comment and
 the start of the line, and follows the tab you show. `Enter` or a double
-click goes to the line, `Delete` removes the selected marks and `F2` edits a
-comment in the list. It lists the first 10,000 marks.
+click goes to the line, `Delete` or `Backspace` removes the selected marks
+and `F2` edits a comment in the list. It lists the first 10,000 marks.
 
 ### Quick find
 
@@ -593,7 +594,8 @@ epoch time.
 QLogg restores the last session at start when no file is given (Tools >
 Preferences, General; `-s` and `-n` decide for one run): the tabs of each
 window, the shown tab, tab names, follow, marks, mark comments, time offsets,
-time sync groups and each window's Always on Top. A session keeps at most 1,000
+time sync groups and each window's position, size, maximized state and Always
+on Top. A session keeps at most 1,000
 mark comments over all tabs; a notice counts any left out. Each file's position
 and forced encoding are remembered; `+line:N` wins over the position.
 
@@ -660,7 +662,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
-| Window | New Window; Move to New Window; Next Tab, Previous Tab, Switch to File, Opened Files |
+| Window | (macOS: Minimize `Cmd+M`, Zoom;) New Window; Move to New Window; Next Tab, Previous Tab, Switch to File, Opened Files |
 | Help | User Guide, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
 
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
@@ -758,3 +760,17 @@ the embedded browser keeps its cache in your home folder. GTK's input method
 support still creates an empty `~/.config/ibus/bus` folder there, and with the
 experimental GTK 4 backend (`--gtk4`) the graphics driver writes its shader
 cache to `~/.cache/mesa_shader_cache` on every run.
+
+## Known issues
+
+- Windows: Open with QLogg from Explorer opens the file as a tab in the
+  running window but flashes its taskbar button instead of bringing the window
+  to the front.
+- Windows: renaming the folder that holds an open log, or a folder above it,
+  from outside QLogg is refused while the file is open.
+- Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
+  language hotkey. Use `Ctrl+Shift+D` to clear color labels.
+- macOS: `Cmd+Shift+3`, `Cmd+Shift+4` and `Cmd+Shift+5` take screenshots and
+  do not reach QLogg; set those color labels from Highlighters > Color Label.
+- macOS: dragging only folders over the window shows the copy cursor; the drop
+  opens nothing and a notice says folders are not opened.

@@ -315,7 +315,9 @@ class TabsTest {
     SwitchFileDialog dialog = new SwitchFileDialog(window.shell(), controller);
     dialog.open();
     dialog.filter().setText("FIRST");
-    assertEquals(1, dialog.list().getItemCount());
+    assertEquals(1, dialog.table().getItemCount());
+    assertEquals(0, dialog.table().getSelectionIndex());
+    assertTrue((dialog.table().getStyle() & SWT.FULL_SELECTION) != 0);
     dialog.ok().notifyListeners(SWT.Selection, new Event());
     assertTrue(dialog.shell().isDisposed());
     assertEquals("first.log", controller.activeDocument().state().title());

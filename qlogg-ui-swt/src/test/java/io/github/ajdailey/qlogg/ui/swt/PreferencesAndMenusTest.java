@@ -591,4 +591,25 @@ class PreferencesAndMenusTest {
         "focus " + display.getFocusControl());
     dialog[0].dispose();
   }
+
+  @Test
+  void modalDialogsThatKeepASizeResize() {
+    for (CommandId command :
+        new CommandId[] {
+          CommandId.EDIT_HIGHLIGHTERS, CommandId.PREDEFINED_FILTERS, CommandId.EDIT_HISTORY
+        }) {
+      List<Shell> before = List.of(window.shell().getShells());
+      controller.execute(command);
+      Shell dialog = null;
+      for (Shell shell : window.shell().getShells()) {
+        if (!before.contains(shell)) {
+          dialog = shell;
+        }
+      }
+      assertNotNull(dialog, command.name());
+      assertTrue((dialog.getStyle() & SWT.RESIZE) != 0, command.name());
+      assertTrue((dialog.getStyle() & SWT.APPLICATION_MODAL) != 0, command.name());
+      dialog.dispose();
+    }
+  }
 }

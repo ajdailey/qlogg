@@ -28,6 +28,26 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
+  public boolean opensFilesByEvent() {
+    return false;
+  }
+
+  @Override
+  public boolean windowMenuControls() {
+    return false;
+  }
+
+  @Override
+  public boolean pollsSystemTheme() {
+    return true;
+  }
+
+  @Override
+  public boolean labelsByDescription() {
+    return false;
+  }
+
+  @Override
   public boolean systemAppMenu() {
     return false;
   }

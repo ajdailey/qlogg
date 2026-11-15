@@ -102,7 +102,7 @@ and selection and hands focus back to the canvas.
 |---|---|
 | Slider arrow or page click | Scrolls by lines |
 | Slider drag | `setScrollbarSelection`, which maps past `int` range |
-| Wheel | Scrolls by the event count |
+| Wheel, over the text or the slider | Scrolls by the event count |
 | `Alt`+wheel | That many columns |
 | `Shift`+wheel | One page per notch |
 | `Ctrl`+wheel (`Cmd` on macOS) | `zoomFont` |

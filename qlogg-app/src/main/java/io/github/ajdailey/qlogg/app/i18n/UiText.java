@@ -297,6 +297,8 @@ public enum UiText {
   FILTER_FILE_TOO_MANY,
   /** Notice: a command needs selected text. */
   SELECT_TEXT_FIRST,
+  /** Notice: the clipboard refused a copy twice. */
+  NOTICE_COPY_FAILED,
   /** Notice: find next found nothing. */
   NOTICE_END_OF_FILE,
   /** Notice: find previous found nothing. */
@@ -604,6 +606,10 @@ public enum UiText {
   NOTICE_MARKS_NOT_KEPT,
   /** View submenu listing the open files. */
   MENU_OPENED_FILES,
+  /** Window menu on macOS: minimize the window. */
+  MENU_MINIMIZE,
+  /** Window menu on macOS: zoom the window. */
+  MENU_ZOOM,
   /** Tab context menu item. */
   TAB_CLOSE,
   /** Tab context menu item. */

@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
+import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -44,6 +45,15 @@ class GuiTest {
   private static final long BOUND_NANOS = TimeUnit.SECONDS.toNanos(10);
 
   @TempDir Path temp;
+
+  @Test
+  void theFirstWindowTakesItsSessionBoundsElseTheSettingsOnes() {
+    WindowState conf = new WindowState(10, 20, 800, 600, false);
+    WindowState own = new WindowState(78, 78, 900, 600, true);
+    assertEquals(conf, Gui.firstWindow(List.of(), conf));
+    assertEquals(conf, Gui.firstWindow(List.of(new Session(List.of(), -1)), conf));
+    assertEquals(own, Gui.firstWindow(List.of(new Session(List.of(), -1, 0, false, own)), conf));
+  }
 
   @Test
   void opensFileAtRequestedSizeThenShutsDownWithoutLeakingThreads() throws Exception {

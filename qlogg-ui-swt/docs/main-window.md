@@ -73,7 +73,7 @@ document's controllers, which hold the viewport, selection and rows.
 |---|---|
 | Select a tab | `activate` |
 | Close button, middle click | `closeDocument`, the last tab included |
-| Mouse wheel over the strip or its buttons | `TabList.scroll`; see [Tab strip buttons](#tab-strip-buttons) |
+| Mouse wheel over the tab row | Selects the previous or next tab; see [Tab strip buttons](#tab-strip-buttons) |
 | Drag onto another tab of the strip | Recreates the item at that position (a `CTabItem` cannot move) and calls `moveDocument` |
 | Release off every tab of the strip | `dropTab`; see [Tab drag between windows](#tab-drag-between-windows) |
 | Right click | `showTabMenu` |
@@ -113,10 +113,16 @@ accessible names come from the command titles with their keys and from
   subclass draws nothing for `PART_CHEVRON_BUTTON`, and the chevron's
   `ToolBar` is held at zero width on every resize; the strip still reserves its
   width. A chevron request (`CTabFolder2Listener.showList`) opens `TabList`.
-- `TabList.scroll` shifts the run of shown tabs one tab per wheel event without
-  changing the selection, and stops where the selected tab would leave the run.
-  `showItem` reorders only in MRU mode, so the shift shows the tabs from the end
-  down to the new first one in MRU mode and lays out once before MRU mode ends.
+- A `SWT.MouseVerticalWheel` display filter in `TabStripButtons` takes a wheel
+  event whose point lies over the tab row (the folder above its client area,
+  or the whole folder when it holds no content) in the folder's shell,
+  whatever control receives it, and cancels it.
+  `TabWheel` adds the counts: each 3 units select the next tab (negative count)
+  or the previous one through `TabList.choose`, a direction reversal restarts
+  the sum, and a step past the first or last tab clears it without wrapping. A
+  Win32 or GTK notch sends about 3; a cocoa trackpad gesture sends many counts
+  of 1 or 2. Hit-testing in a filter makes hover alone work where the platform
+  delivers the wheel to the focus control.
 - `TabList.showSelection` repairs an SWT 3.135 defect: a selected new last tab
   that fits beside the run already shown keeps no width and stays hidden.
   Turning MRU mode on and off once rebuilds the show order.
@@ -230,7 +236,10 @@ The main view's canvas, the filtered view's canvas and the overview bar carry
 accessible names through `AccessibleName` (`UiText.ACCESSIBLE_*`): Log,
 Overview, and Filtered results, which adds the shown set's match count once a
 search has run. A screen reader reads the name on request; no name-change event
-is sent.
+is sent. On cocoa (`PlatformTraits.labelsByDescription`) the name is also the
+accessible description and the control reports `ACC.ROLE_GROUP`: VoiceOver
+reads a `Canvas` without a role as `SWTComposite` with a blank description.
+Unverified on a Mac.
 
 ### Quick find bar
 
@@ -331,12 +340,16 @@ on a `SWT.getPlatform()` call outside `ui.swt.platform` and on a
 | `monospaceFamily`, `monospaceSize` | Consolas 10 | Menlo 12 | Monospace 10 | Monospace 10 | `Dialogs.monospaceName`, `monospaceSize` |
 | `macKeys` | - | yes | - | - | `SwtKeys.mac`: key names and the keymap's platform |
 | `systemAppMenu` | - | yes | - | - | `AppMenu.present` |
+| `opensFilesByEvent` | - | yes | - | - | `OpenDocuments.await` |
+| `windowMenuControls` | - | yes | - | - | `MainMenuBar.addWindowControls` |
+| `labelsByDescription` | - | yes | - | - | `AccessibleName.attach` |
 | `positionsWindows` | yes | yes | Not under Wayland | Not under Wayland | `MainWindow.place` |
 | `remeasuresTrim` | yes | - | - | - | `MainWindow.place` |
 | `launchesByExtension` | yes | - | - | - | `MainWindow.launchesByExtension` |
 | `opensBrowser` | yes | yes | yes | - | `MainWindow.showGuide`: otherwise a notice names the guide's file |
 | `switchesThemeLive` | - | - | yes | yes | `SwtThemeService.preferDark`, `showsNow` |
-| `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome` and polling, `open`, `showsNow` |
+| `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome`, `open`, `showsNow` |
+| `pollsSystemTheme` | yes | yes | - | - | `SwtThemeService`: polls `isSystemDarkTheme()` every 500 ms |
 | `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
 | `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
 | `busyCursor` | `CURSOR_APPSTARTING` | `CURSOR_WAIT` | `CURSOR_APPSTARTING` | `CURSOR_APPSTARTING` | `WindowBusyCursor` |
@@ -349,6 +362,7 @@ on a `SWT.getPlatform()` call outside `ui.swt.platform` and on a
 | Method | Implementation |
 |---|---|
 | `clipboardText` | Reads the text of the `TextTransfer` clipboard, which is created on first use and disposed with the shell |
+| `setText` | Writes the text to that clipboard; an `SWTError` from `setContents` gets one retry, and a second shows the Copy failed notice and logs one WARN |
 | `launch` | `Program.launch` on a folder or file: the desktop's file association (GIO on GTK, `ShellExecuteEx` on Windows), no shell |
 | `launchUrl` | `Program.launch` on the fixed issue or project page |
 | `setActive`, `setIdle` | A `BusyCounter` driving `WindowBusyCursor`; see [Busy cursor](#busy-cursor) |

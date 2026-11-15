@@ -87,6 +87,13 @@ before indexing starts, as a reload adds them; a comment on an unmarked line is
 dropped. Only the owner writes the tab list. The launcher makes an instance the
 owner when it restored the session and has no `-m`.
 
+Each window's normal bounds and maximized state are saved per window with its
+tabs. The launcher opens the first window at its session bounds, else at the
+`qlogg.conf` geometry, with `--window-*` options winning, and each further
+session window through `WindowSet.openWindow(WindowState)`, which hands the
+bounds to the `Factory`. File > New Window and a tab moved to a new window take
+the `qlogg.conf` size and leave the position to the window system.
+
 `AlwaysOnTop` holds a window's View > Always on Top flag; `restoreSession`
 restores it and the session saves it per window. Where
 `MainView.onTopSupported` is false the item is disabled and a restored flag is

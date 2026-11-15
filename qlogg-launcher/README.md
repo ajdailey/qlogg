@@ -56,6 +56,14 @@ launch the primary, or `InstanceClient.handOff` sends the files, `-f` and
 `+line:N` to the primary and `run` returns 0. The primary may still be
 starting; the client then waits for its first window, up to 35 s.
 
+A handing launch without file arguments first calls `OpenDocuments.await`
+(`qlogg-ui-swt`). On cocoa, Finder Open With can start a second copy of the
+bundle with no arguments and send the file as `SWT.OpenDocument` once a
+Display exists, so `await` creates the Display and dispatches events until
+files arrive and 200 ms pass with no further one, or 1 s passes with none, and
+the launch hands off what came, possibly nothing. Elsewhere `await` returns no
+files at once. The bounds are unmeasured.
+
 A failure at any step, or a settings directory another user owns or others can
 write (`InstanceClient.refusal`), logs one WARN, and the launch opens its own
 window as with `-m`. A launch that stays opens the debug log file when `-l` or
@@ -273,7 +281,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 
 | Class | Covers |
 |---|---|
-| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; `Gui.loop` on a Display without handlers routing a runtime exception and an `Error` out of `readAndDispatch` to `UiFailures`, the `Error` quitting with status 4; a quit that throws ending the loop with status 4 and the window still open; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker |
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; `Gui.loop` on a Display without handlers routing a runtime exception and an `Error` out of `readAndDispatch` to `UiFailures`, the `Error` quitting with status 4; a quit that throws ending the loop with status 4 and the window still open; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker; the first window taking its session bounds, else the `qlogg.conf` ones |
 | `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits; each quit writes the marker; a quit that throws sets `quitFailed` and runs once |
 | `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |

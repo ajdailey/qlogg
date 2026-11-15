@@ -224,6 +224,15 @@ class ViewFeaturesGuiTest {
   }
 
   @Test
+  void aWheelOverTheScrollBarScrollsLines() {
+    Event event = new Event();
+    event.count = -3;
+    window.canvas().verticalScrollBar().notifyListeners(SWT.MouseVerticalWheel, event);
+    assertEquals(3, document().viewport().topLine());
+    assertFalse(event.doit);
+  }
+
+  @Test
   void anAltDragSelectsABlock() {
     LogCanvas view = window.canvas();
     int x0 = view.gutterWidth() + view.columnOffset(2);
@@ -565,7 +574,7 @@ class ViewFeaturesGuiTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas().print(gc));
-      return image.getImageData();
+      return Pixels.read(image, canvas());
     } finally {
       gc.dispose();
       image.dispose();

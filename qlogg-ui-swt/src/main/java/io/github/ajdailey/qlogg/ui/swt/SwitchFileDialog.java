@@ -14,17 +14,21 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Window > Switch to File: the open files by full path, narrowed by a filter field that matches any
- * part of the path, ignoring case. Enter or a double click shows the chosen tab; Escape cancels.
- * The first match is selected after each filter change.
+ * Window > Switch to File: the open files by full path in a one-column {@code Table} with full-row
+ * selection, narrowed by a filter field that matches any part of the path, ignoring case. Enter or
+ * a double click shows the chosen tab; Escape cancels. The first match is selected after each
+ * filter change.
  */
 final class SwitchFileDialog {
   private final Shell shell;
   private final Text filter;
-  private final org.eclipse.swt.widgets.List list;
+  private final Table table;
   private final Button ok;
   private final ApplicationController controller;
   private final List<DocumentController> shown = new ArrayList<DocumentController>();
@@ -35,11 +39,12 @@ final class SwitchFileDialog {
     Dialogs.label(shell, UiText.SWITCH_FILE_FILTER.text());
     filter = new Text(shell, SWT.BORDER | SWT.SINGLE | SWT.SEARCH);
     filter.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    list = new org.eclipse.swt.widgets.List(shell, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
-    GridData listData = new GridData(SWT.FILL, SWT.FILL, true, true);
-    listData.widthHint = 640;
-    listData.heightHint = 320;
-    list.setLayoutData(listData);
+    table = new Table(shell, SWT.BORDER | SWT.SINGLE | SWT.FULL_SELECTION | SWT.V_SCROLL);
+    final TableColumn column = new TableColumn(table, SWT.LEFT);
+    GridData tableData = new GridData(SWT.FILL, SWT.FILL, true, true);
+    tableData.widthHint = 640;
+    tableData.heightHint = 320;
+    table.setLayoutData(tableData);
     Composite buttons = Dialogs.buttonRow(shell, 1);
     ok =
         Dialogs.button(
@@ -61,7 +66,15 @@ final class SwitchFileDialog {
             fill();
           }
         });
-    list.addListener(
+    table.addListener(
+        SWT.Resize,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            column.setWidth(table.getClientArea().width);
+          }
+        });
+    table.addListener(
         SWT.DefaultSelection,
         new Listener() {
           @Override
@@ -80,30 +93,30 @@ final class SwitchFileDialog {
     fill();
   }
 
-  /** Up and Down in the filter field move the list's selection. */
+  /** Up and Down in the filter field move the table's selection. */
   private void moveSelection(Event event) {
     int step = event.keyCode == SWT.ARROW_DOWN ? 1 : event.keyCode == SWT.ARROW_UP ? -1 : 0;
-    if (step == 0 || list.getItemCount() == 0) {
+    if (step == 0 || table.getItemCount() == 0) {
       return;
     }
     event.doit = false;
-    int next = Math.max(0, Math.min(list.getItemCount() - 1, list.getSelectionIndex() + step));
-    list.setSelection(next);
+    int next = Math.max(0, Math.min(table.getItemCount() - 1, table.getSelectionIndex() + step));
+    table.setSelection(next);
   }
 
   private void fill() {
     String needle = filter.getText().toLowerCase(Locale.ROOT);
     shown.clear();
-    list.removeAll();
+    table.removeAll();
     for (DocumentController document : controller.documents()) {
       String text = label(document);
       if (text.toLowerCase(Locale.ROOT).contains(needle)) {
         shown.add(document);
-        list.add(text);
+        new TableItem(table, SWT.NONE).setText(text);
       }
     }
     if (!shown.isEmpty()) {
-      list.setSelection(0);
+      table.setSelection(0);
     }
   }
 
@@ -113,7 +126,7 @@ final class SwitchFileDialog {
   }
 
   private void choose() {
-    int index = list.getSelectionIndex();
+    int index = table.getSelectionIndex();
     DocumentController chosen = index < 0 ? null : shown.get(index);
     shell.dispose();
     if (chosen != null) {
@@ -134,8 +147,8 @@ final class SwitchFileDialog {
     return filter;
   }
 
-  org.eclipse.swt.widgets.List list() {
-    return list;
+  Table table() {
+    return table;
   }
 
   Button ok() {

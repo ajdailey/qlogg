@@ -2072,16 +2072,18 @@ public final class ApplicationController
               set.timeSync().sessionNumber(document),
               document.document()));
     }
-    return new WindowSet.WindowDraft(tabs, shown, alwaysOnTop.saved());
+    return new WindowSet.WindowDraft(tabs, shown, alwaysOnTop.saved(), windowState());
   }
 
   /** Records this window's placement and split for the next start and the next new window. */
   void rememberWindow() {
+    remembered.rememberWindow(windowState(), view.splitPercent());
+  }
+
+  private WindowState windowState() {
     WindowGeometry.Request bounds = view.windowBounds();
-    remembered.rememberWindow(
-        new WindowState(
-            bounds.x(), bounds.y(), bounds.width(), bounds.height(), view.windowMaximized()),
-        view.splitPercent());
+    return new WindowState(
+        bounds.x(), bounds.y(), bounds.width(), bounds.height(), view.windowMaximized());
   }
 
   /**

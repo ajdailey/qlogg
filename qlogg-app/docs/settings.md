@@ -26,7 +26,7 @@ without `qlogg.home` (tests, an IDE) uses the settings directory.
 
 | Mode | Write | Read |
 |---|---|---|
-| Explicit, portable | A path whose real path is the base or under it: relative to the base's real path, `/`-separated, `.` for the base. Any other path: as given | A value without a root resolves against the base's real path, never the working directory; a value with a root stays |
+| Explicit, portable | A path whose real path is the base or under it: relative to the base's real path, `/`-separated, `.` for the base. Any other path: as given | A value without a root resolves against the base's real path, never the working directory; a value with a root is normalized (`C:/logs/a.log` reads as `C:\logs\a.log` on Windows) |
 | Per-user | As given | As above |
 
 Real paths make a path reached through a link into the installation relative
@@ -133,7 +133,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
 | `tabs.closeShowsLastUsed` | `true`, `false`: closing the shown tab shows the open tab shown most recently, not the one after it; with none shown, the one after it | `false` | Tools > Preferences, General |
 | `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Preferences, Shortcuts |
-| `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit; `--window-*` options win for that run | none | Exit |
+| `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit: the bounds of File > New Window, and of the first window when the session holds none; `--window-*` options win for that run | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers, Line Numbers in Filtered View |
@@ -176,7 +176,7 @@ last saved file stays, so a load never finds a file over its cap.
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known; malformed reads as unknown), `.maximized` (when on); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.

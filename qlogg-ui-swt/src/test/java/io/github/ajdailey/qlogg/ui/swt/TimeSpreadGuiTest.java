@@ -198,7 +198,7 @@ class TimeSpreadGuiTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas.print(gc));
-      ImageData data = image.getImageData();
+      ImageData data = Pixels.read(image, canvas);
       return data.palette.getRGB(data.getPixel(x, y));
     } finally {
       gc.dispose();

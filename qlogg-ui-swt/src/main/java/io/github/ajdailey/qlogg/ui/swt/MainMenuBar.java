@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -223,6 +224,9 @@ final class MainMenuBar {
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
       }
+      if (group == CommandGroup.WINDOW && PlatformTraits.PLATFORM.windowMenuControls()) {
+        addWindowControls(menu, shell);
+      }
       // Menu item icons.
       icons.decorate(menu);
       menu.addListener(
@@ -239,6 +243,38 @@ final class MainMenuBar {
       old.dispose();
     }
     syncEnablement();
+  }
+
+  /**
+   * Puts Minimize ({@code Cmd+M}) and Zoom, then a separator, at the top of a Window menu. Zoom
+   * toggles the maximized state.
+   *
+   * @param menu the Window menu
+   * @param shell the window they act on
+   */
+  static void addWindowControls(Menu menu, final Shell shell) {
+    MenuItem minimize = new MenuItem(menu, SWT.PUSH, 0);
+    minimize.setText(UiText.MENU_MINIMIZE.text());
+    minimize.setAccelerator(SWT.MOD1 | 'M');
+    minimize.addListener(
+        SWT.Selection,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            shell.setMinimized(true);
+          }
+        });
+    MenuItem zoom = new MenuItem(menu, SWT.PUSH, 1);
+    zoom.setText(UiText.MENU_ZOOM.text());
+    zoom.addListener(
+        SWT.Selection,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            shell.setMaximized(!shell.getMaximized());
+          }
+        });
+    new MenuItem(menu, SWT.SEPARATOR, 2);
   }
 
   /** Adds a cascade whose items are filled from the controller's state. */

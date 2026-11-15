@@ -68,7 +68,8 @@ final class MacRelaunch {
   }
 
   /**
-   * Runs the child with inherited standard streams and waits for it.
+   * Runs the child with inherited standard streams and waits for it. A shutdown hook destroys the
+   * child, so a launcher ended by a signal or a quit does not leave the window running.
    *
    * @param jar the universal jar
    * @param args the original arguments
@@ -83,6 +84,33 @@ final class MacRelaunch {
             .command()
             .orElse(Path.of(System.getProperty("java.home"), "bin", "java").toString());
     Process child = new ProcessBuilder(command(java, jar, args)).inheritIO().start();
-    return child.waitFor();
+    Thread hook = new Thread(stopper(child), "qlogg-relaunch-stop");
+    Runtime.getRuntime().addShutdownHook(hook);
+    try {
+      return child.waitFor();
+    } finally {
+      try {
+        Runtime.getRuntime().removeShutdownHook(hook);
+      } catch (IllegalStateException e) {
+        // Shutdown has begun; the hook runs.
+      }
+    }
+  }
+
+  /**
+   * Returns the shutdown hook's task: destroys the child while it is alive.
+   *
+   * @param child the relaunched process
+   * @return the task
+   */
+  static Runnable stopper(final Process child) {
+    return new Runnable() {
+      @Override
+      public void run() {
+        if (child.isAlive()) {
+          child.destroy();
+        }
+      }
+    };
   }
 }

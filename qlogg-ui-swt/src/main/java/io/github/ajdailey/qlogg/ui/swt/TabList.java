@@ -13,8 +13,7 @@ import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 
 /**
- * The menu of every tab in a {@code CTabFolder} and the shift of the run of tabs the strip shows.
- * One menu serves the folder; each show refills it.
+ * The menu of every tab in a {@code CTabFolder}. One menu serves the folder; each show refills it.
  */
 final class TabList {
   private final CTabFolder tabs;
@@ -146,40 +145,5 @@ final class TabList {
       tabs.setMRUVisible(true);
       tabs.setMRUVisible(false);
     }
-  }
-
-  /**
-   * Shifts the run of shown tabs one tab toward a side, keeping the selected tab shown.
-   *
-   * <p>{@code CTabFolder.showItem} reorders only in MRU mode; outside it the folder keeps the run
-   * that holds the selection. So the run is chosen in MRU mode, by showing the tabs from the end
-   * down to the new first one, laid out at once through a {@code Resize}, and kept when MRU mode
-   * ends, which starts the run at the first tab shown.
-   *
-   * @param direction -1 toward the first tab, 1 toward the last
-   */
-  void scroll(int direction) {
-    int count = tabs.getItemCount();
-    int first = -1;
-    int last = -1;
-    for (int i = 0; i < count; i++) {
-      if (tabs.getItem(i).isShowing()) {
-        first = first < 0 ? i : first;
-        last = i;
-      }
-    }
-    int next = first + direction;
-    if (first < 0
-        || next < 0
-        || (direction > 0 && last == count - 1)
-        || (direction > 0 && next > tabs.getSelectionIndex())) {
-      return;
-    }
-    tabs.setMRUVisible(true);
-    for (int i = count - 1; i >= next; i--) {
-      tabs.showItem(tabs.getItem(i));
-    }
-    tabs.notifyListeners(SWT.Resize, new Event());
-    tabs.setMRUVisible(false);
   }
 }

@@ -70,6 +70,41 @@ public interface PlatformTraits {
   boolean systemAppMenu();
 
   /**
+   * Reports whether the system hands a launch its files as {@code SWT.OpenDocument} events after
+   * the Display exists rather than as arguments: Finder Open With can start a second copy with
+   * none.
+   *
+   * @return true on cocoa
+   */
+  boolean opensFilesByEvent();
+
+  /**
+   * Reports whether the Window menu carries Minimize ({@code Cmd+M}) and Zoom, which SWT does not
+   * add to an application-defined Window menu.
+   *
+   * @return true on cocoa
+   */
+  boolean windowMenuControls();
+
+  /**
+   * Reports whether a screen reader takes a custom control's label from its accessible description
+   * and needs an explicit role: VoiceOver reads a {@code Canvas} without a role as {@code
+   * SWTComposite} with a blank description and does not read the accessible name.
+   *
+   * @return true on cocoa
+   */
+  boolean labelsByDescription();
+
+  /**
+   * Reports whether the theme service polls {@code Display.isSystemDarkTheme()} for a change: cocoa
+   * sends no {@code SWT.Settings} for an appearance change, and win32 sends it 2 s after {@code
+   * WM_SETTINGCHANGE}.
+   *
+   * @return true on cocoa and win32
+   */
+  boolean pollsSystemTheme();
+
+  /**
    * Reports whether a shell can be moved to a location; read at each placement.
    *
    * @return false on GTK under Wayland

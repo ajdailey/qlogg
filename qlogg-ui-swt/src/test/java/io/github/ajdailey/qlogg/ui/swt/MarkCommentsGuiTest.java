@@ -168,7 +168,7 @@ class MarkCommentsGuiTest {
     GC gc = new GC(image);
     try {
       Gtk4.assertPrinted(canvas.print(gc));
-      return image.getImageData();
+      return Pixels.read(image, canvas);
     } finally {
       gc.dispose();
       image.dispose();
@@ -328,6 +328,18 @@ class MarkCommentsGuiTest {
             }));
     assertEquals(1, first.marks().size());
     assertNull(first.markComment(3));
+
+    table.setSelection(0);
+    key(table, SWT.BS);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return table.getItemCount() == 0 && !marks.marks().reading();
+              }
+            }));
+    assertEquals(0, first.marks().size());
 
     controller.openFile(write("other.log", 10), 0);
     waitForDocument("other.log");

@@ -26,7 +26,7 @@ final class HistoryDialog {
   private final Spinner size;
 
   HistoryDialog(Shell parent, final ApplicationController application) {
-    shell = Dialogs.shell(parent, CommandId.EDIT_HISTORY.title(), true);
+    shell = Dialogs.sizedShell(parent, CommandId.EDIT_HISTORY.title());
     Dialogs.label(shell, UiText.HISTORY_PROMPT.text());
     Preferences preferences = application.preferences();
     entries = new Text(shell, SWT.MULTI | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);

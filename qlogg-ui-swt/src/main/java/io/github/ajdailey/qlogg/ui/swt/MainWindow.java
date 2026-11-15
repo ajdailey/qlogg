@@ -26,6 +26,7 @@ import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
+import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.SWTError;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.DND;
@@ -73,6 +75,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The main window: the menu bar built from the {@link Keymap}; a top row with the icon toolbar
@@ -105,6 +109,8 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   /** System property SWT sets on GTK to the GTK version. */
   static final String GTK_VERSION = "org.eclipse.swt.internal.gtk.version";
+
+  private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
 
   /** Widget data key marking a sash that draws its grip. */
   private static final String GRIP = "qlogg.grip";
@@ -172,6 +178,16 @@ public final class MainWindow implements MainView, ApplicationListener {
   private WindowGeometry.Request normalBounds = new WindowGeometry.Request(null, null, null, null);
   private ShortcutsWindow shortcuts;
   private Clipboard clipboard;
+  private ClipboardWriter clipboardWriter =
+      new ClipboardWriter() {
+        @Override
+        public void write(String text) {
+          if (clipboard == null) {
+            clipboard = new Clipboard(shell.getDisplay());
+          }
+          clipboard.setContents(new Object[] {text}, new Transfer[] {TextTransfer.getInstance()});
+        }
+      };
   // Scratchpad and the search across open files.
   private ScratchpadWindow scratchpad;
   private MultiSearchWindow multiSearch;
@@ -1795,15 +1811,46 @@ public final class MainWindow implements MainView, ApplicationListener {
     return chosen;
   }
 
+  /** Writes text to the system clipboard. */
+  interface ClipboardWriter {
+    /**
+     * Writes the text.
+     *
+     * @param text the text
+     * @throws SWTError when the platform refuses the write
+     */
+    void write(String text);
+  }
+
+  /**
+   * Replaces the clipboard writer.
+   *
+   * @param writer the writer
+   */
+  void clipboardWriter(ClipboardWriter writer) {
+    clipboardWriter = writer;
+  }
+
+  /**
+   * Writes text to the clipboard, retrying once when the platform refuses the write; a second
+   * refusal shows the Copy failed notice and logs one WARN.
+   */
   @Override
   public void setText(String text) {
     if (shell.isDisposed()) {
       return;
     }
-    if (clipboard == null) {
-      clipboard = new Clipboard(shell.getDisplay());
+    try {
+      clipboardWriter.write(text);
+    } catch (SWTError first) {
+      try {
+        clipboardWriter.write(text);
+      } catch (SWTError second) {
+        LOG.warn(
+            "Clipboard write failed: {}", LogText.oneLine(String.valueOf(second.getMessage())));
+        showNotice(UiText.NOTICE_COPY_FAILED.text());
+      }
     }
-    clipboard.setContents(new Object[] {text}, new Transfer[] {TextTransfer.getInstance()});
   }
 
   @Override

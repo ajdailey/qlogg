@@ -74,7 +74,7 @@ final class HighlightersDialog {
     this.application = application;
     HighlightSettings settings = application.highlightSettings();
     this.editor = new HighlightSetsEditor(settings);
-    shell = Dialogs.shell(parent, CommandId.EDIT_HIGHLIGHTERS.title(), true);
+    shell = Dialogs.sizedShell(parent, CommandId.EDIT_HIGHLIGHTERS.title());
     TabFolder tabs = new TabFolder(shell, SWT.TOP);
     tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     Runnable edited =

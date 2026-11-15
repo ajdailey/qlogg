@@ -138,3 +138,8 @@ the menu bar keeps About, Preferences and Exit.
 | About, Preferences, Quit | `ABOUT`, `PREFERENCES` and `QUIT` in the window activated last |
 | Display `SWT.Close` (Cmd-Q, logout) | Vetoed; runs `WindowSet.quit` |
 | `SWT.OpenDocument` | The file goes to `WindowSet.openHandoff` |
+
+Where `PlatformTraits.windowMenuControls` is true (cocoa), `MainMenuBar` puts
+Minimize (`Cmd+M`, `Shell.setMinimized`) and Zoom (toggles
+`Shell.setMaximized`) at the top of the Window menu; SWT adds neither to an
+application-defined Window menu. No QLogg binding uses `Cmd+M`.

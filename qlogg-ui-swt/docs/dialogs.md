@@ -16,7 +16,9 @@ exceptions. Modal dialogs use `APPLICATION_MODAL`; Enter presses the default
 button and Escape closes. Dialogs that remember their size are listed in
 [main-window.md](main-window.md#windows-and-placement).
 
-Every dialog and tool window shell comes from `Dialogs.shell`, which gives it
+Every dialog and tool window shell comes from `Dialogs.shell` (or
+`Dialogs.sizedShell`, which adds `SWT.RESIZE` to a modal dialog that remembers
+its size: Highlighters, Predefined Filters, Edit History), which gives it
 the owning window's icons (`Dialogs.inheritIcons`) and the platform's dialog
 colors, and opens through `Dialogs.open`, which colors its controls. A shell
 built another way calls `inheritIcons`, or the window manager shows its generic
@@ -39,7 +41,7 @@ is over it (`TableFit.cellTips`).
 | Edit Search History | One entry per line and the count kept; OK saves both, dropping blank lines |
 | Predefined Filters | Add and Remove icons at the left, Import and Export centered, Move Up and Move Down icons at the right; a table of Name, Pattern and Regex, where a click on a selected row's name or pattern edits it in place and a click on Regex toggles it. Import appends the filters of a chosen file not in the list yet, Export writes the list, both on a worker with the result reported in the dialog. OK saves and closes, Apply saves. The table has focus at open, so no tool item starts highlighted |
 | Save as Filter, Rename Tab, Edit Mark Comment | `NameDialog`: the filter's name, prefilled with the pattern cut at 64 chars; the tab's name, empty to reset it; or the comment |
-| Switch to File | `SwitchFileDialog`: the open files by path and a filter field matching any part of it, ignoring case; Up and Down in the field move the selection, Enter or a double click shows the tab |
+| Switch to File | `SwitchFileDialog`: the open files by path in a one-column `Table` with `SWT.FULL_SELECTION` (a native list paints its selection in the system color under the Win32 dark dialog colors) and a filter field matching any part of the path, ignoring case; Up and Down in the field move the selection, Enter or a double click shows the tab |
 | Command Palette | `CommandPaletteWindow`, resizable and modal: a filter field over a table of command, menu path and keys from `CommandPalette.filter`, refilled on each change with the first row selected. Up, Down, Page Up and Page Down in the field move the selection; Enter or a double click closes the dialog and runs the command on the next UI turn. A disabled command's row is gray and does not run |
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
 | Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
@@ -157,5 +159,5 @@ shown tab.
 | Key | Action |
 |---|---|
 | `Enter`, double click | Go to the row's line |
-| `Delete` | Remove the selected marks |
+| `Delete`, `Backspace` | Remove the selected marks |
 | `F2` | A field over the row's comment (`TableEditor`); `Enter` or leaving the field saves it, `Esc` drops the edit |

@@ -36,6 +36,26 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
+  public final boolean opensFilesByEvent() {
+    return false;
+  }
+
+  @Override
+  public final boolean windowMenuControls() {
+    return false;
+  }
+
+  @Override
+  public final boolean pollsSystemTheme() {
+    return false;
+  }
+
+  @Override
+  public final boolean labelsByDescription() {
+    return false;
+  }
+
+  @Override
   public final boolean systemAppMenu() {
     return false;
   }
