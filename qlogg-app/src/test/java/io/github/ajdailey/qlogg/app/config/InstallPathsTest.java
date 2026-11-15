@@ -64,10 +64,12 @@ class InstallPathsTest {
   }
 
   @Test
-  void onWindowsAForwardSlashValueReadsWithBackslashes() {
+  void onWindowsAForwardSlashValueReadsWithBackslashesAndADrivelessRootStays() {
     Assumptions.assumeTrue(File.separatorChar == '\\', "Windows path parsing");
     InstallPaths paths = paths(SettingsMode.PORTABLE, install, install);
     assertEquals("C:\\gate\\mock\\in.log", paths.read("C:/gate/mock/in.log"));
+    // A root without a drive is not absolute and stays as stored.
+    assertEquals("/mock/a.log", paths.read("/mock/a.log"));
   }
 
   @Test

@@ -26,7 +26,7 @@ without `qlogg.home` (tests, an IDE) uses the settings directory.
 
 | Mode | Write | Read |
 |---|---|---|
-| Explicit, portable | A path whose real path is the base or under it: relative to the base's real path, `/`-separated, `.` for the base. Any other path: as given | A value without a root resolves against the base's real path, never the working directory; a value with a root is normalized (`C:/logs/a.log` reads as `C:\logs\a.log` on Windows) |
+| Explicit, portable | A path whose real path is the base or under it: relative to the base's real path, `/`-separated, `.` for the base. Any other path: as given | A value without a root resolves against the base's real path, never the working directory; an absolute value is normalized (`C:/logs/a.log` reads as `C:\logs\a.log` on Windows); a value with a root but no drive (`\mock`) stays as stored |
 | Per-user | As given | As above |
 
 Real paths make a path reached through a link into the installation relative
