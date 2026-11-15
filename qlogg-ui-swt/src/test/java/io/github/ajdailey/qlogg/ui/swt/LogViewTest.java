@@ -46,6 +46,7 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
@@ -357,9 +358,13 @@ class LogViewTest {
     assertEquals(start, document().selection().anchor());
     assertEquals(new TextPosition(3, 0), end);
     assertEquals(end, document().selection().caret());
-    key(SWT.MOD1, 'c', (char) 3);
     final Clipboard clipboard = new Clipboard(display);
     try {
+      // Regression: on Windows the copy did not reach a clipboard another process still owned, so
+      // the test writes first and its process owns the clipboard.
+      clipboard.setContents(
+          new Object[] {"mock clipboard"}, new Transfer[] {TextTransfer.getInstance()});
+      key(SWT.MOD1, 'c', (char) 3);
       final String nl = System.lineSeparator();
       assertTrue(
           runUntil(
