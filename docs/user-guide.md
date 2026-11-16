@@ -42,6 +42,15 @@ color labels.
 QLogg detects the encoding from the byte order mark and the content; the
 Encoding menu forces another one, and the choice is remembered for the file.
 
+File > Open in Editor opens the shown file in the application the system uses
+for plain text (`.txt` files). When no application is set for plain text, the
+file opens in the application set for its own type, unless the system would
+run it instead: on Windows a program type such as `.exe`, `.jar` or `.py`, or
+an extension in `PATHEXT`; on macOS a type such as `.command`, `.terminal` or
+`.jar`, or a file with the execute bit; on Linux a file with the execute bit.
+Such a file is refused with a notice. The list of program types cannot name a
+type that a program installed later registers to run.
+
 ## The main window
 
 ![Main window with search results, marks and the overview bar](images/guide/main.png)

@@ -6,9 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 class OsTraitsTest {
@@ -74,6 +79,35 @@ class OsTraitsTest {
     assertEquals(
         xdg.resolve("qlogg"), os.userSettings(Map.of("XDG_CONFIG_HOME", xdg.toString()), temp));
     assertEquals(temp.resolve(".config").resolve("qlogg"), os.userSettings(Map.of(), temp));
+  }
+
+  @Test
+  void runnableFilesFollowTheSystem() throws IOException {
+    Path log = Files.writeString(temp.resolve("app.log"), "x\n");
+    Path jar = Files.writeString(temp.resolve("tool.jar"), "x\n");
+    Path terminal = Files.writeString(temp.resolve("shell.terminal"), "x\n");
+    OsTraits windows = OsTraits.of("Windows 11");
+    assertTrue(windows.runsInsteadOfOpening(jar));
+    assertFalse(windows.runsInsteadOfOpening(terminal));
+    assertFalse(windows.runsInsteadOfOpening(log));
+    OsTraits mac = OsTraits.of("Mac OS X");
+    assertTrue(mac.runsInsteadOfOpening(jar));
+    assertTrue(mac.runsInsteadOfOpening(terminal));
+  }
+
+  /** Windows reports every readable file as executable, so the execute bit is set on POSIX only. */
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void theExecuteBitDecidesOnMacOsAndLinux() throws IOException {
+    Path log = Files.writeString(temp.resolve("app.log"), "x\n");
+    Path terminal = Files.writeString(temp.resolve("shell.terminal"), "x\n");
+    assertFalse(OsTraits.of("Linux").runsInsteadOfOpening(terminal));
+    assertFalse(OsTraits.of("Mac OS X").runsInsteadOfOpening(log));
+    assertFalse(OsTraits.of("Linux").runsInsteadOfOpening(log));
+    Files.setPosixFilePermissions(log, PosixFilePermissions.fromString("rwx------"));
+    assertTrue(OsTraits.of("Mac OS X").runsInsteadOfOpening(log));
+    assertTrue(OsTraits.of("Linux").runsInsteadOfOpening(log));
+    assertFalse(OsTraits.of("Windows 11").runsInsteadOfOpening(log));
   }
 
   @Test

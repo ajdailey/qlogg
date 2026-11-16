@@ -29,6 +29,20 @@ final class LaunchCursor {
   }
 
   /**
+   * Opens a file through {@link MainView#launchAsText}.
+   *
+   * @param view launches and shows the cursor
+   * @param ui runs the timer
+   * @param file the file
+   * @return the outcome; the cursor changes only on {@code OPENED}
+   */
+  static MainView.TextLaunch launchAsText(MainView view, UiDispatcher ui, Path file) {
+    MainView.TextLaunch result = view.launchAsText(file);
+    shown(view, ui, result == MainView.TextLaunch.OPENED);
+    return result;
+  }
+
+  /**
    * Opens a web address through {@link MainView#launchUrl}.
    *
    * @param view launches and shows the cursor

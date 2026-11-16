@@ -9,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,8 +20,6 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Tab context commands, path commands, dropped files and open from clipboard. */
@@ -226,34 +226,54 @@ class TabCommandsTest {
   }
 
   @Test
-  void programsAreNotOpenedInAnEditor() throws Exception {
-    assertTrue(PathCommands.runsInsteadOfOpening(Path.of("setup.EXE"), true));
-    assertTrue(PathCommands.runsInsteadOfOpening(Path.of("run.bat"), true));
-    assertFalse(PathCommands.runsInsteadOfOpening(Path.of("app.log"), true));
+  void thePlainTextApplicationOpensTheFileWithoutTheRunnableCheck() throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    Path file = fixture.open(fixture.lines("run.bat", 3)).document().path();
+    fixture.view.system = OsTraits.of("Windows 11");
+    fixture.view.textLaunch = MainView.TextLaunch.OPENED;
+    fixture.application.execute(CommandId.OPEN_IN_EDITOR);
+    fixture.runUntilIdle();
+    fixture.ui.runPending();
+    assertEquals(List.of(file), fixture.view.launchedAsText);
+    assertEquals(List.of(), fixture.view.launched);
+    assertEquals(List.of(), fixture.view.notices);
   }
 
   @Test
-  void theViewDecidesWhetherTheExtensionRefusesAFile() throws Exception {
+  void aFailedPlainTextLaunchShowsANoticeWithoutAFallback() throws Exception {
     fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
-    fixture.open(fixture.lines("run.bat", 3));
-    fixture.view.byExtension = true;
+    fixture.open(fixture.lines("app.log", 3));
+    fixture.view.textLaunch = MainView.TextLaunch.FAILED;
+    fixture.application.execute(CommandId.OPEN_IN_EDITOR);
+    fixture.runUntilIdle();
+    fixture.ui.runPending();
+    assertEquals(List.of(UiText.NOTICE_LAUNCH_FAILED.text()), fixture.view.notices);
+    assertEquals(List.of(), fixture.view.launched);
+  }
+
+  @Test
+  void withoutAPlainTextApplicationWindowsRefusesAListedType() throws Exception {
+    assertRefused(OsTraits.of("Windows 11"), "tool.jar");
+  }
+
+  @Test
+  void withoutAPlainTextApplicationMacOsRefusesAListedType() throws Exception {
+    assertRefused(OsTraits.of("Mac OS X"), "shell.terminal");
+  }
+
+  private void assertRefused(OsTraits os, final String name) throws Exception {
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    fixture.open(fixture.lines(name, 3));
+    fixture.view.system = os;
     fixture.application.execute(CommandId.OPEN_IN_EDITOR);
     fixture.runUntil(
         new BooleanSupplier() {
           @Override
           public boolean getAsBoolean() {
-            return fixture.view.notices.contains("run.bat is a program; it is not opened");
+            return fixture.view.notices.contains(name + " is a program; it is not opened");
           }
         });
     assertEquals(List.of(), fixture.view.launched);
-  }
-
-  /** Windows reports every readable file as executable, so the POSIX check runs elsewhere. */
-  @Test
-  @DisabledOnOs(OS.WINDOWS)
-  void aPlainFileIsNotAProgramOnPosix() throws Exception {
-    Path log = Files.writeString(temp.resolve("plain.log"), "x\n");
-    assertFalse(PathCommands.runsInsteadOfOpening(log, false));
   }
 
   @Test

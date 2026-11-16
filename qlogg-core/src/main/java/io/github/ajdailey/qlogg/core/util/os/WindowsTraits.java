@@ -42,4 +42,10 @@ final class WindowsTraits implements OsTraits {
   public boolean macKeymap() {
     return false;
   }
+
+  @Override
+  public boolean runsInsteadOfOpening(Path file) {
+    Path name = file.getFileName();
+    return name != null && RunnableTypes.windows(name.toString(), System.getenv("PATHEXT"));
+  }
 }

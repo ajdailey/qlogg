@@ -29,6 +29,7 @@ import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.file.InvalidPathException;
@@ -1557,8 +1558,17 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   @Override
-  public boolean launchesByExtension() {
-    return PlatformTraits.PLATFORM.launchesByExtension();
+  public TextLaunch launchAsText(Path file) {
+    Program program = Program.findProgram("txt");
+    if (program == null) {
+      return TextLaunch.NO_PROGRAM;
+    }
+    return program.execute(file.toString()) ? TextLaunch.OPENED : TextLaunch.FAILED;
+  }
+
+  @Override
+  public OsTraits system() {
+    return OsTraits.current();
   }
 
   @Override

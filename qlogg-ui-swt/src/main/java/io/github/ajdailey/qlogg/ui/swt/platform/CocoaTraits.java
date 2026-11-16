@@ -68,11 +68,6 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public boolean launchesByExtension() {
-    return false;
-  }
-
-  @Override
   public boolean opensBrowser() {
     return true;
   }

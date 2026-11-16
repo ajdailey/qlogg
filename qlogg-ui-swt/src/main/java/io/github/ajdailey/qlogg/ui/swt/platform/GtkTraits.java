@@ -77,11 +77,6 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
-  public final boolean launchesByExtension() {
-    return false;
-  }
-
-  @Override
   public final boolean switchesThemeLive() {
     return true;
   }

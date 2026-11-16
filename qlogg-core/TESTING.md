@@ -223,7 +223,8 @@ missing.
 
 | Class | Covers |
 |---|---|
-| `OsTraitsTest` | Each `os.name` form selecting one class, every answer of each class from a fixed name, `current()` matching this JVM, `EnvPaths.absolute` refusing null, empty, relative and NUL values |
+| `OsTraitsTest` | Each `os.name` form selecting one class, every answer of each class from a fixed name, `current()` matching this JVM, `EnvPaths.absolute` refusing null, empty, relative and NUL values; `runsInsteadOfOpening` by name per system, and by the execute bit on macOS and Linux (POSIX hosts) |
+| `RunnableTypesTest` | Every `WINDOWS` and `MAC` extension in either case, trailing dots and spaces on Windows, a `PATHEXT` entry added and malformed entries ignored |
 | `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of` |
 
 ## Platform assumptions

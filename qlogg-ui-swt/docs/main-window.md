@@ -348,7 +348,6 @@ that package or in the launcher.
 | `labelsByDescription` | - | yes | - | - | `AccessibleName.attach` |
 | `positionsWindows` | yes | yes | Not under Wayland | Not under Wayland | `MainWindow.place` |
 | `remeasuresTrim` | yes | - | - | - | `MainWindow.place` |
-| `launchesByExtension` | yes | - | - | - | `MainWindow.launchesByExtension` |
 | `opensBrowser` | yes | yes | yes | - | `MainWindow.showGuide`: otherwise a notice names the guide's file |
 | `switchesThemeLive` | - | - | yes | yes | `SwtThemeService.preferDark`, `showsNow` |
 | `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome`, `open`, `showsNow` |
@@ -367,6 +366,8 @@ that package or in the launcher.
 | `clipboardText` | Reads the text of the `TextTransfer` clipboard, which is created on first use and disposed with the shell |
 | `setText` | Writes the text to that clipboard; an `SWTError` from `setContents` gets one retry, and a second shows the Copy failed notice and logs one WARN |
 | `launch` | `Program.launch` on a folder or file: the desktop's file association (GIO on GTK, `ShellExecuteEx` on Windows), no shell |
+| `launchAsText` | `Program.findProgram("txt")`, then `Program.execute` on the file: the plain-text application started with the file as its argument (`CreateProcess` on Windows, GIO on GTK, LaunchServices on macOS), no shell; `NO_PROGRAM` when `.txt` has no association |
+| `system` | `OsTraits.current()` |
 | `launchUrl` | `Program.launch` on the fixed issue or project page |
 | `setActive`, `setIdle` | A `BusyCounter` driving `WindowBusyCursor`; see [Busy cursor](#busy-cursor) |
 

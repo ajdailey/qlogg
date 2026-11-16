@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.view;
 import io.github.ajdailey.qlogg.app.about.AboutInfo;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -161,12 +162,30 @@ public interface MainView
   boolean launch(Path target);
 
   /**
-   * Reports whether {@link #launch} picks the handler by file extension, as on Windows, where a
-   * file with an executable extension runs instead of opening.
+   * Opens a file in the application the system associates with plain text ({@code .txt}), without a
+   * shell.
    *
-   * @return true when the extension decides
+   * @param file an absolute path
+   * @return {@code NO_PROGRAM} when no application is associated with plain text
    */
-  boolean launchesByExtension();
+  TextLaunch launchAsText(Path file);
+
+  /** The outcome of {@link #launchAsText}. */
+  enum TextLaunch {
+    /** The plain-text application took the file. */
+    OPENED,
+    /** The plain-text application did not start. */
+    FAILED,
+    /** No application is associated with plain text. */
+    NO_PROGRAM
+  }
+
+  /**
+   * Returns the operating system whose rules decide what {@link #launch} runs.
+   *
+   * @return this process's system
+   */
+  OsTraits system();
 
   /**
    * Describes the UI toolkit for About.

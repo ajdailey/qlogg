@@ -137,11 +137,16 @@ a document entry, reads included, before it closes the file.
 
 `PathCommands` runs `copyPath`, `copyFileName` (Edit menu),
 `openContainingFolder` and `openInEditor` (File menu) on the file's path; the
-tab menu has all but `openInEditor`. The folder and the file open through
-`MainView.launch`, which runs no shell. `openInEditor` first checks on a
-`qlogg-lifecycle-` worker whether the system would run the file instead of
-opening it: an executable file, or an extension in `WINDOWS_EXECUTABLE` where
-`MainView.launchesByExtension()`. It refuses such a file with a notice.
+tab menu has all but `openInEditor`. The folder opens through `MainView.launch`,
+which runs no shell. `openInEditor` opens the file through
+`MainView.launchAsText` in the application associated with `.txt`, which takes
+the file as an argument, so no runnable check applies; a failed launch shows the
+launch-failed notice. When no application is associated with `.txt`,
+`OsTraits.runsInsteadOfOpening` for `MainView.system()` runs on a
+`qlogg-lifecycle-` worker, and the file is either refused with a notice or
+opened through `MainView.launch`. The
+[runnable types](../../qlogg-core/README.md#runnable-types) are a denylist: a
+program installed later can register another type to run.
 
 ### Moving a tab between windows
 

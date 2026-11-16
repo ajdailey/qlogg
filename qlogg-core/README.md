@@ -22,7 +22,7 @@ display.
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
 | `core.util` | `Checks`, `Streams` | [Utilities](#utilities) |
-| `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths` | [Operating system seam](#operating-system-seam) |
+| `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths`, `RunnableTypes` | [Operating system seam](#operating-system-seam) |
 
 ## Threads
 
@@ -98,9 +98,21 @@ system's answers from `OsTraits.of(name)`.
 | `confinesToSettings` | false | false | true | `PlatformSetup` moves `user.home`; `UserGuide.embedded` |
 | `webView2` | true | false | false | `PlatformSetup` sets the WebView2 data folder |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |
+| `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
 
 `OsTraits.description()` is the About line: `os.name`, `os.version` and
 `os.arch`.
+
+### Runnable types
+
+`RunnableTypes` lists the file name extensions a system runs, or follows to
+another target, when asked to open the file with its default application.
+`windows(name, pathext)` matches `RunnableTypes.WINDOWS` and each `.`-prefixed
+`PATHEXT` entry, case-insensitively, after dropping trailing dots and spaces as
+Windows does. `mac(name)` matches `RunnableTypes.MAC`: `.terminal` and
+`.command` run in Terminal, `.jar` in Jar Launcher, and `.fileloc`, `.webloc`
+and `.inetloc` open their target, none needing the execute bit. Both lists are
+denylists: a program installed later can register another extension to run.
 
 ## Testing
 

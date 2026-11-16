@@ -5,26 +5,20 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
-import java.nio.file.Files;
+import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A tab's path commands: Copy Path, Copy File Name, Open Containing Folder and Open in Editor. On a
- * document without a file each shows the no-file notice. The folder and the file open through
- * {@link HelpController#launch}. Confined to the UI thread.
+ * document without a file each shows the no-file notice. The folder, and a file when no application
+ * is associated with plain text, open through {@link HelpController#launch}. Confined to the UI
+ * thread.
  */
 public final class PathCommands {
-  /** File name extensions Windows runs rather than opens; lower case, with the dot. */
-  static final List<String> WINDOWS_EXECUTABLE =
-      List.of(
-          ".bat", ".cmd", ".com", ".cpl", ".exe", ".hta", ".js", ".jse", ".lnk", ".msc", ".msi",
-          ".pif", ".ps1", ".reg", ".scr", ".url", ".vbe", ".vbs", ".wsf", ".wsh");
-
   private static final Logger LOG = LoggerFactory.getLogger(PathCommands.class);
 
   private final Workers workers;
@@ -112,10 +106,10 @@ public final class PathCommands {
   }
 
   /**
-   * Opens a tab's file in the application the system associates with it. A file the system would
-   * run instead is refused with a notice: an executable file, or where {@link
-   * MainView#launchesByExtension} a {@link #WINDOWS_EXECUTABLE} extension. The check reads the
-   * file's attributes on a {@code qlogg-lifecycle-} worker.
+   * Opens a tab's file in the application the system associates with plain text. Where none is
+   * associated, opens it in the application associated with the file itself, unless {@link
+   * OsTraits#runsInsteadOfOpening} on a {@code qlogg-lifecycle-} worker reports that the system
+   * would run it; such a file is refused with a notice.
    */
   void openInEditor(DocumentController document) {
     final Path path = document.document().path();
@@ -123,14 +117,22 @@ public final class PathCommands {
       view.showNotice(UiText.NOTICE_NO_FILE.text());
       return;
     }
-    final boolean windows = view.launchesByExtension();
+    MainView.TextLaunch result = LaunchCursor.launchAsText(view, ui, path);
+    if (result == MainView.TextLaunch.FAILED) {
+      LOG.warn("The plain-text application did not open {}", LogText.oneLine(path));
+      view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
+    }
+    if (result != MainView.TextLaunch.NO_PROGRAM) {
+      return;
+    }
+    final OsTraits system = view.system();
     boolean started =
         workers.tryStart(
             Workers.Kind.LIFECYCLE,
             new Runnable() {
               @Override
               public void run() {
-                final boolean runnable = runsInsteadOfOpening(path, windows);
+                final boolean runnable = system.runsInsteadOfOpening(path);
                 ui.asyncExec(
                     new Runnable() {
                       @Override
@@ -152,27 +154,5 @@ public final class PathCommands {
     if (!started) {
       LOG.debug("Editor not opened: workers are closed");
     }
-  }
-
-  /**
-   * Reports whether the system would run a file rather than open it.
-   *
-   * @param path the file
-   * @param windows true on Windows, which decides by extension
-   * @return true for an executable file or extension
-   */
-  @WorkerThread
-  static boolean runsInsteadOfOpening(Path path, boolean windows) {
-    if (windows) {
-      Path name = path.getFileName();
-      String text = name == null ? "" : name.toString().toLowerCase(Locale.ROOT);
-      for (String extension : WINDOWS_EXECUTABLE) {
-        if (text.endsWith(extension)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return Files.isExecutable(path);
   }
 }

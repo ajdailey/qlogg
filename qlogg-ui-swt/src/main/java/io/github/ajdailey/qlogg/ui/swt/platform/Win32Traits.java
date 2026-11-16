@@ -68,11 +68,6 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public boolean launchesByExtension() {
-    return true;
-  }
-
-  @Override
   public boolean opensBrowser() {
     return true;
   }

@@ -28,7 +28,6 @@ class PlatformTraitsTest {
     "macKeys",
     "systemAppMenu",
     "remeasuresTrim",
-    "launchesByExtension",
     "opensBrowser",
     "switchesThemeLive",
     "followsSystemAppearance",
@@ -55,7 +54,6 @@ class PlatformTraitsTest {
     answers.add(traits.macKeys());
     answers.add(traits.systemAppMenu());
     answers.add(traits.remeasuresTrim());
-    answers.add(traits.launchesByExtension());
     answers.add(traits.opensBrowser());
     answers.add(traits.switchesThemeLive());
     answers.add(traits.followsSystemAppearance());
@@ -93,7 +91,6 @@ class PlatformTraitsTest {
         false,
         true,
         true,
-        true,
         false,
         false,
         true,
@@ -119,7 +116,6 @@ class PlatformTraitsTest {
         12,
         true,
         true,
-        false,
         false,
         true,
         false,
@@ -148,7 +144,6 @@ class PlatformTraitsTest {
         false,
         false,
         false,
-        false,
         true,
         true,
         false,
@@ -173,7 +168,6 @@ class PlatformTraitsTest {
         "gtk",
         "Monospace",
         10,
-        false,
         false,
         false,
         false,

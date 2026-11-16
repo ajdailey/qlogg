@@ -131,13 +131,6 @@ public interface PlatformTraits {
   boolean remeasuresTrim();
 
   /**
-   * Reports whether the system opens a file in its application by file extension.
-   *
-   * @return true on win32
-   */
-  boolean launchesByExtension();
-
-  /**
    * Reports whether a {@code Browser} can show the user guide. WebKitGTK 6.0 aborts the JVM when
    * the browser starts under GTK 4 ("Failed to fully launch dbus-proxy").
    *

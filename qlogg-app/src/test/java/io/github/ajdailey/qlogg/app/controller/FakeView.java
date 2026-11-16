@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.app.view.UiThreadCheck;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -272,13 +273,25 @@ final class FakeView implements MainView {
     return launchResult;
   }
 
-  // Matches the host, as MainWindow does: Files.isExecutable is true for a .log file on Windows.
-  boolean byExtension = System.getProperty("os.name", "").startsWith("Windows");
+  // The host, as MainWindow answers: Files.isExecutable is true for a .log file on Windows.
+  OsTraits system = OsTraits.current();
+  // No plain-text application unless a test sets one, so Open in Editor reaches launch.
+  MainView.TextLaunch textLaunch = MainView.TextLaunch.NO_PROGRAM;
+  final List<Path> launchedAsText = new ArrayList<Path>();
 
   @Override
-  public boolean launchesByExtension() {
-    check("launchesByExtension");
-    return byExtension;
+  public MainView.TextLaunch launchAsText(Path file) {
+    check("launchAsText");
+    if (textLaunch != MainView.TextLaunch.NO_PROGRAM) {
+      launchedAsText.add(file);
+    }
+    return textLaunch;
+  }
+
+  @Override
+  public OsTraits system() {
+    check("system");
+    return system;
   }
 
   // Save, scratchpad, search across open files and automatic highlighter sets.
