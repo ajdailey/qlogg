@@ -566,12 +566,12 @@ the match highlight and the default color labels; each syntax color reaches
 4.5:1 on the view, the caret's line, context lines and filtered rows.
 
 To add a scheme, put a file named `<id>.properties` in the `colors` folder of
-the settings directory ([Settings directory](#settings-directory)); QLogg reads the folder
-at start and lists the schemes after the bundled ones. `<id>` is letters,
-digits, `-` and `_`, and is not `follow`, `light`, `dark` or a bundled
-scheme's id. The file sets `dark=true` or `dark=false`, which picks
-the color label variants, an optional `name=` shown in the list, and each of
-these keys as `#rrggbb`:
+the settings directory ([Settings directory](#settings-directory)); QLogg reads
+the folder at start and lists the schemes after the bundled ones. `<id>` is
+letters, digits, `-` and `_`, and is not `follow`, `light`, `dark` or a bundled
+scheme's id. The file sets `dark=true` or `dark=false`, which picks the color
+label variants, an optional `name=` shown in the list, and each of these keys
+as `#rrggbb`:
 
 | Keys | Colors |
 |---|---|

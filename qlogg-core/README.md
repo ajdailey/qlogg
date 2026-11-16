@@ -109,8 +109,8 @@ system's answers from `OsTraits.of(name)`.
 another target, when asked to open the file with its default application.
 `windows(name, pathext)` matches `RunnableTypes.WINDOWS` and each `.`-prefixed
 `PATHEXT` entry, case-insensitively, after dropping trailing dots and spaces as
-Windows does. `mac(name)` matches `RunnableTypes.MAC`: `.terminal` and
-`.command` run in Terminal, `.jar` in Jar Launcher, and `.fileloc`, `.webloc`
+Windows does. `mac(name)` matches `RunnableTypes.MAC`: `.terminal`, `.command`
+and `.tool` run in Terminal, `.jar` in Jar Launcher, and `.fileloc`, `.webloc`
 and `.inetloc` open their target, none needing the execute bit. Both lists are
 denylists: a program installed later can register another extension to run.
 

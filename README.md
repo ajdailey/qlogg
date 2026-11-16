@@ -53,8 +53,6 @@ xvfb-run -a ./mvnw clean verify
 rules and every test, and builds the universal jar and the bundle for the build
 host. Fix formatting with `./mvnw spotless:apply`.
 
-CI builds under `umask 022`; build under it locally too.
-
 | Command | Builds |
 |---|---|
 | `./mvnw clean verify` | Universal zip and the host target's bundle |
@@ -118,10 +116,10 @@ scripts/container.sh ./mvnw -B spotless:check
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
-every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13+9. Actions
-are pinned by commit SHA, and every checkout sets `persist-credentials: false`.
-Linux jobs install Xvfb and GTK 3 from the Ubuntu archive when the runner image
-lacks them.
+every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13+9
+(21.0.12+8 on `windows-11-arm`). Actions are pinned by commit SHA, and every
+checkout sets `persist-credentials: false`. Linux jobs install Xvfb and GTK 3
+from the Ubuntu archive when the runner image lacks them.
 
 | Job | Runners | Does |
 |---|---|---|

@@ -74,8 +74,9 @@ open range extends over appended lines.
 `selectRange()` (`Ctrl+R`) selects the range around the main view's caret with
 the field text, the range end and the current toggles. It runs `RangeFinder` on
 a `qlogg-search-` worker inside a document entry, matching each block read as
-one CPU step, holding the `ActivityIndicator`. A newer request or `cancel()` stops an older one. With no
-range there, a notice shows and the selection stays.
+one CPU step, holding the `ActivityIndicator`. A newer request or `cancel()`
+stops an older one. With no range there, a notice shows and the selection
+stays.
 
 ### Toggles, edits and navigation
 

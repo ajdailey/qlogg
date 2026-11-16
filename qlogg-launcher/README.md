@@ -28,7 +28,7 @@ module except the bootstrap, so it holds the architecture rules.
 |---|---|
 | 0 | Help, version, the files went to the running instance, or the last window closed |
 | 1 | Bad command line, or a `--settings` path that cannot be a directory |
-| 3 | SWT failed to load (`UnsatisfiedLinkError` or `SWTError` from `new Display()`), typically missing GTK 3 libraries |
+| 3 | SWT failed to load (`LinkageError` or `SWTError` from `Display` class initialization or `new Display()`), typically no loadable GTK |
 | 4 | UI-thread failures ran the quit (`UiFailures`) |
 
 `Main` calls `System.exit` only for a nonzero status. After a normal close
@@ -287,7 +287,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
 | `PortableRunTest` (`swt`) | `Gui` twice over a portable bundle with `user.home` set as `PlatformSetup` sets it, once with the marker in the bundle and once in its `bin/`: the first run opens a log, zooms and adds a favorite, the second restores the session; every new or changed file lies in the marker's folder and the home directory is empty |
 | `PortableGuideTest` (`swt`, Linux, not GTK 4) | `PortableGuideMain` as a child process in portable mode with `HOME` an empty folder and no application for HTML: Help > User Guide writes the copy and opens no guide window, and no `QLogg` folder under `.cache` or `.local/share` and no `.cache/mesa_shader_cache` appears. GTK 4's renderer writes the Mesa cache in every run |
-| `LoadedToolkitTest` (`swt`, Linux) | `LoadedToolkitMain` as a child process with `SWT_GTK4=1` and an empty `libgtk-4.so.1` first on `LD_LIBRARY_PATH`: SWT falls back to GTK 3, `PlatformTraits.PLATFORM` is the GTK 3 traits, and one WARN names the fallback |
+| `LoadedToolkitTest` (`swt`, Linux) | `LoadedToolkitMain` as a child process with `SWT_GTK4=1` and an empty `libgtk-4.so.1` first on `LD_LIBRARY_PATH`: SWT falls back to GTK 3, `PlatformTraits.PLATFORM` is the GTK 3 traits, and one WARN names the fallback; with neither GTK loadable, `Main` exits 3 and prints `qlogg: SWT failed to start` |
 | `WindowsGuiTest` (`swt`) | `Gui` as a primary: New Window opens a second window, a handoff from a worker opens its file in the window activated last, quit closes both windows, the workers and the endpoint file; a handoff sent before `Gui` runs opens as a tab |
 | `StoreFaultsTest` (`swt`) | `Gui` over a malformed, an oversized and an unknown-version session file: each opens an empty window, exits 0 and logs a WARN. A remembered encoding the runtime does not support opens the file with detection |
 | `SigtermTest` (`swt`, Linux) | `Main` as a child process restoring a two-file session: after both files' `Indexing ... done` lines in its `-l` log, SIGTERM (`Process.destroy`) ends it within the hook's bound, the endpoint file is gone, the session and positions files were written, and the hook's INFO line reached the log. Windows has no SIGTERM; `destroy` there terminates without hooks |

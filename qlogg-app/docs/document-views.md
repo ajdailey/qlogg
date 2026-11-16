@@ -173,10 +173,10 @@ its menu's enablement then.
 
 - `]` and `[` go to the next and previous mark; with none, a notice shows.
 - `toggleMarks` runs `MarkToggle` from a `qlogg-search-` worker, one batch of
-  4,096 rows per CPU step (`CpuSteps`), with the `ActivityIndicator` active. One toggle runs at a time (a second `M` shows a
-  notice), with progress notices at most every 250 ms. A toggle over more than
-  4,096 rows reports the count when it ends. Unmarking removes the lines'
-  comments.
+  4,096 rows per CPU step (`CpuSteps`), with the `ActivityIndicator` active.
+  One toggle runs at a time (a second `M` shows a notice), with progress
+  notices at most every 250 ms. A toggle over more than 4,096 rows reports the
+  count when it ends. Unmarking removes the lines' comments.
 - Marking reserves from `RESULTS` and stops with a notice at the share's limit.
 - Edit Mark Comment (`Shift+M`) asks for the comment of the focused view's
   caret line (`MainView.askMarkComment`). `setMarkComment` then marks the line
@@ -278,9 +278,10 @@ line in the main view; a click or `Enter` makes that a jump of the
 lines' and toggle apart from the main view's.
 
 In marks and matches mode, the marks outside the matches come from a snapshot
-built by a `qlogg-search-` worker as one CPU step (`FilteredView.buildExtras`), at most one at
-a time and not while a mark toggle runs. Until it arrives the rows keep the
-previous snapshot, so the marks are never walked on the UI thread.
+built by a `qlogg-search-` worker as one CPU step (`FilteredView.buildExtras`),
+at most one at a time and not while a mark toggle runs. Until it arrives the
+rows keep the previous snapshot, so the marks are never walked on the UI
+thread.
 
 ### Context lines
 
@@ -289,8 +290,8 @@ Context counts come from the shown set's toggles
 set's), so a kept set keeps its counts.
 
 - After the matches change, `ContextRows.extend` runs from a `qlogg-search-`
-  worker as one CPU step before the marks snapshot, one build at a time. The rows stay on the
-  installed build until the next arrives.
+  worker as one CPU step before the marks snapshot, one build at a time. The
+  rows stay on the installed build until the next arrives.
 - `grew(lineCount)` re-reads the rows when the line count changes, so the last
   result's context extends with the file without a search.
 - `contextRow` and `startsGroup` feed the row shading and the group rule.

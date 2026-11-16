@@ -87,9 +87,9 @@ Triggers act on complete lines appended after the first indexing pass ends.
 Each flush with unscanned growth and no scan running starts a scan on a
 `qlogg-search-` worker under `LogDocument.enter`. The scan loops over
 `Triggers.scan` in batches of 4,096 lines to the indexed end, each a CPU step
-(`CpuSteps`), re-reading the index each batch, and posts each batch. `detach` cancels its token. A scan that
-fails to read keeps its position, and the next starts when the complete line
-count changes.
+(`CpuSteps`), re-reading the index each batch, and posts each batch. `detach`
+cancels its token. A scan that fails to read keeps its position, and the next
+starts when the complete line count changes.
 
 On the UI thread, a batch:
 

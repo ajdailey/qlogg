@@ -331,9 +331,12 @@ return; only `PlatformTraits`, `DialogColors`, `WindowStacking` and
 `ToolItemSizing` are public. `LoadedToolkit` chooses `PlatformTraits.PLATFORM`
 when the interface is first used, from `SWT.getPlatform()` and, on GTK, the
 major version of the GTK that SWT loaded: it initializes the `Display` class,
-which loads SWT's GTK library, then reads `org.eclipse.swt.internal.gtk.version`.
-SWT loads GTK 3 when `SWT_GTK4=1` is set and GTK 4 fails to load; QLogg then
-uses the GTK 3 traits and logs one WARN.
+which loads SWT's GTK library, then reads
+`org.eclipse.swt.internal.gtk.version`. SWT loads GTK 3 when `SWT_GTK4=1` is
+set and GTK 4 fails to load; QLogg then uses the GTK 3 traits and logs one
+WARN. Without `SWT_GTK4`, SWT loads GTK 4 when GTK 3 fails to load, and QLogg
+uses the GTK 4 traits with no WARN. When neither loads, `LoadedToolkit` logs
+the failure at DEBUG and chooses the GTK 3 traits, and `Gui` exits 3.
 `PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
 checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
 on a `SWT.getPlatform()` call or a string starting `org.eclipse.swt.internal.`
