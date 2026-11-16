@@ -6,15 +6,17 @@
 # directory. Surefire's XDG_CONFIG_DIRS pin draws GTK's Adwaita theme, light or
 # dark, whatever the desktop theme. The Recently Closed shot posts Alt+F, which
 # fires only with the ibus daemon reachable. The logs are written to
-# /tmp/qlogg-demo, the path the path field shows, and removed afterwards. The
-# next build embeds the guide images.
+# /tmp/qlogg-demo, the path the path field shows, created owner-only (the run
+# stops if it exists) and removed afterwards. The next build embeds the guide
+# images.
 set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 logs=/tmp/qlogg-demo
+mkdir -m 700 "$logs"
+trap 'rm -rf "$logs"' EXIT
 cd "$root"
 ./mvnw -q -pl qlogg-launcher -am install -DskipTests
-trap 'rm -rf "$logs"' EXIT
 xvfb-run -a -s "-screen 0 1280x800x24" ./mvnw -q -pl qlogg-launcher surefire:test \
     -Dtest=ScreenshotsTest -Dsurefire.failIfNoSpecifiedTests=false \
     -Dqlogg.screenshots="$root/docs/images" -Dqlogg.screenshots.logs="$logs"
