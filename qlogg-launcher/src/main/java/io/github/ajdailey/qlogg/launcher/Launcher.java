@@ -40,6 +40,10 @@ import org.slf4j.LoggerFactory;
  * write, logs one WARN and the launch opens its own window, as with {@code -m}. A handing launch
  * without file arguments first collects the files the platform sends as open-document events
  * ({@link OpenDocuments}); a primary receives them through {@code AppMenu}.
+ *
+ * <p>Records logged after the command line parses and before the debug log file opens are kept
+ * ({@link LogConfigurator#holdForFile}) and written into the file first; a launch that hands off or
+ * opens no file discards them.
  */
 public final class Launcher {
   static final int EXIT_USAGE = 1;
@@ -87,6 +91,16 @@ public final class Launcher {
       return 0;
     }
     LogConfigurator.setLevel(line.logLevel());
+    LogConfigurator.holdForFile();
+    try {
+      return start(line);
+    } finally {
+      LogConfigurator.endHold();
+    }
+  }
+
+  /** Runs the launch after the command line parsed; ends the log hold before {@link Gui}. */
+  private int start(CommandLine line) {
     Thread.setDefaultUncaughtExceptionHandler(new FailureLogger());
     StartupRequest request = line.request();
     Path settings = null;
@@ -129,6 +143,7 @@ public final class Launcher {
           LOG.warn("Cannot open the debug log file: {}", LogText.oneLine(e.getMessage()));
         }
       }
+      LogConfigurator.endHold();
       return new Gui(request, config, preferences, err, null, server, logFile).run();
     } catch (IOException e) {
       err.println("qlogg: " + LogText.oneLine(e.getMessage()));

@@ -17,7 +17,7 @@ module except the bootstrap, so it holds the architecture rules.
 | `Gui` | Composition and the event loop on the UI thread |
 | `ShutdownHook` | Quit on SIGTERM, logoff or a parent ending the process |
 | `UiFailures` | The Display's runtime-exception and error handlers |
-| `LogConfigurator`, `StderrHandler`, `RecentHandler`, `LogFileHandler`, `LineFormatter`, `RetainingLogManager` | Logging |
+| `LogConfigurator`, `StderrHandler`, `RecentHandler`, `FileRelayHandler`, `LogFileHandler`, `LineFormatter`, `RetainingLogManager` | Logging |
 | `FileLog` | The debug log file (`LogFiles`) and pruning |
 
 ## Exit status
@@ -185,7 +185,7 @@ property, and attaches the root handlers:
 |---|---|---|
 | `StderrHandler` | `-d`, WARN when absent | Standard error |
 | `RecentHandler` | INFO, or `-d` when finer | `LogConfigurator.RECENT` (`RecentLog`); WARN and ERROR lines count as warnings |
-| `LogFileHandler` | DEBUG, or `-d` when finer | `<settings>/logs/qlogg.log` through `FileLog`, while attached; `qlogg-<pid>.log` in a process without the handoff lock |
+| `FileRelayHandler` | DEBUG, or `-d` when finer | The `LogFileHandler` `FileLog` attaches: `<settings>/logs/qlogg.log`; `qlogg-<pid>.log` in a process without the handoff lock |
 
 `-d` maps to JUL as slf4j-jdk14 maps the SLF4J levels: `error` SEVERE, `warn`
 WARNING, `info` INFO, `debug` FINE, `trace` FINEST. The
@@ -213,6 +213,15 @@ call sites.
 `LogFileHandler` writes each line with one unbuffered write, so a crash loses
 no line and a slow disk holds the thread that logs. It writes no lock file. The
 `logs` folder is created owner-only, and on POSIX the file `rw-------`.
+
+From the command-line parse until the attach, `Launcher` holds the file's
+records (`LogConfigurator.holdForFile`): `FileRelayHandler` keeps each one,
+formatted, at the file's level, up to 1,048,576 characters, and counts the
+records past that. The attach writes the kept records first, then one WARN
+with the dropped count, so a WARN logged before the file opens, such as a
+refused handoff, is in the file once. A launch that hands off, opens no file or
+fails to open it discards the kept records and writes no file. The hold does
+not change stderr or Show Log.
 
 | Event | Action |
 |---|---|
@@ -296,6 +305,8 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |
-| `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN, not tried again before the file grows by the size, and rolling then; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
+| `FileRelayHandlerTest` | Held records written first and once, in order, then later records; records past the bound dropped and counted in one WARN; a release discarding them; nothing kept without a hold |
+| `RefusedHandoffLogTest` (`swt`, Linux) | `Main` with `-l` as a child process whose handoff the endpoint check refuses (`rw-r--r--`) while this JVM holds the lock: the WARN, logged before the file opens, is in the child's log file once |
+| `FileLogTest` | The file's location; the level with the file attached and detached; only `qlogg.log` in the folder after a detach; `-d trace` staying finer; a process without the lock writing `qlogg-<pid>.log`; the roll to `qlogg.log.1`; a failed roll (a non-empty directory named `qlogg.log.1`) writing on with one WARN, not tried again before the file grows by the size, and rolling then; a failed reopen (a read-only file) detaching the file with its ERROR in the recent lines; a hold's DEBUG line written once before the attach's lines, the level back to INFO after the hold and the detach, and a hold ended without a file writing nothing; with set modification times, prune deleting only an old `qlogg-<pid>.log` and `.1` of an ended process and keeping a young one, a running process's, `qlogg.log`, a `.2` name, other names and a directory |
 | `ArchitectureTest` | The rules above, and the fixture tests |
 | `BusyCoverageTest` | Every `Workers.tryStart`, `start` or `executeCpu` call and anonymous `BusyWork` in `qlogg-app`, keyed by the named method after leaving anonymous classes, matches a row marked `BUSY`, `QUICK` or `UPKEEP`: a new or removed site fails. A `BUSY` row creates a `BusyWork` or calls its row's method. Indexing and the search start their tasks in `qlogg-core` and are not listed |
