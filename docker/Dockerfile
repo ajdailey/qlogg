@@ -3,7 +3,7 @@
 # tree at run time; nothing from it is baked in.
 
 # Pinned by multi-platform index digest; Dependabot proposes updates.
-FROM eclipse-temurin:21.0.13_9-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9
+FROM eclipse-temurin:24.0.2_12-jdk-noble@sha256:dacac8e9a0df0d2bd24e702b4431132875c249930b70555ebd7ca285b5bee684
 
 # git: Spotless reads .gitattributes for line endings.
 # unzip: without it ./mvnw fetches the .tar.gz Maven distribution, which fails
