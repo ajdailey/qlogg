@@ -13,6 +13,11 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
+  public String toolkitVersion() {
+    return "";
+  }
+
+  @Override
   public String monospaceFamily() {
     return "Menlo";
   }

@@ -124,6 +124,64 @@ class QuickFindControllerTest {
   }
 
   @Test
+  void findSeedsTheTextFromASelectionWithinOneLine() throws Exception {
+    quickFind.open(true);
+    quickFind.setText("line");
+    quickFind.close();
+    fixture.runUntilIdle();
+    document.select(range(24, 0, 3));
+    execute(CommandId.FIND);
+    fixture.runUntil(text("hit"));
+    assertEquals(range(24, 0, 3), document.selection());
+    assertEquals(2, fixture.view.quickFindFocused);
+    quickFind.submit();
+    fixture.runUntilIdle();
+    assertEquals(range(31, 0, 3), document.selection());
+    quickFind.close();
+    document.select(new Selection(new TextPosition(10, 0), new TextPosition(11, 2)));
+    execute(CommandId.FIND);
+    assertEquals("hit", quickFind.state().text());
+    quickFind.close();
+    document.select(range(3, 0, QuickFindController.SEED_CHARS + 1));
+    execute(CommandId.FIND);
+    assertEquals("hit", quickFind.state().text());
+  }
+
+  @Test
+  void textTypedBeforeTheSelectionIsReadIsKept() throws Exception {
+    document.select(range(24, 0, 3));
+    fixture.application.execute(CommandId.FIND);
+    quickFind.setText("line 2");
+    // Drives the queue until a read started after the seed's read returns.
+    final boolean[] read = new boolean[1];
+    document.selectedText(
+        new TextListener() {
+          @Override
+          public void textRead(String text) {
+            read[0] = true;
+          }
+        });
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return read[0];
+          }
+        });
+    fixture.runUntilIdle();
+    assertEquals("line 2", quickFind.state().text());
+  }
+
+  private BooleanSupplier text(final String expected) {
+    return new BooleanSupplier() {
+      @Override
+      public boolean getAsBoolean() {
+        return expected.equals(quickFind.state().text());
+      }
+    };
+  }
+
+  @Test
   void theFilteredViewSearchesItsRowsOnly() throws Exception {
     document
         .search()

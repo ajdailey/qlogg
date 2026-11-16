@@ -14,6 +14,9 @@ public interface PlatformTraits {
   /** System property SWT sets on GTK to {@code x11}, {@code wayland} or {@code unknown}. */
   String GDK_BACKEND = "org.eclipse.swt.internal.gdk.backend";
 
+  /** System property SWT sets on GTK to the GTK version. */
+  String GTK_VERSION = "org.eclipse.swt.internal.gtk.version";
+
   /** The running platform's traits; GTK 4 is the {@code SWT_GTK4=1} environment SWT reads. */
   PlatformTraits PLATFORM = of(SWT.getPlatform(), "1".equals(System.getenv("SWT_GTK4")));
 
@@ -47,6 +50,14 @@ public interface PlatformTraits {
    * @return Consolas on win32, Menlo on cocoa, Monospace on GTK
    */
   String monospaceFamily();
+
+  /**
+   * Returns the native toolkit and its version for the About text.
+   *
+   * @return {@code GTK} and the {@link #GTK_VERSION} SWT records on GTK, empty elsewhere or before
+   *     the Display exists
+   */
+  String toolkitVersion();
 
   /**
    * Returns the default monospace size.

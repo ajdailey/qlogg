@@ -59,6 +59,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -457,6 +458,35 @@ class FilteredPaneTest {
             }));
     assertEquals(UiText.NOTICE_END_OF_FILE.text(), bar.noticeText());
     assertEquals(new KeyStroke(0, KeyStroke.SPACE), SwtKeys.stroke(0, ' ', ' '));
+  }
+
+  @Test
+  void quickFindMatchCaseIsTheInverseOfIgnoreCaseAndEscapeClosesFromAnyControl() {
+    controller.execute(CommandId.FIND);
+    QuickFindBar bar = window.quickFindBar();
+    assertTrue(bar.control().isVisible());
+    Button matchCase = barButton(bar, UiText.QUICK_FIND_MATCH_CASE.text());
+    assertTrue(controller.quickFind().state().ignoreCase());
+    assertFalse(matchCase.getSelection());
+    matchCase.setSelection(true);
+    matchCase.notifyListeners(SWT.Selection, new Event());
+    assertFalse(controller.quickFind().state().ignoreCase());
+    controller.quickFind().setIgnoreCase(true);
+    assertFalse(matchCase.getSelection());
+    Event escape = new Event();
+    escape.keyCode = SWT.ESC;
+    barButton(bar, UiText.QUICK_FIND_REGEX.text()).notifyListeners(SWT.KeyDown, escape);
+    assertFalse(controller.quickFind().isOpen());
+    assertFalse(bar.control().isVisible());
+  }
+
+  private static Button barButton(QuickFindBar bar, String text) {
+    for (Control child : bar.control().getChildren()) {
+      if (child instanceof Button button && button.getText().equals(text)) {
+        return button;
+      }
+    }
+    throw new AssertionError(text);
   }
 
   @Test

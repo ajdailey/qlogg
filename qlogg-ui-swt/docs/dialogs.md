@@ -37,7 +37,7 @@ is over it (`TableFit.cellTips`).
 
 | Window | Contents |
 |---|---|
-| Go to Line | 1-based line; OK is enabled only for a positive number |
+| Go to Line | 1-based line, prompt `Line (1 to N):`; OK is enabled only for a positive number |
 | Edit Search History | One entry per line and the count kept; OK saves both, dropping blank lines |
 | Predefined Filters | Add and Remove icons at the left, Import and Export centered, Move Up and Move Down icons at the right; a table of Name, Pattern and Regex, where a click on a selected row's name or pattern edits it in place and a click on Regex toggles it. Import appends the filters of a chosen file not in the list yet, Export writes the list, both on a worker with the result reported in the dialog. OK saves and closes, Apply saves. The table has focus at open, so no tool item starts highlighted |
 | Save as Filter, Rename Tab, Edit Mark Comment | `NameDialog`: the filter's name, prefilled with the pattern cut at 64 chars; the tab's name, empty to reset it; or the comment |

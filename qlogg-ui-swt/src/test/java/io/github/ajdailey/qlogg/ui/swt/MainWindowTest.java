@@ -12,7 +12,9 @@ import org.eclipse.swt.SWTError;
 import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,6 +86,26 @@ class MainWindowTest {
     window.setText("mock");
     assertEquals(4, writes[0]);
     assertEquals(UiText.NOTICE_COPY_FAILED.text(), window.noticeText());
+    window.dispose();
+  }
+
+  @Test
+  void anAmpersandShowsInNoticesAndErrorDialogs() {
+    MainWindow window = new MainWindow(display);
+    window.open();
+    assertEquals(8000, MainWindow.NOTICE_MILLIS);
+    window.showNotice("Cannot open a&b.log");
+    assertEquals("Cannot open a&&b.log", window.noticeText());
+    ErrorDialog dialog = new ErrorDialog(window.shell(), "Mock error", "Cannot open a&b.log");
+    dialog.open();
+    String shown = null;
+    for (Control child : dialog.shell().getChildren()) {
+      if (child instanceof Label label) {
+        shown = label.getText();
+      }
+    }
+    assertEquals("Cannot open a&&b.log", shown);
+    dialog.shell().dispose();
     window.dispose();
   }
 

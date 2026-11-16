@@ -366,7 +366,7 @@ public enum UiText {
   /** Quick find field label. */
   QUICK_FIND_LABEL,
   /** Quick find toggle. */
-  QUICK_FIND_IGNORE_CASE,
+  QUICK_FIND_MATCH_CASE,
   /** Quick find toggle. */
   QUICK_FIND_INCREMENTAL,
   /** Quick find toggle. */

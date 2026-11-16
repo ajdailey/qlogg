@@ -21,6 +21,12 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
+  public final String toolkitVersion() {
+    String version = System.getProperty(GTK_VERSION);
+    return version == null ? "" : "GTK " + version;
+  }
+
+  @Override
   public final String monospaceFamily() {
     return "Monospace";
   }

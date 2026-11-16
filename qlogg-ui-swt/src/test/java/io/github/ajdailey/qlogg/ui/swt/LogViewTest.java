@@ -442,7 +442,8 @@ class LogViewTest {
       }
     }
     MenuItem findNext = item(bar, CommandId.FIND_NEXT);
-    assertTrue(findNext.getText().endsWith("\tF3"), findNext.getText());
+    String findKey = "cocoa".equals(SWT.getPlatform()) ? "\tCmd+G" : "\tF3";
+    assertTrue(findNext.getText().endsWith(findKey), findNext.getText());
   }
 
   private static MenuItem item(Menu bar, CommandId command) {
@@ -589,8 +590,7 @@ class LogViewTest {
             "Command Palette"),
         labels(view));
     assertEquals(
-        List.of("Toggle Fold", "Collapse All Folds", "Expand All Folds"),
-        labels(view.getItem(18).getMenu()));
+        List.of("Toggle Fold", "Fold All", "Unfold All"), labels(view.getItem(18).getMenu()));
     assertEquals(
         List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
         labels(view.getItem(19).getMenu()));
@@ -879,8 +879,15 @@ class LogViewTest {
     controller.execute(CommandId.GO_TO_LINE);
     Shell dialog = shellTitled("Go to Line");
     assertNotNull(dialog);
-    find(dialog, Text.class, null).setText("150");
-    find(dialog, Button.class, "OK").notifyListeners(SWT.Selection, new Event());
+    String prompt = find(dialog, Label.class, null).getText();
+    assertTrue(prompt.startsWith("Line (1 to "), prompt);
+    Text field = find(dialog, Text.class, null);
+    Button ok = find(dialog, Button.class, "OK");
+    field.setText("abc");
+    assertFalse(ok.getEnabled());
+    field.setText("150");
+    assertTrue(ok.getEnabled());
+    ok.notifyListeners(SWT.Selection, new Event());
     assertTrue(dialog.isDisposed());
     assertEquals(149, document().selection().caret().line());
     assertEquals(150, LineNumberDialog.parse(" 150 "));

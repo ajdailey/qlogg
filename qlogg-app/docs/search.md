@@ -101,7 +101,12 @@ default. A new document in any window starts with the saved toggles.
 
 `QuickFindController` (from `ApplicationController.quickFind()`) walks
 occurrences in the focused view without a result set. It matches fixed text by
-default (`quickFind.regex`), with ignore case from the bar's box.
+default (`quickFind.regex`); `QuickFindState.ignoreCase` is the inverse of the
+bar's Match case box.
+
+- `open` reads a selection within one line of the focused view, up to
+  `SEED_CHARS` (1,000), on a worker and puts it in the field, unless the text
+  changed or the bar closed before the read returned. Opening does not search.
 
 - A find compiles the pattern with the search's flags
   (`StandardMatchers.regexFlags`) and runs `LineFinder` on a `qlogg-search-`

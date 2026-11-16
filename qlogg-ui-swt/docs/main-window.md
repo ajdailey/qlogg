@@ -244,17 +244,18 @@ Unverified on a Mac.
 ### Quick find bar
 
 `QuickFindBar` is the row above the status bar while quick find is open: the
-field, Ignore case, Incremental and Regex (the `quickFind.*` preferences),
-Previous, Next, the last notice and Close. Enter finds in the direction the bar
-was opened for (`'` forward, `"` backward), Shift+Enter finds backward, and
-Escape closes it.
+field, Match case (the inverse of `QuickFindState.ignoreCase`), Incremental and
+Regex (the `quickFind.*` preferences), Previous, Next, the last notice and
+Close. Enter finds in the direction the bar was opened for (`'` forward, `"`
+backward), Shift+Enter finds backward, and Escape in any of the bar's controls
+closes it.
 
 ### Status bar
 
 The status bar shows the document notes from `StatusText.notes` (index percent,
 Following or Waiting to reopen, File missing, Loading stopped, the
-reduced-index notice, a failure), a notice for 5 s (`showNotice`) and the
-pending key prefix (`Ctrl+E -`).
+reduced-index notice, a failure), a notice for 8 s (`showNotice`, with `&`
+shown as itself) and the pending key prefix (`Ctrl+E -`).
 
 It also holds the warning marker, an SWT `Link` hidden until
 `showWarningMarker(true)`; clicking it runs Show Log. `showLog` opens one
@@ -337,6 +338,7 @@ on a `SWT.getPlatform()` call outside `ui.swt.platform` and on a
 | Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
 |---|---|---|---|---|---|
 | `name` | `win32` | `cocoa` | `gtk` | `gtk` | `MainWindow.toolkitDescription` |
+| `toolkitVersion` | empty | empty | `GTK` and `org.eclipse.swt.internal.gtk.version` | as GTK 3 | `MainWindow.toolkitDescription` |
 | `monospaceFamily`, `monospaceSize` | Consolas 10 | Menlo 12 | Monospace 10 | Monospace 10 | `Dialogs.monospaceName`, `monospaceSize` |
 | `macKeys` | - | yes | - | - | `SwtKeys.mac`: key names and the keymap's platform |
 | `systemAppMenu` | - | yes | - | - | `AppMenu.present` |

@@ -105,10 +105,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class MainWindow implements MainView, ApplicationListener {
   /** How long a notice stays in the status bar. */
-  static final int NOTICE_MILLIS = 5000;
-
-  /** System property SWT sets on GTK to the GTK version. */
-  static final String GTK_VERSION = "org.eclipse.swt.internal.gtk.version";
+  static final int NOTICE_MILLIS = 8000;
 
   private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
 
@@ -1708,7 +1705,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (notice.isDisposed()) {
       return;
     }
-    notice.setText(message);
+    notice.setText(message.replace("&", "&&"));
     shell.layout(new Control[] {notice});
     final long shown = ++noticeGeneration;
     dispatcher.timerExec(
@@ -1782,12 +1779,12 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public String toolkitDescription() {
-    String gtk = System.getProperty(GTK_VERSION);
+    String toolkit = PlatformTraits.PLATFORM.toolkitVersion();
     return "SWT "
         + SWT.getVersion()
         + " "
         + PlatformTraits.PLATFORM.name()
-        + (gtk == null ? "" : " (GTK " + gtk + ")");
+        + (toolkit.isEmpty() ? "" : " (" + toolkit + ")");
   }
 
   @Override

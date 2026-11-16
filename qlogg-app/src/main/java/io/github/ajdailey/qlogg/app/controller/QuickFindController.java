@@ -27,11 +27,12 @@ import java.util.regex.PatternSyntaxException;
 
 /**
  * Quick find: walks occurrences of a pattern in the focused view, one at a time, from the caret,
- * without a result set. The pattern is fixed text unless {@code quickFind.regex} is on; ignore case
- * is the bar's box. With no occurrence left in the direction, a notice says so and the selection
- * stays: there is no wrap. With {@code quickFind.incremental} on, each change to the text searches
- * forward again from where the caret was when typing began. A match found is a jump of the
- * document's navigation history; while typing, only the first match is.
+ * without a result set. The pattern is fixed text unless {@code quickFind.regex} is on; the bar's
+ * Match case box is the inverse of {@link QuickFindState#ignoreCase}. With no occurrence left in
+ * the direction, a notice says so and the selection stays: there is no wrap. With {@code
+ * quickFind.incremental} on, each change to the text searches forward again from where the caret
+ * was when typing began. A match found is a jump of the document's navigation history; while
+ * typing, only the first match is.
  *
  * <p>Each find compiles the pattern and scans on a {@code qlogg-search-} worker ({@link
  * LineFinder}) inside a document entry, holding the {@link ActivityIndicator} active until its
@@ -39,6 +40,9 @@ import java.util.regex.PatternSyntaxException;
  * newest is dropped. Confined to the UI thread.
  */
 public final class QuickFindController {
+  /** The longest selection, in chars, that opening the bar takes as its text. */
+  static final int SEED_CHARS = 1000;
+
   private final QuickFindHost host;
   private final Workers workers;
   private final UiDispatcher ui;
@@ -53,6 +57,7 @@ public final class QuickFindController {
   private long originRow = -1;
   private long originColumn;
   private boolean forward = true;
+  private long seeds;
   // Navigation history.
   private boolean findIncremental;
   private boolean originRecorded;
@@ -107,14 +112,47 @@ public final class QuickFindController {
   }
 
   /**
-   * Shows the bar.
+   * Shows the bar. A selection within one line of the focused view, up to {@value #SEED_CHARS}
+   * chars, becomes the text when its read returns, unless the text changed meanwhile; opening does
+   * not search.
    *
    * @param towardEnd the direction Enter in the field searches
    */
   public void open(boolean towardEnd) {
     originView = null;
     forward = towardEnd;
+    seeds++;
     publish(withOpen(true, ""));
+    seed();
+  }
+
+  private void seed() {
+    LineViewController target = host.focusedView();
+    if (target == null || target.isClosed()) {
+      return;
+    }
+    Selection selection = target.selection();
+    if (selection.isEmpty()
+        || selection.start().line() != selection.end().line()
+        || selection.end().column() - selection.start().column() > SEED_CHARS) {
+      return;
+    }
+    final long request = seeds;
+    final String before = state.text();
+    target.selectedText(
+        new TextListener() {
+          @Override
+          public void textRead(String text) {
+            if (request != seeds
+                || !state.open()
+                || !state.text().equals(before)
+                || text.equals(before)) {
+              return;
+            }
+            publish(withText(true, text));
+            host.quickFindOpened();
+          }
+        });
   }
 
   /** Finds in the direction the bar was opened for, as Enter in the field does. */
@@ -124,6 +162,7 @@ public final class QuickFindController {
 
   /** Hides the bar and cancels a running find. */
   public void close() {
+    seeds++;
     cancelRunning();
     generation++;
     publish(withOpen(false, ""));
@@ -148,7 +187,7 @@ public final class QuickFindController {
   }
 
   /**
-   * Sets the ignore-case box.
+   * Sets whether quick find folds case, the inverse of the bar's Match case box.
    *
    * @param ignoreCase true folds case
    */
@@ -174,15 +213,7 @@ public final class QuickFindController {
     if (text.equals(state.text())) {
       return;
     }
-    publish(
-        new QuickFindState(
-            state.open(),
-            text,
-            state.ignoreCase(),
-            state.regex(),
-            state.incremental(),
-            state.running(),
-            ""));
+    publish(withText(state.open(), text));
     if (state.open() && state.incremental() && !text.isEmpty()) {
       find(true, true);
     }
@@ -213,15 +244,7 @@ public final class QuickFindController {
           @Override
           public void textRead(String text) {
             originView = null;
-            publish(
-                new QuickFindState(
-                    true,
-                    text,
-                    state.ignoreCase(),
-                    state.regex(),
-                    state.incremental(),
-                    state.running(),
-                    ""));
+            publish(withText(true, text));
             forward = towardEnd;
             host.quickFindOpened();
             find(towardEnd, false);
@@ -436,6 +459,11 @@ public final class QuickFindController {
   private QuickFindState withOpen(boolean open, String notice) {
     return new QuickFindState(
         open, state.text(), state.ignoreCase(), state.regex(), state.incremental(), false, notice);
+  }
+
+  private QuickFindState withText(boolean open, String text) {
+    return new QuickFindState(
+        open, text, state.ignoreCase(), state.regex(), state.incremental(), state.running(), "");
   }
 
   private QuickFindState running(boolean value) {

@@ -251,8 +251,8 @@ visible rows.
 | Command | Effect |
 |---|---|
 | Toggle Fold | Classifies around the caret's line and collapses its entry, or expands a collapsed one |
-| Collapse All Folds | Collapses each entry as the region around the visible rows is classified; an entry the user expands stays expanded until the next Collapse All |
-| Expand All Folds | Expands every entry |
+| Fold All | Collapses each entry as the region around the visible rows is classified; an entry the user expands stays expanded until the next Fold All |
+| Unfold All | Expands every entry |
 | New rules (Tools > Preferences, Folding, through `setViewOptions`) | Reach the open files of every window and expand their folds |
 
 - A fold change keeps the top line and the selection on their lines.
@@ -262,7 +262,7 @@ visible rows.
 - Copy, mark toggles and save walk `rows()`, so lines hidden in a fold are
   skipped. The filtered view lists lines regardless of folds.
 - A Toggle Fold pressed while a classification runs waits for it and then runs.
-  A later press replaces a waiting one; Collapse All, Expand All or new rules
+  A later press replaces a waiting one; Fold All, Unfold All or new rules
   drop it.
 
 ## Filtered view

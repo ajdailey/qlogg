@@ -59,7 +59,8 @@ Encoding menu forces another one, and the choice is remembered for the file.
   back to the next tab when no other tab was shown since opening. Closing the
   last tab leaves an empty window, unless Close the window with its last tab
   is on in Tools > Preferences, General; in the last window that quits QLogg.
-  Window > Opened Files and Switch to File (`Ctrl+Shift+O`) list the tabs.
+  File > Close All (`Ctrl+Shift+W`) closes every tab. Window > Opened Files
+  and Switch to File (`Ctrl+Shift+O`) list the tabs.
 - The buttons at the right end of the tab row open files (+), list every tab
   (the arrow, with the number of tabs the row cannot show) and close the
   current tab (x). The list marks the current tab and shows each tab's dot;
@@ -117,7 +118,8 @@ click runs the command. Commands that cannot run now are gray and do not run.
 
 Type a pattern in the search row and press `Enter`. Matching lines appear in
 the filtered view below the main view; a click there goes to the line in the
-main view. `n` and `N` (`F3`, `Shift+F3`) go to the next and previous match.
+main view. `n` and `N` (`F3`, `Shift+F3`; on macOS also `Cmd+G`,
+`Cmd+Shift+G`) go to the next and previous match.
 
 The icon toggles beside the field; the keys work in a log view:
 
@@ -259,8 +261,10 @@ and `F2` edits a comment in the list. It lists the first 10,000 marks.
 ### Quick find
 
 Quick find (`Ctrl+F`, `'` forward, `"` backward) searches the shown view from
-the current line without changing the filtered view. `*` and `/` find the
-selected text forward and backward.
+the current line without changing the filtered view. Opening it with a
+selection within one line, up to 1,000 characters, puts the selection in the
+field; `Enter` then finds the next occurrence. Match case is off by default.
+`Esc` closes the bar. `*` and `/` find the selected text forward and backward.
 
 ## Highlighters and color labels
 
@@ -658,7 +662,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Collapse All Folds, Expand All Folds), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
@@ -676,7 +680,7 @@ context menu.
 
 ## Preferences
 
-Tools > Preferences (on macOS, QLogg > Preferences) has these tabs:
+Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 
 | Tab | Setting | Default | Effect |
 |---|---|---|---|

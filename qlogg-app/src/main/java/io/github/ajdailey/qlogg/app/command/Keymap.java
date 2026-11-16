@@ -60,6 +60,7 @@ public final class Keymap {
     view(b, CommandId.OPEN_CLIPBOARD, P, 'v');
     window(b, CommandId.RELOAD, 0, KeyStroke.F5);
     window(b, CommandId.CLOSE, P, 'w');
+    window(b, CommandId.CLOSE_ALL, P, 'W');
     window(b, CommandId.QUIT, P, 'q');
     view(b, CommandId.COPY, P, 'c');
     view(b, CommandId.SELECT_ALL, P, 'a');
@@ -78,12 +79,21 @@ public final class Keymap {
     view(b, CommandId.GROW_MAIN_VIEW, 0, '+');
     view(b, CommandId.SHRINK_MAIN_VIEW, 0, '-');
     window(b, CommandId.FOCUS_SEARCH, P, 's');
+    // A Mac keyboard sends F3 as a media key, so Cmd+G is the window binding the menu shows.
+    if (mac) {
+      window(b, CommandId.FIND_NEXT, P, 'g');
+      window(b, CommandId.FIND_PREVIOUS, P, 'G');
+    }
     window(b, CommandId.FIND_NEXT, 0, KeyStroke.F3);
     view(b, CommandId.FIND_NEXT, 0, 'n');
-    view(b, CommandId.FIND_NEXT, P, 'g');
+    if (!mac) {
+      view(b, CommandId.FIND_NEXT, P, 'g');
+    }
     window(b, CommandId.FIND_PREVIOUS, S, KeyStroke.F3);
     view(b, CommandId.FIND_PREVIOUS, 0, 'N');
-    view(b, CommandId.FIND_PREVIOUS, P, 'G');
+    if (!mac) {
+      view(b, CommandId.FIND_PREVIOUS, P, 'G');
+    }
     view(b, CommandId.TOGGLE_CASE, 0, '4');
     view(b, CommandId.TOGGLE_REGEX, 0, '5');
     view(b, CommandId.TOGGLE_INVERSE, 0, '6');
@@ -174,6 +184,7 @@ public final class Keymap {
     window(b, CommandId.GO_FORWARD, back, KeyStroke.RIGHT);
     view(b, CommandId.GO_TO_RESULT, 0, KeyStroke.ENTER);
     window(b, CommandId.COMMAND_PALETTE, P, 'P');
+    window(b, CommandId.PREFERENCES, P, ',');
     // Reopen Closed Tab.
     window(b, CommandId.REOPEN_CLOSED, P, 'T');
     // Search in Folder keys: Ctrl+Shift+F (Cmd+Shift+F), jEdit's search-in-directory, the steps.

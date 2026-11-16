@@ -10,6 +10,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
@@ -17,14 +18,15 @@ import org.eclipse.swt.widgets.Text;
 
 /**
  * The quick find row above the status bar, shown while {@link QuickFindController} is open: the
- * pattern field, Ignore case, Incremental and Regex boxes, Previous, Next, the last notice and
+ * pattern field, Match case, Incremental and Regex boxes, Previous, Next, the last notice and
  * Close. Enter finds in the direction the bar was opened for, Shift+Enter finds backward, and
- * Escape closes it. Incremental and Regex are the {@code quickFind.*} preferences.
+ * Escape in any of its controls closes it. Match case shows the inverse of {@link
+ * QuickFindState#ignoreCase}; Incremental and Regex are the {@code quickFind.*} preferences.
  */
 final class QuickFindBar {
   private final Composite bar;
   private final Text field;
-  private final Button ignoreCase;
+  private final Button matchCase;
   private final Button incremental;
   private final Button regex;
   private final Label notice;
@@ -52,7 +54,7 @@ final class QuickFindBar {
     GridData fieldData = new GridData(SWT.FILL, SWT.CENTER, false, false);
     fieldData.widthHint = 240;
     field.setLayoutData(fieldData);
-    ignoreCase = check(UiText.QUICK_FIND_IGNORE_CASE);
+    matchCase = check(UiText.QUICK_FIND_MATCH_CASE);
     incremental = check(UiText.QUICK_FIND_INCREMENTAL);
     regex = check(UiText.QUICK_FIND_REGEX);
     button(
@@ -137,24 +139,34 @@ final class QuickFindBar {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.keyCode == SWT.ESC) {
-              quickFind.close();
-              event.doit = false;
-            } else if ((event.keyCode == SWT.CR || event.keyCode == SWT.KEYPAD_CR)
+            if ((event.keyCode == SWT.CR || event.keyCode == SWT.KEYPAD_CR)
                 && (event.stateMask & SWT.MOD2) != 0) {
               quickFind.previous();
               event.doit = false;
             }
           }
         });
-    ignoreCase.addListener(
+    matchCase.addListener(
         SWT.Selection,
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            quickFind.setIgnoreCase(ignoreCase.getSelection());
+            quickFind.setIgnoreCase(!matchCase.getSelection());
           }
         });
+    Listener escape =
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (event.keyCode == SWT.ESC) {
+              quickFind.close();
+              event.doit = false;
+            }
+          }
+        };
+    for (Control control : bar.getChildren()) {
+      control.addListener(SWT.KeyDown, escape);
+    }
     Listener options =
         new Listener() {
           @Override
@@ -198,7 +210,7 @@ final class QuickFindBar {
     } finally {
       syncing = false;
     }
-    ignoreCase.setSelection(state.ignoreCase());
+    matchCase.setSelection(!state.ignoreCase());
     incremental.setSelection(state.incremental());
     regex.setSelection(state.regex());
     notice.setText(state.running() ? UiText.QUICK_FIND_RUNNING.text() : state.notice());

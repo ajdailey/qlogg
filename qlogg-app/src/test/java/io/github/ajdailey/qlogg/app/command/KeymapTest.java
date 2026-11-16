@@ -88,7 +88,7 @@ class KeymapTest {
 
   @Test
   void aMenuShowsTheFirstSingleStroke() {
-    assertEquals("F3", keymap.menuKeyText(CommandId.FIND_NEXT, false));
+    assertEquals("F3", Keymap.defaults(false).menuKeyText(CommandId.FIND_NEXT, false));
     assertEquals("Ctrl+End", keymap.menuKeyText(CommandId.GO_TO_BOTTOM, false));
     assertEquals("M", keymap.menuKeyText(CommandId.TOGGLE_MARK, false));
     assertEquals("", keymap.menuKeyText(CommandId.TOGGLE_LINE_NUMBERS, false));
@@ -97,6 +97,7 @@ class KeymapTest {
 
   @Test
   void searchKeysFollowKlogg() {
+    Keymap keymap = Keymap.defaults(false);
     assertEquals("F3, N, Ctrl+G", keymap.keysText(CommandId.FIND_NEXT, false));
     assertEquals(
         "Shift+F3, Shift+N, Ctrl+Shift+G", keymap.keysText(CommandId.FIND_PREVIOUS, false));
@@ -106,6 +107,36 @@ class KeymapTest {
     assertEquals(new KeySequencer.Run(CommandId.FIND_NEXT), sequencer.press(KeyStroke.of(0, 'n')));
     assertEquals(
         new KeySequencer.Run(CommandId.FIND_PREVIOUS), sequencer.press(KeyStroke.of(0, 'N')));
+  }
+
+  @Test
+  void macosFindNextAndPreviousTakeCmdGInEveryControl() {
+    Keymap mac = Keymap.defaults(true);
+    assertEquals("Cmd+G", mac.menuKeyText(CommandId.FIND_NEXT, true));
+    assertEquals("Cmd+Shift+G", mac.menuKeyText(CommandId.FIND_PREVIOUS, true));
+    assertEquals("Cmd+G, F3, N", mac.keysText(CommandId.FIND_NEXT, true));
+    assertEquals("Cmd+Shift+G, Shift+F3, Shift+N", mac.keysText(CommandId.FIND_PREVIOUS, true));
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'g'), mac.accelerator(CommandId.FIND_NEXT));
+    assertEquals(CommandId.FIND_NEXT, mac.windowCommand(new KeyStroke(0, KeyStroke.F3)));
+    for (Binding binding : mac.bindingsFor(CommandId.FIND_NEXT)) {
+      assertEquals(List.of(), mac.conflicts(binding), binding.text(true));
+    }
+  }
+
+  @Test
+  void closeAllAndPreferencesHaveKeysOnEveryPlatform() {
+    for (boolean mac : new boolean[] {false, true}) {
+      Keymap map = Keymap.defaults(mac);
+      assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'W'), map.accelerator(CommandId.CLOSE_ALL));
+      assertEquals(KeyStroke.of(KeyStroke.PRIMARY, ','), map.accelerator(CommandId.PREFERENCES));
+      for (CommandId command : List.of(CommandId.CLOSE_ALL, CommandId.PREFERENCES)) {
+        for (Binding binding : map.bindingsFor(command)) {
+          assertEquals(List.of(), map.conflicts(binding), binding.text(mac));
+        }
+      }
+    }
+    assertEquals("Ctrl+Shift+W", Keymap.defaults(false).menuKeyText(CommandId.CLOSE_ALL, false));
+    assertEquals("Cmd+,", Keymap.defaults(true).keysText(CommandId.PREFERENCES, true));
   }
 
   @Test

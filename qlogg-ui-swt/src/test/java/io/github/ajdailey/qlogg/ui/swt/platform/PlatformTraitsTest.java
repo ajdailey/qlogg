@@ -195,6 +195,17 @@ class PlatformTraitsTest {
   }
 
   @Test
+  void onlyGtkNamesAToolkitVersion() {
+    assertEquals("", PlatformTraits.of("win32", false).toolkitVersion());
+    assertEquals("", PlatformTraits.of("cocoa", false).toolkitVersion());
+    String version = System.getProperty(PlatformTraits.GTK_VERSION);
+    for (boolean gtk4 : new boolean[] {false, true}) {
+      assertEquals(
+          version == null ? "" : "GTK " + version, PlatformTraits.of("gtk", gtk4).toolkitVersion());
+    }
+  }
+
+  @Test
   void gtkPositionsWindowsExceptUnderWayland() {
     String backend = System.getProperty(PlatformTraits.GDK_BACKEND);
     assertEquals(

@@ -12,7 +12,10 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-/** Navigate > Go to Line: asks for a 1-based line number. Enter confirms, Escape cancels. */
+/**
+ * Go > Go to Line: asks for a 1-based line number. OK is enabled only while the text is a positive
+ * number; Enter confirms, Escape cancels.
+ */
 final class LineNumberDialog {
   private final Shell shell;
   private final Text field;

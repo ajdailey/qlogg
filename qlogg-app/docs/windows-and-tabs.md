@@ -221,8 +221,9 @@ view modes, edits with selection and search limits go to the shown document's
 focused view. A canvas reports focus through `setFocusedView` on focus, click
 and key; without one, the main view is focused.
 
-- `FIND_NEXT` and `FIND_PREVIOUS` (`F3`, `N`, `Ctrl+G` and the shifted keys)
-  walk quick find while its bar is open, otherwise the search's matches.
+- `FIND_NEXT` and `FIND_PREVIOUS` (`F3`, `N`, `Ctrl+G` and the shifted keys;
+  on macOS `Cmd+G` is a window binding and the menu's key) walk quick find
+  while its bar is open, otherwise the search's matches.
 - `Space` (`RELEASE_FOCUS`) moves focus from the main view to the filtered view
   and back (`MainView.focusView`).
 - Go Back and Go Forward move the shown document's main view whichever view has

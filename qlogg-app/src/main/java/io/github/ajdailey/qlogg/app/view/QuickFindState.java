@@ -5,7 +5,7 @@ package io.github.ajdailey.qlogg.app.view;
  *
  * @param open the bar shows
  * @param text the pattern
- * @param ignoreCase the ignore-case box
+ * @param ignoreCase true folds case; the bar's Match case box shows the inverse
  * @param regex patterns are regexes, else fixed text ({@code quickFind.regex})
  * @param incremental the bar searches while typing ({@code quickFind.incremental})
  * @param running a find is in progress

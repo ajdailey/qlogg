@@ -86,6 +86,12 @@ class MenuTableTest {
   }
 
   @Test
+  void foldingCommandsTakeTheEditorsLabels() {
+    assertEquals("Fold &All", CommandId.COLLAPSE_ALL_FOLDS.label());
+    assertEquals("Unfold A&ll", CommandId.EXPAND_ALL_FOLDS.label());
+  }
+
+  @Test
   void everyMenuItemHasAMnemonic() {
     List<String> missing = new ArrayList<String>();
     for (Map.Entry<String, List<String>> menu : menus().entrySet()) {

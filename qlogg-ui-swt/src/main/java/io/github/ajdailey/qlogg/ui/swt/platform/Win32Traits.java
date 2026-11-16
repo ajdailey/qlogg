@@ -13,6 +13,11 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
+  public String toolkitVersion() {
+    return "";
+  }
+
+  @Override
   public String monospaceFamily() {
     return "Consolas";
   }
