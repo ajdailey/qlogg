@@ -191,7 +191,7 @@ missing.
 | `UtilTest` | `Checks` messages naming the argument; `Streams.readLimited` accepting the limit and refusing more |
 | `WorkersTest` | `noTaskRunsAfterCloseReturns` races `tryStart` against `close` 50 times |
 | `OperationGateTest` | Admission, refusal after close, the idle wait |
-| `ChangeDetectorTest` | Growth, truncation, a renamed file replaced under the name, a rewritten head, a same-size edit past the head digest, a touch with the same bytes, a missing path or a directory |
+| `ChangeDetectorTest` | Growth, truncation, a renamed file replaced under the name, a rewritten head, a same-size edit past the head digest, a touch with the same bytes, a missing path or a directory, a FIFO renamed in after the attribute read |
 | `FileMonitorTest` | The poll and the cancel; a directory event waking a watch long before its poll interval (skipped on macOS, whose `WatchService` polls); a throwing listener |
 
 - `noTaskRunsAfterCloseReturns`: without the second `closed` check in `start`,
@@ -201,6 +201,12 @@ missing.
 - Two `ChangeDetectorTest` growth cases must be `REPLACED`, not `APPENDED`: a
   file opened empty, then written, truncated and regrown longer; and a longer
   rewrite past an unchanged 4 KiB head.
+- `aFifoSwappedInAfterTheAttributeReadDoesNotBlockTheCheck` reads the
+  attributes through an `AttributeReader` that renames the file aside and a
+  FIFO in before it returns, so the race is hit every run. The check must
+  return `UNCHANGED` within 30 s through the held `FileByteSource`.
+  Regression: the digest opened the path, and the open blocked the follow
+  thread until a writer opened the FIFO.
 - A `FileMonitorTest` listener that throws on checks 1, 2 and 4 must still be
   called a sixth time, and the handler must receive checks 1 and 4 only.
   Regression: an exception ended the watch thread silently, and with it
@@ -210,7 +216,7 @@ missing.
 
 | Class | Covers |
 |---|---|
-| `AtomicFilesTest` | Write and replace leaving no temporary file; a failed move or read keeping the target. The Windows move retry runs on every host through `AtomicFiles.tryMove` with a `Move` that throws: access denied and a sharing-violation `FileSystemException` tried again, a move refused every time throwing after the last attempt, `NoSuchFileException` tried to the last attempt and a plain `IOException` thrown at once. `writeUserFile`: a replaced file keeping its mode and a new one taking the default (POSIX); a symbolic link, dangling or not, staying a link for both writes; written in place for a hard-linked file (`unix` view) and in a folder that is not writable (POSIX, not root); a read-only file refused unchanged |
+| `AtomicFilesTest` | Write and replace leaving no temporary file; a failed move or read keeping the target. The Windows move retry runs on every host through `AtomicFiles.tryMove` with a `Move` that throws: access denied and a sharing-violation `FileSystemException` tried again, a move refused every time throwing after the last attempt, `NoSuchFileException` tried to the last attempt and a plain `IOException` thrown at once. On Windows only: a secret with one ACL entry for the user and no `.qlogg-` directory left, and a file created in `privateDirectory` with only the user's entry from creation. `writeUserFile`: a replaced file keeping its mode and a new one taking the default (POSIX); a symbolic link, dangling or not, staying a link for both writes; written in place for a hard-linked file (`unix` view) and in a folder that is not writable (POSIX, not root); a read-only file refused unchanged |
 
 ## Operating system seam
 
@@ -223,7 +229,8 @@ missing.
 
 | Case | Skips |
 |---|---|
-| `SafePathsTest` FIFO (`mkfifo`) | Without POSIX attributes or `mkfifo` |
+| `SafePathsTest`, `ChangeDetectorTest` FIFO (`mkfifo`) | Without POSIX attributes or `mkfifo` |
+| `AtomicFilesTest` ACL cases | Outside Windows |
 | `SafePathsTest` `/dev/null` | Where the device is absent |
 | `SafePathsTest` symbolic links | On Windows |
 | `LogDocumentFollowTest`, `ChangeDetectorTest` symbolic links | On Windows without `SeCreateSymbolicLinkPrivilege` |

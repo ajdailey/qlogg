@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -127,15 +128,25 @@ public final class InstanceClient {
 
   /**
    * Checks that the handoff may use a settings directory: on POSIX it must belong to the current
-   * user and be writable by no one else.
+   * user and be writable by no one else; where there are ACLs instead (Windows), {@link AclCheck}
+   * applies. A file system with neither is accepted.
    *
    * @param directory the settings directory
    * @param user the current user's name
    * @return null when it may, else the reason
    */
   public static String refusal(Path directory, String user) {
-    if (!directory.getFileSystem().supportedFileAttributeViews().contains("posix")) {
-      return null;
+    Set<String> views = directory.getFileSystem().supportedFileAttributeViews();
+    if (!views.contains("posix")) {
+      if (!views.contains("acl")) {
+        return null;
+      }
+      try {
+        return AclCheck.refusal(
+            directory, user, directory.getFileSystem().getPath(System.getProperty("user.home")));
+      } catch (InvalidPathException e) {
+        return "the settings directory cannot be checked";
+      }
     }
     try {
       PosixFileAttributes attributes =

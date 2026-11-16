@@ -25,11 +25,18 @@ name, at most once per 50 ms.
 
 ## ChangeDetector
 
-`ChangeDetector.classify(baseline, path)` compares the file at the path,
-following a symbolic link, with what was indexed. `Baseline` holds the
+`ChangeDetector.classify(baseline, path, source)` compares the file at the
+path, following a symbolic link, with what was indexed. `Baseline` holds the
 identity at open, the covered bytes, the head digest, and the tail digest with
-its modification time. The detector opens the file only to read a digest and
-closes it at once.
+its modification time.
+
+`LogDocument` passes its source. When the source is a `FileByteSource` whose
+file key equals the path's, the digests read through it and the path is never
+opened: a FIFO renamed in after the attribute read would block that open
+until a writer appears, and with it the follow thread. Without a file key
+(Windows) or with a `ReopeningByteSource` (Keep file closed), each digest
+opens the path and closes it at once, and a FIFO renamed in before that open
+still blocks it.
 
 The rows apply in order; the first match decides:
 

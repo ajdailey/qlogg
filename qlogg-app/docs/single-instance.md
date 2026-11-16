@@ -19,8 +19,19 @@ It returns null while another live process holds the lock. The OS releases the
 lock when that process dies, SIGKILL included, so a stale endpoint file never
 decides liveness.
 
-`refusal` turns the handoff off for a POSIX settings directory another user
-owns or others can write.
+`refusal` turns the handoff off for a settings directory another account
+could use to replace the endpoint:
+
+| File system | Refused when |
+|---|---|
+| POSIX | Another user owns it, or its group or others can write |
+| ACLs without POSIX (Windows) | `AclCheck`: an untrusted owner, or an allow entry that applies to the directory giving an untrusted account write, append, delete, delete child, write ACL or write owner |
+
+`AclCheck` trusts the user, and the owner of the user's home directory and the
+accounts that home's allow entries give one of those rights: `SYSTEM` and
+`Administrators` on a default profile. Windows localizes their names, so they
+are not looked up by name. An entry only children inherit, and a read right,
+do not count. The handoff is off when the user name does not resolve.
 
 ### Lock file guard
 

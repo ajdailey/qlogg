@@ -50,10 +50,14 @@ process holds open without delete sharing refuses the move for that moment.
 Any other `IOException` throws at once.
 
 - `write(Path, InputStream)` streams the content through a 64 KiB buffer.
-- `writeOwnerOnly`, for a secret, also replaces the temporary file's ACL with
-  one entry for the current user where there are ACLs but no POSIX
-  permissions (Windows). The file's owner is the fallback when no account
-  name resolves.
+- `writeOwnerOnly`, for a secret, where there are ACLs but no POSIX
+  permissions (Windows), creates the temporary file in a new `.qlogg-`
+  directory beside the target whose ACL is first set to one inheritable entry
+  for the current user. The file has that entry from creation, so no other
+  account opens it before the content is written. Its ACL is then set to the
+  entry explicitly; the move keeps it, and the directory is deleted. The
+  user's name is qualified with `USERDOMAIN` first (`Accounts.user`); the
+  owner is the fallback when no name resolves.
 
 `write` and `writeOwnerOnly` are for QLogg's own files. `writeUserFile` writes
 a file the user names (Save Selection, Save Filtered Results, filter and

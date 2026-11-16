@@ -777,7 +777,7 @@ public final class LogDocument implements LineSource, Closeable {
       return;
     }
     try {
-      changed(withReadsSeen(ChangeDetector.classify(baseline(), path)));
+      changed(withReadsSeen(ChangeDetector.classify(baseline(), path, source)));
     } catch (IOException e) {
       // Unreadable for now, for example while a writer replaces it; the next check retries.
     } finally {

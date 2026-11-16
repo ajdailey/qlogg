@@ -651,6 +651,10 @@ which comes to the front. A file a window shows already is shown in that tab
 instead of a second one, with `+line:N` and `-f` applied. On macOS, files
 opened from the Finder or dropped on the Dock icon arrive the same way.
 
+When another account can write to the settings directory, as with a portable
+installation in a shared folder, every launch opens its own window and QLogg's
+log names the reason.
+
 ## Menus
 
 Each menu in order; `;` separates the groups and a cascade's items are in

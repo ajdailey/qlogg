@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryFlag;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
@@ -26,7 +27,6 @@ import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
-import java.nio.file.attribute.UserPrincipalLookupService;
 import java.security.SecureRandom;
 import java.util.EnumSet;
 import java.util.HexFormat;
@@ -103,8 +103,10 @@ public final class AtomicFiles {
 
   /**
    * Writes a secret atomically: as {@link #write}, and where the file system has ACLs but no POSIX
-   * permissions (Windows), the temporary file's ACL is replaced by one entry for the current user
-   * before the content is written.
+   * permissions (Windows), the temporary file is created in a new directory beside the target whose
+   * ACL is first replaced by one inheritable entry for the current user, so the file has that one
+   * entry from creation and no other account can open it. The file's ACL is then set to that entry
+   * explicitly, and the directory is deleted after the move.
    *
    * @param file the target, in an existing directory
    * @param content the bytes
@@ -201,6 +203,54 @@ public final class AtomicFiles {
     if (dir == null) {
       throw new IOException("No parent directory");
     }
+    if (!restrict
+        || posix(dir)
+        || !dir.getFileSystem().supportedFileAttributeViews().contains("acl")) {
+      write(dir, file, content, source, restrict);
+      return;
+    }
+    Path staging = privateDirectory(dir);
+    try {
+      write(staging, file, content, source, true);
+    } finally {
+      try {
+        Files.deleteIfExists(staging);
+      } catch (IOException e) {
+        // The temporary file is moved or deleted first, so a leftover directory holds no secret.
+      }
+    }
+  }
+
+  /**
+   * Creates a directory whose ACL is one entry for the current user, inherited by files and
+   * directories created in it.
+   *
+   * @param dir the parent
+   * @return the new directory
+   * @throws IOException when it cannot be created or restricted; it is then deleted
+   */
+  static Path privateDirectory(Path dir) throws IOException {
+    Path staging = Files.createTempDirectory(dir, ".qlogg-");
+    boolean restricted = false;
+    try {
+      ownerOnlyAcl(staging, true);
+      restricted = true;
+      return staging;
+    } finally {
+      if (!restricted) {
+        Files.deleteIfExists(staging);
+      }
+    }
+  }
+
+  /**
+   * Writes the content to a temporary file in {@code dir}, then moves it over {@code file}.
+   *
+   * @param restrict true to replace the temporary file's ACL with one entry for the current user
+   */
+  private static void write(
+      Path dir, Path file, byte[] content, InputStream source, boolean restrict)
+      throws IOException {
     Path temp;
     if (posix(dir)) {
       temp =
@@ -212,7 +262,7 @@ public final class AtomicFiles {
     boolean moved = false;
     try {
       if (restrict) {
-        ownerOnlyAcl(temp);
+        ownerOnlyAcl(temp, false);
       }
       try (OutputStream out = Files.newOutputStream(temp)) {
         if (source == null) {
@@ -368,46 +418,40 @@ public final class AtomicFiles {
     return HexFormat.of().formatHex(bytes);
   }
 
-  /** Leaves one ACL entry, full access for the user, where POSIX permissions do not exist. */
-  private static void ownerOnlyAcl(Path temp) throws IOException {
-    if (posix(temp)) {
+  /**
+   * Leaves one ACL entry, full access for the user, where POSIX permissions do not exist.
+   *
+   * @param path a file, or a directory whose entry {@code inherit} passes to new children
+   */
+  private static void ownerOnlyAcl(Path path, boolean inherit) throws IOException {
+    if (posix(path)) {
       return;
     }
-    AclFileAttributeView view = Files.getFileAttributeView(temp, AclFileAttributeView.class);
+    AclFileAttributeView view = Files.getFileAttributeView(path, AclFileAttributeView.class);
     if (view == null) {
       return;
     }
-    AclEntry entry =
+    AclEntry.Builder entry =
         AclEntry.newBuilder()
             .setType(AclEntryType.ALLOW)
-            .setPrincipal(currentUser(temp.getFileSystem(), view))
-            .setPermissions(EnumSet.allOf(AclEntryPermission.class))
-            .build();
-    view.setAcl(List.of(entry));
+            .setPrincipal(currentUser(path.getFileSystem(), view))
+            .setPermissions(EnumSet.allOf(AclEntryPermission.class));
+    if (inherit) {
+      entry.setFlags(AclEntryFlag.FILE_INHERIT, AclEntryFlag.DIRECTORY_INHERIT);
+    }
+    view.setAcl(List.of(entry.build()));
   }
 
   /**
    * Returns the user running this process. A new file's owner is not that user in an elevated
-   * process, where Windows makes {@code BUILTIN\Administrators} the owner. The name is qualified
-   * first because a bare name resolves to a local account before a domain account of that name.
+   * process, where Windows makes {@code BUILTIN\Administrators} the owner.
    *
-   * @return the user; the file's owner when no name resolves, as under a service account or with a
-   *     domain controller out of reach
+   * @return the user; the file's owner when no name resolves ({@link Accounts#user})
    */
   private static UserPrincipal currentUser(FileSystem system, AclFileAttributeView view)
       throws IOException {
-    UserPrincipalLookupService lookup = system.getUserPrincipalLookupService();
-    String name = System.getProperty("user.name");
-    String domain = System.getenv("USERDOMAIN");
-    if (domain != null) {
-      try {
-        return lookup.lookupPrincipalByName(domain + "\\" + name);
-      } catch (IOException e) {
-        // The bare name below still applies.
-      }
-    }
     try {
-      return lookup.lookupPrincipalByName(name);
+      return Accounts.user(system, System.getProperty("user.name"));
     } catch (IOException e) {
       return view.getOwner();
     }

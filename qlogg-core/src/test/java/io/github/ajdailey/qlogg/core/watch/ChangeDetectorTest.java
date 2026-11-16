@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.watch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.core.io.FileByteSource;
@@ -16,10 +17,15 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 import org.junit.jupiter.api.io.TempDir;
 
 class ChangeDetectorTest {
+  /** Bounds a check that could block, so a regression fails instead of hanging the run. */
+  private static final Duration BOUND = Duration.ofSeconds(30);
+
   @TempDir Path dir;
 
   /** Opens the file and takes a baseline covering its whole content. */
@@ -261,5 +267,49 @@ class ChangeDetectorTest {
     assertEquals(-1, seen.size());
     Files.createDirectory(file);
     assertEquals(FileChange.MISSING, classify(baseline, file));
+  }
+
+  /**
+   * Regression: a FIFO renamed in after the attribute read blocked the digest's open of the path,
+   * and with it the follow thread. The held source's file key matches, so the digest reads it.
+   */
+  @Test
+  void aFifoSwappedInAfterTheAttributeReadDoesNotBlockTheCheck() throws Exception {
+    assumeTrue(dir.getFileSystem().supportedFileAttributeViews().contains("posix"), "no POSIX");
+    final Path file = write("swap.log", "one\ntwo\n");
+    final Path fifo = dir.resolve("pipe");
+    Process mkfifo;
+    try {
+      mkfifo = new ProcessBuilder("mkfifo", fifo.toString()).inheritIO().start();
+    } catch (IOException e) {
+      assumeTrue(false, "no mkfifo");
+      return;
+    }
+    assumeTrue(mkfifo.waitFor() == 0 && Files.exists(fifo), "mkfifo failed");
+    final Baseline baseline = baseline(file);
+    try (final FileByteSource source = FileByteSource.open(file, null)) {
+      final ChangeDetector.AttributeReader swapping =
+          new ChangeDetector.AttributeReader() {
+            @Override
+            public BasicFileAttributes read(Path path) throws IOException {
+              BasicFileAttributes attributes =
+                  Files.readAttributes(path, BasicFileAttributes.class);
+              Files.move(path, dir.resolve("swap.log.1"));
+              Files.move(fifo, path);
+              return attributes;
+            }
+          };
+      ChangeDetector.Observation seen =
+          assertTimeoutPreemptively(
+              BOUND,
+              new ThrowingSupplier<ChangeDetector.Observation>() {
+                @Override
+                public ChangeDetector.Observation get() throws IOException {
+                  return ChangeDetector.classify(
+                      baseline, file, source, swapping, Path::toRealPath);
+                }
+              });
+      assertEquals(FileChange.UNCHANGED, seen.change());
+    }
   }
 }
