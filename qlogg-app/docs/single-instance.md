@@ -19,22 +19,36 @@ It returns null while another live process holds the lock. The OS releases the
 lock when that process dies, SIGKILL included, so a stale endpoint file never
 decides liveness.
 
-`refusal` turns the handoff off for a settings directory another account
-could use to replace the endpoint:
+### Endpoint trust
+
+`EndpointFile.read` reads `instance.endpoint` only when it is a regular file,
+read without following links, owned by the current user and open to no other
+account:
 
 | File system | Refused when |
 |---|---|
-| POSIX | Another user owns it, or its group or others can write |
-| ACLs without POSIX (Windows) | `AclCheck`: an untrusted owner, or an allow entry that applies to the directory giving an untrusted account write, append, delete, delete child, write ACL or write owner |
+| POSIX | Another user owns it, or it has any group or other permission bit |
+| ACLs without POSIX (Windows) | `AclCheck`: another account owns it, or an allow entry that applies to it is for an untrusted account |
 
 `AclCheck` trusts the user, and the owner of the profile directory
-(`USERPROFILE`) and the accounts its allow entries give one of those rights:
-`SYSTEM` and `Administrators` on a default profile. Windows localizes their
-names, so they are not looked up by name. `user.home` is not used: the test
-JVMs set it to `target/test-home`. An entry only children inherit, and a read
-right, do not count. The handoff is off when `USERPROFILE` is not an absolute
-path, an ACL cannot be read or the user name does not resolve; the reason in
-the WARN names the step and the exception.
+(`USERPROFILE`) and the accounts its allow entries give write, append, delete,
+delete child, write ACL or write owner: `SYSTEM` and `Administrators` on a
+default profile. Windows localizes their names, so they are not looked up by
+name. `user.home` is not used: the test JVMs set it to `target/test-home`.
+
+The attributes are read before the content and again while the file is open,
+and must name the same file. Windows opens it without delete sharing, so it
+cannot be renamed while open; on POSIX the file key and `ctime` must match,
+and a rename sets `ctime`.
+
+An untrusted endpoint, or a step that fails (the user name does not resolve,
+`USERPROFILE` is not absolute, an ACL cannot be read), ends the handoff as a
+missing endpoint does: the launch opens its own window and the WARN names the
+step and the exception.
+
+The settings directory is not checked. Another account that can write it can
+delete or rename the endpoint but cannot create a file the user owns. Deleting
+the endpoint, or holding `instance.lock`, makes a launch open its own window.
 
 ### Lock file guard
 

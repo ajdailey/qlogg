@@ -1,26 +1,20 @@
 package io.github.ajdailey.qlogg.app.ipc;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
-import io.github.ajdailey.qlogg.core.util.os.EnvPaths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.UserPrincipal;
 import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A launch's side of the single-instance handoff: reads {@code instance.endpoint}, connects to the
  * loopback port, proves the token through HMAC over fresh nonces after the primary has proved it,
  * and sends the files. Blocking; the launcher calls it before the Display exists. A client that
  * receives anything but a valid proof sends nothing further, so no file reaches a process that does
- * not hold the token.
+ * not hold the token. An endpoint {@link EndpointFile} does not trust ends the handoff as a missing
+ * one does.
  */
 public final class InstanceClient {
   /** How long a missing endpoint file is waited for: the primary writes it right after binding. */
@@ -123,46 +117,6 @@ public final class InstanceClient {
           throw new IOException("Interrupted", interrupted);
         }
       }
-    }
-  }
-
-  /**
-   * Checks that the handoff may use a settings directory: on POSIX it must belong to the current
-   * user and be writable by no one else; where there are ACLs instead (Windows), {@link AclCheck}
-   * applies against the {@code USERPROFILE} directory. A file system with neither is accepted.
-   *
-   * @param directory the settings directory
-   * @param user the current user's name
-   * @return null when it may, else the reason
-   */
-  public static String refusal(Path directory, String user) {
-    Set<String> views = directory.getFileSystem().supportedFileAttributeViews();
-    if (!views.contains("posix")) {
-      if (!views.contains("acl")) {
-        return null;
-      }
-      Path profile = EnvPaths.absolute(System.getenv("USERPROFILE"));
-      if (profile == null) {
-        return "USERPROFILE is not an absolute path";
-      }
-      return AclCheck.refusal(directory, user, profile);
-    }
-    try {
-      PosixFileAttributes attributes =
-          Files.readAttributes(directory, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-      UserPrincipal me =
-          directory.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName(user);
-      if (!attributes.owner().equals(me)) {
-        return "the settings directory belongs to another user";
-      }
-      Set<PosixFilePermission> permissions = attributes.permissions();
-      if (permissions.contains(PosixFilePermission.GROUP_WRITE)
-          || permissions.contains(PosixFilePermission.OTHERS_WRITE)) {
-        return "the settings directory is writable by other users";
-      }
-      return null;
-    } catch (IOException e) {
-      return "the settings directory's owner and permissions cannot be read: " + e;
     }
   }
 }

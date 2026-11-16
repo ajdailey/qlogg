@@ -2,10 +2,8 @@ package io.github.ajdailey.qlogg.app.ipc;
 
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
-import io.github.ajdailey.qlogg.core.util.Streams;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,13 +44,11 @@ record Endpoint(int port, byte[] token) {
    * @param directory the settings directory
    * @return the endpoint
    * @throws java.nio.file.NoSuchFileException when there is no file
-   * @throws IOException when it cannot be read or is malformed
+   * @throws IOException when {@link EndpointFile} does not trust it, or it cannot be read or is
+   *     malformed
    */
   static Endpoint read(Path directory) throws IOException {
-    byte[] bytes;
-    try (InputStream in = Files.newInputStream(SafePaths.child(directory, FILE))) {
-      bytes = Streams.readLimited(in, MAX_BYTES);
-    }
+    byte[] bytes = EndpointFile.read(SafePaths.child(directory, FILE), MAX_BYTES);
     Properties p = new Properties();
     try {
       p.load(new ByteArrayInputStream(bytes));

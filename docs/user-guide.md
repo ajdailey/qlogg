@@ -664,9 +664,11 @@ opened from the Finder or dropped on the Dock icon arrive the same way. On
 Windows a file opened from Explorer into the running instance does not raise
 its window; the window's taskbar button flashes instead.
 
-When another account can write to the settings directory, as with a portable
-installation in a shared folder, every launch opens its own window and QLogg's
-log names the reason.
+When the running QLogg's `instance.endpoint` file is not owned by the user or
+is open to other accounts, the launch opens its own window and QLogg's log
+names the reason. Another account that can write to the settings directory, as
+with a portable installation in a shared folder, can delete that file and so
+make the next launch open its own window.
 
 ## Menus
 

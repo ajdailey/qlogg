@@ -207,13 +207,18 @@ class AtomicFilesTest {
     assertEquals(List.of("guide.html"), names());
   }
 
-  /** The Windows CI account is elevated, so the file's owner there is not the user. */
+  /**
+   * The Windows CI account is elevated, where a new file's owner is {@code Administrators}; the
+   * handoff trusts the endpoint only when its owner is the user.
+   */
   @Test
   @EnabledOnOs(OS.WINDOWS)
-  void aSecretHasOneAclEntryForTheCurrentUser() throws IOException {
+  void aSecretHasOneAclEntryForTheCurrentUserAndTheUserAsOwner() throws IOException {
     Path file = temp.resolve("instance.endpoint");
     AtomicFiles.writeOwnerOnly(file, "token".getBytes(StandardCharsets.US_ASCII));
     AclFileAttributeView view = Files.getFileAttributeView(file, AclFileAttributeView.class);
+    assertEquals(
+        Accounts.user(file.getFileSystem(), System.getProperty("user.name")), view.getOwner());
     List<AclEntry> acl = view.getAcl();
     assertEquals(1, acl.size());
     assertEquals(AclEntryType.ALLOW, acl.get(0).type());

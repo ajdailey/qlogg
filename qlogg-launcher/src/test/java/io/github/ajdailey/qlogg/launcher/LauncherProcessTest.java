@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.launcher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import java.io.BufferedReader;
@@ -10,7 +11,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -117,6 +120,30 @@ class LauncherProcessTest {
   @Test
   void aPrimaryAskedToExportOverTheLockFileKeepsTheLock() throws Exception {
     assertRouteKeepsTheLock("export");
+  }
+
+  /** The endpoint, not the directory, decides the handoff. */
+  @Test
+  void aSecondLaunchHandsOffInAGroupWritableSettingsDirectory() throws Exception {
+    assumeTrue(temp.getFileSystem().supportedFileAttributeViews().contains("posix"));
+    Files.setPosixFilePermissions(temp, PosixFilePermissions.fromString("rwxrwxr-x"));
+    try (Workers workers = new Workers(1, new Launcher.FailureLogger())) {
+      Child primary = new Child(temp, workers);
+      Child second = new Child(temp, workers);
+      try {
+        assertEquals("", primary.await(LaunchMain.READY));
+        primary.send("");
+        assertEquals(PRIMARY, primary.await(LaunchMain.OUTCOME));
+        assertEquals("", second.await(LaunchMain.READY));
+        second.send("");
+        assertEquals(HANDED, second.await(LaunchMain.OUTCOME));
+        primary.send("");
+        assertEquals("1", primary.await(LaunchMain.RECEIVED));
+      } finally {
+        second.end();
+        primary.end();
+      }
+    }
   }
 
   private void assertRouteKeepsTheLock(String route) throws Exception {

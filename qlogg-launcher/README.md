@@ -64,9 +64,9 @@ files arrive and 200 ms pass with no further one, or 1 s passes with none, and
 the launch hands off what came, possibly nothing. Elsewhere `await` returns no
 files at once. The bounds are unmeasured.
 
-A failure at any step, or a settings directory another user owns or others can
-write (`InstanceClient.refusal`), logs one WARN, and the launch opens its own
-window as with `-m`. A launch that stays opens the debug log file when `-l` or
+A failure at any step, an endpoint file another account could have written
+included (`EndpointFile`), logs one WARN, and the launch opens its own window
+as with `-m`. A launch that stays opens the debug log file when `-l` or
 `log.file` asks for it.
 
 ## Gui
@@ -291,7 +291,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `StoreFaultsTest` (`swt`) | `Gui` over a malformed, an oversized and an unknown-version session file: each opens an empty window, exits 0 and logs a WARN. A remembered encoding the runtime does not support opens the file with detection |
 | `SigtermTest` (`swt`, Linux) | `Main` as a child process restoring a two-file session: after both files' `Indexing ... done` lines in its `-l` log, SIGTERM (`Process.destroy`) ends it within the hook's bound, the endpoint file is gone, the session and positions files were written, and the hook's INFO line reached the log. Windows has no SIGTERM; `destroy` there terminates without hooks |
 | `ShutdownHookTest` | The hook's task run directly: it requests the quit and releases once it finishes, only releases after an ordered quit, and returns after its bound when the quit never finishes, naming the surviving threads |
-| `LauncherProcessTest` | Launches as real processes through `LaunchMain`: a primary asked to open, import from or export over `instance.lock` keeps the lock, and the next launch hands its files over |
+| `LauncherProcessTest` | Launches as real processes through `LaunchMain`: a primary asked to open, import from or export over `instance.lock` keeps the lock, and the next launch hands its files over, also in a group-writable settings directory (POSIX) |
 | `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |

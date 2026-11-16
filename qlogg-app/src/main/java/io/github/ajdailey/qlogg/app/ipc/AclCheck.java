@@ -1,6 +1,5 @@
 package io.github.ajdailey.qlogg.app.ipc;
 
-import io.github.ajdailey.qlogg.core.io.Accounts;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -17,16 +16,16 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Checks a settings directory on a file system with ACLs and no POSIX permissions (Windows). The
- * directory must be owned by a trusted account, and no allow entry that applies to it may give an
- * untrusted account a right in {@link #WRITE}. Trusted are the user, and the owner of the user's
- * profile directory and every account its allow entries give such a right: on a default profile
- * {@code SYSTEM} and {@code Administrators}, whose names Windows localizes, so they are not looked
- * up by name. The caller passes the profile from {@code USERPROFILE}, not {@code user.home}, which
- * a launcher or test can set to any directory.
+ * Checks the endpoint file on a file system with ACLs and no POSIX permissions (Windows). The file
+ * must be owned by the user, and every allow entry that applies to it must be for a trusted
+ * account. Trusted are the user, and the owner of the user's profile directory and every account
+ * its allow entries give a right in {@link #WRITE}: on a default profile {@code SYSTEM} and {@code
+ * Administrators}, whose names Windows localizes, so they are not looked up by name. The caller
+ * passes the profile from {@code USERPROFILE}, not {@code user.home}, which a launcher or test can
+ * set to any directory.
  */
 final class AclCheck {
-  /** Rights that let an account replace, remove or re-permit the endpoint file. */
+  /** Rights that make an account trusted when the profile directory gives it one. */
   static final Set<AclEntryPermission> WRITE =
       EnumSet.of(
           AclEntryPermission.WRITE_DATA,
@@ -39,58 +38,56 @@ final class AclCheck {
   private AclCheck() {}
 
   /**
-   * Checks the directory.
+   * Returns the accounts trusted besides the user.
    *
-   * @param directory the settings directory
-   * @param user the current user's name
    * @param profile the user's profile directory
-   * @return null when the handoff may use the directory, else the reason, naming the step that
-   *     failed and its exception
+   * @return its owner and the accounts its allow entries give a right in {@link #WRITE}
+   * @throws IOException when its ACL cannot be read, naming the directory and the exception
    */
-  static String refusal(Path directory, String user, Path profile) {
-    Set<UserPrincipal> trusted;
+  static Set<UserPrincipal> trusted(Path profile) throws IOException {
     try {
       AclFileAttributeView view = Files.getFileAttributeView(profile, AclFileAttributeView.class);
-      trusted = writers(view);
+      Set<UserPrincipal> trusted = new HashSet<UserPrincipal>();
+      for (AclEntry entry : view.getAcl()) {
+        if (applies(entry) && !Collections.disjoint(entry.permissions(), WRITE)) {
+          trusted.add(entry.principal());
+        }
+      }
       trusted.add(view.getOwner());
+      return trusted;
     } catch (IOException e) {
-      return "the ACL of the profile directory " + profile + " cannot be read: " + e;
+      throw new IOException(
+          "the ACL of the profile directory " + profile + " cannot be read: " + e, e);
     }
-    try {
-      trusted.add(Accounts.user(directory.getFileSystem(), user));
-    } catch (IOException e) {
-      return "the user name " + user + " does not resolve: " + e;
+  }
+
+  /**
+   * Checks the endpoint file.
+   *
+   * @param file the endpoint file
+   * @param user the current user
+   * @param trusted the user and {@link #trusted}
+   * @return null when the file is the user's and open to no other account, else the reason
+   * @throws IOException when the ACL cannot be read
+   */
+  static String refusal(Path file, UserPrincipal user, Set<UserPrincipal> trusted)
+      throws IOException {
+    AclFileAttributeView view =
+        Files.getFileAttributeView(file, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+    UserPrincipal owner = view.getOwner();
+    if (!owner.equals(user)) {
+      return "the endpoint file belongs to " + owner.getName() + ", not the user";
     }
-    UserPrincipal owner;
-    Set<UserPrincipal> writers;
-    try {
-      AclFileAttributeView view =
-          Files.getFileAttributeView(
-              directory, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-      owner = view.getOwner();
-      writers = writers(view);
-    } catch (IOException e) {
-      return "the ACL of the settings directory cannot be read: " + e;
-    }
-    if (!trusted.contains(owner)) {
-      return "the settings directory belongs to another user";
-    }
-    if (!trusted.containsAll(writers)) {
-      return "the settings directory is writable by other users";
+    for (AclEntry entry : view.getAcl()) {
+      if (applies(entry) && !trusted.contains(entry.principal())) {
+        return "the endpoint file is open to " + entry.principal().getName();
+      }
     }
     return null;
   }
 
-  /** Accounts an allow entry that applies to the object itself gives a right in {@link #WRITE}. */
-  private static Set<UserPrincipal> writers(AclFileAttributeView view) throws IOException {
-    Set<UserPrincipal> writers = new HashSet<UserPrincipal>();
-    for (AclEntry entry : view.getAcl()) {
-      if (entry.type() == AclEntryType.ALLOW
-          && !entry.flags().contains(AclEntryFlag.INHERIT_ONLY)
-          && !Collections.disjoint(entry.permissions(), WRITE)) {
-        writers.add(entry.principal());
-      }
-    }
-    return writers;
+  /** True for an allow entry that applies to the object itself. */
+  private static boolean applies(AclEntry entry) {
+    return entry.type() == AclEntryType.ALLOW && !entry.flags().contains(AclEntryFlag.INHERIT_ONLY);
   }
 }

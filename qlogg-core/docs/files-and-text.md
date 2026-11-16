@@ -55,7 +55,8 @@ Any other `IOException` throws at once.
   directory beside the target whose ACL is first set to one inheritable entry
   for the current user. The file has that entry from creation, so no other
   account opens it before the content is written. Its ACL is then set to the
-  entry explicitly; the move keeps it, and the directory is deleted. The
+  entry explicitly and its owner to the user, which an elevated process does
+  not get by default; the move keeps both, and the directory is deleted. The
   user's name is qualified with `USERDOMAIN` first (`Accounts.user`); the
   owner is the fallback when no name resolves.
 

@@ -53,10 +53,7 @@ xvfb-run -a ./mvnw clean verify
 rules and every test, and builds the universal jar and the bundle for the build
 host. Fix formatting with `./mvnw spotless:apply`.
 
-CI builds under `umask 022`; build under it locally too. Handoff needs a
-settings directory no other user can write, so under a group-writable umask
-such as 002 a test whose settings directory is created by the umask takes the
-no-handoff path.
+CI builds under `umask 022`; build under it locally too.
 
 | Command | Builds |
 |---|---|
