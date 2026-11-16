@@ -185,6 +185,11 @@ class MainMenuBarTest {
             },
             BOUND));
     int count = all.getItemCount();
+    int common = 0;
+    for (MenuItem item : encoding.getItems()) {
+      common += item.getData() instanceof Charset ? 1 : 0;
+    }
+    assertEquals(EncodingChoices.COMMON_NAMES.size(), common);
     MenuItem utf16 = charsetItem(encoding, "UTF-16LE");
     show(encoding);
     assertFalse(auto.getEnabled());

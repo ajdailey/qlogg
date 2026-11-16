@@ -68,6 +68,13 @@ class EncodingChoicesTest {
     }
   }
 
+  // The list matches QCaret's Encoding menu, so a file shows its charset at the top of both.
+  @Test
+  void theMenuListsNineteenCommonCharsetsAndThisRuntimeSupportsEach() {
+    assertEquals(19, EncodingChoices.COMMON_NAMES.size());
+    assertEquals(19, EncodingChoices.commonCharsets().size());
+  }
+
   @Test
   void noDocumentChecksAuto() {
     assertEquals("", EncodingChoices.forced(null));

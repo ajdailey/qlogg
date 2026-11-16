@@ -97,6 +97,16 @@ public enum UiText {
   OPEN_DIALOG_TITLE,
   /** Error title when a file does not open. */
   OPEN_FAILED_TITLE,
+  /** Error when a file does not open: the file name and the reason. */
+  OPEN_FAILED,
+  /** Open failure reason: the file is not readable. */
+  OPEN_REASON_DENIED,
+  /** Open failure reason: the path is a folder. */
+  OPEN_REASON_FOLDER,
+  /** Open failure reason: the file does not exist. */
+  OPEN_REASON_MISSING,
+  /** Open failure reason: the file's folder does not exist. */
+  OPEN_REASON_NO_FOLDER,
   /** A chosen name that is not a path: the reason. */
   OPEN_INVALID_PATH,
   /** The file is the running instance's lock. */
@@ -999,6 +1009,8 @@ public enum UiText {
   SHORTCUTS_VIEW,
   /** Shortcut editor key field hint. */
   SHORTCUTS_CAPTURE,
+  /** Shortcut editor button: adds the captured keys. */
+  SHORTCUTS_ADD,
   /** Shortcut editor button: the selected command's defaults. */
   SHORTCUTS_RESET,
   /** Shortcut editor button. */

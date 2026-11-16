@@ -65,9 +65,12 @@ notice "Folders are not opened".
   remembered charset name this runtime does not support logs a WARN naming it,
   and the encoding is detected.
 - Each file goes first in the recent list.
-- A failure is logged at WARN and shown as a one-line error. The end of the
-  first indexing pass and of every search is logged at INFO with its duration
-  and counts.
+- A failure is logged at WARN with the exception's message and shown as
+  `Cannot open <name>: <reason>` (`OpenFailure`). A denied, missing or folder
+  path gets a fixed reason, since `AccessDeniedException` and
+  `NoSuchFileException` carry only the path; any other failure shows its
+  message. The end of the first indexing pass and of every search is logged at
+  INFO with its duration and counts.
 
 ### Clipboard text
 
@@ -201,7 +204,9 @@ entries of `COMMON_NAMES` in order, then every other charset of
 takes 130 to 230 ms cold, so it runs on a worker:
 `ApplicationController.loadEncodingChoices` delivers the lists on the UI
 thread, at once when computed, else from a `qlogg-lifecycle-` worker.
-`commonCharsets()` looks up the common names only. `forced(document)` is the
+`commonCharsets()` looks up the common names only. `COMMON_NAMES` matches
+QCaret's Encoding menu, and the bundle smoke test checks the runtime carries
+each. `forced(document)` is the
 charset the menu checks: the forced one of a document with a file, else empty
 for Auto.
 

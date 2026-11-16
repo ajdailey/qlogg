@@ -14,12 +14,12 @@ import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.CommandPalette;
+import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -49,7 +49,7 @@ import org.eclipse.swt.widgets.Text;
  * Apply hand the settings changed in the dialog to the controller, which saves them and applies
  * them at once, except the result limit, read at the next start. The Shortcuts tab edits overrides
  * on top of the default keymap: a key field records one or two strokes, Add refuses keys another
- * command holds, Default returns the selected command to its defaults and Restore All Defaults
+ * command holds, Default Keys returns the selected command to its defaults and Restore All Defaults
  * drops every override. Modeless; it returns at once.
  */
 final class PreferencesDialog {
@@ -60,6 +60,7 @@ final class PreferencesDialog {
   private final List<KeyStroke> captured = new ArrayList<KeyStroke>();
   private final FontSettings initialFont;
   private final int platformSize;
+  private final MainWindow.EncodingSource encodings;
   private ShortcutOverrides overrides;
   // The boxes' values when opened or last applied.
   private Boxes applied;
@@ -99,8 +100,22 @@ final class PreferencesDialog {
   // Last used tab.
   private Button closeShowsLastUsed;
 
-  PreferencesDialog(Shell parent, ApplicationController controller) {
+  PreferencesDialog(final Shell parent, final ApplicationController controller) {
+    this(
+        parent,
+        controller,
+        new MainWindow.EncodingSource() {
+          @Override
+          public void load(EncodingChoices.Listener listener) {
+            controller.loadEncodingChoices(listener);
+          }
+        });
+  }
+
+  PreferencesDialog(
+      Shell parent, ApplicationController controller, MainWindow.EncodingSource encodings) {
     this.controller = controller;
+    this.encodings = encodings;
     Preferences preferences = controller.preferences();
     this.overrides = preferences.options().shortcuts();
     this.initialFont = preferences.options().font();
@@ -247,14 +262,8 @@ final class PreferencesDialog {
 
   private void file(Composite page, Options options) {
     new Label(page, SWT.NONE).setText(UiText.PREFERENCES_ENCODING.text());
-    encoding = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
+    encoding = new EncodingCombo(page, options.defaultEncoding(), encodings).combo();
     encoding.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    for (Charset charset : Charset.availableCharsets().values()) {
-      if (Options.supported(charset)) {
-        encoding.add(charset.name());
-      }
-    }
-    encoding.setText(options.defaultEncoding());
     watch = check(page, UiText.PREFERENCES_WATCH, options.useWatchService());
     poll =
         spinner(
@@ -319,7 +328,7 @@ final class PreferencesDialog {
     clear.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, false, false));
     Dialogs.button(
             editor,
-            UiText.BUTTON_ADD.text(),
+            UiText.SHORTCUTS_ADD.text(),
             new Runnable() {
               @Override
               public void run() {

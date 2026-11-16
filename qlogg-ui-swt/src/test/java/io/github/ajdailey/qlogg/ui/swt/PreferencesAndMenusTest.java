@@ -23,6 +23,7 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
+import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -50,6 +51,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -354,6 +356,69 @@ class PreferencesAndMenusTest {
             }));
     dialog.shell().dispose();
     shoot(window.shell(), "main.png");
+  }
+
+  @Test
+  void theShortcutsTabButtonsHaveDistinctMnemonicsWithTheDialogButtons() {
+    PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+    dialog.open();
+    List<String> texts = new ArrayList<String>();
+    pushButtons(dialog.folder().getItem(3).getControl(), texts);
+    assertEquals(
+        List.of("Clear", "A&dd", "&Remove", "Default &Keys", "Re&store All Defaults"), texts);
+    for (Control child : dialog.shell().getChildren()) {
+      if (child != dialog.folder()) {
+        pushButtons(child, texts);
+      }
+    }
+    List<Character> mnemonics = new ArrayList<Character>();
+    for (String text : texts) {
+      int at = text.indexOf('&');
+      if (at >= 0) {
+        char mnemonic = Character.toLowerCase(text.charAt(at + 1));
+        assertFalse(mnemonics.contains(mnemonic), texts.toString());
+        mnemonics.add(mnemonic);
+      }
+    }
+    dialog.shell().dispose();
+  }
+
+  @Test
+  void theDefaultEncodingBoxListsTheEncodingChoices() {
+    final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+    dialog.open();
+    final Combo box = combo((Composite) dialog.folder().getItem(2).getControl());
+    final EncodingChoices choices = EncodingChoices.available();
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return box.getItemCount() == choices.common().size() + choices.other().size();
+              }
+            }));
+    assertEquals(choices.common().get(0).name(), box.getItem(0));
+    assertEquals(controller.preferences().options().defaultEncoding(), box.getText());
+    dialog.shell().dispose();
+  }
+
+  private static void pushButtons(Control control, List<String> texts) {
+    if (control instanceof Button button && (button.getStyle() & SWT.PUSH) != 0) {
+      texts.add(button.getText());
+    } else if (control instanceof Composite composite) {
+      for (Control child : composite.getChildren()) {
+        pushButtons(child, texts);
+      }
+    }
+  }
+
+  private static Combo combo(Composite parent) {
+    for (Control child : parent.getChildren()) {
+      if (child instanceof Combo found) {
+        return found;
+      }
+    }
+    return null;
   }
 
   // Tooltips after a shortcut change.

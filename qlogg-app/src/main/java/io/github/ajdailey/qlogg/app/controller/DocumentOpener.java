@@ -48,7 +48,10 @@ final class DocumentOpener {
     /** A file or pasted text opened; the listener owns the document and must close it. */
     void opened(LogDocument document, Opening opening);
 
-    /** A file did not open; {@code path} is the path as requested. */
+    /**
+     * A file did not open; {@code path} is the path as requested, {@code message} names it and the
+     * reason.
+     */
     void openFailed(Path path, String message);
 
     /** Pasted text did not open. */
@@ -493,8 +496,8 @@ final class DocumentOpener {
           });
       return document;
     } catch (IOException e) {
-      final String message = LogText.oneLine(e.getMessage());
-      LOG.warn("Cannot open {}: {}", LogText.oneLine(path), message);
+      LOG.warn("Cannot open {}: {}", LogText.oneLine(path), LogText.oneLine(e.getMessage()));
+      final String message = OpenFailure.text(path, e);
       post(
           new Runnable() {
             @Override

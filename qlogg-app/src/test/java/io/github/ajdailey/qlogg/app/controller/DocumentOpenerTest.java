@@ -3,10 +3,13 @@ package io.github.ajdailey.qlogg.app.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -16,10 +19,13 @@ import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -104,13 +110,39 @@ class DocumentOpenerTest {
   @Test
   void aFileThatDoesNotOpenReportsTheFailure() throws Exception {
     opener.open(List.of(new FileRequest(temp.resolve("missing.log"), 0)), false, false, services);
-    fixture.runUntil(
-        new BooleanSupplier() {
-          @Override
-          public boolean getAsBoolean() {
-            return recorder.failures.size() == 1;
-          }
-        });
+    awaitFailures(1);
+    assertTrue(recorder.documents.isEmpty());
+    assertEquals(
+        UiText.OPEN_FAILED.format("missing.log", UiText.OPEN_REASON_MISSING.text()),
+        recorder.failures.get(0));
+  }
+
+  // Regression: AccessDeniedException and NoSuchFileException carry only the path, so the error
+  // showed the path with no reason.
+  @Test
+  void anUnreadableFileOrAFolderReportsTheReason() throws Exception {
+    Path folder = Files.createDirectory(temp.resolve("logs"));
+    opener.open(List.of(new FileRequest(folder, 0)), false, false, services);
+    awaitFailures(1);
+    assertEquals(
+        UiText.OPEN_FAILED.format("logs", UiText.OPEN_REASON_FOLDER.text()),
+        recorder.failures.get(0));
+    opener.open(
+        List.of(new FileRequest(temp.resolve("gone").resolve("x.log"), 0)), false, false, services);
+    awaitFailures(2);
+    assertEquals(
+        UiText.OPEN_FAILED.format("x.log", UiText.OPEN_REASON_NO_FOLDER.text()),
+        recorder.failures.get(1));
+
+    assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+    Path locked = log("locked.log");
+    Files.setPosixFilePermissions(locked, Set.<PosixFilePermission>of());
+    assumeFalse(Files.isReadable(locked), "running as root");
+    opener.open(List.of(request(locked)), false, false, services);
+    awaitFailures(3);
+    assertEquals(
+        UiText.OPEN_FAILED.format("locked.log", UiText.OPEN_REASON_DENIED.text()),
+        recorder.failures.get(2));
     assertTrue(recorder.documents.isEmpty());
   }
 
@@ -282,6 +314,16 @@ class DocumentOpenerTest {
     assertTrue(recorder.events.isEmpty(), recorder.events.toString());
     assertEquals(0, opener.unclaimedCount());
     assertEquals(0, budget.reserved(MemoryShare.LINE_INDEX));
+  }
+
+  private void awaitFailures(final int count) throws InterruptedException {
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return recorder.failures.size() == count;
+          }
+        });
   }
 
   private void runUntilDelivered(final int count) throws InterruptedException {

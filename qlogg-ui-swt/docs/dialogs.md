@@ -73,7 +73,8 @@ Preferences made while the dialog is open survive Apply.
 | Tab | Behavior |
 |---|---|
 | View | The family list is `Display.getFontList`. Changing the size or family clears the zoom |
-| Shortcuts | Every command with its keys, an override marked `*`. The key field records one or two strokes; Add refuses keys `Keymap.conflicts` reports, naming the command that holds them |
+| File | The default encoding box (`EncodingCombo`) lists the common charsets and the current one at once, then every `EncodingChoices` charset when `loadEncodingChoices` delivers them, keeping the selection |
+| Shortcuts | Every command with its keys, an override marked `(changed)`. The key field records one or two strokes; Add refuses keys `Keymap.conflicts` reports, naming the command that holds them |
 | Folding | The entry start pattern and the continuation patterns, one per line, with Restore Defaults. OK and Apply check them first (`FoldRulesText`); a refused pattern applies nothing, selects the tab and shows the reason under the patterns |
 
 ## Timestamp dialogs

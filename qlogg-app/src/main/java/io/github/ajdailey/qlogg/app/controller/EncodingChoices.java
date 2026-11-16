@@ -16,21 +16,29 @@ import java.util.List;
  * @param other every other supported charset, in {@link Charset#availableCharsets()} order
  */
 public record EncodingChoices(List<Charset> common, List<Charset> other) {
-  /** Charsets listed first, when the runtime supports them. */
+  /**
+   * Charsets listed first, when the runtime supports them. The bundles' runtimes carry every one;
+   * the distribution smoke test checks that they do.
+   */
   public static final List<String> COMMON_NAMES =
       List.of(
           "UTF-8",
           "UTF-16LE",
           "UTF-16BE",
+          "UTF-32LE",
+          "UTF-32BE",
           "ISO-8859-1",
           "ISO-8859-15",
           "windows-1252",
           "US-ASCII",
+          "windows-1250",
           "windows-1251",
           "KOI8-R",
           "GB18030",
+          "GBK",
           "Big5",
           "Shift_JIS",
+          "windows-31j",
           "EUC-JP",
           "EUC-KR");
 
