@@ -57,6 +57,11 @@ lacks on Windows and macOS. `jdeps` reports `java.desktop` too, used only by
 `SWT_AWT`, so it is left out. `--strip-debug` is not used: it runs the host
 `objcopy` on target binaries and fails across targets.
 
+The `windows-bundle` macro deletes `ucrtbase.dll` and every `api-ms-win-*.dll`
+from `runtime/bin/` on both Windows targets: Windows 10 and later load the
+system Universal C Runtime even when an app-local copy exists. The bundle keeps
+`msvcp140.dll`, `vcruntime140.dll` and, on windows-x86_64, `vcruntime140_1.dll`.
+
 jlink on Linux writes the `legal/<module>/` notices as symlinks into
 `legal/java.base/`. The build replaces them with copies before signing,
 because Ant's `zip` stores a link as a regular file and the macOS seal must
