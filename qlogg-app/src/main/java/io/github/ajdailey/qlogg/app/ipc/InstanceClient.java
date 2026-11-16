@@ -1,10 +1,10 @@
 package io.github.ajdailey.qlogg.app.ipc;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
+import io.github.ajdailey.qlogg.core.util.os.EnvPaths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -129,7 +129,7 @@ public final class InstanceClient {
   /**
    * Checks that the handoff may use a settings directory: on POSIX it must belong to the current
    * user and be writable by no one else; where there are ACLs instead (Windows), {@link AclCheck}
-   * applies. A file system with neither is accepted.
+   * applies against the {@code USERPROFILE} directory. A file system with neither is accepted.
    *
    * @param directory the settings directory
    * @param user the current user's name
@@ -141,12 +141,11 @@ public final class InstanceClient {
       if (!views.contains("acl")) {
         return null;
       }
-      try {
-        return AclCheck.refusal(
-            directory, user, directory.getFileSystem().getPath(System.getProperty("user.home")));
-      } catch (InvalidPathException e) {
-        return "the settings directory cannot be checked";
+      Path profile = EnvPaths.absolute(System.getenv("USERPROFILE"));
+      if (profile == null) {
+        return "USERPROFILE is not an absolute path";
       }
+      return AclCheck.refusal(directory, user, profile);
     }
     try {
       PosixFileAttributes attributes =
@@ -163,7 +162,7 @@ public final class InstanceClient {
       }
       return null;
     } catch (IOException e) {
-      return "the settings directory cannot be checked";
+      return "the settings directory's owner and permissions cannot be read: " + e;
     }
   }
 }

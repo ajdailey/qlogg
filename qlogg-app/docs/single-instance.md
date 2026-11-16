@@ -27,11 +27,14 @@ could use to replace the endpoint:
 | POSIX | Another user owns it, or its group or others can write |
 | ACLs without POSIX (Windows) | `AclCheck`: an untrusted owner, or an allow entry that applies to the directory giving an untrusted account write, append, delete, delete child, write ACL or write owner |
 
-`AclCheck` trusts the user, and the owner of the user's home directory and the
-accounts that home's allow entries give one of those rights: `SYSTEM` and
-`Administrators` on a default profile. Windows localizes their names, so they
-are not looked up by name. An entry only children inherit, and a read right,
-do not count. The handoff is off when the user name does not resolve.
+`AclCheck` trusts the user, and the owner of the profile directory
+(`USERPROFILE`) and the accounts its allow entries give one of those rights:
+`SYSTEM` and `Administrators` on a default profile. Windows localizes their
+names, so they are not looked up by name. `user.home` is not used: the test
+JVMs set it to `target/test-home`. An entry only children inherit, and a read
+right, do not count. The handoff is off when `USERPROFILE` is not an absolute
+path, an ACL cannot be read or the user name does not resolve; the reason in
+the WARN names the step and the exception.
 
 ### Lock file guard
 

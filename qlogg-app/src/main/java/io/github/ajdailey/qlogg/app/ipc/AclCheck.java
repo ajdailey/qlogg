@@ -3,7 +3,6 @@ package io.github.ajdailey.qlogg.app.ipc;
 import io.github.ajdailey.qlogg.core.io.Accounts;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.AclEntry;
@@ -21,9 +20,10 @@ import java.util.Set;
  * Checks a settings directory on a file system with ACLs and no POSIX permissions (Windows). The
  * directory must be owned by a trusted account, and no allow entry that applies to it may give an
  * untrusted account a right in {@link #WRITE}. Trusted are the user, and the owner of the user's
- * home directory and every account its allow entries give such a right: on a default profile {@code
- * SYSTEM} and {@code Administrators}, whose names Windows localizes, so they are not looked up by
- * name.
+ * profile directory and every account its allow entries give such a right: on a default profile
+ * {@code SYSTEM} and {@code Administrators}, whose names Windows localizes, so they are not looked
+ * up by name. The caller passes the profile from {@code USERPROFILE}, not {@code user.home}, which
+ * a launcher or test can set to any directory.
  */
 final class AclCheck {
   /** Rights that let an account replace, remove or re-permit the endpoint file. */
@@ -43,31 +43,42 @@ final class AclCheck {
    *
    * @param directory the settings directory
    * @param user the current user's name
-   * @param home the user's home directory
-   * @return null when the handoff may use the directory, else the reason
+   * @param profile the user's profile directory
+   * @return null when the handoff may use the directory, else the reason, naming the step that
+   *     failed and its exception
    */
-  static String refusal(Path directory, String user, Path home) {
+  static String refusal(Path directory, String user, Path profile) {
+    Set<UserPrincipal> trusted;
+    try {
+      AclFileAttributeView view = Files.getFileAttributeView(profile, AclFileAttributeView.class);
+      trusted = writers(view);
+      trusted.add(view.getOwner());
+    } catch (IOException e) {
+      return "the ACL of the profile directory " + profile + " cannot be read: " + e;
+    }
+    try {
+      trusted.add(Accounts.user(directory.getFileSystem(), user));
+    } catch (IOException e) {
+      return "the user name " + user + " does not resolve: " + e;
+    }
+    UserPrincipal owner;
+    Set<UserPrincipal> writers;
     try {
       AclFileAttributeView view =
           Files.getFileAttributeView(
               directory, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-      AclFileAttributeView homeView = Files.getFileAttributeView(home, AclFileAttributeView.class);
-      if (view == null || homeView == null) {
-        return "the settings directory cannot be checked";
-      }
-      Set<UserPrincipal> trusted = writers(homeView);
-      trusted.add(homeView.getOwner());
-      trusted.add(Accounts.user(directory.getFileSystem(), user));
-      if (!trusted.contains(view.getOwner())) {
-        return "the settings directory belongs to another user";
-      }
-      if (!trusted.containsAll(writers(view))) {
-        return "the settings directory is writable by other users";
-      }
-      return null;
-    } catch (IOException | InvalidPathException e) {
-      return "the settings directory cannot be checked";
+      owner = view.getOwner();
+      writers = writers(view);
+    } catch (IOException e) {
+      return "the ACL of the settings directory cannot be read: " + e;
     }
+    if (!trusted.contains(owner)) {
+      return "the settings directory belongs to another user";
+    }
+    if (!trusted.containsAll(writers)) {
+      return "the settings directory is writable by other users";
+    }
+    return null;
   }
 
   /** Accounts an allow entry that applies to the object itself gives a right in {@link #WRITE}. */
