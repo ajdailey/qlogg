@@ -3,9 +3,11 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Display;
 
-/** Known SWT 3.135.0 GTK 4 failures, skipped only on the GTK 4 backend ({@code SWT_GTK4=1}). */
+/** Known SWT 3.135.0 GTK 4 failures, skipped only when SWT loaded GTK 4. */
 public final class Gtk4 {
   /**
    * {@code Control.print} returns false: the GTK 4 branch snapshots the widget's paintable, and the
@@ -22,12 +24,19 @@ public final class Gtk4 {
   private Gtk4() {}
 
   /**
-   * Returns whether SWT runs on GTK 4.
+   * Returns whether SWT runs on GTK 4. SWT loads GTK 3 when {@code SWT_GTK4=1} is set and GTK 4
+   * does not load.
    *
-   * @return true with {@code SWT_GTK4=1} on GTK
+   * @return true when the GTK version SWT loaded is 4
    */
   public static boolean active() {
-    return "gtk".equals(SWT.getPlatform()) && "1".equals(System.getenv("SWT_GTK4"));
+    if (!"gtk".equals(SWT.getPlatform())) {
+      return false;
+    }
+    // The Display class initializer loads SWT's GTK library, which sets the version.
+    Display.getCurrent();
+    String version = System.getProperty(PlatformTraits.GTK_VERSION);
+    return version != null && version.startsWith("4.");
   }
 
   /**

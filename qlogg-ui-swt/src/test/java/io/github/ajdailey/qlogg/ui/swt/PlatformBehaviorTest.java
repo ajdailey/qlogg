@@ -22,8 +22,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What each view-layer platform branch does on the running platform, with the expected value worked
- * out here from {@link SWT#getPlatform} and {@code SWT_GTK4}, so a run on each CI platform pins its
- * own row.
+ * out here from {@link SWT#getPlatform} and the GTK version SWT loaded, so a run on each CI
+ * platform pins its own row.
  */
 @Tag("swt")
 class PlatformBehaviorTest {

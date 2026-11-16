@@ -783,7 +783,7 @@ qlogg [options] [[+line:N] file]...
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
 | `--settings <dir>` | [Settings directory](#settings-directory) |
 | `+line:N` | Open the next file at line N |
-| `--gtk4` | Linux, `bin/qlogg` only: use the experimental GTK 4 backend (linux-x86_64) |
+| `--gtk4` | Linux, `bin/qlogg` only: use the experimental GTK 4 backend (linux-x86_64); without the GTK 4 libraries QLogg runs on GTK 3 and logs a warning |
 | `--` | End of options; the remaining arguments are files |
 
 A command-line error, such as an unknown option, a bad value, `-s` with `-n`,

@@ -328,8 +328,12 @@ answered by `Win32Traits`, `CocoaTraits`, `Gtk3Traits` and `Gtk4Traits`; the
 GTK pair share `GtkTraits`. They live in package `ui.swt.platform` with the
 classes per platform that `dialogColors`, `stacking` and `toolItemSizing`
 return; only `PlatformTraits`, `DialogColors`, `WindowStacking` and
-`ToolItemSizing` are public. `PlatformTraits.PLATFORM` is chosen from
-`SWT.getPlatform()` and `SWT_GTK4=1` when the interface is first used.
+`ToolItemSizing` are public. `LoadedToolkit` chooses `PlatformTraits.PLATFORM`
+when the interface is first used, from `SWT.getPlatform()` and, on GTK, the
+major version of the GTK that SWT loaded: it initializes the `Display` class,
+which loads SWT's GTK library, then reads `org.eclipse.swt.internal.gtk.version`.
+SWT loads GTK 3 when `SWT_GTK4=1` is set and GTK 4 fails to load; QLogg then
+uses the GTK 3 traits and logs one WARN.
 `PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
 checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
 on a `SWT.getPlatform()` call or a string starting `org.eclipse.swt.internal.`

@@ -1,11 +1,11 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.ajdailey.qlogg.ui.swt.Gtk4;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
@@ -232,9 +232,32 @@ class PlatformTraitsTest {
 
   @Test
   @EnabledOnOs(OS.LINUX)
-  void gtkIsChosenOnLinuxFollowingSwtGtk4() {
+  void gtkIsChosenOnLinuxFollowingTheLoadedGtk() {
     assertEquals("gtk", SWT.getPlatform());
+    PlatformTraits chosen = PlatformTraits.PLATFORM;
     assertEquals(
-        Gtk4.active() ? Gtk4Traits.class : Gtk3Traits.class, PlatformTraits.PLATFORM.getClass());
+        LoadedToolkit.isGtk4(System.getProperty(PlatformTraits.GTK_VERSION))
+            ? Gtk4Traits.class
+            : Gtk3Traits.class,
+        chosen.getClass());
+  }
+
+  @Test
+  void theGtkVersionSwtLoadedChoosesTheTraits() {
+    assertEquals(Gtk4Traits.class, LoadedToolkit.choose("gtk", "4.14.5", true).getClass());
+    assertEquals(Gtk3Traits.class, LoadedToolkit.choose("gtk", "3.24.41", true).getClass());
+    assertEquals(Gtk3Traits.class, LoadedToolkit.choose("gtk", "3.24.41", false).getClass());
+    assertEquals(Gtk4Traits.class, LoadedToolkit.choose("gtk", "4.14.5", false).getClass());
+    assertEquals(Win32Traits.class, LoadedToolkit.choose("win32", null, true).getClass());
+    assertEquals(CocoaTraits.class, LoadedToolkit.choose("cocoa", null, true).getClass());
+  }
+
+  @Test
+  void onlyMajorVersionFourIsGtk4() {
+    assertTrue(LoadedToolkit.isGtk4("4.0.0"));
+    assertFalse(LoadedToolkit.isGtk4("3.24.32"));
+    assertFalse(LoadedToolkit.isGtk4("40.1.0"));
+    assertFalse(LoadedToolkit.isGtk4(""));
+    assertFalse(LoadedToolkit.isGtk4(null));
   }
 }

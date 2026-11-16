@@ -8,7 +8,7 @@ import org.eclipse.swt.widgets.Display;
 /**
  * The view layer's platform differences: {@link Win32Traits}, {@link CocoaTraits}, {@link
  * Gtk3Traits} and {@link Gtk4Traits} each answer every question a view class asks. No view class
- * outside this package reads {@link SWT#getPlatform} or {@code SWT_GTK4}.
+ * outside this package reads {@link SWT#getPlatform}, {@code SWT_GTK4} or {@link #GTK_VERSION}.
  */
 public interface PlatformTraits {
   /** System property SWT sets on GTK to {@code x11}, {@code wayland} or {@code unknown}. */
@@ -17,8 +17,8 @@ public interface PlatformTraits {
   /** System property SWT sets on GTK to the GTK version. */
   String GTK_VERSION = "org.eclipse.swt.internal.gtk.version";
 
-  /** The running platform's traits; GTK 4 is the {@code SWT_GTK4=1} environment SWT reads. */
-  PlatformTraits PLATFORM = of(SWT.getPlatform(), "1".equals(System.getenv("SWT_GTK4")));
+  /** The running platform's traits, for the GTK version SWT loaded ({@link LoadedToolkit}). */
+  PlatformTraits PLATFORM = LoadedToolkit.traits();
 
   /**
    * Returns a platform's traits.

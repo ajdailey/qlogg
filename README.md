@@ -202,8 +202,8 @@ To fix a bad draft, delete the draft and the tag
   Java.
 - Linux targets need the system GTK 3 libraries. GTK 4 is an experimental
   opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
-  (GTK 4 libraries required). Open SWT GTK 4 defects affect scrolling and
-  painting in the log view.
+  (GTK 4 libraries required; without them QLogg runs on GTK 3 and logs a
+  WARN). Open SWT GTK 4 defects affect scrolling and painting in the log view.
 - The macOS bundles are ad-hoc signed and not notarized, so macOS asks the user
   to approve the first launch.
 
