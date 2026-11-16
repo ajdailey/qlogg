@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.SWTError;
 import org.eclipse.swt.widgets.Display;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,11 @@ final class LoadedToolkit {
     String platform = SWT.getPlatform();
     String version = null;
     if ("gtk".equals(platform)) {
-      Display.getCurrent();
+      try {
+        Display.getCurrent();
+      } catch (LinkageError | SWTError e) {
+        LOG.debug("SWT's GTK library failed to load", e);
+      }
       version = System.getProperty(PlatformTraits.GTK_VERSION);
     }
     return choose(platform, version, "1".equals(System.getenv(SWT_GTK4)));

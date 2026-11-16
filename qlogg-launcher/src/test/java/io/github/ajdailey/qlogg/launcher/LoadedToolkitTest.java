@@ -53,4 +53,30 @@ class LoadedToolkitTest {
     assertEquals(out.indexOf(warn), out.lastIndexOf(warn), out);
     assertTrue(out.contains(warn), out);
   }
+
+  @Test
+  void noLoadableGtkEndsWithTheSwtStatus() throws Exception {
+    Path libs = Files.createDirectories(temp.resolve("nogtk"));
+    Files.createFile(libs.resolve("libgtk-4.so.1"));
+    Files.createFile(libs.resolve("libgtk-3.so.0"));
+    List<String> command = new ArrayList<String>();
+    command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+    command.add("-Duser.home=" + Files.createDirectories(temp.resolve("home")));
+    command.add("-cp");
+    command.add(System.getProperty("java.class.path"));
+    command.add(Main.class.getName());
+    command.add("-m");
+    command.add("--settings");
+    command.add(temp.resolve("settings").toString());
+    ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+    Map<String, String> env = builder.environment();
+    env.remove("SWT_GTK4");
+    String path = env.get("LD_LIBRARY_PATH");
+    env.put("LD_LIBRARY_PATH", path == null ? libs.toString() : libs + File.pathSeparator + path);
+    Process process = builder.start();
+    String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    assertTrue(process.waitFor(BOUND_SECONDS, TimeUnit.SECONDS), out);
+    assertEquals(Launcher.EXIT_SWT, process.exitValue(), out);
+    assertTrue(out.contains("qlogg: SWT failed to start"), out);
+  }
 }

@@ -176,6 +176,10 @@ final class ControllerViolations {
       return Files.exists(path);
     }
 
+    boolean runs(OsTraits system, Path file) {
+      return system.runsInsteadOfOpening(file);
+    }
+
     void close(LogDocument document) {
       document.close();
     }
