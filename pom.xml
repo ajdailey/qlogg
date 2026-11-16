@@ -435,6 +435,14 @@
                                 <requireMavenVersion>
                                     <version>[3.9,)</version>
                                 </requireMavenVersion>
+                                <!-- The SWT host artifact adds, through its
+                                     OS-activated profiles, the build host's
+                                     fragment: a second SWT on the class path. -->
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.eclipse.platform:org.eclipse.swt</exclude>
+                                    </excludes>
+                                </bannedDependencies>
                             </rules>
                         </configuration>
                     </execution>

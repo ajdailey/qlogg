@@ -16,8 +16,9 @@ runs against it.
 
 `target/qlogg.jar` holds the bootstrap classes at the root, the application
 jars under `META-INF/qlogg/lib/`, the six SWT fragments unmodified under
-`META-INF/qlogg/swt/<target>.jar`, a SHA-256 for every native, and
-`index.properties` (layout in `qlogg-bootstrap/README.md`). The maven-shade
+`META-INF/qlogg/swt/<target>.jar`, a SHA-256 for every native,
+`index.properties` (layout in `qlogg-bootstrap/README.md`), and `LICENSE`,
+`NOTICE` and `THIRD-PARTY.txt` under `META-INF/`. The maven-shade
 plugin cannot merge the fragments, which share class names.
 
 `qlogg-<version>.zip` holds `qlogg/lib/qlogg.jar`, `qlogg/bin/qlogg`,
@@ -47,7 +48,8 @@ A `qlogg.conf` marker selects portable mode; where it goes is in [Settings
 directory](../qlogg-app/docs/settings.md#settings-directory).
 
 The runtime is linked by the build JDK's `jlink` from the target JDK's jmods
-(Temurin 21.0.12+8, downloaded and verified by SHA-256) with
+(Temurin 21.0.13+9, and 21.0.12+8 for windows-aarch64, which has no 21.0.13+9
+build; downloaded and verified by SHA-256) with
 `java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,
 `--strip-java-debug-attributes`, `--no-header-files` and `--no-man-pages`.
 `jdk.charsets` carries the Encoding menu's CJK charsets, which `java.base`
@@ -92,7 +94,8 @@ SBOM of the compile and runtime dependencies (cyclonedx-maven-plugin
 `makeAggregateBom`, run once in the parent, `qlogg-bench` excluded). The
 `sbom` profile here adds the six SWT fragments as dependencies so the SBOM
 lists them; `stage-lib` excludes `org.eclipse.platform`, so the archives are
-unchanged.
+unchanged. In CI, `.github/scripts/sbom-components.sh` adds the Temurin
+releases `dist.xml` downloads and launch4j's header.
 
 A pushed `v*` tag ends in a draft GitHub Release holding the seven archives,
 `SHA256SUMS` and the SBOM; the maintainer reviews and publishes it. Steps and
@@ -134,6 +137,7 @@ outlive the build:
 |---|---|
 | `java -jar qlogg.jar -v` | Prints the manifest version as its first line |
 | Jar content | LF native digests and `natives.<target>` lists sorted by name, so a Windows build writes the same jar |
+| Jar notices | `META-INF/` holds `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` |
 | `java -jar qlogg.jar` | Opens a 900 x 600 window at 50,40 and writes no `logs` folder |
 | Linux bundle with `-l`, `PATH` holding only `uname` and `readlink` | Reports its own `runtime/` as `java.home`, opens the same window, and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's line and no other file in `logs` |
 | Linux bundle `bin/qlogg --gtk4`, stub `runtime/bin/java` | Exports `SWT_GTK4=1`, drops `--gtk4` before `--` and passes one after it as a file name |

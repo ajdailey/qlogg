@@ -33,10 +33,12 @@ jobs:
           - { target: macos-aarch64, runner: macos-15 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "21.0.12+8"
+          java-version: "21.0.13+9"
           cache: maven
       - name: Xvfb and GTK 3
         if: runner.os == 'Linux'
@@ -64,10 +66,12 @@ jobs:
       SWT_GTK4: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "21.0.12+8"
+          java-version: "21.0.13+9"
           cache: maven
       - name: Xvfb and GTK 3
         run: .github/scripts/linux-display-deps.sh
@@ -86,16 +90,20 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "21.0.12+8"
+          java-version: "21.0.13+9"
           cache: maven
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/qlogg
           key: qlogg-dist-${{ hashFiles('qlogg-dist/src/build/dist.xml') }}
       - run: ./mvnw -B package -Pall-targets,sbom -DskipTests "-Dqlogg.cache.dir=$HOME/.cache/qlogg"
+      - name: SBOM runtime and launcher components
+        run: .github/scripts/sbom-components.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qlogg-archives
@@ -127,6 +135,8 @@ jobs:
       EXPECTED_MACHINE: ${{ matrix.machine }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: qlogg-archives
@@ -134,7 +144,7 @@ jobs:
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "21.0.12+8"
+          java-version: "21.0.13+9"
       - name: Xvfb and GTK 3
         if: runner.os == 'Linux'
         run: .github/scripts/linux-display-deps.sh
@@ -146,9 +156,10 @@ jobs:
         shell: pwsh
         run: .github/scripts/check-bundle.ps1
 
-  # A v* tag: rebuild twice to check reproducibility, check that the rebuild
-  # matches the archives the bundle jobs ran, and attach those archives,
-  # SHA256SUMS and the SBOM to a draft GitHub Release.
+  # A v* tag: check the tag against the POM version, rebuild twice to check
+  # reproducibility, check that the rebuild matches the archives the bundle
+  # jobs ran, and attach those archives, SHA256SUMS and the SBOM to a draft
+  # GitHub Release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [test, bundle]
@@ -158,11 +169,21 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "21.0.12+8"
+          java-version: "21.0.13+9"
           cache: maven
+      - name: Tag matches the POM version
+        run: |
+          version=$(./mvnw -B -q -N org.apache.maven.plugins:maven-help-plugin:3.5.2:evaluate \
+            -Dexpression=project.version -DforceStdout)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the POM version $version"
+            exit 1
+          fi
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/qlogg

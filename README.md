@@ -53,6 +53,11 @@ xvfb-run -a ./mvnw clean verify
 rules and every test, and builds the universal jar and the bundle for the build
 host. Fix formatting with `./mvnw spotless:apply`.
 
+CI builds under `umask 022`; build under it locally too. Handoff needs a
+settings directory no other user can write, so under a group-writable umask
+such as 002 a test whose settings directory is created by the umask takes the
+no-handoff path.
+
 | Command | Builds |
 |---|---|
 | `./mvnw clean verify` | Universal zip and the host target's bundle |
@@ -80,9 +85,9 @@ The Temurin JDK archives and `rcodesign` are downloaded once into
 `~/.m2/repository/.cache/qlogg/` (`-Dqlogg.cache.dir` overrides it) and checked
 against pinned SHA-256 digests.
 
-Builds are reproducible: with the same JDK, two builds of one commit write
-byte-identical jars, `qlogg.exe` and archives, every entry dated
-`project.build.outputTimestamp` from the parent POM.
+Builds are reproducible: with the same JDK (CI's Temurin 21.0.13+9), two
+builds of one commit write byte-identical jars, `qlogg.exe` and archives, every
+entry dated `project.build.outputTimestamp` from the parent POM.
 `.github/scripts/check-reproducible.sh` builds twice and compares SHA-256.
 
 ### Container build
@@ -116,17 +121,18 @@ scripts/container.sh ./mvnw -B spotless:check
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
-every pushed `v*` tag, and on manual dispatch. Actions are pinned by commit SHA.
+every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13+9. Actions
+are pinned by commit SHA, and every checkout sets `persist-credentials: false`.
 Linux jobs install Xvfb and GTK 3 from the Ubuntu archive when the runner image
 lacks them.
 
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME` |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME` |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
-| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
+| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus the POM version, runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
 
 CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg`, cached by the
 `package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
@@ -138,9 +144,24 @@ The draft Release carries the seven archives the `bundle` jobs ran,
 `SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
 release notes. Only the `release` job has `contents: write`. To release:
 
-1. Push the tag: `git tag v<version> && git push origin v<version>`.
-2. Review the draft on the repository's Releases page.
-3. Publish it there, or with `gh release edit v<version> --draft=false`.
+1. Check the bundled Temurin build (`jdk.*` in `qlogg-dist/src/build/dist.xml`)
+   against the latest Oracle Critical Patch Update and the OpenJDK advisories;
+   move the pins if a fixed build exists.
+2. Push an annotated tag:
+
+   ```sh
+   git tag -a v<version> -m "QLogg <version>" && git push origin v<version>
+   ```
+
+3. Review the draft on the repository's Releases page.
+4. Replace the generated notes with the hand-written release notes:
+
+   ```sh
+   gh release edit v<version> --notes-file <notes>.md
+   ```
+
+5. Publish the draft on the Releases page, or with `gh release edit v<version>
+   --draft=false`.
 
 To fix a bad draft, delete the draft and the tag
 (`gh release delete v<version> --cleanup-tag`) and tag again.
@@ -149,13 +170,23 @@ To fix a bad draft, delete the draft and the tag
 
 - `-Psbom` writes the CycloneDX SBOM to `dist/`: every compile and runtime
   dependency of the shipped modules, plus the six SWT fragments `qlogg.jar`
-  carries. It leaves out build-only tools, `qlogg-bench`, the Temurin runtimes
-  and launch4j's header.
+  carries. It leaves out build-only tools and `qlogg-bench`.
+  `.github/scripts/sbom-components.sh`, run by the `package` job, adds the
+  Temurin releases `dist.xml` downloads and launch4j's header.
+- `.mvn/maven.config` sets `--strict-checksums` and a resolver filter that
+  admits only the `central` repository, so a repository a third-party POM
+  declares is never contacted. A settings mirror replaces `central` with its
+  own id; a build through one adds
+  `-Daether.remoteRepositoryFilter.groupId.noInputOutcome.<mirror-id>=true`.
+- The `bannedDependencies` enforcer rule fails the build when the SWT host
+  artifact `org.eclipse.platform:org.eclipse.swt` reaches a module: its
+  OS-activated profiles add the build host's fragment, a second SWT on the
+  class path.
 - `.github/workflows/dependency-check.yml` scans the dependencies for known
   vulnerabilities weekly and on demand, failing on CVSS 7 or higher. It reads
   the NVD API key from the `NVD_API_KEY` repository secret and reviewed false
   positives from `config/dependency-check-suppressions.xml`.
-- Dependabot proposes Maven and Actions updates.
+- Dependabot proposes Maven, Actions and build image updates.
 
 ## Targets
 
@@ -225,12 +256,14 @@ QLogg keeps its files in the first directory that applies:
 | Portable (Linux) | `qlogg.conf` exists beside the `bin/qlogg` script and not in the installation directory | `bin/` |
 | Per-user | Otherwise | Linux `$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`, macOS `~/Library/Application Support/QLogg` |
 
-An empty `qlogg.conf` in either place selects portable mode.
+An empty `qlogg.conf` in either place selects portable mode. In a macOS
+bundle the installation directory is `QLogg.app/Contents/app`, inside the
+signed bundle; portable use there goes through `--settings`.
 
 | File | Contents |
 |---|---|
 | `qlogg.conf` | Settings (Java properties, `version=1`); the keys are in [qlogg-app settings](qlogg-app/docs/settings.md#keys) |
-| `qlogg_session.conf` | The session: each window's tabs and Always on Top |
+| `qlogg_session.conf` | The session: each window's tabs, position, size, maximized state and Always on Top |
 | `positions.conf` | Position, encoding override and timestamp choices of the last 500 files |
 | `qlogg_error.flag` | Present after a run quit for UI-thread failures, until the next session restore skips the tabs; holds `noticeShown` once a launch showed the notice |
 | `instance.lock`, `instance.endpoint` | Single-instance lock and handoff endpoint |
