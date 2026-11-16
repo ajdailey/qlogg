@@ -284,6 +284,43 @@ class TimestampsGuiTest {
     assertEquals(List.of(2 * SECOND + SECOND / 2), chosen);
   }
 
+  private static void type(org.eclipse.swt.widgets.Combo combo, String text) {
+    combo.setText(text);
+    combo.notifyListeners(SWT.Modify, new Event());
+  }
+
+  @Test
+  void timeZoneAcceptsDefaultOrAKnownZone() {
+    final List<String> chosen = new ArrayList<String>();
+    MainView.NameListener listener =
+        new MainView.NameListener() {
+          @Override
+          public void nameChosen(String name) {
+            chosen.add(name);
+          }
+        };
+    String defaultText = UiText.TIME_ZONE_DEFAULT.format("UTC");
+    TimeZoneDialog dialog = new TimeZoneDialog(window.shell(), "", ZoneId.of("UTC"), listener);
+    dialog.open();
+    assertEquals(defaultText, dialog.combo().getText());
+    assertEquals(defaultText, dialog.combo().getItem(0));
+    assertTrue(dialog.ok().getEnabled());
+    type(dialog.combo(), "Mock/Nowhere");
+    assertFalse(dialog.ok().getEnabled());
+    type(dialog.combo(), " Europe/Paris ");
+    assertTrue(dialog.ok().getEnabled());
+    press(dialog.ok());
+    assertTrue(dialog.shell().isDisposed());
+
+    TimeZoneDialog again =
+        new TimeZoneDialog(window.shell(), "Europe/Paris", ZoneId.of("UTC"), listener);
+    again.open();
+    assertEquals("Europe/Paris", again.combo().getText());
+    type(again.combo(), defaultText);
+    press(again.ok());
+    assertEquals(List.of("Europe/Paris", ""), chosen);
+  }
+
   @Test
   void theFormatEditorPreviewsTheCaretLineAndRefusesABadPattern() {
     final List<List<UserFormat>> saved = new ArrayList<List<UserFormat>>();

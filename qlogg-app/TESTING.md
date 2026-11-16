@@ -76,6 +76,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | Class | Covers |
 |---|---|
 | `DocumentControllerTest` | Open at the command-line line; go to line past the end, and before the index flush waiting for it; keys moving the caret and scrolling; a scroll bar drag; copy of the selection or the caret line, capped by the `COPY` share with its charge returned; indexing and copy holding the activity until they end, and a close during indexing ending it; `End` and `0` scrolling to the right edge and the line start; view listeners seeing state and content |
+| `LineViewControllerTest` | A scroll while a read is in flight ending on a block at the new top; a block whose spans the `HIGHLIGHT` share refuses shown without them, and with them once the share has room |
 | `ExportCancelTest` | Tab close and `Esc` canceling a copy or save held at a gated row: the `COPY` and `LINE_INDEX` reservations returned, no file left; a second copy while one runs showing a notice, and copy running after `Esc` |
 | `WordSelectionTest` | `selectWordAt`: the word around a position or the one before it, and positions that select nothing |
 
@@ -149,6 +150,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `RecentLogTest` | The newest lines kept, long lines cut, concurrent appends keeping the capacity |
 | `EventLoopWatchdogTest` | A held probe reported as a stall with the UI thread's stack, then the recovery |
 | `BusyCounterTest` | Overlapping operations keeping the indicator until the last ends; an idle with nothing active ignored; calls from a worker applied on the UI thread |
+| `UiUpdateQueueTest` | Posts before a flush sharing one; a flush inside the interval waiting on one timer; `close` stopping a scheduled check and a scheduled timer |
 | `ManualUiDispatcherTest` | Submissions run in order and dropped after dispose; `timerExec` off the UI thread refused and failing the next drain; `runUntil` seeing a condition set off the UI thread |
 | `PositionTextTest` | The caret and the selection size; the time difference of a selection over lines |
 | `StatusTextTest` | The top row's size, modification tip and encoding; the notes that apply; sizes in the largest unit under 1024 |

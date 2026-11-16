@@ -17,6 +17,8 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.FilteredController;
+import io.github.ajdailey.qlogg.app.controller.ResultTabs;
+import io.github.ajdailey.qlogg.app.controller.SearchController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.app.theme.Palette;
@@ -505,6 +507,46 @@ class FilteredPaneTest {
     assertEquals(1, window.results().sets().getItemCount());
   }
 
+  /** Asserts each kept tab holds its set by identity and shows its text. */
+  private void assertKeptTabs() {
+    CTabFolder sets = window.results().sets();
+    List<SearchController.KeptResults> kept = document().search().kept();
+    assertEquals(kept.size() + 1, sets.getItemCount());
+    for (int i = 0; i < kept.size(); i++) {
+      assertSame(kept.get(i), sets.getItem(i + 1).getData());
+      assertEquals(ResultTabs.kept(kept.get(i)), sets.getItem(i + 1).getText());
+    }
+    assertEquals(document().search().shown() + 1, sets.getSelectionIndex());
+  }
+
+  @Test
+  void keptTabsFollowTheirSetsAfterARemoval() {
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    searchFor("event");
+    searchFor("line 1");
+    searchFor("line 2");
+    searchFor("line 3");
+    SearchController search = document().search();
+    assertEquals(3, search.kept().size());
+    SearchController.KeptResults first = search.kept().get(0);
+    SearchController.KeptResults last = search.kept().get(2);
+    CTabFolder sets = window.results().sets();
+    sets.setSelection(1);
+    sets.notifyListeners(SWT.Selection, new Event());
+    window.results().closeTab(sets.getItem(2));
+    assertKeptTabs();
+    assertEquals(List.of(first, last), search.kept());
+    assertSame(first, search.kept().get(search.shown()));
+    sets.setSelection(2);
+    sets.notifyListeners(SWT.Selection, new Event());
+    assertSame(last, search.kept().get(search.shown()));
+    sets.setSelection(1);
+    sets.notifyListeners(SWT.Selection, new Event());
+    window.results().closeTab(sets.getItem(2));
+    assertKeptTabs();
+    assertEquals(List.of(first), search.kept());
+  }
+
   @Test
   void closingTheCurrentResultTabClearsTheResultsAndKeepsTheTab() {
     final CTabFolder sets = window.results().sets();
@@ -752,6 +794,50 @@ class FilteredPaneTest {
     dialog.remove();
     assertEquals(0, table.getItemCount());
     dialog.shell().dispose();
+  }
+
+  @Test
+  void editSearchHistorySavesTheEntriesAndTheSize() {
+    controller.setSearchHistory(List.of("alpha", "beta"), 10);
+    HistoryDialog dialog = new HistoryDialog(window.shell(), controller);
+    dialog.open();
+    assertEquals("alpha\nbeta", dialog.entries().getText());
+    assertEquals(10, dialog.size().getSelection());
+    dialog.entries().setText("gamma\n\n  \nalpha\r\nbeta");
+    dialog.size().setSelection(2);
+    pressDefault(dialog.shell());
+    assertTrue(dialog.shell().isDisposed());
+    assertEquals(List.of("gamma", "alpha"), controller.preferences().searchHistory());
+    assertEquals(2, controller.preferences().historySize());
+
+    HistoryDialog canceled = new HistoryDialog(window.shell(), controller);
+    canceled.open();
+    canceled.entries().setText("delta");
+    canceled.size().setSelection(5);
+    buttonIn(canceled.shell(), UiText.BUTTON_CANCEL.text())
+        .notifyListeners(SWT.Selection, new Event());
+    assertTrue(canceled.shell().isDisposed());
+    assertEquals(List.of("gamma", "alpha"), controller.preferences().searchHistory());
+    assertEquals(2, controller.preferences().historySize());
+  }
+
+  private static Button buttonIn(Composite parent, String text) {
+    for (Control child : parent.getChildren()) {
+      if (child instanceof Button button && button.getText().equals(text)) {
+        return button;
+      }
+      if (child instanceof Composite composite) {
+        Button found = buttonIn(composite, text);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
+  }
+
+  private static void pressDefault(Shell shell) {
+    shell.getDefaultButton().notifyListeners(SWT.Selection, new Event());
   }
 
   private Shell shellTitled(final String title) {
