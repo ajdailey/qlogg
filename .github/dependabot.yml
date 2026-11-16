@@ -21,3 +21,7 @@ updates:
     directory: /docker
     schedule:
       interval: weekly
+    # The build JDK stays on Java 21 LTS.
+    ignore:
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
