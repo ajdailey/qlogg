@@ -16,7 +16,9 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
@@ -30,10 +32,16 @@ import org.slf4j.LoggerFactory;
  * version 1, so an empty portable marker is valid. A file that cannot be read, is over {@link
  * #MAX_BYTES}, does not parse or has another version is malformed: defaults apply, one WARN names
  * it, and the first save copies it to {@code qlogg.conf.invalid} before replacing it. A value that
- * does not parse falls back to its default. Saves write atomically ({@link AtomicFiles}). A
- * read-only settings directory disables saving with one WARN. Only file names and keys are logged,
- * never values. Path keys pass through {@link InstallPaths}; a load that finds one the next save
- * writes differently sets {@link #pathsStale}.
+ * does not parse falls back to its default. A read-only settings directory disables saving with one
+ * WARN. Only file names and keys are logged, never values.
+ *
+ * <p>{@link #save} re-reads the file and writes only the keys that differ between the two settings
+ * it is given, so another process's newer values and keys this version does not know stay. A
+ * missing or malformed file gets every key. Saves write atomically ({@link AtomicFiles}). Two
+ * processes saving within the same read and write can still lose one write: no file lock is held.
+ *
+ * <p>Path keys pass through {@link InstallPaths}. A load that finds one the next save writes
+ * differently sets {@link #pathsStale}, and the next save rewrites those keys in the file.
  */
 public final class ConfigStore {
   /** Largest file read; a longer one is malformed. */
@@ -180,7 +188,9 @@ public final class ConfigStore {
         malformed(file);
         return Preferences.DEFAULTS;
       }
-      pathsStale = OptionsFile.stalePaths(properties, paths);
+      Properties copy = new Properties();
+      copy.putAll(properties);
+      pathsStale = OptionsFile.relativize(copy, paths);
       return read(properties, file, paths);
     } catch (IOException e) {
       LOG.warn(
@@ -195,12 +205,16 @@ public final class ConfigStore {
   }
 
   /**
-   * Writes the settings atomically, creating a per-user directory first. Blocking.
+   * Writes the keys that differ between two settings over the file's current keys, atomically,
+   * creating a per-user directory first; after a load that set {@link #pathsStale} it also rewrites
+   * the file's stale path keys. Does nothing when no key differs, the file is valid and no path key
+   * is stale. Blocking.
    *
-   * @param preferences the settings
+   * @param before the settings the change started from
+   * @param after the settings to save
    * @return false when saving is disabled or the write failed, which is logged
    */
-  public boolean save(Preferences preferences) {
+  public boolean save(Preferences before, Preferences after) {
     lock.lock();
     try {
       if (saveDisabled) {
@@ -211,12 +225,29 @@ public final class ConfigStore {
         SafePaths.settingsDirectory(dir);
       }
       Path file = SafePaths.child(dir, SettingsLocation.MARKER);
+      Map<String, String> changed = changes(before, after);
+      Properties properties = reread(file);
+      if (properties == null) {
+        properties = new Properties();
+        changed.putAll(keys(after));
+      } else if (!(pathsStale && OptionsFile.relativize(properties, paths)) && changed.isEmpty()) {
+        pathsStale = false;
+        return true;
+      }
+      for (Map.Entry<String, String> entry : changed.entrySet()) {
+        if (entry.getValue() == null) {
+          properties.remove(entry.getKey());
+        } else {
+          properties.setProperty(entry.getKey(), entry.getValue());
+        }
+      }
+      properties.setProperty(VERSION_KEY, VERSION);
       if (keepInvalid && Files.exists(file)) {
         Path invalid = SafePaths.child(dir, SettingsLocation.MARKER + INVALID_SUFFIX);
         Files.copy(file, invalid, StandardCopyOption.REPLACE_EXISTING);
       }
       keepInvalid = false;
-      AtomicFiles.write(file, format(preferences, paths));
+      AtomicFiles.write(file, format(properties));
       pathsStale = false;
       return true;
     } catch (IOException e) {
@@ -234,6 +265,55 @@ public final class ConfigStore {
     } finally {
       lock.unlock();
     }
+  }
+
+  /** Returns the keys that differ, each with its new value or null when it goes. */
+  private Map<String, String> changes(Preferences before, Preferences after) {
+    Map<String, String> old = keys(before);
+    Map<String, String> next = keys(after);
+    Map<String, String> changed = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : next.entrySet()) {
+      if (!entry.getValue().equals(old.get(entry.getKey()))) {
+        changed.put(entry.getKey(), entry.getValue());
+      }
+    }
+    for (String key : old.keySet()) {
+      if (!next.containsKey(key)) {
+        changed.put(key, null);
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * Returns the file's properties, or null when it is missing or, with {@link #keepInvalid} set,
+   * when it is malformed or cannot be read.
+   */
+  private Properties reread(Path file) {
+    Properties properties;
+    try {
+      properties = parse(file);
+    } catch (NoSuchFileException e) {
+      keepInvalid = false;
+      return null;
+    } catch (IOException e) {
+      if (!keepInvalid) {
+        LOG.warn(
+            "Cannot read settings in {}: {}",
+            LogText.oneLine(location.directory()),
+            LogText.oneLine(e.getMessage()));
+      }
+      keepInvalid = true;
+      return null;
+    }
+    if (properties == null) {
+      if (!keepInvalid) {
+        malformed(file);
+      }
+      return null;
+    }
+    keepInvalid = false;
+    return properties;
   }
 
   /** Returns the properties, or null when the file does not parse or names another version. */
@@ -349,8 +429,8 @@ public final class ConfigStore {
     LOG.warn("Ignoring an invalid {} in {}", LogText.oneLine(key), LogText.oneLine(file));
   }
 
-  /** Returns the file content: sorted keys, ISO-8859-1 with escapes, no date comment. */
-  static byte[] format(Preferences preferences, InstallPaths paths) throws IOException {
+  /** Returns every key of the settings, path keys as {@link InstallPaths#write} gives them. */
+  private Map<String, String> keys(Preferences preferences) {
     Properties properties = new Properties();
     properties.setProperty(VERSION_KEY, VERSION);
     properties.setProperty(THEME_KEY, preferences.theme().key());
@@ -378,6 +458,15 @@ public final class ConfigStore {
     OptionsFile.store(preferences.options(), preferences.state(), properties, paths);
     // Timestamps.
     TimeFile.store(preferences.time(), properties);
+    Map<String, String> keys = new HashMap<String, String>();
+    for (String key : properties.stringPropertyNames()) {
+      keys.put(key, properties.getProperty(key));
+    }
+    return keys;
+  }
+
+  /** Returns the file content: sorted keys, ISO-8859-1 with escapes, no date comment. */
+  private static byte[] format(Properties properties) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     properties.store(out, null);
     String text = out.toString(StandardCharsets.ISO_8859_1);

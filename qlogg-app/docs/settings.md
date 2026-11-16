@@ -40,8 +40,9 @@ absolute paths, so a relative and an absolute entry for one file match.
 In explicit and portable mode a load that finds a path key written differently
 from what `InstallPaths.write` gives (an absolute path under the base, from an
 earlier version) marks the store changed: `ConfigStore.pathsStale` makes
-`WindowSet` save `qlogg.conf`, and `PositionStore` marks itself changed, so the
-first save rewrites the file. The session needs no mark: its owner writes it
+`WindowSet` save `qlogg.conf` and that save rewrites the stale keys in the
+file; `PositionStore` marks itself changed, so its first save rewrites the
+file. The session needs no mark: its owner writes it
 at every save. Per-user mode and a read-only directory rewrite nothing.
 
 ## Settings file
@@ -61,6 +62,13 @@ the UI thread; the launcher loads before the Display exists.
 | A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | That save returns false with one WARN; the settings stay marked changed, so the next save writes them |
 | `qlogg.conf` is a symbolic link | The file it names is replaced; the link stays |
 | `PER_USER` directory missing at save | Created owner-only through `SafePaths.settingsDirectory` |
+
+`save(before, after)` re-reads the file and writes only the keys that differ
+between the two settings; a key whose value goes is removed. Another process's
+newer values (a `-m` window, the primary) and keys this version does not know
+stay. A missing or malformed file gets every key. `WindowSet` passes the
+settings it wrote last, or loaded, as `before`. Two processes saving within the
+same read and write can still lose one write: no file lock is held.
 
 Saves write sorted keys with no date comment through `AtomicFiles`. Logs name
 the file and key, never a value, because the settings hold search history.
@@ -133,7 +141,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
 | `tabs.closeShowsLastUsed` | `true`, `false`: closing the shown tab shows the open tab shown most recently, not the one after it; with none shown, the one after it | `false` | Tools > Preferences, General |
 | `shortcut.<COMMAND>.count`, `.N` | Key bindings that replace a command's defaults: `window` or `view`, then the keys | none | Tools > Preferences, Shortcuts |
-| `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit: the bounds of File > New Window, and of the first window when the session holds none; `--window-*` options win for that run | none | Exit |
+| `window.x`, `.y`, `.width`, `.height`, `.maximized`, `.split` | The normal position and client size, maximized state and split of the window used last at the last exit: the bounds of File > New Window, and of the first window when the session holds none; `--window-*` options win for that run. A window placed by `--window-*` and every window of a `-m` process write none | none | Exit |
 | `log.file` | `true`, `false`: the log also goes to `logs/qlogg.log` (`logs/qlogg-<pid>.log` in a process that is not the running instance; the running instance deletes those older than 7 days when it starts with the log on) | `false` | Help > Debug Log File |
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers, Line Numbers in Filtered View |

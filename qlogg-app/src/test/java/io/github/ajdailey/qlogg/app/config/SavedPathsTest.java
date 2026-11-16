@@ -63,7 +63,7 @@ class SavedPathsTest {
   @Test
   void aMovedPortableInstallKeepsTabsRecentsFavoritesAndPositions() throws IOException {
     ConfigStore config = new ConfigStore(portable(install));
-    assertTrue(config.save(preferences(log.toString(), outside.toString())));
+    assertTrue(config.save(Preferences.DEFAULTS, preferences(log.toString(), outside.toString())));
     assertTrue(config.sessions().save(session(log.toString())));
     config.positions().put(log, 3, 4, 5);
     assertTrue(config.positions().save());
@@ -101,7 +101,7 @@ class SavedPathsTest {
     String absolute = log.toString();
     ConfigStore perUser =
         new ConfigStore(new SettingsLocation(SettingsMode.PER_USER, install, install));
-    assertTrue(perUser.save(preferences(absolute, absolute)));
+    assertTrue(perUser.save(Preferences.DEFAULTS, preferences(absolute, absolute)));
     perUser.positions().put(log, 1, 1, 0);
     assertTrue(perUser.positions().save());
     assertEquals(absolute, read(install.resolve(SettingsLocation.MARKER)).getProperty("recent.0"));
@@ -111,7 +111,7 @@ class SavedPathsTest {
     assertTrue(config.pathsStale());
     config.positions().load();
     assertTrue(config.positions().save());
-    assertTrue(config.save(loaded));
+    assertTrue(config.save(loaded, loaded));
     assertFalse(config.pathsStale());
     Properties conf = read(install.resolve(SettingsLocation.MARKER));
     assertEquals("logs/a.log", conf.getProperty("recent.0"));
@@ -130,7 +130,7 @@ class SavedPathsTest {
     Path settings = Files.createDirectories(temp.resolve("settings"));
     SettingsLocation location = new SettingsLocation(SettingsMode.PER_USER, settings, install);
     ConfigStore config = new ConfigStore(location);
-    assertTrue(config.save(preferences(log.toString(), log.toString())));
+    assertTrue(config.save(Preferences.DEFAULTS, preferences(log.toString(), log.toString())));
     assertTrue(config.sessions().save(session(log.toString())));
     config.positions().put(log, 1, 1, 0);
     assertTrue(config.positions().save());

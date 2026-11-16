@@ -281,39 +281,39 @@ final class OptionsFile {
   }
 
   /**
-   * Reports whether a path key holds a value {@link #store} writes differently.
+   * Rewrites each path key whose value {@link #store} writes differently, such as an absolute path
+   * under the installation in portable mode.
    *
-   * @param p the file's properties
+   * @param p the file's properties, changed in place
    * @param paths relativizes the path keys
-   * @return true when the next save rewrites a path key
+   * @return true when a key was rewritten
    */
-  static boolean stalePaths(Properties p, InstallPaths paths) {
-    if (stale(p, FAVORITE, Options.MAX_FAVORITES, paths)
-        || stale(p, RECENT, Options.MAX_RECENT, paths)
-        || stale(p, CLOSED, UiState.MAX_CLOSED, paths)) {
-      return true;
-    }
+  static boolean relativize(Properties p, InstallPaths paths) {
+    boolean changed = relativize(p, FAVORITE, Options.MAX_FAVORITES, paths);
+    changed |= relativize(p, RECENT, Options.MAX_RECENT, paths);
+    changed |= relativize(p, CLOSED, UiState.MAX_CLOSED, paths);
     String[] keys = {OPEN_DIRECTORY, FOLDER_SEARCH_FOLDER};
     for (String key : keys) {
-      String value = p.getProperty(key);
-      if (value != null && paths.stale(value)) {
-        return true;
-      }
+      changed |= relativizeKey(p, key, paths);
     }
-    return false;
+    return changed;
   }
 
-  private static boolean stale(Properties p, String prefix, int max, InstallPaths paths) {
-    for (int i = 0; i < max; i++) {
-      String value = p.getProperty(prefix + i);
-      if (value == null) {
-        break;
-      }
-      if (paths.stale(value)) {
-        return true;
-      }
+  private static boolean relativize(Properties p, String prefix, int max, InstallPaths paths) {
+    boolean changed = false;
+    for (int i = 0; i < max && p.getProperty(prefix + i) != null; i++) {
+      changed |= relativizeKey(p, prefix + i, paths);
     }
-    return false;
+    return changed;
+  }
+
+  private static boolean relativizeKey(Properties p, String key, InstallPaths paths) {
+    String value = p.getProperty(key);
+    if (value == null || !paths.stale(value)) {
+      return false;
+    }
+    p.setProperty(key, paths.write(paths.read(value)));
+    return true;
   }
 
   private static List<String> list(Properties p, String prefix, int max, InstallPaths paths) {

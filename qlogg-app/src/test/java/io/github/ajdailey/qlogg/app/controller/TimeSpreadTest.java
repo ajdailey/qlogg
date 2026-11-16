@@ -229,7 +229,7 @@ class TimeSpreadTest {
     fixture.application.execute(CommandId.TIME_SPREAD_PAUSES);
     Path saved = Files.createDirectories(temp.resolve("saved"));
     ConfigStore store = new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, saved));
-    store.save(fixture.application.preferences());
+    store.save(Preferences.DEFAULTS, fixture.application.preferences());
     assertEquals(SpreadMode.PAUSES, store.load().view().timeSpread());
   }
 

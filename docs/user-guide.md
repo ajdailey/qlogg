@@ -728,11 +728,11 @@ qlogg [options] [[+line:N] file]...
 | `-v`, `--version` | Print the version and exit |
 | `-d`, `--debug <level>` | Log level on stderr: `1` INFO, `2` DEBUG, `3` or more TRACE, or a level name; WARN by default |
 | `-l`, `--log` | Also write the debug log file for this run |
-| `-m`, `--multi` | Run as an independent instance: no handoff, and the saved session stays as it is |
+| `-m`, `--multi` | Run as an independent instance: no handoff, and the saved session and window size stay as they are |
 | `-s`, `--load-session` | Restore the last session |
 | `-n`, `--new-session` | Start without the last session |
 | `-f`, `--follow` | Follow the files given |
-| `--window-width <px>`, `--window-height <px>` | Window size; without them, the size at the last exit, else 1024 x 768 |
+| `--window-width <px>`, `--window-height <px>` | Window size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
 | `--settings <dir>` | Settings directory |
 | `+line:N` | Open the next file at line N |

@@ -307,7 +307,8 @@ class TimeControllerTest {
     Path file = timed("g.log", 20, BASE);
     DocumentController document = fixture.open(file);
     UserFormat user = new UserFormat("mine", "^(?<ts>\\S+ \\S+)", "yyyy-MM-dd HH:mm:ss.SSS");
-    fixture.application.setUserTimeFormats(List.of(user));
+    Preferences current = fixture.application.preferences();
+    fixture.application.setPreferences(current.withTime(current.time().withFormats(List.of(user))));
     fixture.application.setTimeFormat(document, null);
     assertNull(document.time().format());
     fixture.application.closeDocument(document);

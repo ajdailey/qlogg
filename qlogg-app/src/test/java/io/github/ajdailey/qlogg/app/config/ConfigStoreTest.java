@@ -65,7 +65,7 @@ class ConfigStoreTest {
   @Test
   void savesVersionAndThemeAtomicallyAndLoadsThemBack() throws IOException {
     ConfigStore store = store(temp);
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     String text = Files.readString(conf(), StandardCharsets.UTF_8);
     for (String line :
         List.of(
@@ -84,7 +84,7 @@ class ConfigStoreTest {
     }
     assertEquals(List.of("qlogg.conf"), names());
     assertEquals(DARK, store(temp).load());
-    assertTrue(store.save(Preferences.DEFAULTS.withTheme(ThemeMode.SYSTEM)));
+    assertTrue(store.save(DARK, Preferences.DEFAULTS.withTheme(ThemeMode.SYSTEM)));
     assertEquals(ThemeMode.SYSTEM, store(temp).load().theme());
   }
 
@@ -105,7 +105,7 @@ class ConfigStoreTest {
             .withFollow(new FollowSettings(true, false, true));
     assertEquals(List.of("newest", "caf\u00e9 = x", "old"), saved.searchHistory());
     ConfigStore store = store(temp);
-    assertTrue(store.save(saved));
+    assertTrue(store.save(Preferences.DEFAULTS, saved));
     assertEquals(saved, store(temp).load());
     String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("search.history.2=old"));
@@ -137,7 +137,7 @@ class ConfigStoreTest {
     Files.createFile(conf());
     ConfigStore store = store(temp);
     assertEquals(Preferences.DEFAULTS, store.load());
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertFalse(Files.exists(invalid()));
   }
 
@@ -146,7 +146,7 @@ class ConfigStoreTest {
     Files.writeString(conf(), "version=1\nui.theme=purple\nfuture.key=x\n");
     ConfigStore store = store(temp);
     assertEquals(Preferences.DEFAULTS, store.load());
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertFalse(Files.exists(invalid()));
   }
 
@@ -157,11 +157,11 @@ class ConfigStoreTest {
     ConfigStore store = store(temp);
     assertEquals(Preferences.DEFAULTS, store.load());
     assertFalse(Files.exists(invalid()));
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertArrayEquals(bad, Files.readAllBytes(invalid()));
     assertEquals(DARK, store(temp).load());
     Files.delete(invalid());
-    assertTrue(store.save(Preferences.DEFAULTS));
+    assertTrue(store.save(DARK, Preferences.DEFAULTS));
     assertFalse(Files.exists(invalid()));
   }
 
@@ -170,7 +170,7 @@ class ConfigStoreTest {
     Files.writeString(conf(), "version=2\nui.theme=dark\n");
     ConfigStore store = store(temp);
     assertEquals(Preferences.DEFAULTS, store.load());
-    assertTrue(store.save(Preferences.DEFAULTS));
+    assertTrue(store.save(Preferences.DEFAULTS, Preferences.DEFAULTS));
     assertTrue(Files.exists(invalid()));
   }
 
@@ -181,7 +181,7 @@ class ConfigStoreTest {
     Files.writeString(conf(), text.toString());
     ConfigStore store = store(temp);
     assertEquals(Preferences.DEFAULTS, store.load());
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertTrue(Files.size(invalid()) > ConfigStore.MAX_BYTES);
   }
 
@@ -196,7 +196,7 @@ class ConfigStoreTest {
       ConfigStore store = store(dir);
       assertEquals(DARK, store.load());
       assertTrue(store.saveDisabled());
-      assertFalse(store.save(Preferences.DEFAULTS));
+      assertFalse(store.save(Preferences.DEFAULTS, Preferences.DEFAULTS));
       assertEquals("ui.theme=dark\n", Files.readString(dir.resolve("qlogg.conf")));
     } finally {
       Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"));
@@ -210,11 +210,11 @@ class ConfigStoreTest {
     Path blocker = Files.createDirectory(dir.resolve("qlogg.conf"));
     Files.writeString(blocker.resolve("inside"), "x");
     ConfigStore store = store(dir);
-    assertFalse(store.save(DARK));
+    assertFalse(store.save(Preferences.DEFAULTS, DARK));
     assertFalse(store.saveDisabled());
     Files.delete(blocker.resolve("inside"));
     Files.delete(blocker);
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertEquals(DARK, store(dir).load());
   }
 
@@ -224,11 +224,75 @@ class ConfigStoreTest {
     ConfigStore store = new ConfigStore(new SettingsLocation(SettingsMode.PER_USER, dir));
     assertEquals(Preferences.DEFAULTS, store.load());
     assertFalse(Files.exists(dir));
-    assertTrue(store.save(DARK));
+    assertTrue(store.save(Preferences.DEFAULTS, DARK));
     assertTrue(Files.isRegularFile(dir.resolve("qlogg.conf")));
     if (temp.getFileSystem().supportedFileAttributeViews().contains("posix")) {
       assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(dir)));
     }
+  }
+
+  // Key-difference save.
+
+  @Test
+  void aSaveKeepsTheKeysAnotherStoreChanged() throws IOException {
+    Preferences first =
+        Preferences.DEFAULTS.withState(
+            UiState.DEFAULTS.withWindow(new WindowState(1, 2, 300, 400, false), 60));
+    assertTrue(store(temp).save(Preferences.DEFAULTS, first));
+    ConfigStore a = store(temp);
+    ConfigStore b = store(temp);
+    Preferences loadedA = a.load();
+    Preferences loadedB = b.load();
+    Preferences placed =
+        loadedB.withState(loadedB.state().withWindow(new WindowState(5, 6, 700, 800, true), 40));
+    assertTrue(b.save(loadedB, placed));
+    assertTrue(a.save(loadedA, loadedA.withTheme(ThemeMode.DARK)));
+    Preferences merged = store(temp).load();
+    assertEquals(ThemeMode.DARK, merged.theme());
+    assertEquals(placed.state().window(), merged.state().window());
+    assertEquals(40, merged.state().split());
+  }
+
+  @Test
+  void aSaveWithoutChangesLeavesTheFileAlone() throws IOException {
+    Files.writeString(conf(), "ui.theme=dark\n");
+    ConfigStore store = store(temp);
+    Preferences loaded = store.load();
+    assertTrue(store.save(loaded, loaded));
+    assertEquals("ui.theme=dark\n", Files.readString(conf()));
+  }
+
+  @Test
+  void aSaveWritesOnlyTheChangedKeysAndKeepsUnknownOnes() throws IOException {
+    Files.writeString(conf(), "version=1\nfuture.key=kept\nsearch.maxResults=abc\n");
+    ConfigStore store = store(temp);
+    Preferences loaded = store.load();
+    assertTrue(store.save(loaded, loaded.withTheme(ThemeMode.DARK)));
+    assertEquals(
+        List.of("future.key=kept", "search.maxResults=abc", "ui.theme=dark", "version=1"),
+        Files.readAllLines(conf()));
+  }
+
+  @Test
+  void aShorterListRemovesItsTailKeys() throws IOException {
+    Preferences three = Preferences.DEFAULTS.withSearchHistory(List.of("a", "b", "c"));
+    ConfigStore store = store(temp);
+    assertTrue(store.save(Preferences.DEFAULTS, three));
+    assertTrue(store.save(three, three.withSearchHistory(List.of("a"))));
+    String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
+    assertTrue(text.contains("search.history.0=a\n"));
+    assertFalse(text.contains("search.history.1"));
+    assertEquals(List.of("a"), store(temp).load().searchHistory());
+  }
+
+  @Test
+  void aFileMalformedSinceTheLoadIsKeptBeforeTheSaveReplacesIt() throws IOException {
+    ConfigStore store = store(temp);
+    Preferences loaded = store.load();
+    Files.writeString(conf(), "version=9\n");
+    assertTrue(store.save(loaded, DARK));
+    assertEquals("version=9\n", Files.readString(invalid()));
+    assertEquals(DARK, store(temp).load());
   }
 
   // View settings: wrap on open, whitespace, hidden ANSI colors, fold rules and selectors.
@@ -248,7 +312,7 @@ class ConfigStoreTest {
                         new HighlightSelector("*.err", "", "errors"),
                         new HighlightSelector("", "^GET ", "web"))));
     ConfigStore store = store(temp);
-    assertTrue(store.save(saved));
+    assertTrue(store.save(Preferences.DEFAULTS, saved));
     assertEquals(saved, store(temp).load());
     String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("view.wrapOnOpen=true"));
@@ -284,7 +348,7 @@ class ConfigStoreTest {
                     new UserFormat("app", "^(?<ts>\\S+ \\S+)", "yyyy-MM-dd HH:mm:ss.SSS"),
                     new UserFormat("short", "(?<ts>\\d+:\\d+:\\d+)", "HH:mm:ss"))));
     ConfigStore store = store(temp);
-    assertTrue(store.save(saved));
+    assertTrue(store.save(Preferences.DEFAULTS, saved));
     assertEquals(saved, store(temp).load());
     String text = Files.readString(conf(), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("time.zone=Europe/Berlin"));

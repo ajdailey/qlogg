@@ -25,6 +25,7 @@ class RangeContextOptionsTest {
     ConfigStore store = new ConfigStore(location());
     assertTrue(
         store.save(
+            Preferences.DEFAULTS,
             Preferences.DEFAULTS.withState(Preferences.DEFAULTS.state().withSearch(toggles))));
     assertEquals(toggles, new ConfigStore(location()).load().state().search());
   }

@@ -63,7 +63,9 @@ class StateStoresTest {
             .addRecent("/mock/c.log", 7)
             .withDialog("preferences", new UiState.Size(640, 480));
     ConfigStore store = new ConfigStore(location());
-    assertTrue(store.save(Preferences.DEFAULTS.withOptions(options).withState(state)));
+    assertTrue(
+        store.save(
+            Preferences.DEFAULTS, Preferences.DEFAULTS.withOptions(options).withState(state)));
     Preferences loaded = new ConfigStore(location()).load();
     assertEquals(options, loaded.options());
     assertEquals(state, loaded.state());
@@ -82,7 +84,7 @@ class StateStoresTest {
         StandardCharsets.ISO_8859_1);
     Preferences loaded = new ConfigStore(location()).load();
     assertTrue(loaded.options().closeWindowWithLastTab());
-    assertTrue(new ConfigStore(location()).save(loaded.withOptions(Options.DEFAULTS)));
+    assertTrue(new ConfigStore(location()).save(loaded, loaded.withOptions(Options.DEFAULTS)));
     assertTrue(
         Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
             .contains("tabs.closeWindowWithLastTab=false"));
@@ -101,7 +103,7 @@ class StateStoresTest {
         StandardCharsets.ISO_8859_1);
     Preferences loaded = new ConfigStore(location()).load();
     assertTrue(loaded.options().closeShowsLastUsed());
-    assertTrue(new ConfigStore(location()).save(loaded.withOptions(Options.DEFAULTS)));
+    assertTrue(new ConfigStore(location()).save(loaded, loaded.withOptions(Options.DEFAULTS)));
     assertTrue(
         Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
             .contains("tabs.closeShowsLastUsed=false"));
@@ -116,7 +118,9 @@ class StateStoresTest {
         new FolderSearchSettings("/mock/logs", "*.log;*.txt", true, "*.gz;debug.*");
     ConfigStore store = new ConfigStore(location());
     assertTrue(
-        store.save(Preferences.DEFAULTS.withState(UiState.DEFAULTS.withFolderSearch(folder))));
+        store.save(
+            Preferences.DEFAULTS,
+            Preferences.DEFAULTS.withState(UiState.DEFAULTS.withFolderSearch(folder))));
     assertEquals(folder, new ConfigStore(location()).load().state().folderSearch());
     Files.writeString(
         temp.resolve(SettingsLocation.MARKER),

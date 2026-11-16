@@ -109,13 +109,18 @@ public final class WindowSet implements RememberedStateHost {
   private long captured;
 
   /**
-   * Orders settings writes from different lifecycle workers. Guards {@link #preferencesWritten} and
-   * {@link #sessionWritten}; the UI thread never takes it.
+   * Orders settings writes from different lifecycle workers. Guards {@link #preferencesWritten},
+   * {@link #sessionWritten} and {@link #written}; the UI thread never takes it.
    */
   private final ReentrantLock saveLock = new ReentrantLock();
 
   private long preferencesWritten;
   private long sessionWritten;
+
+  /** The settings last written, or loaded; a save writes only the keys that differ from them. */
+  private Preferences written;
+
+  private final PlacementMemory placements = new PlacementMemory();
 
   // Time sync.
   private final TimeSyncGroups timeSync = new TimeSyncGroups(this);
@@ -142,6 +147,7 @@ public final class WindowSet implements RememberedStateHost {
     this.services = services;
     this.config = config;
     this.preferences = new AtomicReference<Preferences>(preferences);
+    this.written = preferences;
     // The first save rewrites absolute path keys under the base (portable, explicit mode).
     this.preferencesDirty = config.pathsStale();
     // View colors.
@@ -166,6 +172,25 @@ public final class WindowSet implements RememberedStateHost {
    */
   public void setFactory(Factory value) {
     factory = value;
+  }
+
+  /**
+   * Stops every window from writing its placement and split to {@code qlogg.conf}; for a {@code -m}
+   * process.
+   */
+  public void rememberNoWindow() {
+    placements.rememberNone();
+  }
+
+  /**
+   * Stops a window placed from the command line from writing its placement and split to {@code
+   * qlogg.conf}; the session saves {@code saved} as its bounds.
+   *
+   * @param window the window
+   * @param saved the bounds it started from in the saved session or {@code qlogg.conf}
+   */
+  public void keepPlacement(ApplicationController window, WindowState saved) {
+    placements.keep(window, saved);
   }
 
   /**
@@ -603,7 +628,7 @@ public final class WindowSet implements RememberedStateHost {
     }
     List<WindowDraft> drafts = new ArrayList<WindowDraft>();
     for (ApplicationController window : windows) {
-      drafts.add(window.draft());
+      drafts.add(placements.draft(window));
     }
     return new SaveSnapshot(sequence, saved, drafts);
   }
@@ -627,7 +652,9 @@ public final class WindowSet implements RememberedStateHost {
   private void write(SaveSnapshot snapshot) {
     if (snapshot.preferences() != null && snapshot.sequence() > preferencesWritten) {
       preferencesWritten = snapshot.sequence();
-      if (!config.save(snapshot.preferences()) && !config.saveDisabled()) {
+      if (config.save(written, snapshot.preferences())) {
+        written = snapshot.preferences();
+      } else if (!config.saveDisabled()) {
         ui.asyncExec(
             new Runnable() {
               @Override
@@ -751,7 +778,9 @@ public final class WindowSet implements RememberedStateHost {
     }
     windows.remove(window);
     activations.remove(window);
-    window.rememberWindow();
+    if (placements.remembers(window)) {
+      window.rememberWindow();
+    }
     final List<LogDocument> files = window.detachAll();
     flushSettings();
     Runnable finish =
@@ -786,7 +815,7 @@ public final class WindowSet implements RememberedStateHost {
     }
     quitting = true;
     ApplicationController last = target();
-    if (last != null) {
+    if (last != null && placements.remembers(last)) {
       last.rememberWindow();
     }
     final SaveSnapshot snapshot = capture();

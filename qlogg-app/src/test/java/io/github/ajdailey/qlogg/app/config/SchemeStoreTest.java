@@ -201,15 +201,18 @@ class SchemeStoreTest {
     ConfigStore config = new ConfigStore(location());
     Preferences saved =
         Preferences.DEFAULTS.withView(Preferences.DEFAULTS.view().withColors("nightwater"));
-    assertTrue(config.save(saved));
+    assertTrue(config.save(Preferences.DEFAULTS, saved));
     String text = Files.readString(temp.resolve("qlogg.conf"), StandardCharsets.ISO_8859_1);
     assertTrue(text.contains("view.colors=nightwater\n"), text);
     assertEquals("nightwater", new ConfigStore(location()).load().view().colors());
+    Preferences previous = saved;
     for (String id : new String[] {"light", "dark", "theme"}) {
-      assertTrue(config.save(saved.withView(saved.view().withColors(id))));
+      Preferences next = saved.withView(saved.view().withColors(id));
+      assertTrue(config.save(previous, next));
+      previous = next;
       assertEquals(id, new ConfigStore(location()).load().view().colors());
     }
-    assertTrue(config.save(Preferences.DEFAULTS));
+    assertTrue(config.save(previous, Preferences.DEFAULTS));
     assertEquals(ColorSchemes.FOLLOW_THEME, new ConfigStore(location()).load().view().colors());
     Files.writeString(
         temp.resolve("qlogg.conf"), "view.colors=../escape\n", StandardCharsets.ISO_8859_1);

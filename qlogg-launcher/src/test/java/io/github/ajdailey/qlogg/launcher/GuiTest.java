@@ -362,13 +362,81 @@ class GuiTest {
     return named;
   }
 
+  // Remembered window state.
+
+  @Test
+  void aCommandLineSizeIsNotSavedBackAndTheSessionKeepsItsBounds() throws Exception {
+    WindowState conf = new WindowState(10, 20, 800, 500, true);
+    WindowState own = new WindowState(30, 40, 700, 400, false);
+    Preferences saved = remembering(conf);
+    Path restored = Files.writeString(temp.resolve("restored.log"), "one\n");
+    assertTrue(
+        settings()
+            .sessions()
+            .save(
+                new Session(
+                    List.of(new Session.Tab(restored.toString(), "", false, new long[0])),
+                    0,
+                    0,
+                    false,
+                    own)));
+    StartupRequest request =
+        new StartupRequest(List.of(), false, SessionMode.LOAD, 900, 600, null, null, null, false);
+    assertEquals(List.of("restored.log"), launch(request, saved, false));
+    Preferences after = settings().load();
+    assertEquals(conf, after.state().window());
+    assertEquals(saved.state().split(), after.state().split());
+    assertEquals(own, settings().sessions().loadWindows().get(0).window());
+  }
+
+  @Test
+  void aMultipleInstanceWindowIsNotSavedBack() throws Exception {
+    WindowState conf = new WindowState(10, 20, 800, 500, true);
+    Preferences saved = remembering(conf);
+    Path log = Files.writeString(temp.resolve("m.log"), "one\n");
+    StartupRequest request =
+        new StartupRequest(
+            List.of(new FileRequest(log, 0)),
+            false,
+            SessionMode.DEFAULT,
+            null,
+            null,
+            null,
+            null,
+            null,
+            true);
+    assertEquals(List.of("m.log"), launch(request, saved, true));
+    Preferences after = settings().load();
+    assertEquals(conf, after.state().window());
+    assertEquals(saved.state().split(), after.state().split());
+  }
+
+  /** Saves and returns settings holding a remembered window and split. */
+  private Preferences remembering(WindowState window) throws IOException {
+    Files.createDirectories(temp.resolve("settings"));
+    Preferences saved =
+        Preferences.DEFAULTS.withState(Preferences.DEFAULTS.state().withWindow(window, 40));
+    assertTrue(settings().save(Preferences.DEFAULTS, saved));
+    return settings().load();
+  }
+
   /**
    * Runs a launch with the files, waits until one tab is indexed and 300 ms more, and returns
    * "notice" or "noticeLog" when an error-exit notice showed at open, then the tab titles.
    */
   private List<String> launch(SessionMode mode, List<FileRequest> files) {
-    StartupRequest request =
-        new StartupRequest(files, false, mode, 640, 480, null, null, null, false);
+    return launch(
+        new StartupRequest(files, false, mode, 640, 480, null, null, null, false),
+        Preferences.DEFAULTS,
+        false);
+  }
+
+  /**
+   * Runs a launch as {@link #launch(SessionMode, List)} does, with the settings given; with {@code
+   * resize}, the window is resized before the shutdown.
+   */
+  private List<String> launch(
+      StartupRequest request, Preferences preferences, final boolean resize) {
     final List<String> observed = new ArrayList<String>();
     Gui.Observer observer =
         new Gui.Observer() {
@@ -403,6 +471,10 @@ class GuiTest {
                             for (int i = 0; i < controller.documents().size(); i++) {
                               observed.add(controller.documents().get(i).state().title());
                             }
+                            if (resize) {
+                              window.shell().setMaximized(false);
+                              window.shell().setSize(520, 410);
+                            }
                             controller.shutdown();
                           }
                         });
@@ -410,7 +482,7 @@ class GuiTest {
                 });
           }
         };
-    assertEquals(0, run(request, observer));
+    assertEquals(0, run(request, preferences, observer));
     return observed;
   }
 
@@ -438,8 +510,12 @@ class GuiTest {
   }
 
   private int run(StartupRequest request, Gui.Observer observer) {
+    return run(request, Preferences.DEFAULTS, observer);
+  }
+
+  private int run(StartupRequest request, Preferences preferences, Gui.Observer observer) {
     PrintStream err = new PrintStream(System.err, true, StandardCharsets.UTF_8);
-    return new Gui(request, settings(), Preferences.DEFAULTS, err, observer).run();
+    return new Gui(request, settings(), preferences, err, observer).run();
   }
 
   /** A UI task that throws. */

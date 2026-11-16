@@ -257,6 +257,12 @@ final class Gui {
     if (remembered.maximized() && !sized) {
       window.shell().setMaximized(true);
     }
+    // Command-line placement and -m windows are not saved back.
+    if (request.multi()) {
+      set.rememberNoWindow();
+    } else if (sized) {
+      set.keepPlacement(controller, remembered);
+    }
     window.open();
     ui.asyncExec(
         new Runnable() {

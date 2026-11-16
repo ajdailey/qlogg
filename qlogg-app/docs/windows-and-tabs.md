@@ -297,6 +297,10 @@ file leaves the list too.
 toggles, the Open dialog's directory and dialog sizes (`rememberDialogSize`).
 When a window closes, and at quit for the window activated last,
 `rememberWindow` records the normal bounds, maximized state and split.
+`PlacementMemory` skips it for every window of a `-m` process
+(`WindowSet.rememberNoWindow`) and for the first window when `--window-*`
+placed it (`WindowSet.keepPlacement`); the session then saves the bounds that
+window started from, so command-line placement is never saved back.
 `RememberedState` reads and replaces the settings and schedules saves through
 `RememberedStateHost`, which `WindowSet` implements. The view reaches dialog
 sizes through `ApplicationController.rememberedState()`.
@@ -309,7 +313,7 @@ a tab's follow state or marks (`DocumentHost.documentStateChanged`) restarts a
 
 1. records every window's tab positions in the `PositionStore`;
 2. captures the settings and each window's tab list on the UI thread;
-3. on a `qlogg-lifecycle-` worker, writes `qlogg.conf` (when changed),
+3. on a `qlogg-lifecycle-` worker, writes the changed keys of `qlogg.conf`,
    `positions.conf` (when changed) and `qlogg_session.conf` (`window.N` per
    window), reading each tab's marks and mark comments inside
    `LogDocument.enter`.

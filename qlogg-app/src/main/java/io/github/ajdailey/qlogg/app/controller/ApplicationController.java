@@ -43,7 +43,6 @@ import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
-import io.github.ajdailey.qlogg.core.time.UserFormat;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import java.io.IOException;
@@ -1528,15 +1527,6 @@ public final class ApplicationController
     if (documents.contains(document)) {
       time.setFormat(document, format);
     }
-  }
-
-  /**
-   * Replaces the user timestamp formats and saves them.
-   *
-   * @param formats the formats in order
-   */
-  public void setUserTimeFormats(List<UserFormat> formats) {
-    time.setUserFormats(formats);
   }
 
   // Mark comments and marks list.
