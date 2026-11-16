@@ -547,6 +547,42 @@ class FilteredPaneTest {
     assertEquals(List.of(first), search.kept());
   }
 
+  // Disposing the selected last tab fires SWT.Selection before the remaining tabs take their sets.
+  @Test
+  void closingAKeptTabKeepsTheShownLastTab() {
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    searchFor("event");
+    searchFor("line 1");
+    searchFor("line 2");
+    searchFor("line 3");
+    SearchController search = document().search();
+    SearchController.KeptResults last = search.kept().get(2);
+    CTabFolder sets = window.results().sets();
+    sets.setSelection(3);
+    sets.notifyListeners(SWT.Selection, new Event());
+    assertEquals(2, search.shown());
+    window.results().closeTab(sets.getItem(1));
+    assertEquals(1, search.shown());
+    assertSame(last, search.kept().get(search.shown()));
+    assertKeptTabs();
+  }
+
+  @Test
+  void closingTheShownLastTabShowsTheCurrentSearch() {
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    searchFor("event");
+    searchFor("line 1");
+    searchFor("line 2");
+    searchFor("line 3");
+    SearchController search = document().search();
+    CTabFolder sets = window.results().sets();
+    sets.setSelection(3);
+    sets.notifyListeners(SWT.Selection, new Event());
+    window.results().closeTab(sets.getItem(3));
+    assertEquals(-1, search.shown());
+    assertKeptTabs();
+  }
+
   @Test
   void closingTheCurrentResultTabClearsTheResultsAndKeepsTheTab() {
     final CTabFolder sets = window.results().sets();
@@ -801,7 +837,7 @@ class FilteredPaneTest {
     controller.setSearchHistory(List.of("alpha", "beta"), 10);
     HistoryDialog dialog = new HistoryDialog(window.shell(), controller);
     dialog.open();
-    assertEquals("alpha\nbeta", dialog.entries().getText());
+    assertEquals("alpha" + Text.DELIMITER + "beta", dialog.entries().getText());
     assertEquals(10, dialog.size().getSelection());
     dialog.entries().setText("gamma\n\n  \nalpha\r\nbeta");
     dialog.size().setSelection(2);

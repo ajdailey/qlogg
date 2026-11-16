@@ -35,6 +35,9 @@ final class ResultsPane {
   private final LogCanvas canvas;
   private final DocumentController document;
   private final SearchListener searchListener = new SearchListener();
+  // Set while syncTabs runs: disposing the selected tab fires SWT.Selection before the remaining
+  // tabs take their sets, and the model's shown set stands.
+  private boolean syncing;
 
   /** Rebuilds the tabs when the result sets change. */
   private final class SearchListener implements SearchViewListener {
@@ -81,6 +84,9 @@ final class ResultsPane {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
+            if (syncing) {
+              return;
+            }
             CTabItem item = sets.getSelection();
             if (item != null && item.getData() instanceof SearchController.KeptResults set) {
               document.search().show(set);
@@ -151,8 +157,13 @@ final class ResultsPane {
     SearchController search = document.search();
     List<SearchController.KeptResults> kept = search.kept();
     int wanted = kept.size() + 1;
-    while (sets.getItemCount() > wanted) {
-      sets.getItem(sets.getItemCount() - 1).dispose();
+    syncing = true;
+    try {
+      while (sets.getItemCount() > wanted) {
+        sets.getItem(sets.getItemCount() - 1).dispose();
+      }
+    } finally {
+      syncing = false;
     }
     while (sets.getItemCount() < wanted) {
       new CTabItem(sets, SWT.CLOSE);
