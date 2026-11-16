@@ -837,7 +837,8 @@ class FilteredPaneTest {
     controller.setSearchHistory(List.of("alpha", "beta"), 10);
     HistoryDialog dialog = new HistoryDialog(window.shell(), controller);
     dialog.open();
-    assertEquals("alpha" + Text.DELIMITER + "beta", dialog.entries().getText());
+    // The widget's line separator differs per platform, and on cocoa from Text.DELIMITER.
+    assertEquals(List.of("alpha", "beta"), List.of(dialog.entries().getText().split("\\R")));
     assertEquals(10, dialog.size().getSelection());
     dialog.entries().setText("gamma\n\n  \nalpha\r\nbeta");
     dialog.size().setSelection(2);
