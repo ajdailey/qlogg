@@ -996,6 +996,7 @@ public final class DocumentController extends LineViewController {
     }
     try {
       return MarkToggle.run(
+          workers(),
           marks,
           document.markComments(),
           rows,

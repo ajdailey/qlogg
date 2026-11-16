@@ -384,7 +384,10 @@ public final class QuickFindController {
           Pattern.compile(
               regex ? text : Pattern.quote(text), StandardMatchers.regexFlags(!ignoreCase));
       return new Scan(
-          LineFinder.find(reader, index, rows, pattern, line, column, forward, token), null, false);
+          LineFinder.find(
+              target.workers(), reader, index, rows, pattern, line, column, forward, token),
+          null,
+          false);
     } catch (PatternSyntaxException e) {
       return new Scan(
           null,

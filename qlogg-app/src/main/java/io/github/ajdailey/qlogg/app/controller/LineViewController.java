@@ -1061,7 +1061,7 @@ public abstract class LineViewController {
           @Override
           @WorkerThread
           void work() {
-            built = TextExporter.export(document, index, taken, request, budget, token);
+            built = TextExporter.export(workers, document, index, taken, request, budget, token);
           }
 
           @Override

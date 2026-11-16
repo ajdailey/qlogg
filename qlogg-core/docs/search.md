@@ -193,7 +193,9 @@ runs a coordinator on a `qlogg-search-` virtual thread:
    only with `recursive`, and sorts them by path.
 3. Each file in turn: `LogDocument.open` with encoding detection, a full
    index, a `SearchEngine` search into a `MutableLineSet`, a `LineReader`
-   read of each matching line, then close. The heap holds one file's index
+   read of each matching line (4,096 lines per CPU step; the `RESULTS`
+   reservations and `FolderListener` calls stay on the coordinator), then
+   close. The heap holds one file's index
    and result set at a time.
 
 | `FileHits.Status` | When |

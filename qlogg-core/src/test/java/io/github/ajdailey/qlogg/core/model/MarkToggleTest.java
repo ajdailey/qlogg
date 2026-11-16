@@ -5,9 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.testkit.OnWorker;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
@@ -96,5 +101,56 @@ class MarkToggleTest {
     assertTrue(result.memoryLimit());
     assertTrue(marks.size() > 0);
     assertTrue(budget.reserved(MemoryShare.RESULTS) <= budget.limit(MemoryShare.RESULTS));
+  }
+
+  @Test
+  void aToggleOnAWorkerStepsOnTheCpuPoolAndStopsOnCancel() throws Exception {
+    final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
+    Workers workers =
+        new Workers(
+            2,
+            new Thread.UncaughtExceptionHandler() {
+              @Override
+              public void uncaughtException(Thread thread, Throwable error) {
+                failures.add(error);
+              }
+            });
+    try {
+      final MutableLineSet marks = new MutableLineSet();
+      final CancellationToken token = new CancellationToken();
+      final List<String> threads = new CopyOnWriteArrayList<String>();
+      final Workers cpu = workers;
+      MarkToggle.Result result =
+          OnWorker.call(
+              workers,
+              new CpuSteps.Step<MarkToggle.Result>() {
+                @Override
+                public MarkToggle.Result run() {
+                  return MarkToggle.run(
+                      cpu,
+                      marks,
+                      null,
+                      RowCursor.all(1_000_000),
+                      0,
+                      5L * MarkToggle.BATCH,
+                      token,
+                      new MarkToggle.Progress() {
+                        @Override
+                        public void progressed(long done, long total) {
+                          threads.add(Thread.currentThread().getName());
+                          if (marks.size() >= 2L * MarkToggle.BATCH) {
+                            token.cancel();
+                          }
+                        }
+                      });
+                }
+              });
+      assertTrue(result.canceled());
+      assertEquals(2L * MarkToggle.BATCH, result.changed());
+      assertTrue(threads.get(0).startsWith("qlogg-cpu-"), threads.toString());
+    } finally {
+      assertTrue(workers.close(Workers.CLOSE_BOUND));
+    }
+    assertTrue(failures.isEmpty(), failures.toString());
   }
 }

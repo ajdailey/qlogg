@@ -806,6 +806,7 @@ public final class SearchController {
     try {
       return new RangeResult(
           RangeFinder.around(
+              document.workers(),
               document.document(),
               document.document().index(),
               query,

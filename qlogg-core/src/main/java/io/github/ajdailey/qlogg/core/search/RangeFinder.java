@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.core.search;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
@@ -16,9 +18,10 @@ import java.nio.ByteBuffer;
  * open range, so where start lines repeat before an end, the search's range begins at the first of
  * them and this one at the nearest.
  *
- * <p>Blocking; runs on a worker. Lines are read in blocks of at most {@value #BLOCK_LINES} lines
- * and {@value #BLOCK_BYTES} bytes through one heap buffer of that size; a longer line is matched on
- * its first {@value #BLOCK_BYTES} bytes. The token is checked per block and through the matcher.
+ * <p>Blocking; runs on a worker, matching on the CPU pool when given {@link Workers}. Lines are
+ * read in blocks of at most {@value #BLOCK_LINES} lines and {@value #BLOCK_BYTES} bytes through one
+ * heap buffer of that size; a longer line is matched on its first {@value #BLOCK_BYTES} bytes. The
+ * token is checked per block and through the matcher.
  */
 public final class RangeFinder {
   /** Bytes read at a time; also the longest line prefix matched. */
@@ -35,21 +38,29 @@ public final class RangeFinder {
    */
   public record Range(long first, long last) {}
 
+  /**
+   * A step's result at or below this value: the regex overflowed on line {@code a + (this -
+   * result)}.
+   */
+  private static final int TOO_COMPLEX = -2;
+
   private final ByteSource bytes;
   private final LineIndex index;
   private final TextEncoding encoding;
   private final CancellationToken token;
+  private final Workers cpu;
   private final LineText text;
   private final ByteBuffer buffer = ByteBuffer.allocate(BLOCK_BYTES);
   private final int[] starts = new int[BLOCK_LINES];
   private final int[] ends = new int[BLOCK_LINES];
 
   private RangeFinder(
-      LineSource source, LineIndex index, boolean hideAnsi, CancellationToken token) {
+      LineSource source, LineIndex index, boolean hideAnsi, CancellationToken token, Workers cpu) {
     this.bytes = source.bytes();
     this.index = index;
     this.encoding = source.encoding();
     this.token = token;
+    this.cpu = cpu;
     this.text = new LineText(encoding, token, hideAnsi);
   }
 
@@ -76,6 +87,36 @@ public final class RangeFinder {
       long line,
       CancellationToken token)
       throws IOException {
+    return around(null, source, index, query, matchers, line, token);
+  }
+
+  /**
+   * Finds the range around a line as {@link #around(LineSource, LineIndex, SearchQuery,
+   * MatcherFactory, long, CancellationToken)} does. Blocks are read on the calling thread and each
+   * block is matched as one CPU step.
+   *
+   * @param cpu runs the steps ({@link CpuSteps#call}), or null to run them on the calling thread
+   * @param source the document
+   * @param index the snapshot to search
+   * @param query a range query; its scope and {@code inverse} are not used
+   * @param matchers compiles the start and end expressions
+   * @param line the 0-based line
+   * @param token checked while searching
+   * @return the range, or null when no line at or above matches the start or the range ends above
+   *     the line
+   * @throws IOException on a read error
+   * @throws java.util.concurrent.CancellationException once the token is canceled
+   * @throws PatternTooComplexException when a regex overflows the stack on a line
+   */
+  public static Range around(
+      Workers cpu,
+      LineSource source,
+      LineIndex index,
+      SearchQuery query,
+      MatcherFactory matchers,
+      long line,
+      CancellationToken token)
+      throws IOException {
     if (!query.range()) {
       throw new IllegalArgumentException("not a range query");
     }
@@ -83,7 +124,7 @@ public final class RangeFinder {
     if (line < 0 || line >= count) {
       return null;
     }
-    RangeFinder finder = new RangeFinder(source, index, query.hideAnsi(), token);
+    RangeFinder finder = new RangeFinder(source, index, query.hideAnsi(), token, cpu);
     TextEncoding encoding = source.encoding();
     LineMatcher start = matchers.create(query.lineSearch(query.expression()), encoding, token);
     long first = finder.backward(start, line);
@@ -108,11 +149,9 @@ public final class RangeFinder {
       if (index.lineEnd(b) - start > BLOCK_BYTES) {
         b = Math.max(a, Math.min(b, index.lineAt(start + BLOCK_BYTES) - 1));
       }
-      int n = read(a, b);
-      for (int i = 0; i < n; i++) {
-        if (matches(matcher, i, a + i)) {
-          return a + i;
-        }
+      int found = first(matcher, a, read(a, b), true);
+      if (found >= 0) {
+        return a + found;
       }
       a = b + 1;
     }
@@ -129,24 +168,48 @@ public final class RangeFinder {
       if (finish - index.lineStart(a) > BLOCK_BYTES) {
         a = Math.min(b, Math.max(a, index.lineAt(finish - BLOCK_BYTES) + 1));
       }
-      int n = read(a, b);
-      for (int i = n - 1; i >= 0; i--) {
-        if (matches(matcher, i, a + i)) {
-          return a + i;
-        }
+      int found = first(matcher, a, read(a, b), false);
+      if (found >= 0) {
+        return a + found;
       }
       b = a - 1;
     }
     return -1;
   }
 
-  private boolean matches(LineMatcher matcher, int i, long line) {
-    text.set(buffer, starts[i], ends[i]);
-    try {
-      return matcher.matches(text);
-    } catch (StackOverflowError e) {
-      throw new PatternTooComplexException(line);
+  /**
+   * Matches the {@code n} lines read from line {@code a} as one CPU step, in line order or in
+   * reverse.
+   *
+   * @return the index of the first line that matches in that order, or -1
+   * @throws PatternTooComplexException when a regex overflows the stack on a line
+   */
+  private int first(final LineMatcher matcher, final long a, final int n, final boolean forward)
+      throws IOException {
+    int found =
+        CpuSteps.call(
+            cpu,
+            new CpuSteps.Step<Integer>() {
+              @Override
+              public Integer run() {
+                for (int k = 0; k < n; k++) {
+                  int i = forward ? k : n - 1 - k;
+                  text.set(buffer, starts[i], ends[i]);
+                  try {
+                    if (matcher.matches(text)) {
+                      return i;
+                    }
+                  } catch (StackOverflowError e) {
+                    return TOO_COMPLEX - i;
+                  }
+                }
+                return -1;
+              }
+            });
+    if (found <= TOO_COMPLEX) {
+      throw new PatternTooComplexException(a + TOO_COMPLEX - found);
     }
+    return found;
   }
 
   /**

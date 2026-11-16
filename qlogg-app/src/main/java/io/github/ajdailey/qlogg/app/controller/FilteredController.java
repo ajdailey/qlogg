@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.ContextRows;
@@ -19,6 +20,7 @@ import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.util.concurrent.CancellationException;
+import java.util.function.Supplier;
 
 /**
  * The filtered view under the main view: one row per matching or marked line ({@link Visibility}),
@@ -262,10 +264,19 @@ public final class FilteredController extends LineViewController {
   }
 
   /** Runs on a worker; posts back on every outcome so {@code extending} always clears. */
-  private void extend(final ContextRows from, MemoryBudget budget, final CancellationToken token) {
+  private void extend(
+      final ContextRows from, final MemoryBudget budget, final CancellationToken token) {
     ContextRows rows = null;
     try {
-      rows = from.extend(budget, token);
+      rows =
+          CpuSteps.compute(
+              workers(),
+              new Supplier<ContextRows>() {
+                @Override
+                public ContextRows get() {
+                  return from.extend(budget, token);
+                }
+              });
     } catch (CancellationException e) {
       rows = null;
     } finally {
@@ -324,12 +335,21 @@ public final class FilteredController extends LineViewController {
   }
 
   /** Runs on a worker; posts back on every outcome so {@code building} always clears. */
-  private void build(LineSet matches, MutableLineSet marks, final CancellationToken token) {
+  private void build(
+      final LineSet matches, final MutableLineSet marks, final CancellationToken token) {
     FilteredView.Extras extras = null;
     boolean admitted = document().enter();
     try {
       if (admitted) {
-        extras = FilteredView.buildExtras(matches, marks, view.budget(), token);
+        extras =
+            CpuSteps.compute(
+                workers(),
+                new Supplier<FilteredView.Extras>() {
+                  @Override
+                  public FilteredView.Extras get() {
+                    return FilteredView.buildExtras(matches, marks, view.budget(), token);
+                  }
+                });
       }
     } catch (CancellationException e) {
       extras = null;

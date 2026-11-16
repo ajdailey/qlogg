@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import java.io.IOException;
@@ -12,9 +14,9 @@ import java.util.regex.Pattern;
  * find. Lines are read and decoded through a {@link LineReader}, so the first {@link
  * LineReader#MAX_LINE_BYTES} of a line are searched, as they are shown. Empty matches are skipped.
  *
- * <p>Blocking; runs on a worker. The token is checked every {@link #CHECK_LINES} lines and, through
- * the chars the matcher reads, every {@link #CHECK_CHARS} chars, so a regex that backtracks without
- * end stops on cancel.
+ * <p>Blocking; runs on a worker, in steps on the CPU pool when given {@link Workers}. The token is
+ * checked every {@link #CHECK_LINES} lines and, through the chars the matcher reads, every {@link
+ * #CHECK_CHARS} chars, so a regex that backtracks without end stops on cancel.
  */
 public final class LineFinder {
   /** Lines between cancellation checks. */
@@ -65,36 +67,117 @@ public final class LineFinder {
       boolean forward,
       CancellationToken token)
       throws IOException {
-    long count = index.lineCount();
-    CheckedChars chars = new CheckedChars(token);
-    Matcher matcher = pattern.matcher("");
-    long current = line;
-    boolean first = line >= 0 && line < count;
-    if (!first) {
-      current = forward ? rows.next(-1) : rows.previous(count);
+    return find(null, reader, index, rows, pattern, line, column, forward, token);
+  }
+
+  /**
+   * Finds as {@link #find(LineReader, LineIndex, RowCursor, Pattern, long, long, boolean,
+   * CancellationToken)} does, in steps of {@link CpuSteps#STEP_LINES} lines on the CPU pool.
+   *
+   * @param cpu runs the steps ({@link CpuSteps#run}), or null to run them on the calling thread
+   * @param reader reads the lines
+   * @param index the snapshot to search
+   * @param rows the lines to visit
+   * @param pattern the compiled pattern
+   * @param line the start line, or -1 to begin before the first listed line
+   * @param column the display column on the start line
+   * @param forward true to search toward the end
+   * @param token checked while searching
+   * @return the match, or null when none is left in that direction
+   * @throws IOException on a read error
+   * @throws java.util.concurrent.CancellationException once the token is canceled
+   * @throws PatternTooComplexException when the pattern overflows the stack on a line
+   */
+  public static Match find(
+      Workers cpu,
+      LineReader reader,
+      LineIndex index,
+      RowCursor rows,
+      Pattern pattern,
+      long line,
+      long column,
+      boolean forward,
+      CancellationToken token)
+      throws IOException {
+    Scan scan = new Scan(reader, index, rows, pattern, line, column, forward, token);
+    CpuSteps.run(cpu, scan);
+    if (scan.tooComplexAt >= 0) {
+      throw new PatternTooComplexException(scan.tooComplexAt);
     }
-    long visited = 0;
-    while (current >= 0 && current < count) {
-      if (visited++ % CHECK_LINES == 0) {
-        token.check();
+    return scan.match;
+  }
+
+  /** The scan's position between steps. */
+  private static final class Scan implements CpuSteps.Steps {
+    private final LineReader reader;
+    private final LineIndex index;
+    private final RowCursor rows;
+    private final long column;
+    private final boolean forward;
+    private final CancellationToken token;
+    private final long count;
+    private final CheckedChars chars;
+    private final Matcher matcher;
+    private long current;
+    private boolean first;
+    private long visited;
+    private Match match;
+    private long tooComplexAt = -1;
+
+    Scan(
+        LineReader reader,
+        LineIndex index,
+        RowCursor rows,
+        Pattern pattern,
+        long line,
+        long column,
+        boolean forward,
+        CancellationToken token) {
+      this.reader = reader;
+      this.index = index;
+      this.rows = rows;
+      this.column = column;
+      this.forward = forward;
+      this.token = token;
+      this.count = index.lineCount();
+      this.chars = new CheckedChars(token);
+      this.matcher = pattern.matcher("");
+      this.current = line;
+      this.first = line >= 0 && line < count;
+      if (!first) {
+        current = forward ? rows.next(-1) : rows.previous(count);
       }
-      CharSequence text = reader.decodedLine(index, current);
-      chars.set(text);
-      matcher.reset(chars);
-      int limit = first ? charIndex(text, column) : (forward ? 0 : text.length() + 1);
-      int[] found;
-      try {
-        found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
-      } catch (StackOverflowError e) {
-        throw new PatternTooComplexException(current);
-      }
-      if (found.length == 2) {
-        return new Match(current, columnOf(text, found[0]), columnOf(text, found[1]));
-      }
-      first = false;
-      current = forward ? rows.next(current) : rows.previous(current);
     }
-    return null;
+
+    @Override
+    public boolean step() throws IOException {
+      for (int n = 0; n < CpuSteps.STEP_LINES; n++) {
+        if (current < 0 || current >= count) {
+          return false;
+        }
+        if (visited++ % CHECK_LINES == 0) {
+          token.check();
+        }
+        CharSequence text = reader.decodedLine(index, current);
+        chars.set(text);
+        matcher.reset(chars);
+        int limit = first ? charIndex(text, column) : (forward ? 0 : text.length() + 1);
+        int[] found;
+        try {
+          found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+        } catch (StackOverflowError e) {
+          tooComplexAt = current;
+          return false;
+        }
+        if (found.length == 2) {
+          match = new Match(current, columnOf(text, found[0]), columnOf(text, found[1]));
+          return false;
+        }
+        first = false;
+        current = forward ? rows.next(current) : rows.previous(current);
+      }
+      return true;
+    }
   }
 
   /** The first non-empty match starting at or after a char, as {start, end}; empty for none. */

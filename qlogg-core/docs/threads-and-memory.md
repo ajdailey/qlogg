@@ -33,6 +33,31 @@ at shutdown.
 - Code that catches `InterruptedException` restores the interrupt flag, then
   returns or throws.
 
+## CPU steps
+
+A task on a virtual thread runs CPU-bound work through `CpuSteps`, never
+inline. A virtual thread that computes without parking holds a carrier, and
+`availableProcessors()` such tasks stop every other kind: with eight spinning
+`qlogg-search-` tasks on eight cores a `qlogg-lifecycle-` task did not start
+within 5 s (measured on Linux amd64).
+
+- `call(workers, step)` runs one step on the pool and parks the caller until
+  it ends. It rethrows `IOException`, `Error`, `CancellationException`,
+  `UncheckedIOException`, `IllegalArgumentException` and
+  `IllegalStateException`; any other exception arrives as the cause of an
+  `IllegalStateException`, so a step returns other outcomes as values.
+- `run(workers, steps)` calls `step()` until it returns false, each call a
+  separate pool task. A step covers a bounded slice, `STEP_LINES` (4,096)
+  lines or 4 MiB, so long work queues behind the pool tasks submitted while
+  its previous step ran instead of holding a pool thread to the end.
+- On a platform thread, or with null workers, the step runs on the caller, so
+  a pool thread never waits on the pool.
+- A step may read lines through the block cache or `TimeReader`'s 64 KiB
+  buffer; reads of whole blocks (`Indexer`, `SearchEngine`, `RangeFinder`)
+  stay on the virtual thread.
+- After `close` the call throws `CancellationException`; a full queue is
+  retried every millisecond.
+
 ## Background operations
 
 A background operation returns an `OperationHandle` (`cancel`, `isDone`,

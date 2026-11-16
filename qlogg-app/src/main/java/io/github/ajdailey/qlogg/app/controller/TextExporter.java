@@ -2,8 +2,10 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.model.LineReader;
@@ -17,16 +19,17 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.concurrent.CancellationException;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Builds the text of a copy, save or selected-text read on the calling worker. Stateless. Each
- * method holds a {@link LogDocument#enter} entry while it reads, checks its {@link
- * CancellationToken} before every row and before {@link AtomicFiles#writeUserFile}, and returns an
- * empty result once canceled, so a canceled save writes no file. A file shorter than the index
- * snapshot after the rows are read fails the export: a read past the end returns less text, not an
- * error.
+ * Builds the text of a copy, save or selected-text read on the calling worker; {@link #export}
+ * decodes the rows and encodes a save in CPU steps ({@link CpuSteps}). Stateless. Each method holds
+ * a {@link LogDocument#enter} entry while it reads, checks its {@link CancellationToken} before
+ * every row and before {@link AtomicFiles#writeUserFile}, and returns an empty result once
+ * canceled, so a canceled save writes no file. A file shorter than the index snapshot after the
+ * rows are read fails the export: a read past the end returns less text, not an error.
  *
  * <p>A copy is charged to {@link MemoryShare#COPY} at {@link #COPY_BYTES_PER_FILE_BYTE} per
  * selected file byte, a save at {@link #SAVE_BYTES_PER_FILE_BYTE}; a selection the share cannot
@@ -104,15 +107,14 @@ final class TextExporter {
     }
   }
 
-  /** The rows {@link #appendText} took and the lines it counted as cut. */
-  private record Appended(long rows, long cutLines) {}
-
   private TextExporter() {}
 
   /**
    * Builds the text of the rows and, for {@link Output#FILE}, writes it as UTF-8 through {@link
    * AtomicFiles}.
    *
+   * @param cpu reads and encodes in CPU steps ({@link CpuSteps}), or null to run them on the
+   *     calling thread
    * @param document the document read
    * @param index the index snapshot the rows were mapped with
    * @param rows the rows taken
@@ -123,6 +125,7 @@ final class TextExporter {
    */
   @WorkerThread
   static Result export(
+      Workers cpu,
       LogDocument document,
       LineIndex index,
       Rows rows,
@@ -153,16 +156,26 @@ final class TextExporter {
         charged = bytes * perByte;
         // Sized once: a doubling builder peaks above the charge.
         StringBuilder out = new StringBuilder((int) bytes);
-        Appended taken = appendText(document.newReader(), index, rows, request, out, token);
+        Appending taken = new Appending(document.newReader(), index, rows, request, out, token);
+        CpuSteps.run(cpu, taken);
         if (document.bytes().size() < index.indexedBytes()) {
           throw new IOException(UiText.EXPORT_FILE_SHORTER.text());
         }
-        String text = out.toString();
+        final String text = out.toString();
         if (output == Output.FILE) {
           token.check();
-          AtomicFiles.writeUserFile(request.file(), text.getBytes(StandardCharsets.UTF_8));
+          byte[] encoded =
+              CpuSteps.compute(
+                  cpu,
+                  new Supplier<byte[]>() {
+                    @Override
+                    public byte[] get() {
+                      return text.getBytes(StandardCharsets.UTF_8);
+                    }
+                  });
+          AtomicFiles.writeUserFile(request.file(), encoded);
         }
-        result = new Result(text, null, charged, taken.rows(), taken.cutLines());
+        result = new Result(text, null, charged, taken.taken, taken.cut);
       }
     } catch (CancellationException | ClosedChannelException e) {
       result = new Result(null, null, charged, 0);
@@ -242,49 +255,81 @@ final class TextExporter {
     return Math.min(chargeBytes / COPY_BYTES_PER_FILE_BYTE, Integer.MAX_VALUE - 8);
   }
 
-  /** Appends the selected text of the rows. */
-  @WorkerThread
-  private static Appended appendText(
-      LineReader copier,
-      LineIndex index,
-      Rows rows,
-      Request request,
-      StringBuilder out,
-      CancellationToken token)
-      throws IOException {
-    Selection copied = request.selection();
-    long last = index.lineCount() - 1;
-    long fromColumn = copied.isEmpty() ? 0 : copied.start().column();
-    long toColumn = copied.isEmpty() ? Long.MAX_VALUE : copied.end().column();
-    long left = Math.min(copied.anchor().column(), copied.caret().column());
-    long right = Math.max(copied.anchor().column(), copied.caret().column());
-    String separator = request.block() ? "\n" : System.lineSeparator();
-    long line = Math.min(rows.firstLine(), last);
-    boolean countCut = request.output() == Output.FILE && !request.block();
-    long taken = 0;
-    long cut = 0;
-    for (long row = rows.first(); row <= rows.last() && line >= 0 && line <= last; row++) {
-      token.check();
-      if (countCut && index.lineEnd(line) - index.lineStart(line) > LineReader.MAX_LINE_BYTES) {
-        cut++;
-      }
-      if (request.output() == Output.NUMBERED) {
-        out.append(line + 1).append('\t');
-      }
-      if (request.block()) {
-        copier.appendColumns(index, line, left, right, out);
-      } else {
-        long from = row == rows.first() ? fromColumn : 0;
-        long to = row == rows.last() ? toColumn : Long.MAX_VALUE;
-        copier.appendText(index, line, from, to, out);
-      }
-      if (row != rows.last()) {
-        out.append(separator);
-      }
-      taken++;
-      line = rows.walk().next(line);
+  /** Appends the selected text of the rows, {@link CpuSteps#STEP_LINES} rows per step. */
+  private static final class Appending implements CpuSteps.Steps {
+    private final LineReader copier;
+    private final LineIndex index;
+    private final Rows rows;
+    private final Request request;
+    private final StringBuilder out;
+    private final CancellationToken token;
+    private final long last;
+    private final long fromColumn;
+    private final long toColumn;
+    private final long left;
+    private final long right;
+    private final String separator;
+    private final boolean countCut;
+    private long row;
+    private long line;
+    private long taken;
+    private long cut;
+
+    Appending(
+        LineReader copier,
+        LineIndex index,
+        Rows rows,
+        Request request,
+        StringBuilder out,
+        CancellationToken token) {
+      this.copier = copier;
+      this.index = index;
+      this.rows = rows;
+      this.request = request;
+      this.out = out;
+      this.token = token;
+      Selection copied = request.selection();
+      this.last = index.lineCount() - 1;
+      this.fromColumn = copied.isEmpty() ? 0 : copied.start().column();
+      this.toColumn = copied.isEmpty() ? Long.MAX_VALUE : copied.end().column();
+      this.left = Math.min(copied.anchor().column(), copied.caret().column());
+      this.right = Math.max(copied.anchor().column(), copied.caret().column());
+      this.separator = request.block() ? "\n" : System.lineSeparator();
+      this.line = Math.min(rows.firstLine(), last);
+      this.countCut = request.output() == Output.FILE && !request.block();
+      this.row = rows.first();
     }
-    return new Appended(taken, cut);
+
+    @Override
+    @WorkerThread
+    public boolean step() throws IOException {
+      for (int n = 0; n < CpuSteps.STEP_LINES; n++) {
+        if (row > rows.last() || line < 0 || line > last) {
+          return false;
+        }
+        token.check();
+        if (countCut && index.lineEnd(line) - index.lineStart(line) > LineReader.MAX_LINE_BYTES) {
+          cut++;
+        }
+        if (request.output() == Output.NUMBERED) {
+          out.append(line + 1).append('\t');
+        }
+        if (request.block()) {
+          copier.appendColumns(index, line, left, right, out);
+        } else {
+          long from = row == rows.first() ? fromColumn : 0;
+          long to = row == rows.last() ? toColumn : Long.MAX_VALUE;
+          copier.appendText(index, line, from, to, out);
+        }
+        if (row != rows.last()) {
+          out.append(separator);
+        }
+        taken++;
+        line = rows.walk().next(line);
+        row++;
+      }
+      return true;
+    }
   }
 
   /** File bytes of the rows: one span in the main view, a sum over listed lines else. */

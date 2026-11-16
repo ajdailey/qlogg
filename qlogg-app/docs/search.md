@@ -73,8 +73,8 @@ open range extends over appended lines.
 
 `selectRange()` (`Ctrl+R`) selects the range around the main view's caret with
 the field text, the range end and the current toggles. It runs `RangeFinder` on
-a `qlogg-search-` worker inside a document entry, holding the
-`ActivityIndicator`. A newer request or `cancel()` stops an older one. With no
+a `qlogg-search-` worker inside a document entry, matching each block read as
+one CPU step, holding the `ActivityIndicator`. A newer request or `cancel()` stops an older one. With no
 range there, a notice shows and the selection stays.
 
 ### Toggles, edits and navigation
@@ -109,8 +109,9 @@ bar's Match case box.
   changed or the bar closed before the read returned. Opening does not search.
 
 - A find compiles the pattern with the search's flags
-  (`StandardMatchers.regexFlags`) and runs `LineFinder` on a `qlogg-search-`
-  worker over the view's `rows()`, holding the `ActivityIndicator` active.
+  (`StandardMatchers.regexFlags`) and runs `LineFinder` from a `qlogg-search-`
+  worker over the view's `rows()`, 4,096 rows per CPU step (`CpuSteps`),
+  holding the `ActivityIndicator` active.
 - A newer find cancels the older one, and a result from an older generation is
   dropped.
 - The match becomes the view's selection. With no occurrence left in the

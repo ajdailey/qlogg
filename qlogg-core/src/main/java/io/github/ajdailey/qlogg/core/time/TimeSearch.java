@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.core.time;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import java.io.IOException;
 
 /**
@@ -125,6 +127,31 @@ public final class TimeSearch {
   public static Stamp locateLinear(
       TimeReader reader, long end, long target, CancellationToken token, ScanProgress progress)
       throws IOException {
-    return reader.linear(end, target, token, progress);
+    return reader.linear(null, end, target, token, progress);
+  }
+
+  /**
+   * Scans as {@link #locateLinear(TimeReader, long, long, CancellationToken, ScanProgress)} does,
+   * in steps of {@link TimeReader#PROGRESS_BYTES} on the CPU pool.
+   *
+   * @param cpu runs the steps ({@link CpuSteps#run}), or null to run them on the calling thread
+   * @param reader the document's reader
+   * @param end exclusive end
+   * @param target epoch nanoseconds
+   * @param token checked between lines
+   * @param progress called every {@link TimeReader#PROGRESS_BYTES} and at the end
+   * @return the stamp, or null
+   * @throws IOException on a read error
+   * @throws java.util.concurrent.CancellationException once the token is canceled
+   */
+  public static Stamp locateLinear(
+      Workers cpu,
+      TimeReader reader,
+      long end,
+      long target,
+      CancellationToken token,
+      ScanProgress progress)
+      throws IOException {
+    return reader.linear(cpu, end, target, token, progress);
   }
 }

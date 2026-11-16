@@ -549,7 +549,12 @@ public final class TimeController {
         if (scan) {
           stamp =
               TimeSearch.locateLinear(
-                  reader, end, request.target(), request.token(), progress(request));
+                  document.workers(),
+                  reader,
+                  end,
+                  request.target(),
+                  request.token(),
+                  progress(request));
         }
         if (stamp == null) {
           notice = UiText.NOTICE_TIME_NONE;

@@ -6,17 +6,21 @@ import static io.github.ajdailey.qlogg.core.time.TimeFixture.reader;
 import static io.github.ajdailey.qlogg.core.time.TimeFixture.stampAt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
+import io.github.ajdailey.qlogg.core.testkit.OnWorker;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -452,6 +457,74 @@ class TimeSearchTest {
   }
 
   /** An ASCII log built entry by entry, with the stamps it holds in file order. */
+  @Test
+  void aLinearScanOnAWorkerStepsOnTheCpuPoolAndStopsOnCancel() throws Exception {
+    Log log = new Log();
+    long millis = 0;
+    while (log.text.length() < 3 * TimeReader.PROGRESS_BYTES) {
+      log.entry(millis++, 1);
+    }
+    final byte[] bytes = log.bytes();
+    final long last = nanosAt(millis - 1);
+    final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
+    final Workers workers =
+        new Workers(
+            2,
+            new Thread.UncaughtExceptionHandler() {
+              @Override
+              public void uncaughtException(Thread thread, Throwable error) {
+                failures.add(error);
+              }
+            });
+    try {
+      Stamp stepped =
+          OnWorker.call(
+              workers,
+              new CpuSteps.Step<Stamp>() {
+                @Override
+                public Stamp run() throws IOException {
+                  return TimeSearch.locateLinear(
+                      workers,
+                      reader(new MemoryByteSource(bytes, 0), ASCII),
+                      bytes.length,
+                      last,
+                      token,
+                      NO_PROGRESS);
+                }
+              });
+      assertEquals(log.oracle(last), stepped);
+      final CancellationToken canceled = new CancellationToken();
+      final List<String> threads = new CopyOnWriteArrayList<String>();
+      Throwable thrown =
+          OnWorker.thrown(
+              workers,
+              new CpuSteps.Step<Stamp>() {
+                @Override
+                public Stamp run() throws IOException {
+                  return TimeSearch.locateLinear(
+                      workers,
+                      reader(new MemoryByteSource(bytes, 0), ASCII),
+                      bytes.length,
+                      last,
+                      canceled,
+                      new ScanProgress() {
+                        @Override
+                        public void scanned(long position, long end) {
+                          threads.add(Thread.currentThread().getName());
+                          canceled.cancel();
+                        }
+                      });
+                }
+              });
+      assertInstanceOf(CancellationException.class, thrown);
+      assertEquals(1, threads.size(), threads.toString());
+      assertTrue(threads.get(0).startsWith("qlogg-cpu-"), threads.toString());
+    } finally {
+      assertTrue(workers.close(Workers.CLOSE_BOUND));
+    }
+    assertTrue(failures.isEmpty(), failures.toString());
+  }
+
   private static final class Log {
     final StringBuilder text = new StringBuilder();
     final List<Stamp> stamps = new ArrayList<Stamp>();

@@ -1,11 +1,13 @@
 package io.github.ajdailey.qlogg.core.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -19,6 +21,7 @@ import io.github.ajdailey.qlogg.core.search.PatternTooComplexException;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.testkit.OnWorker;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +32,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -210,5 +214,68 @@ class LineFinderTest {
                 token);
           }
         });
+  }
+
+  @Test
+  void aFindOnAWorkerStepsOnTheCpuPoolAndStopsOnCancel() throws Exception {
+    Path file = dir.resolve("long.log");
+    StringBuilder text = new StringBuilder();
+    for (int i = 0; i < 3 * CpuSteps.STEP_LINES; i++) {
+      text.append("line ").append(i).append('\n');
+    }
+    Files.writeString(file, text, StandardCharsets.UTF_8);
+    final LogDocument longer = indexed(file);
+    try {
+      final LineIndex longIndex = longer.index();
+      final RowCursor all = RowCursor.all(longIndex.lineCount());
+      final CancellationToken token = new CancellationToken();
+      final List<String> threads = new CopyOnWriteArrayList<String>();
+      final AtomicLong last = new AtomicLong();
+      final RowCursor canceling =
+          new RowCursor() {
+            @Override
+            public long next(long line) {
+              last.set(line);
+              if (line == CpuSteps.STEP_LINES + 10) {
+                threads.add(Thread.currentThread().getName());
+                token.cancel();
+              }
+              return all.next(line);
+            }
+
+            @Override
+            public long previous(long line) {
+              return all.previous(line);
+            }
+
+            @Override
+            public boolean contiguous() {
+              return true;
+            }
+          };
+      Throwable thrown =
+          OnWorker.thrown(
+              workers,
+              new CpuSteps.Step<LineFinder.Match>() {
+                @Override
+                public LineFinder.Match run() throws IOException {
+                  return LineFinder.find(
+                      workers,
+                      longer.newReader(),
+                      longIndex,
+                      canceling,
+                      Pattern.compile("absent"),
+                      0,
+                      0,
+                      true,
+                      token);
+                }
+              });
+      assertInstanceOf(CancellationException.class, thrown);
+      assertTrue(threads.get(0).startsWith("qlogg-cpu-"), threads.toString());
+      assertTrue(last.get() < 2 * CpuSteps.STEP_LINES, "scanned to " + last.get());
+    } finally {
+      assertTrue(longer.close(LogDocument.CLOSE_BOUND));
+    }
   }
 }

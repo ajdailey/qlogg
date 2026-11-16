@@ -35,10 +35,10 @@ threads and CPU-bound work on a fixed platform pool.
 | `Indexer` coordinator, `IndexListener` | `qlogg-index-` |
 | `SearchEngine` coordinator, `SearchListener` | `qlogg-search-` |
 | `FolderSearch` coordinator, `FolderListener` | `qlogg-search-` |
-| Index block scans, search chunk matching | `qlogg-cpu-N` |
+| Index block scans, search chunk matching, `CpuSteps` steps | `qlogg-cpu-N` |
 | `FileMonitor` watch, `MonitorListener` | `qlogg-follow-` |
 | `LogDocument.closeAll` | `qlogg-lifecycle-`, one per document |
-| `LogDocument.open`, `LineReader`, `TimeReader`, `TimeSearch`, `FoldClassifier`, `LineFinder`, `RangeFinder` | The caller's worker; these block |
+| `LogDocument.open`, `LineReader`, `TimeReader`, `TimeSearch`, `FoldClassifier`, `LineFinder`, `RangeFinder`, `MarkToggle` | The caller's worker; these block. Given `Workers`, `LineFinder`, `MarkToggle`, `TimeSearch.locateLinear` and `RangeFinder` matching run in `CpuSteps` steps |
 | `Viewport`, `FoldMap`, `FilteredView` | Confined to one thread (the UI thread in the app) |
 
 Listener calls from a coordinator must not block toward the UI thread.
@@ -114,4 +114,5 @@ The test jar carries `testkit` for the other modules' tests and `qlogg-bench`:
 |---|---|
 | `SyntheticLog` | Deterministic log writer |
 | `Poll.until` | Bounded poll for state another thread produces |
+| `OnWorker` | Runs a body on a `qlogg-search-` virtual thread and returns its value or what it threw |
 | `TempTrees.delete` | Deletes a tree and retries until a bound, because Windows keeps a file a terminated child process had open delete-pending for a moment |

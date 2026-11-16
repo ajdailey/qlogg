@@ -53,8 +53,9 @@ posts. It searches the index snapshot taken at the start.
 - The order check (256 `TimeSamples`, 2,112 bytes charged to `HIGHLIGHT`) is
   kept while the index generation and the format stand, and returned on
   `detach`.
-- A descent or an inconsistent `TimeSearch.locate` runs `locateLinear`, with
-  progress notices at most every 250 ms and the out-of-order notice.
+- A descent or an inconsistent `TimeSearch.locate` runs `locateLinear`, 4 MiB
+  per CPU step (`CpuSteps`), with progress notices at most every 250 ms and the
+  out-of-order notice.
 - A refused charge leaves the order unknown and runs `locateLinear` without
   that notice.
 - A newer request, `Esc`, `detach` and a format or zone change cancel the

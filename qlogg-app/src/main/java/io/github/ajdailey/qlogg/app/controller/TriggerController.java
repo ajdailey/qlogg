@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.HighlightRule;
@@ -17,6 +18,7 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -191,33 +193,42 @@ public final class TriggerController {
 
   /** Scans from a line to the indexed end in batches; posts each batch and the end. */
   @WorkerThread
-  private void scan(Triggers with, long from, final CancellationToken token) {
+  private void scan(final Triggers with, long from, final CancellationToken token) {
     if (!document.enter()) {
       postEnd(token, false);
       return;
     }
     boolean read = false;
     try {
-      LineReader reader = document.newReader();
-      Path path = document.inMemory() ? null : document.path();
+      final LineReader reader = document.newReader();
+      final Path path = document.inMemory() ? null : document.path();
       long next = from;
       while (!token.isCanceled()) {
-        LineIndex index = document.index();
-        long end = completeLines(index);
+        final LineIndex index = document.index();
+        final long end = completeLines(index);
         if (next >= end) {
           break;
         }
+        final long first = next;
+        final MutableLineSet quietLines = quietLost ? null : quiet;
         final Triggers.Batch batch =
-            with.scan(
-                reader,
-                index,
-                path,
-                next,
-                end,
-                document.marks(),
-                document.markComments(),
-                quietLost ? null : quiet,
-                token);
+            CpuSteps.call(
+                owner.workers(),
+                new CpuSteps.Step<Triggers.Batch>() {
+                  @Override
+                  public Triggers.Batch run() throws IOException {
+                    return with.scan(
+                        reader,
+                        index,
+                        path,
+                        first,
+                        end,
+                        document.marks(),
+                        document.markComments(),
+                        quietLines,
+                        token);
+                  }
+                });
         owner
             .ui()
             .asyncExec(
@@ -230,8 +241,8 @@ public final class TriggerController {
         next = batch.to();
       }
       read = true;
-    } catch (ClosedChannelException e) {
-      // The document closed during the scan.
+    } catch (ClosedChannelException | CancellationException e) {
+      // The document or the workers closed during the scan.
     } catch (IOException | UncheckedIOException e) {
       LOG.warn(
           "Cannot read {} for highlighter triggers: {}",

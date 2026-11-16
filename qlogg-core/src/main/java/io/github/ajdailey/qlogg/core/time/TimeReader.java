@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.core.time;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
+import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.text.LineDecoder;
@@ -144,18 +146,51 @@ public final class TimeReader {
 
   /**
    * Scans every line in file order, reading the source directly, and stops at the first stamp at or
-   * after the target. See {@link TimeSearch#locateLinear}.
+   * after the target. See {@link TimeSearch#locateLinear}. Each step covers {@link
+   * #PROGRESS_BYTES}.
+   *
+   * @param cpu runs the steps ({@link CpuSteps#run}), or null to run them on the calling thread
    */
-  Stamp linear(long end, long target, CancellationToken token, ScanProgress progress)
+  Stamp linear(Workers cpu, long end, long target, CancellationToken token, ScanProgress progress)
       throws IOException {
     direct = true;
     try {
-      long start = firstStart;
-      long report = PROGRESS_BYTES;
-      long previousStart = -1;
-      long previousNanos = 0;
-      int previousDigits = 0;
+      Linear scan = new Linear(end, target, token, progress);
+      CpuSteps.run(cpu, scan);
+      return scan.found;
+    } finally {
+      direct = false;
+      base = -1;
+    }
+  }
+
+  /** The linear scan's position and the last stamp below the target, between steps. */
+  private final class Linear implements CpuSteps.Steps {
+    private final long end;
+    private final long target;
+    private final CancellationToken token;
+    private final ScanProgress progress;
+    private long start = firstStart;
+    private long report = PROGRESS_BYTES;
+    private long previousStart = -1;
+    private long previousNanos;
+    private int previousDigits;
+    private Stamp found;
+
+    Linear(long end, long target, CancellationToken token, ScanProgress progress) {
+      this.end = end;
+      this.target = target;
+      this.token = token;
+      this.progress = progress;
+    }
+
+    @Override
+    public boolean step() throws IOException {
+      long stop = start + PROGRESS_BYTES;
       while (start >= 0 && start < end) {
+        if (start >= stop) {
+          return true;
+        }
         token.check();
         if (start >= report) {
           progress.scanned(start, end);
@@ -164,10 +199,11 @@ public final class TimeReader {
         long lineFeedAt = parseLine(start, end, end, true);
         if (nanos != TimestampParser.NONE) {
           if (nanos >= target) {
-            if (nanos == target || previousStart < 0) {
-              return new Stamp(start, nanos, digits);
-            }
-            return new Stamp(previousStart, previousNanos, previousDigits);
+            found =
+                nanos == target || previousStart < 0
+                    ? new Stamp(start, nanos, digits)
+                    : new Stamp(previousStart, previousNanos, previousDigits);
+            return false;
           }
           previousStart = start;
           previousNanos = nanos;
@@ -176,10 +212,8 @@ public final class TimeReader {
         start = lineFeedAt < 0 ? -1 : lineFeedAt + unit;
       }
       progress.scanned(end, end);
-      return previousStart < 0 ? null : new Stamp(previousStart, previousNanos, previousDigits);
-    } finally {
-      direct = false;
-      base = -1;
+      found = previousStart < 0 ? null : new Stamp(previousStart, previousNanos, previousDigits);
+      return false;
     }
   }
 

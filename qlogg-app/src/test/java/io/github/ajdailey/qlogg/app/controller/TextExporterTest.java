@@ -106,7 +106,7 @@ class TextExporterTest {
   }
 
   private Result export(Rows rows, Request request, CancellationToken token) {
-    return TextExporter.export(document, index, rows, request, budget, token);
+    return TextExporter.export(workers, document, index, rows, request, budget, token);
   }
 
   @Test
@@ -248,6 +248,7 @@ class TextExporterTest {
     MemoryBudget small = MemoryBudget.of(1L << 10);
     Result result =
         TextExporter.export(
+            workers,
             document,
             index,
             rows(0, 3),

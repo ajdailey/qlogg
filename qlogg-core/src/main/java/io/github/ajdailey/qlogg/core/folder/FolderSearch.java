@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.folder;
 
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
+import io.github.ajdailey.qlogg.core.concurrent.CpuSteps;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
@@ -473,7 +474,10 @@ public final class FolderSearch {
       return FileHits.skipped(file.path(), FileHits.Status.FAILED, detail, file.reserved());
     }
 
-    /** Reads the text of each matching line, reserving as it goes. */
+    /**
+     * Reads the text of each matching line, reserving as it goes. Each batch of {@value
+     * #FILL_LINES} lines is read and decoded as one CPU step; the reservations stay on this thread.
+     */
     private FileHits list(
         LogDocument document, MutableLineSet set, Candidate file, SearchLimit limit)
         throws InterruptedException {
@@ -487,21 +491,28 @@ public final class FolderSearch {
       String[] texts = new String[capacity];
       int count = 0;
       long reserved = file.reserved();
-      LineReader reader = document.newReader(listCache);
-      LineIndex index = document.index();
-      long[] batch = new long[FILL_LINES];
+      final LineReader reader = document.newReader(listCache);
+      final LineIndex index = document.index();
+      final long[] batch = new long[FILL_LINES];
       long from = 0;
       try {
         listing:
         while (true) {
-          int n = set.fill(from, batch);
+          final int n = set.fill(from, batch);
+          String[] decoded =
+              CpuSteps.call(
+                  services.workers(),
+                  new CpuSteps.Step<String[]>() {
+                    @Override
+                    public String[] run() throws IOException {
+                      return texts(reader, index, batch, n);
+                    }
+                  });
           for (int k = 0; k < n; k++) {
-            token.check();
             if (Thread.interrupted()) {
               throw new InterruptedException();
             }
-            CharSequence line = reader.decodedLine(index, batch[k]);
-            String text = line.subSequence(0, Math.min(line.length(), MAX_TEXT_CHARS)).toString();
+            String text = decoded[k];
             long cost = HIT_BYTES + 2L * text.length();
             if (!reserve(cost)) {
               complete = false;
@@ -531,6 +542,18 @@ public final class FolderSearch {
         throw e;
       }
       return FileHits.searched(file.path(), matches, lines, texts, count, complete, reserved);
+    }
+
+    /** Reads and decodes the first {@code n} lines of a batch, each cut at MAX_TEXT_CHARS. */
+    private String[] texts(LineReader reader, LineIndex index, long[] batch, int n)
+        throws IOException {
+      String[] decoded = new String[n];
+      for (int k = 0; k < n; k++) {
+        token.check();
+        CharSequence line = reader.decodedLine(index, batch[k]);
+        decoded[k] = line.subSequence(0, Math.min(line.length(), MAX_TEXT_CHARS)).toString();
+      }
+      return decoded;
     }
 
     /** Reads the head; false for a NUL byte in a file with a one-byte code unit. */

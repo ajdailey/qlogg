@@ -108,7 +108,9 @@ Copy holds the `ActivityIndicator` active until it ends.
 Save Selection writes the selected lines, or the block's columns; Save Filtered
 Results writes every filtered row. Both write UTF-8 through
 `AtomicFiles.writeUserFile` on a `qlogg-read-` worker, so a new file takes the
-default mode and a replaced one keeps its group and mode. A line over
+default mode and a replaced one keeps its group and mode. The rows are decoded
+4,096 at a time and the text encoded on the CPU pool (`CpuSteps`), as a copy's
+rows are. A line over
 `LineReader.MAX_LINE_BYTES` is saved cut, and the saved notice counts those
 lines; a block save does not count them.
 
@@ -170,8 +172,8 @@ its menu's enablement then.
 ### Marks
 
 - `]` and `[` go to the next and previous mark; with none, a notice shows.
-- `toggleMarks` runs `MarkToggle` on a `qlogg-search-` worker with the
-  `ActivityIndicator` active. One toggle runs at a time (a second `M` shows a
+- `toggleMarks` runs `MarkToggle` from a `qlogg-search-` worker, one batch of
+  4,096 rows per CPU step (`CpuSteps`), with the `ActivityIndicator` active. One toggle runs at a time (a second `M` shows a
   notice), with progress notices at most every 250 ms. A toggle over more than
   4,096 rows reports the count when it ends. Unmarking removes the lines'
   comments.
@@ -276,7 +278,7 @@ line in the main view; a click or `Enter` makes that a jump of the
 lines' and toggle apart from the main view's.
 
 In marks and matches mode, the marks outside the matches come from a snapshot
-built on a `qlogg-search-` worker (`FilteredView.buildExtras`), at most one at
+built by a `qlogg-search-` worker as one CPU step (`FilteredView.buildExtras`), at most one at
 a time and not while a mark toggle runs. Until it arrives the rows keep the
 previous snapshot, so the marks are never walked on the UI thread.
 
@@ -286,8 +288,8 @@ Context counts come from the shown set's toggles
 (`SearchController.shownOptions`: the current search's as it ran, or a kept
 set's), so a kept set keeps its counts.
 
-- After the matches change, `ContextRows.extend` runs on a `qlogg-search-`
-  worker before the marks snapshot, one build at a time. The rows stay on the
+- After the matches change, `ContextRows.extend` runs from a `qlogg-search-`
+  worker as one CPU step before the marks snapshot, one build at a time. The rows stay on the
   installed build until the next arrives.
 - `grew(lineCount)` re-reads the rows when the line count changes, so the last
   result's context extends with the file without a search.
