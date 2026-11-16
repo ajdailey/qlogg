@@ -31,7 +31,7 @@ View classes must not block the UI thread. `ArchitectureTest`
 (`qlogg-launcher`) rejects in this module `Future.get`, `Thread.join`,
 `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`,
 `Semaphore.acquire`, `BlockingQueue.put` and `take`, `CountDownLatch.await`,
-`OperationHandle.await` and `java.nio.channels`.
+`OperationHandle.await`, `Charset.availableCharsets` and `java.nio.channels`.
 
 Views read controller state only. They do not use `LogDocument`,
 `MutableLineSet`, `LineReader` or `FoldMap`, do not call the `Viewport`
@@ -40,7 +40,8 @@ mutators, and use only the enums of `core.search` and `core.watch`.
 ## Public SWT API
 
 The views use only SWT's public API, so they run unchanged on GTK 3 and GTK 4;
-`ArchitectureTest` rejects `org.eclipse.swt.internal`. Platform differences go
+`ArchitectureTest` rejects a dependency on `org.eclipse.swt.internal` and, outside
+`ui.swt.platform`, a string starting with that name. Platform differences go
 through `PlatformTraits` ([main window](docs/main-window.md#platform-traits)).
 `GtkTraits` and `Gtk3Traits` read the GDK backend system property, an internal
 name that fails safe when absent. View > Always on Top and GTK 4 tool item

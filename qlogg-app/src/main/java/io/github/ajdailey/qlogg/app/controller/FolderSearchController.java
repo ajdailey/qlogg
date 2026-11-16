@@ -42,6 +42,12 @@ import java.util.regex.PatternSyntaxException;
  * the UI thread then drops that set, with one notice per run. The toggles that apply are mode,
  * case, whole word, inverse and combining; range, in selection, context and auto-refresh do not.
  * Lines are matched with ANSI colors removed when {@code view.hideAnsi} is on.
+ *
+ * <p>Locking: the monitor of {@link #sets} guards the list and the pins. The UI thread holds it for
+ * a list read or change; a run's thread holds it in {@link #reclaim}, which closes a set's {@link
+ * FolderResults} inside it. Both threads take {@code sets} before a {@code FolderResults} monitor,
+ * and neither holds one across I/O or a wait. A refused run does not post the reclaim to the UI
+ * thread: its thread would then wait on the UI thread, the deadlock {@code syncExec} is banned for.
  */
 public final class FolderSearchController {
   /** Unpinned sets kept. */

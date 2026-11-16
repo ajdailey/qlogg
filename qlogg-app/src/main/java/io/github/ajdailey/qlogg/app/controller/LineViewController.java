@@ -823,15 +823,6 @@ public abstract class LineViewController {
     changed();
   }
 
-  /**
-   * Returns the row remembered by {@link #setSelectionStart}.
-   *
-   * @return the row, or -1
-   */
-  public long selectionStart() {
-    return rangeAnchor;
-  }
-
   // Context lines.
 
   /**

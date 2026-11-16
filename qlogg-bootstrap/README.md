@@ -106,19 +106,28 @@ SWT on macOS must create its Display on the process main thread, which needs
 bootstrap runs this JVM's own binary again with
 `-XstartOnFirstThread -Dqlogg.relaunched=true -jar <qlogg.jar>` and the original
 arguments as separate list elements, without a shell, and exits with the
-child's status. A shutdown hook destroys the child, so a launcher ended by a
-signal or a quit takes the window with it. A relaunched process that is still
-off the main thread prints
+child's status. A relaunched process that is still off the main thread prints
 `QLogg could not start on the macOS main thread.` and exits 2. JVM options of
 the first process are not carried over.
+
+The child ends with the parent:
+
+| Parent ends by | Child |
+|---|---|
+| SIGTERM or SIGINT | The parent's shutdown hook, registered before the child starts, sends the child SIGTERM and waits up to 5 s for it |
+| SIGKILL or a crash | The child's standard input, a pipe the parent holds and never writes, reaches end of file; a daemon thread in the child then exits 143, running the shutdown hooks |
+
+The child's standard input is never the terminal. Standard output and error are
+inherited.
 
 ## Testing
 
 | Class | Covers |
 |---|---|
 | `MainTest` | Java 21 and later accepted, the message naming the running Java, `Main` compiled as Java 8 bytecode; `java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named by `-Dqlogg.test.java8=<path to java>` and is skipped without it |
-| `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one, the relaunch shutdown hook's task destroying a live child |
+| `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
+| `RelaunchTest` | A relaunch parent killed with `Process.destroy` (SIGTERM; the child gone when the parent has exited) and `destroyForcibly` (SIGKILL; the child gone within a bound). On macOS the parent runs the real relaunch with `-XstartOnFirstThread` over a generated jar; elsewhere it runs the child through `MacRelaunch.run`. On Windows both kills end the parent without hooks, so both take the standard input path |
 | `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both, `current` matching this JVM |
 | `NativesTest` | Extraction into an owner-only directory, an existing cache directory set owner-only, a tampered library extracted again, a failed move over a matching library succeeding and over a mismatched one failing, a bundle directory verified and never written, names outside the directory refused |
 | `NestedJarClassLoaderTest` | Classes and resources from nested jars |
-| `BootstrapArchitectureTest` | The module depends on the JDK only, process creation only in `MacRelaunch`, `System.exit` only in `Main`, the string `os.name` only in `Target` (shown to fail on `archfixture.BootViolations`) |
+| `BootstrapArchitectureTest` | The module depends on the JDK only, process creation only in `MacRelaunch`, `System.exit` only in `Main`, `Runtime.exit` only in `MacRelaunch`'s parent watch, the string `os.name` only in `Target` (the last two shown to fail on `archfixture.BootViolations`) |

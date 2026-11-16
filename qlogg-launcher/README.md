@@ -243,7 +243,7 @@ sources), so a rule that stops matching fails:
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
 | No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
-| `SWT.getPlatform()` only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
+| `SWT.getPlatform()` and strings starting `org.eclipse.swt.internal.` (system properties, class names) only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
 | `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
 | A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.prepare` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
@@ -261,14 +261,14 @@ sources), so a rule that stops matching fails:
 | `app.controller` reads no system property or environment variable | Tests choose the platform through the view |
 | Every `UiText` constant is read outside `UiText` | No unused bundle entry |
 | `java.util.logging` and `org.slf4j.jul` only in `launcher` | Everything else logs through slf4j; only the launcher sets handlers, levels or the `LogManager` |
-| No `java.net.http`, `URLConnection`, `Socket` or `URL.openStream`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |
-| No `ProcessBuilder`, `Runtime.exec`, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
-| `System.exit` and `Runtime.halt` only in `launcher.Main` | `main` exits only for a nonzero status, after `Gui.run` has disposed the Display |
-| No `Display.syncExec`; `Display.asyncExec` and `timerExec` only in `SwtUiDispatcher` | A worker never waits on the UI thread; submissions after disposal are dropped |
-| No `Future.get`, `Thread.join`, `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`, `Semaphore.acquire`, `BlockingQueue.put` or `take`, `CountDownLatch.await`, `OperationHandle.await` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
+| No `java.net.http`, `URLConnection`, `Socket`, `ServerSocket`, `DatagramSocket`, `DatagramChannel`, `AsynchronousSocketChannel`, `URL.openStream` or `getContent`, or `InetAddress.getByName` or `getAllByName`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |
+| No `ProcessBuilder`, any `Runtime.exec` overload, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
+| `System.exit`, `Runtime.exit` and `Runtime.halt` only in `launcher.Main` | `main` exits only for a nonzero status, after `Gui.run` has disposed the Display |
+| No `Display.syncExec` or `syncCall`; `Display.asyncExec`, `timerExec` and `execute` only in `SwtUiDispatcher` | A worker never waits on the UI thread; submissions after disposal are dropped |
+| No `Future.get`, `Thread.join`, `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`, `Semaphore.acquire`, `BlockingQueue.put` or `take`, `CountDownLatch.await`, `OperationHandle.await`, `Charset.availableCharsets` or `java.nio.channels` in `ui.swt` and `app.view` | The UI thread never blocks |
 | No `Future.get`, `Thread.join`, `Thread.sleep`, `OperationHandle.await` or `CountDownLatch.await` in `app.controller` and `app.command` | Controllers run on the UI thread |
 | In `app.controller`, blocking file, document and settings calls only in `@WorkerThread` methods or tasks submitted to `Workers`; `@WorkerThread` methods called only from those | Controllers run on the UI thread |
-| No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors` or pool constructors outside `Workers` | One owner for every thread |
+| No `new Thread`, `Thread.ofVirtual`, `ofPlatform`, `startVirtualThread`, `Executors`, pool constructors, `ForkJoinTask`, `CompletableFuture` `*Async` calls, `BaseStream.parallel` or `Arrays.parallel*` outside `Workers`; the last four run on the common `ForkJoinPool` | One owner for every thread |
 | `LogDocument.open` and `ofText` only in `app.controller.DocumentOpener` within `app` | A document whose open ends after its window closed is closed, not leaked |
 | The string `os.name` only in `core.util.os` (`osNameOnlyInTheOsSeam`, read from each class file's constant pool); no `OsTraits.current()` in `app.controller` | Operating system checks go through `OsTraits`; tests choose the system |
 

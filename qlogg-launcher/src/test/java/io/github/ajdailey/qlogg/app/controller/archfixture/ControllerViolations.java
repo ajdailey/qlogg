@@ -8,14 +8,25 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
+import java.io.File;
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.URL;
+import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.DatagramChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** Controller classes that each break one architecture rule; never instantiated. */
 final class ControllerViolations {
@@ -79,6 +90,63 @@ final class ControllerViolations {
     @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) {
       return true;
+    }
+  }
+
+  /** Runs work on the common {@code ForkJoinPool} without naming it. */
+  abstract static class UsesTheCommonPool extends RecursiveAction {
+    long run(int[] values) {
+      java.util.concurrent.CompletableFuture.runAsync(
+          new Runnable() {
+            @Override
+            public void run() {}
+          });
+      java.util.concurrent.CompletableFuture.supplyAsync(
+              new Supplier<String>() {
+                @Override
+                public String get() {
+                  return "mock";
+                }
+              })
+          .thenApplyAsync(
+              new Function<String, Integer>() {
+                @Override
+                public Integer apply(String text) {
+                  return text.length();
+                }
+              });
+      Arrays.parallelSort(values);
+      return java.util.stream.IntStream.of(values).parallel().count();
+    }
+  }
+
+  // Security.
+
+  /** Opens server, datagram and asynchronous sockets, fetches URL content and resolves names. */
+  static final class ReachesNetwork {
+    Object reach(URL url) throws IOException {
+      new ServerSocket(0).close();
+      new DatagramSocket().close();
+      DatagramChannel.open().close();
+      AsynchronousSocketChannel.open().close();
+      InetAddress.getByName("mock.invalid");
+      InetAddress.getAllByName("mock.invalid");
+      return url.getContent();
+    }
+  }
+
+  /** Starts processes through {@code Runtime.exec} overloads that take an environment. */
+  static final class StartsProcesses {
+    void start(File dir) throws IOException {
+      Runtime.getRuntime().exec("mock", new String[0]);
+      Runtime.getRuntime().exec(new String[] {"mock"}, new String[0], dir);
+    }
+  }
+
+  /** Ends the JVM through {@code Runtime.exit}. */
+  static final class Exits {
+    void exit() {
+      Runtime.getRuntime().exit(1);
     }
   }
 

@@ -84,7 +84,7 @@ class ViewFeaturesTest {
 
       collapseAt(fixture, document, 4, 1);
       document.document().marks().add(5);
-      document.goToTop();
+      document.execute(CommandId.GO_TO_TOP);
       document.nextMark();
       assertEquals(0, document.folds().size());
       assertEquals(5, document.sourceLine(document.selection().caret().line()));
@@ -92,7 +92,7 @@ class ViewFeaturesTest {
       collapseAt(fixture, document, 13, 1);
       document.search().run("detail 3.2", document.search().options());
       fixture.runUntilEnded(document.search());
-      document.goToTop();
+      document.execute(CommandId.GO_TO_TOP);
       document.search().findNext();
       assertEquals(0, document.folds().size());
       assertEquals(15, document.sourceLine(document.selection().caret().line()));

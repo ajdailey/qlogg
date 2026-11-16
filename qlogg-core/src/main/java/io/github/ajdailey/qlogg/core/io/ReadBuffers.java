@@ -48,15 +48,6 @@ public final class ReadBuffers {
   }
 
   /**
-   * Returns the buffer size.
-   *
-   * @return bytes
-   */
-  public int bufferBytes() {
-    return bufferBytes;
-  }
-
-  /**
    * Takes a free buffer, allocating one if the cap and the share allow, without waiting.
    *
    * @return a cleared buffer, or null when none is available

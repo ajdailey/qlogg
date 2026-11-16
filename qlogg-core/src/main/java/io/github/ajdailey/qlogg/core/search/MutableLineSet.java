@@ -691,41 +691,6 @@ public final class MutableLineSet implements LineSet {
     removeFrom(0);
   }
 
-  /**
-   * Returns a new set holding the lines of both, charging no budget.
-   *
-   * @param a a set
-   * @param b another set
-   * @return the union
-   */
-  public static MutableLineSet union(LineSet a, LineSet b) {
-    MutableLineSet result = new MutableLineSet();
-    long[] batch = new long[SPARSE_MAX];
-    int n = 0;
-    long x = a.ceiling(0);
-    long y = b.ceiling(0);
-    while (x >= 0 || y >= 0) {
-      long next;
-      if (y < 0 || x >= 0 && x < y) {
-        next = x;
-        x = x == Long.MAX_VALUE ? -1 : a.ceiling(x + 1);
-      } else {
-        next = y;
-        if (x == y) {
-          x = x == Long.MAX_VALUE ? -1 : a.ceiling(x + 1);
-        }
-        y = y == Long.MAX_VALUE ? -1 : b.ceiling(y + 1);
-      }
-      batch[n++] = next;
-      if (n == batch.length) {
-        result.addSorted(batch, n);
-        n = 0;
-      }
-    }
-    result.addSorted(batch, n);
-    return result;
-  }
-
   private static void checkLine(long line) {
     if (line < 0) {
       throw new IllegalArgumentException("line must not be negative");

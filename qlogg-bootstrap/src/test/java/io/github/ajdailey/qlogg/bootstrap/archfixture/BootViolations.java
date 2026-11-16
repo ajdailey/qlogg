@@ -10,4 +10,11 @@ final class BootViolations {
       return System.getProperty("os.name");
     }
   }
+
+  /** Ends the JVM through {@code Runtime}. */
+  static final class RuntimeExits {
+    void exit() {
+      Runtime.getRuntime().exit(1);
+    }
+  }
 }

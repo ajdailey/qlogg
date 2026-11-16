@@ -104,26 +104,6 @@ public record HighlightRule(
   }
 
   /**
-   * Returns a copy with the whole-line option set.
-   *
-   * @param value true colors the whole line
-   * @return the copy
-   */
-  public HighlightRule withWholeLine(boolean value) {
-    return new HighlightRule(
-        pattern,
-        mode,
-        caseSensitive,
-        value,
-        foreground,
-        background,
-        alpha,
-        variance,
-        enabled,
-        trigger);
-  }
-
-  /**
    * Returns a copy with case folding set.
    *
    * @param value true matches case

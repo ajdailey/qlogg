@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -145,24 +144,5 @@ class BootTest {
             "; rm x"),
         MacRelaunch.command(
             "/j/bin/java", Path.of("/q/lib/qlogg.jar"), new String[] {"a b", "; rm x"}));
-  }
-
-  @Test
-  void theRelaunchStopperDestroysALiveChild() throws Exception {
-    Path sleeper =
-        Files.writeString(
-            temp.resolve("Sleeper.java"),
-            "class Sleeper { public static void main(String[] a) throws Exception {"
-                + " Thread.sleep(120_000); } }");
-    String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-    Process child = new ProcessBuilder(java, sleeper.toString()).start();
-    try {
-      assertTrue(child.isAlive());
-      MacRelaunch.stopper(child).run();
-      assertTrue(child.waitFor(30, TimeUnit.SECONDS));
-      MacRelaunch.stopper(child).run();
-    } finally {
-      child.destroyForcibly();
-    }
   }
 }

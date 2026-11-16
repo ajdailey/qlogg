@@ -231,23 +231,6 @@ class MutableLineSetTest {
   }
 
   @Test
-  void unionMergesBothSets() {
-    MutableLineSet a = new MutableLineSet();
-    MutableLineSet b = new MutableLineSet();
-    TreeSet<Long> reference = new TreeSet<Long>();
-    SplittableRandom random = new SplittableRandom(3);
-    for (int i = 0; i < 3000; i++) {
-      long line = random.nextLong(5 * B);
-      (i % 2 == 0 ? a : b).add(line);
-      reference.add(line);
-    }
-    a.add(42);
-    b.add(42);
-    reference.add(42L);
-    assertSame(reference, MutableLineSet.union(a, b));
-  }
-
-  @Test
   void rejectsBadInput() {
     final MutableLineSet set = new MutableLineSet();
     assertThrows(

@@ -64,6 +64,29 @@ class BootstrapArchitectureTest {
         .check(classes);
   }
 
+  @Test
+  void onlyTheParentWatchCallsRuntimeExit() {
+    onlyTheParentWatchCallsRuntimeExitRule().check(classes);
+  }
+
+  @Test
+  void runtimeExitRuleFailsOnItsFixture() {
+    assertFails(onlyTheParentWatchCallsRuntimeExitRule(), "RuntimeExits", "Runtime.exit");
+  }
+
+  /**
+   * {@code Runtime.exit} runs the shutdown hooks like {@code System.exit}; only the relaunched
+   * child's parent watch in {@link MacRelaunch} calls it, since that child cannot reach {@link
+   * Main}.
+   */
+  private static ArchRule onlyTheParentWatchCallsRuntimeExitRule() {
+    return noClasses()
+        .that()
+        .doNotBelongToAnyOf(MacRelaunch.class)
+        .should()
+        .callMethod(Runtime.class, "exit", int.class);
+  }
+
   // Operating system detection.
 
   @Test
@@ -73,20 +96,25 @@ class BootstrapArchitectureTest {
 
   @Test
   void osNameRuleFailsOnItsFixture() {
-    JavaClasses fixture =
+    assertFails(osNameOnlyInTargetRule(), "ReadsOsName", "ReadsOsName holds \"os.name\"");
+  }
+
+  /** Checks a rule against one {@code BootViolations} class: the report holds the fragment. */
+  private static void assertFails(ArchRule rule, final String fixture, String fragment) {
+    JavaClasses imported =
         new ClassFileImporter()
             .withImportOption(
                 new ImportOption() {
                   @Override
                   public boolean includes(Location location) {
-                    return location.contains("/BootViolations$ReadsOsName.class");
+                    return location.contains("/BootViolations$" + fixture + ".class");
                   }
                 })
             .importPackages("io.github.ajdailey.qlogg.bootstrap.archfixture");
-    EvaluationResult result = osNameOnlyInTargetRule().evaluate(fixture);
+    EvaluationResult result = rule.evaluate(imported);
     String report = String.join("\n", result.getFailureReport().getDetails());
     assertTrue(result.hasViolation(), report);
-    assertTrue(report.contains("ReadsOsName holds \"os.name\""), report);
+    assertTrue(report.contains(fragment), report);
   }
 
   private static ArchRule osNameOnlyInTargetRule() {

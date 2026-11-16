@@ -73,15 +73,6 @@ public final class BlockCache {
   }
 
   /**
-   * Returns the block size.
-   *
-   * @return bytes
-   */
-  public int blockSize() {
-    return blockSize;
-  }
-
-  /**
    * Returns the cap.
    *
    * @return blocks
@@ -117,28 +108,6 @@ public final class BlockCache {
       }
     }
     return copied;
-  }
-
-  /**
-   * Drops every cached block that contains or follows a position, in every source.
-   *
-   * @param position the file offset
-   */
-  public void invalidateFrom(long position) {
-    long first = position / blockSize;
-    lock.lock();
-    try {
-      Iterator<Map.Entry<Key, Block>> entries = blocks.entrySet().iterator();
-      while (entries.hasNext()) {
-        Map.Entry<Key, Block> entry = entries.next();
-        if (entry.getKey().block() >= first) {
-          entries.remove();
-          spare(entry.getValue());
-        }
-      }
-    } finally {
-      lock.unlock();
-    }
   }
 
   /**

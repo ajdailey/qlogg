@@ -774,14 +774,8 @@ public final class DocumentController extends LineViewController {
   }
 
   /** Goes to the first line. */
-  public void goToTop() {
-    moveTo(0);
-  }
 
   /** Goes to the last line indexed so far. */
-  public void goToBottom() {
-    moveTo(Long.MAX_VALUE);
-  }
 
   /** Moves the caret to the first mark after its line, or shows a notice when there is none. */
   public void nextMark() {

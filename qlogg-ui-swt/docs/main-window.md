@@ -332,8 +332,9 @@ return; only `PlatformTraits`, `DialogColors`, `WindowStacking` and
 `SWT.getPlatform()` and `SWT_GTK4=1` when the interface is first used.
 `PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
 checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
-on a `SWT.getPlatform()` call outside `ui.swt.platform` and on a
-`System.getenv` call in `ui.swt` outside that package or in the launcher.
+on a `SWT.getPlatform()` call or a string starting `org.eclipse.swt.internal.`
+outside `ui.swt.platform`, and on a `System.getenv` call in `ui.swt` outside
+that package or in the launcher.
 
 | Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
 |---|---|---|---|---|---|

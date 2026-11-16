@@ -9,7 +9,8 @@ Tests run without a display. Controller tests run over `FakeView` and
   own thread; `runUntil` drives the queue to a condition with a bound, so no
   test sleeps. It checks the condition at least every 10 ms, so a condition a
   worker sets ends the wait without a UI task. `holdTimers` holds `timerExec`
-  waits until the test releases them.
+  waits until the test releases them. `timerExec` off the test thread throws, as
+  SWT does, and fails the next drain.
 - `FakeView` records any `MainView` call other than `setActive` and `setIdle`
   made off the test thread or after its `dispose`, and the teardown throws it,
   so a worker path that touches the view, or a result that reaches a closed
@@ -148,7 +149,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `RecentLogTest` | The newest lines kept, long lines cut, concurrent appends keeping the capacity |
 | `EventLoopWatchdogTest` | A held probe reported as a stall with the UI thread's stack, then the recovery |
 | `BusyCounterTest` | Overlapping operations keeping the indicator until the last ends; an idle with nothing active ignored; calls from a worker applied on the UI thread |
-| `ManualUiDispatcherTest` | Submissions run in order and dropped after dispose; `runUntil` seeing a condition set off the UI thread |
+| `ManualUiDispatcherTest` | Submissions run in order and dropped after dispose; `timerExec` off the UI thread refused and failing the next drain; `runUntil` seeing a condition set off the UI thread |
 | `PositionTextTest` | The caret and the selection size; the time difference of a selection over lines |
 | `StatusTextTest` | The top row's size, modification tip and encoding; the notes that apply; sizes in the largest unit under 1024 |
 

@@ -1,10 +1,13 @@
 package io.github.ajdailey.qlogg.bootstrap;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Restarts the JVM with {@code -XstartOnFirstThread} on macOS, where SWT must create its Display on
@@ -14,9 +17,20 @@ import java.util.Map;
  * <p>The child runs this JVM's own binary with a fixed argument list plus the original arguments as
  * separate elements; no shell is involved. The child carries {@code -Dqlogg.relaunched=true} and
  * never relaunches again. JVM options given to the first process are not carried over.
+ *
+ * <p>The child ends with the parent. SIGTERM or SIGINT to the parent runs its shutdown hook, which
+ * sends the child SIGTERM and waits for it. The child's standard input is a pipe the parent holds
+ * and never writes, so any other end of the parent, SIGKILL included, closes it, and the child's
+ * {@link #watchParent} exits at end of file.
  */
 final class MacRelaunch {
   static final String RELAUNCHED = "qlogg.relaunched";
+
+  /** Exit status of a child whose parent has ended: the status SIGTERM gives. */
+  static final int EXIT_PARENT_ENDED = 143;
+
+  /** Seconds the parent's shutdown hook waits for the child. */
+  private static final long STOP_SECONDS = 5;
 
   private MacRelaunch() {}
 
@@ -68,8 +82,7 @@ final class MacRelaunch {
   }
 
   /**
-   * Runs the child with inherited standard streams and waits for it. A shutdown hook destroys the
-   * child, so a launcher ended by a signal or a quit does not leave the window running.
+   * Runs the child and waits for it.
    *
    * @param jar the universal jar
    * @param args the original arguments
@@ -83,34 +96,83 @@ final class MacRelaunch {
             .info()
             .command()
             .orElse(Path.of(System.getProperty("java.home"), "bin", "java").toString());
-    Process child = new ProcessBuilder(command(java, jar, args)).inheritIO().start();
-    Thread hook = new Thread(stopper(child), "qlogg-relaunch-stop");
-    Runtime.getRuntime().addShutdownHook(hook);
+    return run(command(java, jar, args));
+  }
+
+  /**
+   * Runs a child with inherited standard output and error and a standard input pipe this process
+   * holds open, and waits for it. Until the child ends, a shutdown hook sends it SIGTERM and waits
+   * up to five seconds for it.
+   *
+   * @param command the child command
+   * @return the child's exit status
+   * @throws IOException when the child cannot start
+   * @throws InterruptedException when interrupted while waiting
+   */
+  static int run(List<String> command) throws IOException, InterruptedException {
+    final AtomicReference<Process> started = new AtomicReference<Process>();
+    Thread stop =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                Process child = started.get();
+                if (child == null) {
+                  return;
+                }
+                child.destroy();
+                try {
+                  child.waitFor(STOP_SECONDS, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+            },
+            "qlogg-relaunch-stop");
+    // Registered before the child starts, so no signal falls between the start and the hook.
+    Runtime.getRuntime().addShutdownHook(stop);
     try {
+      Process child =
+          new ProcessBuilder(command)
+              .redirectOutput(ProcessBuilder.Redirect.INHERIT)
+              .redirectError(ProcessBuilder.Redirect.INHERIT)
+              .start();
+      started.set(child);
       return child.waitFor();
     } finally {
       try {
-        Runtime.getRuntime().removeShutdownHook(hook);
+        Runtime.getRuntime().removeShutdownHook(stop);
       } catch (IllegalStateException e) {
-        // Shutdown has begun; the hook runs.
+        // Shutdown is running the hook.
       }
     }
   }
 
   /**
-   * Returns the shutdown hook's task: destroys the child while it is alive.
+   * Exits with {@link #EXIT_PARENT_ENDED}, running the shutdown hooks, when a relaunched child's
+   * standard input reaches end of file. Reads on a daemon thread; a read error ends the watch and
+   * leaves the process running.
    *
-   * @param child the relaunched process
-   * @return the task
+   * @param in the standard input
    */
-  static Runnable stopper(final Process child) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        if (child.isAlive()) {
-          child.destroy();
-        }
-      }
-    };
+  static void watchParent(final InputStream in) {
+    Thread watch =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  while (in.read() != -1) {
+                    // The parent writes nothing; discard anything else.
+                  }
+                } catch (IOException e) {
+                  return;
+                }
+                Runtime.getRuntime().exit(EXIT_PARENT_ENDED);
+              }
+            },
+            "qlogg-parent-watch");
+    watch.setDaemon(true);
+    watch.start();
   }
 }

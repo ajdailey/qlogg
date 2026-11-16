@@ -450,15 +450,6 @@ public final class FilteredView {
   }
 
   /**
-   * Reports whether the installed snapshot holds every mark outside the matches it saw.
-   *
-   * @return false after the share refused part of it
-   */
-  public boolean extrasComplete() {
-    return extras.complete();
-  }
-
-  /**
    * Releases the snapshot and the context rows; the view lists no marks with the matches until the
    * next snapshot, and no context until {@link #setContext}.
    */

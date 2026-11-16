@@ -6,7 +6,8 @@ budget. Module overview: [qlogg-core](../README.md).
 ## Workers
 
 `Workers` owns every thread QLogg starts. No other code creates a thread, an
-executor, a `ThreadFactory` or a `java.util.Timer`; `ArchitectureTest` in
+executor, a `ThreadFactory` or a `java.util.Timer`, or runs work on the common
+`ForkJoinPool`; `ArchitectureTest` in
 `qlogg-launcher` enforces it. The launcher creates one instance and closes it
 at shutdown.
 

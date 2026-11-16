@@ -125,7 +125,7 @@ class FollowControllerTest {
   @Test
   void overscrollAtTheBottomEngagesFollowUnlessTurnedOff() throws Exception {
     DocumentController document = open(Preferences.DEFAULTS, 100);
-    document.goToBottom();
+    document.execute(CommandId.GO_TO_BOTTOM);
     document.scrollLines(3);
     assertFalse(document.following());
     document.scrollLines(3);

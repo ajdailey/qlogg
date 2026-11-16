@@ -103,7 +103,7 @@ class BlockCacheTest {
   }
 
   @Test
-  void evictsLeastRecentlyUsedAndInvalidates() throws IOException {
+  void evictsLeastRecentlyUsed() throws IOException {
     MemorySource source = new MemorySource(bytes(1000));
     BlockCache cache = new BlockCache(64, 64 * 3);
     assertEquals(3, cache.maxBlocks());
@@ -116,8 +116,6 @@ class BlockCacheTest {
     assertEquals(reads, source.reads.get());
     cache.read(source, 0, 1, ByteBuffer.allocate(1));
     assertEquals(reads + 1, source.reads.get());
-    cache.invalidateFrom(64 * 3 + 5);
-    assertEquals(1, cache.size());
   }
 
   @Test

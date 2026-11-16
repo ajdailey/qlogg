@@ -139,16 +139,6 @@ public record HighlightSettings(
   }
 
   /**
-   * Returns a copy with other labels.
-   *
-   * @param replacement {@link ColorLabel#COUNT} labels
-   * @return the copy
-   */
-  public HighlightSettings withLabels(List<ColorLabel> replacement) {
-    return new HighlightSettings(sets, active, replacement, match);
-  }
-
-  /**
    * Returns a copy with another match highlight.
    *
    * @param replacement the match highlight

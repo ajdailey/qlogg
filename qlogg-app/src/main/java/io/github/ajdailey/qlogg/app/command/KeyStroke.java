@@ -153,15 +153,6 @@ public record KeyStroke(int modifiers, int key) {
   }
 
   /**
-   * Reports whether the key is a printable char.
-   *
-   * @return false for the key constants
-   */
-  public boolean printable() {
-    return key < SPECIAL;
-  }
-
-  /**
    * Returns the stroke as the platform writes it, for example {@code Ctrl+Shift+G}, {@code Cmd+O},
    * {@code Ctrl+Cmd+Left}, {@code $} or {@code F1}. With {@code mac} false, {@link #CONTROL} is
    * {@code Control+}, which {@link #forPlatform} leaves only in a macOS binding stored in {@code

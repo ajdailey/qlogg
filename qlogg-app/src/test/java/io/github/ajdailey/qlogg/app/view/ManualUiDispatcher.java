@@ -14,9 +14,9 @@ import java.util.function.BooleanSupplier;
 /**
  * A {@link UiDispatcher} for tests: submissions queue until the test runs them on its own thread,
  * which acts as the UI thread. Timer delays are ignored; timer tasks queue in submission order
- * unless {@link #holdTimers} keeps those of one delay for {@link #runHeldTimers}. Draining from
- * another thread throws; a listener call recorded off the UI thread by {@link #checkUiThread} fails
- * the next drain.
+ * unless {@link #holdTimers} keeps those of one delay for {@link #runHeldTimers}. {@code timerExec}
+ * and draining from another thread throw, as SWT's {@code Display} does for a timer; a timer or
+ * listener call recorded off the UI thread by {@link #checkUiThread} fails the next drain.
  */
 public final class ManualUiDispatcher implements UiDispatcher {
   /** Longest wait in {@link #runUntil} between checks of the condition. */
@@ -37,6 +37,10 @@ public final class ManualUiDispatcher implements UiDispatcher {
 
   @Override
   public void timerExec(int delayMillis, Runnable task) {
+    if (!uiThread.isUiThread()) {
+      uiThread.check("timerExec");
+      throw new IllegalStateException("timerExec off the UI thread");
+    }
     if (delayMillis == heldDelay) {
       heldTimers.add(task);
     } else {
