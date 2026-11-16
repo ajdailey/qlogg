@@ -35,7 +35,9 @@ opens in its own tab. A drop always copies, so the source never moves or
 deletes the file; folders in a drop are not opened, and a notice says so. The
 first lines show at once while indexing continues in the background; `Esc` or
 the Stop button stops it. File > Open from Clipboard (`Ctrl+V` in a log view)
-opens the clipboard's text, up to 16 MiB, held in memory only.
+opens the clipboard's text, up to 16 MiB, held in memory only. A file that
+does not open is reported as `Cannot open <name>: <reason>`, such as
+`permission denied` or `its folder does not exist`.
 
 Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
 color labels.
@@ -564,7 +566,7 @@ the match highlight and the default color labels; each syntax color reaches
 4.5:1 on the view, the caret's line, context lines and filtered rows.
 
 To add a scheme, put a file named `<id>.properties` in the `colors` folder of
-the settings directory ([Command line](#command-line)); QLogg reads the folder
+the settings directory ([Settings directory](#settings-directory)); QLogg reads the folder
 at start and lists the schemes after the bundled ones. `<id>` is letters,
 digits, `-` and `_`, and is not `follow`, `light`, `dark` or a bundled
 scheme's id. The file sets `dark=true` or `dark=false`, which picks
@@ -658,7 +660,9 @@ A launch without `-m` hands its files to the QLogg already running for the
 same settings directory and exits. The files open in the window used last,
 which comes to the front. A file a window shows already is shown in that tab
 instead of a second one, with `+line:N` and `-f` applied. On macOS, files
-opened from the Finder or dropped on the Dock icon arrive the same way.
+opened from the Finder or dropped on the Dock icon arrive the same way. On
+Windows a file opened from Explorer into the running instance does not raise
+its window; the window's taskbar button flashes instead.
 
 When another account can write to the settings directory, as with a portable
 installation in a shared folder, every launch opens its own window and QLogg's
@@ -713,10 +717,34 @@ Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 | File | Default encoding | ISO-8859-1 | Used when detection finds no other encoding |
 | File | Use directory change notifications | On | Notices file changes from system events between checks |
 | File | Check interval (ms) | 1000 | How often open files are checked for changes, 100 to 60,000 |
-| Shortcuts | The command list | Built-in keys | Rebind any command; keys another command holds are refused; restore defaults |
+| Shortcuts | The command list | Built-in keys | Add and Remove change the selected command's keys, Default Keys restores them and Restore All Defaults restores every command's; keys another command holds are refused |
 | Advanced | Stop a search after this many matches | 0, no limit | Takes effect at the next start |
 | Advanced | Keep file closed | Off | [Keep file closed](#keep-file-closed) |
 | Folding | Entry start pattern, Continuation patterns | The rules in [Folding multi-line entries](#folding-multi-line-entries) | Restore Defaults brings the built-in rules back |
+
+### Settings directory
+
+Settings are in `qlogg.conf`, in the first of these that applies:
+
+| Mode | When | Directory |
+|---|---|---|
+| Explicit | `--settings <dir>` | `<dir>` |
+| Portable | `qlogg.conf` exists in the installation directory | The installation directory |
+| Portable (Linux) | `qlogg.conf` exists in `bin/`, beside the `qlogg` script, and not in the installation directory | `bin/` |
+| Per-user | Otherwise | Linux `$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`, macOS `~/Library/Application Support/QLogg` |
+
+In explicit and portable mode, QLogg saves a file or folder path inside the
+installation directory relative to it: tabs, Recent Files, Recently Closed,
+favorites, File > Open's folder, the Search in Folder folder and remembered
+file positions. A moved or copied installation keeps them. A path outside the
+installation, and every path in per-user mode, is saved in full. Settings saved
+in full by an earlier version are rewritten relative at the first save.
+
+In explicit and portable mode on Linux, Help > User Guide opens this guide in
+your system browser, because the embedded browser keeps its cache in your home
+folder. GTK's input method support still creates an empty `~/.config/ibus/bus`
+folder there, and with the experimental GTK 4 backend (`--gtk4`) the graphics
+driver writes its shader cache to `~/.cache/mesa_shader_cache` on every run.
 
 ## Help menu and logs
 
@@ -751,40 +779,23 @@ qlogg [options] [[+line:N] file]...
 | `-f`, `--follow` | Follow the files given |
 | `--window-width <px>`, `--window-height <px>` | Window size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
-| `--settings <dir>` | Settings directory |
+| `--settings <dir>` | [Settings directory](#settings-directory) |
 | `+line:N` | Open the next file at line N |
 | `--gtk4` | Linux, `bin/qlogg` only: use the experimental GTK 4 backend (linux-x86_64) |
 | `--` | End of options; the remaining arguments are files |
 
-QLogg keeps its settings in `qlogg.conf` in the settings directory: Linux
-`$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`,
-macOS `~/Library/Application Support/QLogg`, or the installation directory when
-a `qlogg.conf` exists there (portable mode). On Linux a `qlogg.conf` beside the
-`bin/qlogg` script also selects portable mode, with the settings in `bin/`,
-unless the installation directory has one.
-
-In portable mode and with `--settings`, QLogg saves a file or folder path
-inside the installation directory relative to it: tabs, Recent Files, Recently
-Closed, favorites, File > Open's folder, the Search in Folder folder and
-remembered file positions. A moved or copied installation keeps them. A path
-outside the installation, and every path in per-user mode, is saved in full.
-Settings saved in full by an earlier version are rewritten relative at the
-first save.
-
-On Linux in portable mode and with
-`--settings`, Help > User Guide opens this guide in your system browser, because
-the embedded browser keeps its cache in your home folder. GTK's input method
-support still creates an empty `~/.config/ibus/bus` folder there, and with the
-experimental GTK 4 backend (`--gtk4`) the graphics driver writes its shader
-cache to `~/.cache/mesa_shader_cache` on every run.
+A command-line error, such as an unknown option, a bad value, `-s` with `-n`,
+`+line:N` without a file or an unusable `--settings`, exits 1; an unsupported
+platform or Java exits 2; an SWT start failure, such as missing GTK libraries,
+exits 3; a quit after an internal error exits 4.
 
 ## Known issues
 
-- Windows: Open with QLogg from Explorer opens the file as a tab in the
-  running window but flashes its taskbar button instead of bringing the window
-  to the front.
 - Windows: renaming the folder that holds an open log, or a folder above it,
-  from outside QLogg is refused while the file is open.
+  from outside QLogg is refused while the file is open. With Tools >
+  Preferences, Advanced, Keep file closed on, the folder that holds the log can
+  be renamed; with File, Use directory change notifications also off, any
+  folder above it can.
 - Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
   language hotkey. Use `Ctrl+Shift+D` to clear color labels.
 - macOS: `Cmd+Shift+3`, `Cmd+Shift+4` and `Cmd+Shift+5` take screenshots and
