@@ -269,7 +269,9 @@ class WindowSetTest {
 
   @Test
   void aFailedSettingsSaveIsRetriedByTheNextSave() throws Exception {
-    // A non-empty folder where the save moves its file makes the move fail on every OS.
+    // A non-empty folder where the save moves its file makes the move fail on every OS. Held
+    // timers keep the retry's save from racing the folder's removal.
+    ui.holdTimers(ManualUiDispatcher.EVERY_DELAY);
     Path blocker = Files.createDirectories(temp.resolve(SettingsLocation.MARKER));
     Files.writeString(blocker.resolve("keep.txt"), "mock\n");
     set.preferencesChanged(Preferences.DEFAULTS.withSplitPercent(42));
