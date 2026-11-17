@@ -33,7 +33,8 @@ import org.slf4j.LoggerFactory;
  * #MAX_BYTES}, does not parse or has another version is malformed: defaults apply, one WARN names
  * it, and the first save copies it to {@code qlogg.conf.invalid} before replacing it. A value that
  * does not parse falls back to its default. A read-only settings directory disables saving with one
- * WARN. Only file names and keys are logged, never values.
+ * WARN; other failed writes log through {@link FailedWrites}. Only file names and keys are logged,
+ * never values.
  *
  * <p>{@link #save} re-reads the file and writes only the keys that differ between the two settings
  * it is given, so another process's newer values and keys this version does not know stay. A
@@ -74,6 +75,7 @@ public final class ConfigStore {
   private boolean keepInvalid;
   private boolean saveDisabled;
   private boolean pathsStale;
+  private final FailedWrites failures = new FailedWrites(LOG, SettingsLocation.MARKER);
   // Session and remembered positions.
   private final SessionStore sessions;
   private final PositionStore positions;
@@ -212,13 +214,24 @@ public final class ConfigStore {
    *
    * @param before the settings the change started from
    * @param after the settings to save
-   * @return false when saving is disabled or the write failed, which is logged
+   * @return false unless {@link #write} returns {@link SaveResult#WRITTEN}
    */
   public boolean save(Preferences before, Preferences after) {
+    return write(before, after) == SaveResult.WRITTEN;
+  }
+
+  /**
+   * Writes as {@link #save} does. Blocking.
+   *
+   * @param before the settings the change started from
+   * @param after the settings to save
+   * @return {@link SaveResult#REFUSED} when saving is disabled
+   */
+  public SaveResult write(Preferences before, Preferences after) {
     lock.lock();
     try {
       if (saveDisabled) {
-        return false;
+        return SaveResult.REFUSED;
       }
       Path dir = location.directory();
       if (location.mode() == SettingsMode.PER_USER && !Files.isDirectory(dir)) {
@@ -232,7 +245,8 @@ public final class ConfigStore {
         changed.putAll(keys(after));
       } else if (!(pathsStale && OptionsFile.relativize(properties, paths)) && changed.isEmpty()) {
         pathsStale = false;
-        return true;
+        failures.written();
+        return SaveResult.WRITTEN;
       }
       for (Map.Entry<String, String> entry : changed.entrySet()) {
         if (entry.getValue() == null) {
@@ -249,19 +263,17 @@ public final class ConfigStore {
       keepInvalid = false;
       AtomicFiles.write(file, format(properties));
       pathsStale = false;
-      return true;
+      failures.written();
+      return SaveResult.WRITTEN;
     } catch (IOException e) {
       // A refused move says nothing about the directory: on Windows a file open elsewhere is
       // refused too, and the next save can succeed.
       if (Files.isDirectory(location.directory()) && !Files.isWritable(location.directory())) {
         disableSaving();
-      } else {
-        LOG.warn(
-            "Cannot save settings in {}: {}",
-            LogText.oneLine(location.directory()),
-            LogText.oneLine(e.getMessage()));
+        return SaveResult.REFUSED;
       }
-      return false;
+      failures.failed(e);
+      return SaveResult.FAILED;
     } finally {
       lock.unlock();
     }

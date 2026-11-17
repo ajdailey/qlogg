@@ -22,7 +22,8 @@ import org.slf4j.LoggerFactory;
  * not parse or names another version is malformed, logged once and copied to {@code <name>.invalid}
  * before the first save replaces it; writes are atomic and owner-only; a save over the size cap is
  * refused with one WARN and leaves the file as it was; a read-only directory disables saving with
- * one WARN. Blocking; a lock serializes the I/O, so only workers call it.
+ * one WARN; other failed writes log through {@link FailedWrites}. Blocking; a lock serializes the
+ * I/O, so only workers call it.
  */
 final class SettingsFile {
   private static final Logger LOG = LoggerFactory.getLogger(SettingsFile.class);
@@ -33,11 +34,13 @@ final class SettingsFile {
   private final ReentrantLock lock = new ReentrantLock();
   private boolean keepInvalid;
   private boolean saveDisabled;
+  private final FailedWrites failures;
 
   SettingsFile(SettingsLocation location, String name, int maxBytes) {
     this.location = location;
     this.name = name;
     this.maxBytes = maxBytes;
+    this.failures = new FailedWrites(LOG, name);
   }
 
   /** Returns false when the directory exists and is not writable, or saving is disabled. */
@@ -93,15 +96,21 @@ final class SettingsFile {
     return new Properties();
   }
 
-  /**
-   * Writes the properties with {@code version=1}; false when saving is disabled, the content is
-   * over the size cap, or the write failed.
-   */
+  /** Writes the properties with {@code version=1}; false unless {@link #write} wrote them. */
   boolean save(Properties properties) {
+    return write(properties) == SaveResult.WRITTEN;
+  }
+
+  /**
+   * Writes the properties with {@code version=1}.
+   *
+   * @return {@link SaveResult#REFUSED} when saving is disabled or the content is over the size cap
+   */
+  SaveResult write(Properties properties) {
     lock.lock();
     try {
       if (saveDisabled) {
-        return false;
+        return SaveResult.REFUSED;
       }
       Path dir = location.directory();
       if (location.mode() == SettingsMode.PER_USER && !Files.isDirectory(dir)) {
@@ -115,7 +124,7 @@ final class SettingsFile {
             LogText.oneLine(name),
             content.length,
             maxBytes);
-        return false;
+        return SaveResult.REFUSED;
       }
       Path file = SafePaths.child(dir, name);
       if (keepInvalid && Files.exists(file)) {
@@ -126,20 +135,17 @@ final class SettingsFile {
       }
       keepInvalid = false;
       AtomicFiles.write(file, content);
-      return true;
+      failures.written();
+      return SaveResult.WRITTEN;
     } catch (IOException e) {
       // A refused move says nothing about the directory: on Windows a file open elsewhere is
       // refused too, and the next save can succeed.
       if (Files.isDirectory(location.directory()) && !Files.isWritable(location.directory())) {
         disable();
-      } else {
-        LOG.warn(
-            "Cannot save {} in {}: {}",
-            LogText.oneLine(name),
-            LogText.oneLine(location.directory()),
-            LogText.oneLine(e.getMessage()));
+        return SaveResult.REFUSED;
       }
-      return false;
+      failures.failed(e);
+      return SaveResult.FAILED;
     } finally {
       lock.unlock();
     }

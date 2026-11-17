@@ -146,10 +146,20 @@ public final class SessionStore {
    * Writes every window's session atomically. Blocking.
    *
    * @param windows one session per window, in order
-   * @return false when the write failed, saving is disabled, or the file would be over the 4 MiB a
-   *     load reads; the last saved file then stays
+   * @return false unless {@link #writeWindows} wrote them; the last saved file then stays
    */
   public boolean saveWindows(List<Session> windows) {
+    return writeWindows(windows) == SaveResult.WRITTEN;
+  }
+
+  /**
+   * Writes every window's session atomically. Blocking.
+   *
+   * @param windows one session per window, in order
+   * @return {@link SaveResult#REFUSED} when saving is disabled or the file would be over the 4 MiB
+   *     a load reads; the last saved file stays unless the result is {@link SaveResult#WRITTEN}
+   */
+  public SaveResult writeWindows(List<Session> windows) {
     Properties p = new Properties();
     int count = 0;
     int comments = 0;
@@ -201,7 +211,7 @@ public final class SessionStore {
     if (dropped > 0) {
       p.setProperty(DROPPED_COMMENTS, Long.toString(dropped));
     }
-    return file.save(p);
+    return file.write(p);
   }
 
   private static void setKnown(Properties p, String key, Integer value) {

@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.config.SaveResult;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.config.WindowState;
@@ -52,7 +53,9 @@ import org.slf4j.LoggerFactory;
  * <p>A save captures, on the UI thread, the settings, every tab's position and, when this instance
  * owns the session, each window's tabs and bounds as {@code window.N}; a worker writes them. Each
  * capture takes a sequence number, and a writer skips a part (settings or session) a later capture
- * has written, so a debounced save that ends after the quit save cannot replace newer state.
+ * has written, so a debounced save that ends after the quit save cannot replace newer state. A save
+ * whose settings or session write fails re-arms the save timer from the UI thread at the {@link
+ * SaveBackoff} delay, unless a save timer waits or quit has begun.
  *
  * <p>{@link #timeSync} holds the time sync groups, which span the windows.
  */
@@ -103,16 +106,18 @@ public final class WindowSet implements RememberedStateHost {
   private LogFiles logFiles = LogFiles.NONE;
   private long seenWarnings;
   private volatile boolean quitting;
-  private long saveGeneration;
+  private final SaveTimer saveTimer;
   private boolean preferencesDirty;
   private boolean sessionOwner;
   private long captured;
 
   /**
    * Orders settings writes from different lifecycle workers. Guards {@link #preferencesWritten},
-   * {@link #sessionWritten} and {@link #written}; the UI thread never takes it.
+   * {@link #sessionWritten}, {@link #written} and {@link #backoff}; the UI thread never takes it.
    */
   private final ReentrantLock saveLock = new ReentrantLock();
+
+  private final SaveBackoff backoff = new SaveBackoff();
 
   private long preferencesWritten;
   private long sessionWritten;
@@ -156,6 +161,17 @@ public final class WindowSet implements RememberedStateHost {
             system, preferences.theme(), config.schemes().schemes(), preferences.view().colors());
     this.monitor = new FileMonitor(workers, preferences.options().monitor());
     this.keymap = Keymap.defaults().withOverrides(preferences.options().shortcuts());
+    this.saveTimer =
+        new SaveTimer(
+            ui,
+            new Runnable() {
+              @Override
+              public void run() {
+                if (!quitting) {
+                  flushSettings();
+                }
+              }
+            });
     theme.addListener(
         new PaletteListener() {
           @Override
@@ -411,7 +427,7 @@ public final class WindowSet implements RememberedStateHost {
       target.toFront();
     }
     // Drops the debounced save the activation scheduled; this save covers it.
-    saveGeneration++;
+    saveTimer.cancel();
     flushSettings();
     return destination;
   }
@@ -564,20 +580,20 @@ public final class WindowSet implements RememberedStateHost {
   /** Saves {@link ApplicationController#SAVE_DELAY_MILLIS} after the last call. */
   @Override
   public void scheduleSave() {
+    if (!quitting) {
+      saveTimer.restart(ApplicationController.SAVE_DELAY_MILLIS);
+    }
+  }
+
+  /** Arms the retry of a failed save unless quit has begun. */
+  private void retry(int delay, boolean settings) {
     if (quitting) {
       return;
     }
-    final long generation = ++saveGeneration;
-    ui.timerExec(
-        ApplicationController.SAVE_DELAY_MILLIS,
-        new Runnable() {
-          @Override
-          public void run() {
-            if (generation == saveGeneration && !quitting) {
-              flushSettings();
-            }
-          }
-        });
+    if (settings) {
+      preferencesDirty = true;
+    }
+    saveTimer.retry(delay);
   }
 
   /**
@@ -646,27 +662,42 @@ public final class WindowSet implements RememberedStateHost {
 
   /**
    * Writes the parts of a snapshot no later capture has written; holds {@link #saveLock}. A failed
-   * settings write marks the settings changed again, so the next save retries it.
+   * write posts the retry, marking failed settings changed again so the retry writes them.
    */
   @WorkerThread
   private void write(SaveSnapshot snapshot) {
+    SaveResult settings = null;
     if (snapshot.preferences() != null && snapshot.sequence() > preferencesWritten) {
       preferencesWritten = snapshot.sequence();
-      if (config.save(written, snapshot.preferences())) {
+      settings = config.write(written, snapshot.preferences());
+      if (settings == SaveResult.WRITTEN) {
         written = snapshot.preferences();
-      } else if (!config.saveDisabled()) {
-        ui.asyncExec(
-            new Runnable() {
-              @Override
-              public void run() {
-                preferencesDirty = true;
-              }
-            });
       }
     }
     config.positions().save();
-    if (snapshot.windows() == null || snapshot.sequence() <= sessionWritten) {
+    SaveResult session = writeSession(snapshot);
+    if (settings == null && session == null) {
       return;
+    }
+    final int delay = backoff.record(settings == SaveResult.FAILED || session == SaveResult.FAILED);
+    final boolean settingsFailed = settings == SaveResult.FAILED;
+    if (delay > 0) {
+      LOG.debug("Settings save retries in {} ms", delay);
+      ui.asyncExec(
+          new Runnable() {
+            @Override
+            public void run() {
+              retry(delay, settingsFailed);
+            }
+          });
+    }
+  }
+
+  /** Writes the session part; null when this snapshot has none or a later capture wrote it. */
+  @WorkerThread
+  private SaveResult writeSession(SaveSnapshot snapshot) {
+    if (snapshot.windows() == null || snapshot.sequence() <= sessionWritten) {
+      return null;
     }
     sessionWritten = snapshot.sequence();
     List<Session> sessions = new ArrayList<Session>();
@@ -704,7 +735,7 @@ public final class WindowSet implements RememberedStateHost {
       }
       sessions.add(new Session(tabs, window.active(), dropped, window.onTop(), window.window()));
     }
-    config.sessions().saveWindows(sessions);
+    return config.sessions().writeWindows(sessions);
   }
 
   // Window close and quit.

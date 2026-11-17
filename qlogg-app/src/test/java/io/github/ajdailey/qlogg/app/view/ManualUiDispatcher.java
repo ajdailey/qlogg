@@ -14,17 +14,22 @@ import java.util.function.BooleanSupplier;
 /**
  * A {@link UiDispatcher} for tests: submissions queue until the test runs them on its own thread,
  * which acts as the UI thread. Timer delays are ignored; timer tasks queue in submission order
- * unless {@link #holdTimers} keeps those of one delay for {@link #runHeldTimers}. {@code timerExec}
- * and draining from another thread throw, as SWT's {@code Display} does for a timer; a timer or
- * listener call recorded off the UI thread by {@link #checkUiThread} fails the next drain.
+ * unless {@link #holdTimers} keeps those of one delay, or of every delay, for {@link
+ * #runHeldTimers}. {@code timerExec} and draining from another thread throw, as SWT's {@code
+ * Display} does for a timer; a timer or listener call recorded off the UI thread by {@link
+ * #checkUiThread} fails the next drain.
  */
 public final class ManualUiDispatcher implements UiDispatcher {
   /** Longest wait in {@link #runUntil} between checks of the condition. */
   static final long RECHECK_MILLIS = 10;
 
+  /** The {@link #holdTimers} value that holds the timer tasks of every delay. */
+  public static final int EVERY_DELAY = Integer.MIN_VALUE;
+
   private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
   private final UiThreadCheck uiThread = new UiThreadCheck();
   private final List<Runnable> heldTimers = new ArrayList<Runnable>();
+  private final List<Integer> heldDelays = new ArrayList<Integer>();
   private int heldDelay = -1;
   private volatile boolean disposed;
 
@@ -41,8 +46,9 @@ public final class ManualUiDispatcher implements UiDispatcher {
       uiThread.check("timerExec");
       throw new IllegalStateException("timerExec off the UI thread");
     }
-    if (delayMillis == heldDelay) {
+    if (delayMillis == heldDelay || heldDelay == EVERY_DELAY) {
       heldTimers.add(task);
+      heldDelays.add(delayMillis);
     } else {
       asyncExec(task);
     }
@@ -51,7 +57,7 @@ public final class ManualUiDispatcher implements UiDispatcher {
   /**
    * Keeps later timer tasks of one delay until {@link #runHeldTimers}, as timers not yet expired.
    *
-   * @param delayMillis the delay to hold
+   * @param delayMillis the delay to hold, or {@link #EVERY_DELAY}
    */
   public void holdTimers(int delayMillis) {
     heldDelay = delayMillis;
@@ -64,6 +70,15 @@ public final class ManualUiDispatcher implements UiDispatcher {
    */
   public int heldTimers() {
     return heldTimers.size();
+  }
+
+  /**
+   * Returns the delays of the held timer tasks.
+   *
+   * @return in submission order
+   */
+  public List<Integer> heldDelays() {
+    return new ArrayList<Integer>(heldDelays);
   }
 
   /**
@@ -81,6 +96,7 @@ public final class ManualUiDispatcher implements UiDispatcher {
       asyncExec(task);
     }
     heldTimers.clear();
+    heldDelays.clear();
   }
 
   @Override

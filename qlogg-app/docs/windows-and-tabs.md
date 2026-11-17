@@ -330,8 +330,12 @@ a tab's follow state or marks (`DocumentHost.documentStateChanged`) restarts a
    `LogDocument.enter`.
 
 Each capture takes a sequence number, and a writer skips a part a later capture
-has written. A failed `qlogg.conf` write marks the settings changed again on the
-UI thread, so the next save writes them; a read-only directory does not.
+has written. When the `qlogg.conf` or `qlogg_session.conf` write fails, the
+worker posts a retry: on the UI thread it marks failed settings changed again
+and arms the save timer at a delay that starts at 1 s and doubles per failed
+save up to 60 s (`SaveBackoff`); a timer already waiting covers it, and quit
+arms none. A save without a failed write ends the run. A read-only directory or
+a session over the size cap refuses the write and arms no retry.
 
 ## Closing a window and quitting
 

@@ -59,7 +59,7 @@ the UI thread; the launcher loads before the Display exists.
 | A leading UTF-8 BOM, UTF-8 or ISO-8859-1 text | Read through `PropertiesFiles`: the BOM dropped, UTF-8 unless a sequence is malformed, then ISO-8859-1 |
 | A value that does not parse (`ui.theme=purple`) | That setting's default, one WARN; the file is not malformed |
 | Directory read-only at load or at a failed save | Saving disabled, one WARN |
-| A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | That save returns false with one WARN; the settings stay marked changed, so the next save writes them |
+| A save fails in a writable directory (Windows refuses a move over a file open elsewhere) | `write` returns `FAILED`; one WARN per run of failures, naming the file and the exception, then DEBUG. For `qlogg.conf` and `qlogg_session.conf`, `WindowSet` retries the save at a doubling delay up to 60 s ([settings saves](windows-and-tabs.md#settings-saves)) |
 | `qlogg.conf` is a symbolic link | The file it names is replaced; the link stays |
 | `PER_USER` directory missing at save | Created owner-only through `SafePaths.settingsDirectory` |
 
