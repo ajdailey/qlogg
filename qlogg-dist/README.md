@@ -57,6 +57,10 @@ lacks on Windows and macOS. `jdeps` reports `java.desktop` too, used only by
 `SWT_AWT`, so it is left out. `--strip-debug` is not used: it runs the host
 `objcopy` on target binaries and fails across targets.
 
+The `runtime` macro deletes `keytool` (`keytool.exe` on Windows) from
+`runtime/bin/` on every target, before the macOS bundle is signed. QLogg does
+not run it.
+
 The `windows-bundle` macro deletes `ucrtbase.dll` and every `api-ms-win-*.dll`
 from `runtime/bin/` on both Windows targets: Windows 10 and later load the
 system Universal C Runtime even when an app-local copy exists. The bundle keeps
@@ -146,4 +150,4 @@ outlive the build:
 | `java -jar qlogg.jar` | Opens a 900 x 600 window at 50,40 and writes no `logs` folder |
 | Linux bundle with `-l`, `PATH` holding only `uname` and `readlink` | Reports its own `runtime/` as `java.home`, opens the same window, and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's line and no other file in `logs` |
 | Linux bundle `bin/qlogg --gtk4`, stub `runtime/bin/java` | Exports `SWT_GTK4=1`, drops `--gtk4` before `--` and passes one after it as a file name |
-| Linux bundle runtime | Has `jdk.charsets` and supports every charset the Encoding menu lists (`CharsetProbe`) |
+| Linux bundle runtime | Has `jdk.charsets` and no `keytool`, and supports every charset the Encoding menu lists (`CharsetProbe`) |

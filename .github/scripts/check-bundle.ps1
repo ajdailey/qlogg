@@ -1,5 +1,5 @@
 # Unpacks the $env:TARGET bundle from dist\, checks that its runtime reports
-# os.arch $env:EXPECTED_ARCH and has jdk.charsets, then starts qlogg.exe and
+# os.arch $env:EXPECTED_ARCH, has jdk.charsets and no keytool.exe, then starts qlogg.exe and
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
 # bundle, the image's PE machine is $env:EXPECTED_MACHINE and its log shows the
 # main window and no failure. An ARM64 image
@@ -107,6 +107,7 @@ Write-Output "runtime os.arch=$arch, expected $env:EXPECTED_ARCH"
 if ($arch -ne $env:EXPECTED_ARCH) { throw "runtime os.arch is $arch" }
 $modules = & (Join-Path $bundle 'runtime\bin\java.exe') --list-modules
 if (-not ($modules -match '^jdk\.charsets@')) { throw 'runtime lacks jdk.charsets' }
+if (Test-Path (Join-Path $bundle 'runtime\bin\keytool.exe')) { throw 'runtime has keytool.exe' }
 
 $log = Join-Path $work 'app.log'
 Set-Content -Path $log -Value 'mock line'

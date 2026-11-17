@@ -251,6 +251,10 @@ natives.macos-aarch64=${natives.macos-aarch64}
         <arg value="--output"/>
         <arg file="@{output}"/>
       </exec>
+      <!-- QLogg never runs keytool. Deleted here, before macOS signing. -->
+      <delete>
+        <fileset dir="@{output}/bin" includes="keytool,keytool.exe"/>
+      </delete>
       <!-- jlink on a POSIX host makes legal/<module>/ notices links into
            legal/java.base/, and Ant archives a link as a regular file.
            Replacing the links with copies before rcodesign makes the macOS

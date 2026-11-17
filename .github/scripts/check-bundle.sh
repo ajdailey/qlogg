@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Unpacks the $TARGET bundle from dist/, verifies a macOS bundle's signature,
-# checks that its runtime reports os.arch $EXPECTED_ARCH and has jdk.charsets,
-# and starts the bundle's launcher until the main window opens. Then starts the
+# checks that its runtime reports os.arch $EXPECTED_ARCH, has jdk.charsets and
+# no keytool, and starts the bundle's launcher until the main window opens. Then starts the
 # universal zip's bin/qlogg, which has no runtime, with $JAVA_HOME. Linux uses
 # a private Xvfb display.
 set -euo pipefail
@@ -32,6 +32,7 @@ if [ "$(uname -s)" = Darwin ]; then
 fi
 "$runtime/bin/java" --list-modules | grep '^jdk\.charsets@' >/dev/null \
   || { echo "FAIL: runtime lacks jdk.charsets" >&2; exit 1; }
+[ ! -e "$runtime/bin/keytool" ] || { echo "FAIL: runtime has keytool" >&2; exit 1; }
 
 arch="$("$runtime/bin/java" -XshowSettings:properties -version 2>&1 \
   | sed -n 's/^ *os\.arch = //p')"

@@ -376,6 +376,9 @@ class SmokeTest {
   @Test
   void linuxBundleRuntimeSupportsTheEncodingMenu() throws Exception {
     Path home = unpackLinuxBundle();
+    Path bin = home.resolve("runtime").resolve("bin");
+    assertTrue(Files.isRegularFile(bin.resolve("java")), bin.toString());
+    assertFalse(Files.exists(bin.resolve("keytool")), "keytool in " + bin);
     List<String> command = new ArrayList<String>();
     command.add(home.resolve("runtime").resolve("bin").resolve("java").toString());
     command.add("-cp");
