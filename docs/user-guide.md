@@ -600,9 +600,23 @@ skipped, and the log records one warning naming it.
 ## Scratchpad
 
 Tools > Scratchpad holds text tabs. `Ctrl+Z` in a log view appends the
-selection to it and `Ctrl+Shift+Z` replaces its text. It converts Base64, hex,
-URL encoding, JSON and XML, and shows the selection's CRC32, number base and
+selection to it and `Ctrl+Shift+Z` replaces its text. The Transform menu acts
+on the selection, or on the whole tab without one: Base64 and hex both ways,
+URL Decode (`+` is a space), Format JSON, Format XML, JSON Unescape and XML
+Unescape. The line under the tabs shows the selection's CRC32, number base and
 epoch time.
+
+Format JSON and Format XML change only the whitespace between items, two
+spaces per level. Strings, comments, element text, CDATA and
+`xml:space="preserve"` content stay as written; JSON `//` and `/* */` comments
+are kept. Malformed or truncated input is left unchanged, and the line under
+the tabs names the first error with its line and column. Format XML refuses an
+unterminated tag, quote, comment, CDATA section, processing instruction or
+DOCTYPE, an end tag that does not match, and an element left open; it does not
+validate the XML otherwise. JSON Unescape reads the escapes
+of a JSON string's content (without its quotes) and refuses a malformed one.
+XML Unescape replaces the XML and HTML 4.01 named entities and numeric
+references and leaves anything else as written.
 
 ## Sessions, recent files and favorites
 

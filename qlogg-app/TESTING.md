@@ -130,7 +130,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `FolderSearchOpenTest` | Search in Folder through a window: the request taken from the shown tab; a listed line opening in a new tab and a second line reusing it; the step keys across two files; three steps into a file still opening giving one tab at the last line; an open after a failed open of the same file opening it |
 | `OverviewFoldsTest` | Collapsed entries against rows: a match past the row count and one hidden in an entry, a click past the entry and on it, the bins refreshed by a fold change, the spread's rows, a swap of equal entries keeping the row count |
 | `FoldRulesTextTest` | The Preferences fold rules text: the defaults round-tripping with their trailing space, blank lines ignored and CRLF split, an entry start alone accepted, bad text refused with the reason |
-| `TransformsTest` | Each scratchpad transform and the derived values |
+| `TransformsTest` | Each scratchpad transform and the derived values; URL Decode reading `+` as a space; the notice for malformed JSON and XML and a bad JSON escape with its line and column; the `MAX_CHARS` cap on input and output of each transform, 100,000-level nesting included |
 
 ## Timestamps
 

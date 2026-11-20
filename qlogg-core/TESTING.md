@@ -40,6 +40,18 @@ Regression cases:
   must leave the next pass a buffer. A lost buffer left the pass waiting at 0%.
 - A sparse `lineAt` inside a long line read to the end of the line.
 
+## Formats
+
+`FormatFixture` checks every successful format against the whitespace-only
+contract: the output's JSON or XML tokens equal the input's, and the two match
+with all whitespace removed.
+
+| Class | Covers |
+|---|---|
+| `JsonFormatTest` | One member per line and empty containers, idempotence; numbers, escapes and edge whitespace kept; each extension and grammar error at its offset; truncated text at its line and column with CR, LF and CRLF lines; comments kept in place and a line comment followed by a break; a 100,000-level truncated text failing at its end, and a well-formed one stopping at `TOO_LONG`, without recursion |
+| `XmlFormatTest` | One element per line; attribute spacing, text-only content, mixed content, `xml:space` preserve and default, the prolog, DOCTYPE, comments, PIs and CDATA kept; entity references kept with nothing read; several top-level items; mismatched and unopened end tags at the name; each unterminated construct and an element open at the end at its line and column; a supplementary char counting two columns; 100,000 levels under preserve unchanged, open at the end and past the limit |
+| `UnescapeTest` | XML entities and references, every unknown or invalid reference left as written, the 253 names; every JSON escape and an escaped surrogate pair; each malformed and lone surrogate escape refused at its backslash's column |
+
 ## Search
 
 | Class | Covers |

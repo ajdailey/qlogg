@@ -96,16 +96,16 @@ after each one.
 ## Scratchpad transforms
 
 `Transforms.apply(kind, text)` runs one built-in transform: Base64 and hex to
-and from UTF-8, URL decode, JSON and XML indentation. Nothing runs code from
-the text.
+and from UTF-8, URL decode (`+` as a space), JSON and XML format, JSON string
+unescape and XML entity unescape. Nothing runs code from the text.
 
-- JSON and XML are reformatted by a scan of quotes, brackets and tags, not
-  parsed, so no entity, DTD or external reference is read.
-- Input that does not fit throws `IllegalArgumentException` with the reason. An
-  input or output over `MAX_CHARS` (1 Mi) throws its subclass
-  `TooLongException`.
-- JSON and XML indent at most `MAX_DEPTH` (32) levels, so the work is linear in
-  `MAX_CHARS` whatever the nesting.
+- Format and unescape run in `core.format`
+  ([qlogg-core](../../qlogg-core/README.md#formats)); no entity, DTD or external
+  reference is read.
+- Input that does not fit throws `IllegalArgumentException` with the reason; a
+  `core.format` refusal names the reason, line and column
+  (`TRANSFORM_FORMAT_ERROR`). An input or output over `MAX_CHARS` (1 Mi) throws
+  its subclass `TooLongException`.
 
 `values(text, zone)` lists the selection's CRC32, its value in the other number
 base and, for 10 or 13 digits, the epoch time in UTC and in the zone.

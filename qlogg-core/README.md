@@ -21,6 +21,7 @@ display.
 | `core.watch` | `FileMonitor`, `ChangeDetector` | [File monitoring](docs/file-monitoring.md) |
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
+| `core.format` | `PrettyPrint` for JSON and XML, `JsonStrings` and `XmlEntities` unescape | [Formats](#formats) |
 | `core.util` | `Checks`, `Streams` | [Utilities](#utilities) |
 | `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths`, `RunnableTypes` | [Operating system seam](#operating-system-seam) |
 
@@ -70,6 +71,34 @@ Every operation on a document's file holds a `LogDocument` entry
 - Nothing is memory mapped.
 - A value that did not originate in QLogg's code passes `LogText.oneLine`
   before it reaches a logger.
+
+## Formats
+
+`core.format` serves the scratchpad's format and unescape transforms. Each call
+takes and returns a string on the caller's thread, with no cancel; the caller
+bounds the input.
+
+| Class | Contract |
+|---|---|
+| `PrettyPrint` | `json` and `xml` change only the whitespace between tokens: two spaces per level, LF breaks. Strings, comments, element text, mixed content, `xml:space="preserve"` content, CDATA, PIs and the DOCTYPE stay verbatim. Output past `maxChars` throws `TOO_LONG` |
+| `JsonStrings` | `unescape` reads RFC 8259 escapes in a string's content without its quotes; a malformed escape or a surrogate escape without its escaped pair throws |
+| `XmlEntities` | `unescape` replaces the five XML entities, the 252 HTML 4.01 names and decimal and hex references; anything else stays as written |
+
+Refusals throw `FormatException` with a `Reason`, the offset and its 1-based
+line and column (`\n`, `\r\n` and `\r` end a line; a column counts chars).
+
+- JSON is RFC 8259 plus `//` and `/* */` comments, which are kept. Trailing
+  commas, single quotes, unquoted names, NaN and Infinity are refused. A
+  check-only pass runs before the layout, so a malformed deep text reports its
+  error rather than `TOO_LONG`.
+- XML is split into tags, comments, PIs, CDATA, the DOCTYPE and text, not
+  parsed: no entity, DTD or external reference is read. The split refuses an
+  unterminated construct, an end tag not matching the open element, an end tag
+  with nothing open and an element still open, reported at the end of the text.
+  Several top-level items format as a sequence; text at the top level leaves it
+  unchanged.
+- Both layouts keep their nesting on an explicit stack, so any depth that fits
+  the input is formatted without recursion.
 
 ## Utilities
 

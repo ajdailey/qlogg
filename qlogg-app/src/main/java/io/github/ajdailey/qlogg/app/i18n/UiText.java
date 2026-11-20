@@ -855,14 +855,56 @@ public enum UiText {
   TRANSFORM_ODD_HEX,
   /** Scratchpad transform failure: the character position of a non-hex digit. */
   TRANSFORM_NOT_HEX,
-  /** Scratchpad transform failure: the unbalanced character and its position. */
-  TRANSFORM_UNBALANCED_AT,
-  /** Scratchpad transform failure: unbalanced brackets at the end. */
-  TRANSFORM_UNBALANCED,
-  /** Scratchpad transform failure: a string without its closing quote. */
-  TRANSFORM_UNTERMINATED_STRING,
-  /** Scratchpad transform failure: the position of a tag without its closing bracket. */
-  TRANSFORM_UNTERMINATED_TAG,
+  /** Scratchpad transform failure; arguments: the reason, its line and column. */
+  TRANSFORM_FORMAT_ERROR,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_VALUE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_NAME_OR_CLOSE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_NAME,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_COLON,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_COMMA_OR_BRACE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_EXPECTED_COMMA_OR_BRACKET,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_TEXT_AFTER_VALUE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNEXPECTED_END,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_CONTROL_CHARACTER,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_INVALID_UNICODE_ESCAPE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_INVALID_ESCAPE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_LONE_SURROGATE_ESCAPE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_STRING,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_INVALID_NUMBER,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNEXPECTED_SLASH,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_COMMENT,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_TAG,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_QUOTE,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_CDATA,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_PI,
+  /** JSON or XML format or unescape failure. */
+  FORMAT_UNTERMINATED_DOCTYPE,
+  /** JSON or XML format or unescape failure; argument: the element name. */
+  FORMAT_MISMATCHED_END_TAG,
+  /** JSON or XML format or unescape failure; argument: the element name. */
+  FORMAT_UNOPENED_END_TAG,
+  /** JSON or XML format or unescape failure; argument: the element name. */
+  FORMAT_UNCLOSED_ELEMENT,
   /** Scratchpad notice; argument: the most chars a transform takes. */
   SCRATCHPAD_TOO_LONG,
   /** Scratchpad transform. */
@@ -879,6 +921,10 @@ public enum UiText {
   TRANSFORM_JSON_FORMAT,
   /** Scratchpad transform. */
   TRANSFORM_XML_FORMAT,
+  /** Scratchpad transform. */
+  TRANSFORM_JSON_UNESCAPE,
+  /** Scratchpad transform. */
+  TRANSFORM_XML_UNESCAPE,
   /** Scratchpad derived value; arguments: hex and decimal. */
   VALUE_CRC32,
   /** Scratchpad derived value; arguments: decimal and hex. */
