@@ -599,6 +599,18 @@ public enum UiText {
   /** Command label. */
   COMMAND_OPEN_IN_EDITOR,
   /** Command label. */
+  COMMAND_OPEN_PATH_AT_CARET,
+  /** Notice: Open Path at Caret found no path. */
+  OPEN_PATH_NONE,
+  /** Notice: the URL at the caret. */
+  OPEN_PATH_URL,
+  /** Notice: a relative path on a tab without a file. */
+  OPEN_PATH_NO_FOLDER,
+  /** Notice: the path that names no regular file. */
+  OPEN_PATH_MISSING,
+  /** Notice: why a regular file is refused. */
+  OPEN_PATH_REFUSED,
+  /** Command label. */
   COMMAND_SWITCH_FILE,
   /** Name of a tab opened from the clipboard: its number in the session. */
   CLIPBOARD_TAB,

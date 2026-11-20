@@ -28,6 +28,7 @@ overview: [qlogg-core](README.md).
 |---|---|
 | `EncodingDetectorTest` | UTF-8, UTF-16 and UTF-32 byte order marks, UTF-32 checked before UTF-16; the UTF-16 zero-byte pattern without a BOM, zeros at both parities read as UTF-8; valid UTF-8 with a truncated last sequence; malformed UTF-8 falling back to ISO-8859-1; the head buffer left unmoved; a forced charset skipping only its own BOM; `TextEncoding` unit width, line feed and ASCII compatibility, EBCDIC included |
 | `LineDecoderTest` | One trailing CR dropped, a UTF-16 unit containing `0x0d` kept, a malformed byte decoded as U+FFFD, decoding stopping when the output is full |
+| `PathAtCaretTest` | Runs stopping at spaces and punctuation, quoted paths with spaces, `:line` and `:line:column` split off (a non-number or a number past `int` kept), drives and UNC paths kept whole, a Java frame's file name and line, URLs marked |
 | `LogTextTest` | `oneLine` replacing every line break and control character, a forged log entry kept on one line, the `MAX_CHARS` cap, null written as `null` |
 
 Regression cases:

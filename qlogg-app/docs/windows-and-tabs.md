@@ -148,6 +148,23 @@ opened through `MainView.launch`. The
 [runnable types](../../qlogg-core/README.md#runnable-types) are a denylist: a
 program installed later can register another type to run.
 
+### Open Path at Caret
+
+`OpenPathAtCaret` (File menu, log view context menu, no default key) reads the
+focused view's caret line, at most `REACH` (4,096) chars each side of the
+caret, on a `qlogg-read-` worker under the busy cursor. `PathAtCaret` finds the
+path and its `:line`
+([rules](../../qlogg-core/docs/files-and-text.md#path-at-the-caret)). A
+relative path resolves against the folder of the tab's file; a tab without a
+file (clipboard text) takes absolute paths only. `SafePaths.logPath` checks the
+result and it must be a regular file. The file opens through
+`ApplicationController.openFile`, so an open file shows its tab, and the tab
+goes to the line. The view goes to the line only: a `:column` is dropped,
+because the caret's column is a display column and the path gives a char
+column. No path, a URL, a relative path without a folder, a missing or
+non-regular file, or a file `SafePaths` rejects shows a notice; a URL is never
+opened. A newer run drops an older result.
+
 ### Moving a tab between windows
 
 `WindowSet.moveDocument` moves a tab to another window at a tab position, or to

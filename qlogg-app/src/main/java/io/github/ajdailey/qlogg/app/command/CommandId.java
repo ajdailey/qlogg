@@ -41,6 +41,8 @@ public enum CommandId {
   OPEN_FOLDER(CommandGroup.FILE, UiText.COMMAND_OPEN_FOLDER, true, false),
   /** Open the active file in the system's application for it. */
   OPEN_IN_EDITOR(CommandGroup.FILE, UiText.COMMAND_OPEN_IN_EDITOR, false, false),
+  /** Open the file whose path is at the focused view's caret, at its line. */
+  OPEN_PATH_AT_CARET(CommandGroup.FILE, UiText.COMMAND_OPEN_PATH_AT_CARET, false, false),
   /** Write the selected lines to a chosen file. */
   SAVE_SELECTION(CommandGroup.FILE, UiText.COMMAND_SAVE_SELECTION, true, false),
   /** Write the filtered view's lines to a chosen file. */

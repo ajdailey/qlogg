@@ -142,6 +142,7 @@ public final class MenuTable {
               CommandId.SEND_TO_SCRATCHPAD,
               CommandId.REPLACE_SCRATCHPAD,
               null,
+              CommandId.OPEN_PATH_AT_CARET,
               CommandId.TOGGLE_FOLD,
               CommandId.WRAP_LINE,
               CommandId.SCROLL_TABS_TO_TIME));

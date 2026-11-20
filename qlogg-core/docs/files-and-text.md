@@ -119,3 +119,20 @@ limit is reached or the regex stack overflows. `FoldRules`, `Triggers`,
 `Highlighter` and `CommentTemplate` use the chars directly, for a per-matcher
 budget and a failure message. A backtracking pattern ends at the bound instead
 of stalling the reading thread.
+
+## Path at the caret
+
+`PathAtCaret.find` returns the path at a caret in a line's text, with an
+optional line and column, and marks a URL; nothing is read from disk.
+
+- A caret between a pair of `"`, `'` or `` ` ``, counted in pairs from the
+  line start, takes everything between them.
+- Otherwise the run of chars around the caret, or ending at it, stops at
+  whitespace, quotes and `< > | ( ) [ ] { } , ; = * ?`; trailing `.` and `:`
+  are dropped. A Java frame `(Foo.java:42)` gives `Foo.java`, a file name the
+  caller resolves beside the log.
+- A trailing `:line` or `:line:column`, from 1, is split off. A single letter
+  and a colon is a drive, so `C:\a.txt` keeps its drive; a number past `int`
+  stays in the path.
+- A run starting with a scheme of two or more chars and `://`, or with
+  `mailto:`, `data:`, `javascript:`, `tel:` or `urn:`, is a URL.

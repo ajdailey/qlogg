@@ -53,6 +53,17 @@ an extension in `PATHEXT`; on macOS a type such as `.command`, `.terminal` or
 Such a file is refused with a notice. The list of program types cannot name a
 type that a program installed later registers to run.
 
+File > Open Path at Caret, also in the log view's context menu, opens the file
+whose path is at the caret, such as `logs/app.log` or `C:\work\notes.txt`, in a
+tab, and goes to a trailing `:line`; a column after it is ignored. A relative
+path is read from the folder of the shown file; text from the clipboard takes
+absolute paths only. A Java stack frame such as `(Foo.java:42)` opens
+`Foo.java` only when it is beside the log. A path with spaces needs quotes
+around it; otherwise the path ends at a space, a quote or one of
+`< > | ( ) [ ] { } , ; = * ?`, and a period or colon ending it is dropped. A
+file already open shows its tab. A URL is never opened, and a path naming no
+file shows a notice in the status bar.
+
 ## The main window
 
 ![Main window with search results, marks and the overview bar](images/guide/main.png)
@@ -691,7 +702,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 
 | Menu | Items |
 |---|---|
-| File | Open, Open from Clipboard; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
+| File | Open, Open from Clipboard; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor, Open Path at Caret; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
@@ -705,8 +716,8 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
 
 The log view's context menu holds the copy, mark, search, selection and save
-commands, Toggle Fold, Wrap Line, Scroll All Tabs to This Time, and the Time
-Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
+commands, Open Path at Caret, Toggle Fold, Wrap Line, Scroll All Tabs to This
+Time, and the Time Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
 Send Selection to Scratchpad and Replace Scratchpad with Selection are only
 there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
 context menu.

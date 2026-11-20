@@ -163,6 +163,7 @@ public final class ApplicationController
   private final RememberedState remembered;
   // Copy Path, Copy File Name, Open Containing Folder and Open in Editor.
   private final PathCommands paths;
+  private final OpenPathAtCaret openPath;
 
   /**
    * Creates the only window of a new {@link WindowSet} with a system setting that is always light.
@@ -242,6 +243,8 @@ public final class ApplicationController
             });
     this.help = new HelpController(set, view, this::isShuttingDown);
     this.paths = new PathCommands(workers, ui, view, help, this::isShuttingDown);
+    this.openPath =
+        new OpenPathAtCaret(this, this::focusedView, workers, ui, view, this::isShuttingDown);
     // Recently Closed and Open All.
     this.recent = new RecentFiles(this, workers, ui, view);
     // Tab data dot.
@@ -1391,6 +1394,7 @@ public final class ApplicationController
           paths.run(command, active);
         }
       }
+      case OPEN_PATH_AT_CARET -> openPath.open();
       case RELOAD -> {
         if (active != null) {
           reload(active);

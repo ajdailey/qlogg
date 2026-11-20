@@ -136,8 +136,8 @@ lists Copy, Copy This Line, Copy with Line Numbers; Mark or Unmark, Edit Mark
 Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
 Selection from Search, Replace Search with Selection and the Search Limits
 cascade; Set Selection Start and End; Save Selection to File, Send Selection to
-Scratchpad, Replace Scratchpad with Selection; Toggle Fold, Wrap Line, Scroll
-All Tabs to This Time and the Time Sync cascade; then the Highlighters (None and the sets)
+Scratchpad, Replace Scratchpad with Selection; Open Path at Caret, Toggle
+Fold, Wrap Line, Scroll All Tabs to This Time and the Time Sync cascade; then the Highlighters (None and the sets)
 and Color Label (None and the label names) cascades. A right click outside the
 selection first moves the caret to that row. Each `SWT.Show` applies
 `CommandStates.enabled` to every command item, as the menu bar does.

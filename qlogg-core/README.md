@@ -13,7 +13,7 @@ display.
 |---|---|---|
 | `core.concurrent` | `Workers`, background operations, `OperationGate`, `MemoryBudget` | [Threads and memory budget](docs/threads-and-memory.md) |
 | `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
-| `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars` | [File access and text](docs/files-and-text.md) |
+| `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars`, `PathAtCaret` | [File access and text](docs/files-and-text.md) |
 | `core.index` | `GrowableLineIndex` (full and sparse), the parallel `Indexer` | [Line index](docs/line-index.md) |
 | `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet` | [Search](docs/search.md) |
 | `core.folder` | `FolderSearch`: search in a folder without opening its files | [Search](docs/search.md#search-in-a-folder) |

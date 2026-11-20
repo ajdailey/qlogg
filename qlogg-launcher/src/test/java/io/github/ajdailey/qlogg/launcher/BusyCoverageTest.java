@@ -61,6 +61,7 @@ class BusyCoverageTest {
     String[] wrapped = {
       "controller.DocumentController#toggleMarks",
       "controller.LineViewController#copy",
+      "controller.OpenPathAtCaret#open",
       "controller.QuickFindController#find",
       "controller.SearchController#selectRange",
       "controller.TimeController#start"
