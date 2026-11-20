@@ -49,7 +49,8 @@ public final class Keymap {
   /**
    * Returns the default bindings. Go Back and Go Forward are {@code Alt+Left} and {@code
    * Alt+Right}, or {@code Control+Command+Left} and {@code Right} on macOS, where {@code
-   * Option+Left} and {@code Right} move by word in a text field.
+   * Option+Left} and {@code Right} move by word in a text field. Full Screen is {@code F11}, or
+   * {@code Control+Command+F} on macOS.
    *
    * @param mac true for the macOS bindings
    * @return the keymap
@@ -192,6 +193,12 @@ public final class Keymap {
     sequence(b, CommandId.SEARCH_FOLDER, 'd');
     window(b, CommandId.NEXT_FOLDER_MATCH, 0, KeyStroke.F4);
     window(b, CommandId.PREVIOUS_FOLDER_MATCH, S, KeyStroke.F4);
+    // Full Screen; Control+F outside macOS folds into Find's Ctrl+F.
+    if (mac) {
+      window(b, CommandId.FULL_SCREEN, KeyStroke.CONTROL | P, 'f');
+    } else {
+      window(b, CommandId.FULL_SCREEN, 0, KeyStroke.F11);
+    }
     return new Keymap(b, mac);
   }
 

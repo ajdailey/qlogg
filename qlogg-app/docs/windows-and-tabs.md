@@ -103,6 +103,10 @@ restores it and the session saves it per window. Where
 kept for the next save without reaching the view. A new window, including one a
 tab moves to, starts with it off; handed files do not change it.
 
+View > Full Screen runs `MainView.setFullScreen(!fullScreen())` on the window's
+view. Nothing saves it, and `windowBounds` and `windowMaximized` keep the state
+before full screen, so `window.*` and `window.W.*` save the normal bounds.
+
 ## Tabs
 
 `activate`, `moveDocument`, `closeDocument(document)` and `closeAll` change the
@@ -273,7 +277,7 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 
 | Commands | Checked from | Enabled when |
 |---|---|---|
-| Checks in `APPLICATION_CHECKS` | Settings, theme, block mode, debug log file or the window's Always on Top flag | Always; Always on Top only while `MainView.onTopSupported` |
+| Checks in `APPLICATION_CHECKS` | Settings, theme, block mode, debug log file, the window's Always on Top flag or `MainView.fullScreen` | Always; Always on Top only while `MainView.onTopSupported` |
 | Other checks | The shown document | A document shows |
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
 | Move to New Window | - | A document shows |

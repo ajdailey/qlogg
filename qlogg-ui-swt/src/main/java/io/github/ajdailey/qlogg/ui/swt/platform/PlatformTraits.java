@@ -116,6 +116,16 @@ public interface PlatformTraits {
   boolean pollsSystemTheme();
 
   /**
+   * Reports whether full screen moves the window to a space of its own: the system animates the
+   * change after {@code Shell.setFullScreen} returns, the title bar button also enters and leaves
+   * it, and the system menu bar shows when the pointer reaches the top edge. Elsewhere the window
+   * keeps its menu bar and only {@code setFullScreen} changes the state.
+   *
+   * @return true on cocoa
+   */
+  boolean fullScreenSpace();
+
+  /**
    * Reports whether a shell can be moved to a location; read at each placement.
    *
    * @return false on GTK under Wayland

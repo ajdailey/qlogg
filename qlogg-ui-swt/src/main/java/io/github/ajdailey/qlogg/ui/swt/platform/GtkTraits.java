@@ -57,6 +57,11 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
+  public final boolean fullScreenSpace() {
+    return false;
+  }
+
+  @Override
   public final boolean labelsByDescription() {
     return false;
   }

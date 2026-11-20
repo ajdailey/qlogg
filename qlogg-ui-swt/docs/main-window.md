@@ -17,7 +17,8 @@ and a restored session.
   that fails safe when absent). On win32 it places again with the trim
   measured from the sized shell (`remeasuresTrim`).
 - `windowBounds` and `windowMaximized` report the normal bounds kept from the
-  last unmaximized move or resize, and the maximized state.
+  last unmaximized move or resize, and the maximized state; both keep the
+  state before [Full Screen](#full-screen).
 - `SWT.Activate` reports the window to `ApplicationController.windowActivated`.
   `toFront` (unminimize, then `Shell.forceActive`) raises it for handed files.
 - A close request from the window system is vetoed and passed to the handler
@@ -321,6 +322,26 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
   tip names the window manager's window menu. SWT keeps no menu item tool tip
   on GTK 4.
 
+## Full Screen
+
+View > Full Screen (`F11`; `Ctrl+Cmd+F` on macOS) calls
+`MainView.setFullScreen` with the opposite of `fullScreen`; `MainWindow` passes
+both to `FullScreen`, one per window. The state is not saved. While full
+screen, the bounds tracking skips every event, so `windowBounds` and
+`windowMaximized` report the window before full screen, which `qlogg.conf`
+`window.*` and the session's `window.W.*` save. `Esc` stays Stop Loading.
+
+| | win32, GTK | cocoa (`PlatformTraits.fullScreenSpace`) |
+|---|---|---|
+| State | The last request: set before `Shell.setFullScreen(true)` and cleared after `setFullScreen(false)`, so the size events win32 sends inside the call count as full screen | `Shell.getFullScreen`, which the title bar button also changes |
+| Change | During the call on win32; a window manager request on GTK | An AppKit animation into a space of its own, after the call returns. AppKit ignores a change requested during the animation, so `FullScreen` holds a request made within `SETTLE_MS` (1 s) of the previous change until then, makes it again while the shell does not show it (at most `RETRIES`, 5), all through the UI dispatcher's timer, and the check item shows the held request |
+| Menu bar | Stays in the window | The system menu bar, shown when the pointer reaches the top edge |
+
+SWT's `Shell.setBounds` and `setSize` leave full screen on cocoa and GTK, so
+QLogg calls neither on a main shell after it opens: `place`, the command-line
+size, a session window's saved bounds and the maximized state apply before
+`open`, and Move to New Window places a new shell.
+
 ## Platform traits
 
 Every platform difference in the view layer is a method of `PlatformTraits`,
@@ -352,6 +373,7 @@ that package or in the launcher.
 | `systemAppMenu` | - | yes | - | - | `AppMenu.present` |
 | `opensFilesByEvent` | - | yes | - | - | `OpenDocuments.await` |
 | `windowMenuControls` | - | yes | - | - | `MainMenuBar.addWindowControls` |
+| `fullScreenSpace` | - | yes | - | - | `FullScreen`: the state is the shell's (see [Full Screen](#full-screen)) |
 | `labelsByDescription` | - | yes | - | - | `AccessibleName.attach` |
 | `positionsWindows` | yes | yes | Not under Wayland | Not under Wayland | `MainWindow.place` |
 | `remeasuresTrim` | yes | - | - | - | `MainWindow.place` |

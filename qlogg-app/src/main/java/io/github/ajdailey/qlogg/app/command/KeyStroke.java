@@ -39,6 +39,9 @@ public record KeyStroke(int modifiers, int key) {
   /** F10. */
   public static final int F10 = F1 + 9;
 
+  /** F11. */
+  public static final int F11 = F1 + 10;
+
   /** Up arrow. */
   public static final int UP = SPECIAL + 0x20;
 

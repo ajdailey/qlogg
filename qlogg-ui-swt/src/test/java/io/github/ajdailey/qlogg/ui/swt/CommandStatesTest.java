@@ -89,6 +89,7 @@ class CommandStatesTest {
     row(CommandId.THEME_LIGHT, "ce ce ce");
     row(CommandId.THEME_DARK, "-e -e -e");
     row(CommandId.THEME_SYSTEM, "-e -e -e");
+    row(CommandId.FULL_SCREEN, "-e -e -e");
     row(CommandId.NO_HIGHLIGHTERS, "ce ce ce");
     row(CommandId.ENCODING_AUTO, "-- ce ce");
     row(CommandId.DEBUG_LOG_FILE, "-e -e -e");

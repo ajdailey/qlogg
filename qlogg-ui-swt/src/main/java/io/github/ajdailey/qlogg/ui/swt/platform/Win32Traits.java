@@ -48,6 +48,11 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
+  public boolean fullScreenSpace() {
+    return false;
+  }
+
+  @Override
   public boolean labelsByDescription() {
     return false;
   }

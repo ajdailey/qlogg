@@ -370,4 +370,22 @@ public interface MainView
    * @param onTop true to keep it above
    */
   void setOnTop(boolean onTop);
+
+  // Full Screen.
+
+  /**
+   * Reports whether View > Full Screen shows checked: the window fills the screen, or a request to
+   * change that waits for the system.
+   *
+   * @return true while full screen or requested
+   */
+  boolean fullScreen();
+
+  /**
+   * Fills the screen with the window, or returns it to its bounds. {@link #windowBounds} and {@link
+   * #windowMaximized} keep reporting the state before full screen.
+   *
+   * @param on true to fill the screen
+   */
+  void setFullScreen(boolean on);
 }

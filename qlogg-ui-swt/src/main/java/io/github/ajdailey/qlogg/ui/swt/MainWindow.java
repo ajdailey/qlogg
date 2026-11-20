@@ -158,6 +158,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final Label prefix;
   private final BusyCounter busy;
   private final SwtUiDispatcher dispatcher;
+  private final FullScreen fullScreen;
   // Command palette.
   private CommandPaletteWindow paletteWindow;
   private ApplicationController controller;
@@ -285,6 +286,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
+    fullScreen = new FullScreen(shell, dispatcher, PlatformTraits.PLATFORM);
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
     shell.setImages(icons.toArray(new Image[0]));
@@ -1896,13 +1898,17 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   // Preferences dialog, zoom and remembered window state.
 
-  /** Keeps the normal bounds whenever the window moves or resizes unmaximized. */
+  /** Keeps the normal bounds whenever the window moves or resizes unmaximized, not full screen. */
   private void trackWindowState() {
     Listener track =
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (shell.isDisposed() || shell.getMaximized() || shell.getMinimized()) {
+            if (shell.isDisposed() || shell.getMinimized() || fullScreen.on()) {
+              return;
+            }
+            fullScreen.track();
+            if (shell.getMaximized()) {
               return;
             }
             Point location = shell.getLocation();
@@ -1924,7 +1930,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public boolean windowMaximized() {
-    return !shell.isDisposed() && shell.getMaximized();
+    return !shell.isDisposed() && fullScreen.maximized();
   }
 
   // Multiple windows, logging and support items.
@@ -2242,5 +2248,17 @@ public final class MainWindow implements MainView, ApplicationListener {
   @Override
   public void setOnTop(boolean onTop) {
     WindowStacking.PLATFORM.setOnTop(shell, onTop);
+  }
+
+  // Full Screen.
+
+  @Override
+  public boolean fullScreen() {
+    return !shell.isDisposed() && fullScreen.shown();
+  }
+
+  @Override
+  public void setFullScreen(boolean on) {
+    fullScreen.set(on);
   }
 }

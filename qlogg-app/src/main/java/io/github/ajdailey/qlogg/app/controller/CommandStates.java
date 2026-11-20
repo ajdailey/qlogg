@@ -50,8 +50,9 @@ public final class CommandStates {
           CommandId.TIME_SPREAD_OFF,
           CommandId.TIME_SPREAD_ACTIVITY,
           CommandId.TIME_SPREAD_PAUSES,
-          // Always on Top.
-          CommandId.ALWAYS_ON_TOP);
+          // Always on Top and Full Screen.
+          CommandId.ALWAYS_ON_TOP,
+          CommandId.FULL_SCREEN);
 
   /** Commands that need a document with a file. */
   public static final Set<CommandId> FILE_COMMANDS =
@@ -276,6 +277,7 @@ public final class CommandStates {
       case TIME_SPREAD_PAUSES -> application.preferences().view().timeSpread() == SpreadMode.PAUSES;
       // Always on Top.
       case ALWAYS_ON_TOP -> application.alwaysOnTop().shown();
+      case FULL_SCREEN -> application.fullScreen();
       default -> false;
     };
   }

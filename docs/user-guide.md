@@ -121,6 +121,7 @@ file shows a notice in the status bar.
 | `Ctrl`+wheel, `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Zoom in, out, back to the Preferences size |
 | `Alt`+wheel, `Shift`+wheel | Scroll sideways, scroll by pages |
 | `Ctrl+Shift+P` | Command palette |
+| `F11` (macOS: `Ctrl+Cmd+F`) | Full screen |
 
 Go > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
 `+line:N`, Go to Time, Go to Top and Bottom, Find Next and Previous, the next or
@@ -663,6 +664,13 @@ own setting, and a new window starts without it. Dialogs the window opens stay
 above it. On Linux under Wayland or GTK 4 the item is gray; use Always on Top
 in the window manager's window menu (`Alt+Space`) instead.
 
+View > Full Screen (`F11`; `Ctrl+Cmd+F` on macOS) fills the screen with the
+window; the same command returns it. Each window has its own state, and none is
+saved. On Linux and Windows the menu bar stays; on macOS the window moves to its
+own space, the menu bar shows at the top edge, and the window's green button
+does the same. `Esc` does not leave full screen. A restart opens each window at
+its size before full screen.
+
 ### Moving tabs between windows
 
 A tab moves between windows with everything it shows: its position,
@@ -706,7 +714,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |

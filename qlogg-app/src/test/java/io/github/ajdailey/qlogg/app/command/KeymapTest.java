@@ -370,4 +370,23 @@ class KeymapTest {
         Keymap.defaults(false).keysText(CommandId.SEARCH_FOLDER, false));
     assertEquals("Shift+F4", Keymap.defaults(true).keysText(CommandId.PREVIOUS_FOLDER_MATCH, true));
   }
+
+  // Full Screen.
+
+  @Test
+  void fullScreenTakesF11OrControlCommandFAndCollidesWithNothing() {
+    Keymap others = Keymap.defaults(false);
+    assertEquals(new KeyStroke(0, KeyStroke.F11), others.accelerator(CommandId.FULL_SCREEN));
+    assertEquals("F11", others.keysText(CommandId.FULL_SCREEN, false));
+    Keymap mac = Keymap.defaults(true);
+    assertEquals(
+        new KeyStroke(KeyStroke.CONTROL | KeyStroke.PRIMARY, 'f'),
+        mac.accelerator(CommandId.FULL_SCREEN));
+    assertEquals("Ctrl+Cmd+F", mac.keysText(CommandId.FULL_SCREEN, true));
+    for (Keymap map : List.of(others, mac)) {
+      for (Binding binding : map.bindingsFor(CommandId.FULL_SCREEN)) {
+        assertEquals(List.of(), map.conflicts(binding), binding.text(false));
+      }
+    }
+  }
 }

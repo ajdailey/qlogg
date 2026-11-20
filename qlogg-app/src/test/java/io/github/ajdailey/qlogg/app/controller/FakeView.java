@@ -483,4 +483,21 @@ final class FakeView implements MainView {
     check("setOnTop");
     onTopCalls.add(onTop);
   }
+
+  // Full Screen.
+
+  /** What {@link #fullScreen} reports; {@link #setFullScreen} sets it. */
+  boolean fullScreen;
+
+  @Override
+  public boolean fullScreen() {
+    check("fullScreen");
+    return fullScreen;
+  }
+
+  @Override
+  public void setFullScreen(boolean on) {
+    check("setFullScreen");
+    fullScreen = on;
+  }
 }

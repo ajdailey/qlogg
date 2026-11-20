@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Menu contents with and without the macOS application menu, radio items, and mnemonics per menu:
  * every menu-bar title, item and cascade, and every fixed item of the log view, tab, path field and
- * search field context menus, has one, unique in its menu, except Wrap Line, which has none. The
+ * search field context menus, has one, unique in its menu, except Wrap Line and Full Screen. The
  * built menus are walked in {@code LogViewTest}.
  */
 class MenuTableTest {
@@ -96,7 +96,9 @@ class MenuTableTest {
     List<String> missing = new ArrayList<String>();
     for (Map.Entry<String, List<String>> menu : menus().entrySet()) {
       for (String label : menu.getValue()) {
-        if (label.indexOf('&') < 0 && !label.equals(CommandId.WRAP_LINE.label())) {
+        if (label.indexOf('&') < 0
+            && !label.equals(CommandId.WRAP_LINE.label())
+            && !label.equals(CommandId.FULL_SCREEN.label())) {
           missing.add(menu.getKey() + " > " + label);
         }
       }

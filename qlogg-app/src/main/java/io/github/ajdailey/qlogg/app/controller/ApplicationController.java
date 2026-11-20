@@ -1491,6 +1491,7 @@ public final class ApplicationController
       case REOPEN_CLOSED -> recent.reopenClosed();
       // Always on Top.
       case ALWAYS_ON_TOP -> alwaysOnTop.toggle();
+      case FULL_SCREEN -> view.setFullScreen(!view.fullScreen());
       // Close Multiple Tabs.
       case CLOSE_OTHERS -> {
         if (active != null) {
@@ -2010,6 +2011,15 @@ public final class ApplicationController
    */
   public AlwaysOnTop alwaysOnTop() {
     return alwaysOnTop;
+  }
+
+  /**
+   * Reports whether View > Full Screen shows checked.
+   *
+   * @return true while the window fills the screen or a request to fill it waits
+   */
+  public boolean fullScreen() {
+    return view.fullScreen();
   }
 
   /**

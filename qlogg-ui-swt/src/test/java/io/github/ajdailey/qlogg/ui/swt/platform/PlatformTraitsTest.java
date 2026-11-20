@@ -43,7 +43,8 @@ class PlatformTraitsTest {
     "opensFilesByEvent",
     "windowMenuControls",
     "labelsByDescription",
-    "pollsSystemTheme"
+    "pollsSystemTheme",
+    "fullScreenSpace"
   };
 
   private static List<Object> answers(PlatformTraits traits) {
@@ -70,6 +71,7 @@ class PlatformTraitsTest {
     answers.add(traits.windowMenuControls());
     answers.add(traits.labelsByDescription());
     answers.add(traits.pollsSystemTheme());
+    answers.add(traits.fullScreenSpace());
     return answers;
   }
 
@@ -103,7 +105,8 @@ class PlatformTraitsTest {
         false,
         false,
         false,
-        true);
+        true,
+        false);
     assertTrue(PlatformTraits.of("win32", false).positionsWindows());
   }
 
@@ -127,6 +130,7 @@ class PlatformTraitsTest {
         false,
         false,
         false,
+        true,
         true,
         true,
         true,
@@ -157,6 +161,7 @@ class PlatformTraitsTest {
         false,
         false,
         false,
+        false,
         false);
     assertSame(NativeToolItemSizing.INSTANCE, PlatformTraits.of("gtk", false).toolItemSizing());
   }
@@ -181,6 +186,7 @@ class PlatformTraitsTest {
         true,
         false,
         true,
+        false,
         false,
         false,
         false,

@@ -84,8 +84,9 @@ class CommandStatesTest {
     row(CommandId.TIME_SPREAD_OFF, "ce ce ce");
     row(CommandId.TIME_SPREAD_ACTIVITY, "-e -e -e");
     row(CommandId.TIME_SPREAD_PAUSES, "-e -e -e");
-    // Always on Top.
+    // Always on Top and Full Screen.
     row(CommandId.ALWAYS_ON_TOP, "-e -e -e");
+    row(CommandId.FULL_SCREEN, "-e -e -e");
     row(CommandId.MOVE_TO_NEW_WINDOW, "-- -e -e");
     row(CommandId.ADD_FAVORITE, "-- -e -e");
     row(CommandId.REMOVE_FAVORITE, "-- -- --");
@@ -186,6 +187,7 @@ class CommandStatesTest {
             CommandId.HIDE_ANSI,
             CommandId.SYNTAX_COLORS,
             CommandId.BLOCK_SELECTION,
+            CommandId.FULL_SCREEN,
             CommandId.THEME_DARK);
     for (CommandId command : toggles) {
       boolean before = states.checked(command);

@@ -30,7 +30,8 @@ Favorites, Search > Search Options, View > Folding).
 - View > Syntax Colors is a check item without a shortcut; it sets
   `view.syntaxColors` for both views of every open file.
 - Every item of a menu, cascade or context menu has a mnemonic of its own;
-  listed entries, the placeholders of empty lists and Wrap Line have none.
+  listed entries, the placeholders of empty lists, Wrap Line and Full Screen
+  have none: every letter of Full Screen marks another View item.
   `MenuTableTest` checks the menu bar and the context menu tables without SWT;
   `LogViewTest.mnemonicsAreUniqueInEveryMenu` walks the built menu bar and the
   log view, tab, path field and search field context menus.

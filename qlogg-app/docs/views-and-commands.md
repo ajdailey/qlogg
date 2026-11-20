@@ -125,7 +125,8 @@ binding the fold repeats, so a macOS binding read from `qlogg.conf` becomes the
 `Keymap.defaults()` takes `OsTraits.current().macKeymap()`; `defaults(mac)`
 differs only for Go Back and Go Forward: `Alt+Left` and `Alt+Right`, or
 `Control+Command+Left` and `Right` on macOS, where `Option`+arrow moves by word
-in a text field.
+in a text field; and for Full Screen: `F11`, or `Control+Command+F` on macOS,
+since `Control+F` folds into Find's `Ctrl+F` elsewhere.
 
 ### Commands and menus
 
@@ -146,7 +147,8 @@ modes, Encoding > Auto, Time Spread).
 
 Every item of a menu, cascade or context menu has a mnemonic no other item
 there shares (`MenuTableTest` for the menu bar and the context menu tables,
-`LogViewTest` for every built menu); listed entries have none. `MenuTable` holds
+`LogViewTest` for every built menu); listed entries, Wrap Line and Full Screen
+have none. `MenuTable` holds
 the context menus' layout: `LOG_VIEW_MENU` with `logViewCascade` and
 `LOG_VIEW_CASCADES`, `TAB_MENU`, `PATH_MENU` and `SEARCH_FIELD_MENU`; null is a
 separator. The log view's

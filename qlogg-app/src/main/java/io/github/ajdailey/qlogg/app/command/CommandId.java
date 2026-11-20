@@ -293,6 +293,8 @@ public enum CommandId {
   THEME_SYSTEM(CommandGroup.VIEW, UiText.COMMAND_THEME_SYSTEM, false, true, UiText.MENU_THEME),
   /** Keep the window above other windows; disabled where the platform offers no way. */
   ALWAYS_ON_TOP(CommandGroup.VIEW, UiText.COMMAND_ALWAYS_ON_TOP, false, true),
+  /** Fill the screen with the window; checked while it does. Not saved. */
+  FULL_SCREEN(CommandGroup.VIEW, UiText.COMMAND_FULL_SCREEN, false, true),
   /** Choose a command from a filtered list and run it. */
   COMMAND_PALETTE(CommandGroup.VIEW, UiText.COMMAND_COMMAND_PALETTE, true, false),
   // Highlighters menu.

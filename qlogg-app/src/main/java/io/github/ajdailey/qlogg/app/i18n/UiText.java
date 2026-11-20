@@ -1408,6 +1408,10 @@ public enum UiText {
   /** Tool tip of the disabled Always on Top item where the window manager's menu offers it. */
   ALWAYS_ON_TOP_UNSUPPORTED,
 
+  // Full Screen.
+  /** Command label. */
+  COMMAND_FULL_SCREEN,
+
   // Tab strip buttons and the last tab.
   /** Tab list button tool tip and accessible name. */
   TAB_LIST,
