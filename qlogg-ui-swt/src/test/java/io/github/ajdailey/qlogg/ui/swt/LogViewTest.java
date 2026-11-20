@@ -706,7 +706,7 @@ class LogViewTest {
   /**
    * Every menu, cascade and context menu gives each item a mnemonic letter of its own. Listed
    * entries (paths, open files, sets, charsets, timestamp formats, color labels, tabs), the
-   * placeholders of empty lists, Wrap Line and Full Screen carry none.
+   * placeholders of empty lists and Wrap Line carry none.
    */
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
@@ -790,8 +790,7 @@ class LogViewTest {
         repeated.add(name + ": '" + key + "' again in " + text);
       }
       boolean listed = (item.getStyle() & SWT.RADIO) != 0 && !(item.getData() instanceof CommandId);
-      boolean exempt =
-          item.getData() == CommandId.WRAP_LINE || item.getData() == CommandId.FULL_SCREEN;
+      boolean exempt = item.getData() == CommandId.WRAP_LINE;
       if (key == 0 && !listed && !exempt && fixedLabel(text)) {
         repeated.add(name + ": no mnemonic in " + text);
       }
