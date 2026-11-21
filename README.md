@@ -80,7 +80,7 @@ The Temurin JDK archives and `rcodesign` are downloaded once into
 `~/.m2/repository/.cache/qlogg/` (`-Dqlogg.cache.dir` overrides it) and checked
 against pinned SHA-256 digests.
 
-Builds are reproducible: with the same JDK (CI's Temurin 21.0.13+9), two
+Builds are reproducible: with the same JDK (CI's Temurin 21.0.13.1+2), two
 builds of one commit write byte-identical jars, `qlogg.exe` and archives, every
 entry dated `project.build.outputTimestamp` from the parent POM.
 `.github/scripts/check-reproducible.sh` builds twice and compares SHA-256.
@@ -116,8 +116,8 @@ scripts/container.sh ./mvnw -B spotless:check
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
-every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13+9
-(21.0.12+8 on `windows-11-arm`). Actions are pinned by commit SHA, and every
+every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13.1+2
+(21.0.12.1+1 on `windows-11-arm`). Actions are pinned by commit SHA, and every
 checkout sets `persist-credentials: false`. Linux jobs install Xvfb and GTK 3
 from the Ubuntu archive when the runner image lacks them.
 
@@ -173,6 +173,8 @@ To fix a bad draft, delete the draft and the tag
   declares is never contacted. A settings mirror replaces `central` with its
   own id; a build through one adds
   `-Daether.remoteRepositoryFilter.groupId.noInputOutcome.<mirror-id>=true`.
+  It also retries an HTTP 429 or 503 from the repository 8 times, starting 10
+  seconds apart: Maven Central rate-limits GitHub runners.
 - The `bannedDependencies` enforcer rule fails the build when the SWT host
   artifact `org.eclipse.platform:org.eclipse.swt` reaches a module: its
   OS-activated profiles add the build host's fragment, a second SWT on the
@@ -202,8 +204,24 @@ To fix a bad draft, delete the draft and the tag
   opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
   (GTK 4 libraries required; without them QLogg runs on GTK 3 and logs a
   WARN). Open SWT GTK 4 defects affect scrolling and painting in the log view.
-- The macOS bundles are ad-hoc signed and not notarized, so macOS asks the user
-  to approve the first launch.
+- The Windows launchers and the macOS bundles are not signed by a publisher; see
+  [First launch of an unsigned build](#first-launch-of-an-unsigned-build).
+
+### First launch of an unsigned build
+
+`qlogg.exe` carries no Authenticode signature, and `QLogg.app` is ad-hoc signed
+and not notarized. A downloaded copy therefore needs one approval:
+
+| Platform | First launch |
+|---|---|
+| Windows | SmartScreen shows "Windows protected your PC": choose More info, then Run anyway. Unblocking the downloaded zip first (Properties, Unblock) avoids the prompt. |
+| macOS | macOS refuses the first open. Open System Settings > Privacy & Security and choose Open Anyway for QLogg, or run `xattr -dr com.apple.quarantine QLogg.app` before the first launch. |
+
+The prompt follows the download mark (the Windows Mark of the Web, the macOS
+quarantine attribute), so a copy without it, such as one from removable media,
+shows none. The universal jar needs none:
+`java -jar lib/qlogg.jar` runs under an installed, signed Java 21. Each release
+lists the SHA-256 of every archive in `SHA256SUMS`.
 
 ## Command line
 

@@ -13,7 +13,7 @@ Eclipse Standard Widget Toolkit (SWT) 3.135.0 (3.135.0.v20260819-1952)
 SLF4J 2.0.20 (slf4j-api, slf4j-jdk14)
   License: MIT. https://www.slf4j.org
 
-Eclipse Temurin OpenJDK 21.0.13+9, 21.0.12+8 in the windows-aarch64 bundle
+Eclipse Temurin OpenJDK 21.0.13.1+2, 21.0.12.1+1 in the windows-aarch64 bundle
 (per-target bundles only: runtime/, and the macOS launcher
 Contents/MacOS/QLogg from the jdk.jpackage module)
   License: GNU General Public License version 2 with the Classpath Exception.

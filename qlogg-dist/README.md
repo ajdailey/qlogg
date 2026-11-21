@@ -48,8 +48,8 @@ A `qlogg.conf` marker selects portable mode; where it goes is in [Settings
 directory](../qlogg-app/docs/settings.md#settings-directory).
 
 The runtime is linked by the build JDK's `jlink` from the target JDK's jmods
-(Temurin 21.0.13+9, and 21.0.12+8 for windows-aarch64, which has no 21.0.13+9
-build; downloaded and verified by SHA-256) with
+(Temurin 21.0.13.1+2, and 21.0.12.1+1 for windows-aarch64, which has no
+21.0.13.1+2 build; downloaded and verified by SHA-256) with
 `java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,
 `--strip-java-debug-attributes`, `--no-header-files` and `--no-man-pages`.
 `jdk.charsets` carries the Encoding menu's CJK charsets, which `java.base`
