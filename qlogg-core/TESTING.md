@@ -202,16 +202,18 @@ missing.
 | `ReadBuffersTest` | Two direct little-endian buffers even with an empty `IO_BUFFERS` share; the share and the cap bounding allocation; `trim` dropping free buffers past the minimum; a waiting `acquire` ending on cancel |
 | `FileByteSourceTest` | Positional reads, path, real path, size and head digest; a read after close throwing `ClosedChannelException`; a directory and a missing file refused |
 | `UtilTest` | `Checks` messages naming the argument; `Streams.readLimited` accepting the limit and refusing more |
-| `WorkersTest` | `noTaskRunsAfterCloseReturns` races `tryStart` against `close` 50 times |
+| `WorkersTest` | `noTaskRunsAfterCloseReturns` races `tryStart` against `close` 50 times; `rejectedStartIsNotCounted` reads `liveThreads()` after `close` while another thread keeps calling `tryStart`, 200 times |
 | `CpuStepsTest` | A step from a virtual thread runs on the pool, one from a platform thread on the caller; an `IOException` and an `Error` reach the caller; a cancel between steps; a call after `close`. `spinningStepsLeaveTheVirtualKindsRunnable`: one step per core spins on the pool while a `qlogg-lifecycle-` and a `qlogg-read-` task still run; with the step inline on the virtual thread it fails. `longWorkInStepsLeavesThePoolToShortTasks`: one stepping task per core loops until a short pool task runs; as one long step it fails |
 | `OperationGateTest` | Admission, refusal after close, the idle wait |
 | `ChangeDetectorTest` | Growth, truncation, a renamed file replaced under the name, a rewritten head, a same-size edit past the head digest, a touch with the same bytes, a missing path or a directory, a FIFO renamed in after the attribute read |
 | `FileMonitorTest` | The poll and the cancel; a directory event waking a watch long before its poll interval (skipped on macOS, whose `WatchService` polls); a throwing listener |
 
-- `noTaskRunsAfterCloseReturns`: without the second `closed` check in `start`,
-  a thread started after `close` took its snapshot of the live set. The test
-  polls `liveThreads()` after close, because `ConcurrentHashMap.size` lags a
-  removal the set already shows.
+- `noTaskRunsAfterCloseReturns`: a `start` that checked `closed` before
+  `close` set it and started its thread afterwards ran a task after `close`
+  returned.
+- `rejectedStartIsNotCounted`: a rejected `start` sat in the live set between
+  two `closed` checks, so `liveThreads()` read 1 after `close` returned true in
+  about 5% of rounds.
 - Two `ChangeDetectorTest` growth cases must be `REPLACED`, not `APPENDED`: a
   file opened empty, then written, truncated and regrown longer; and a longer
   rewrite past an unchanged 4 KiB head.

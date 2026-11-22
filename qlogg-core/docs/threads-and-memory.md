@@ -25,10 +25,12 @@ at shutdown.
 - `close(bound)` rejects new tasks, waits up to the bound for running ones,
   then interrupts what is left (`shutdownNow` for the pool). A virtual thread
   that calls `close` does not wait for itself. `liveThreads()` counts the
-  threads that have not ended; `liveThreadNames()` names them for a log line.
-- No task starts after `close` returns: `start` adds the thread to the live
-  set, then checks `closed` again before starting it, and `close` reads the
-  set until it holds no other thread.
+  threads that have not ended and reads 0 once `close` returns true;
+  `liveThreadNames()` names them for a log line.
+- No task starts after `close` returns: `start` checks `closed`, adds the
+  thread to the live set and starts it under a read lock, and `close` sets
+  `closed` under the write lock, so the set only shrinks afterwards.
+  `liveThreads()` counts by iterating the set, as `close` reads it.
 - Pool threads are daemon threads, so a missed `close` cannot keep the JVM
   alive.
 - Code that catches `InterruptedException` restores the interrupt flag, then
