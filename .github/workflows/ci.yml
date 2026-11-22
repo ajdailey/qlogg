@@ -232,7 +232,7 @@ jobs:
   # a time; the script skips a commit older than the one published.
   continuous:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, bundle]
+    needs: [test, test-gtk4, bundle]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
