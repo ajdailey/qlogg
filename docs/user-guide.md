@@ -824,6 +824,18 @@ A command-line error, such as an unknown option, a bad value, `-s` with `-n`,
 platform or Java exits 2; an SWT start failure, such as missing GTK libraries,
 exits 3; a quit after an internal error exits 4.
 
+On Windows `qlogg` is `qlogg.exe`, or `qlogg.cmd` where Windows blocks the
+`.exe`. Both exit 0 once Java starts, so the exit statuses above reach only
+`java -jar` and `bin/qlogg`. Through `qlogg.cmd`, quote every argument holding
+a space or `&`, `|`, `<`, `>` or `^`: cmd.exe runs the text after an unquoted
+`&` as another command and drops an unquoted `^`. For the same reason, drop
+such a file on the QLogg window, not on `qlogg.cmd`, and start `qlogg.exe`
+from PowerShell, which quotes only arguments holding a space. Through either
+launcher a file name with characters outside the Windows code page for
+non-Unicode programs, such as a Japanese name on an English system, arrives
+with `?` in their place; open it from File > Open. Neither launcher starts
+from a folder whose path holds `;` or such characters.
+
 ## Known issues
 
 - Windows: renaming the folder that holds an open log, or a folder above it,

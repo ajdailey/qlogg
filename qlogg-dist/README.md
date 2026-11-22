@@ -22,8 +22,8 @@ jars under `META-INF/qlogg/lib/`, the six SWT fragments unmodified under
 plugin cannot merge the fragments, which share class names.
 
 `qlogg-<version>.zip` holds `qlogg/lib/qlogg.jar`, `qlogg/bin/qlogg`,
-`qlogg/qlogg.exe`, `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` (every bundled
-third-party component and its license text).
+`qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `LICENSE`, `NOTICE` and
+`THIRD-PARTY.txt` (every bundled third-party component and its license text).
 
 ## Bundles
 
@@ -33,7 +33,7 @@ every target runs the jar that was tested.
 | Target | Archive | Layout |
 |---|---|---|
 | Linux | `.tar.gz` | `qlogg/bin/qlogg`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/` |
-| Windows | `.zip` | `qlogg/qlogg.exe`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/` |
+| Windows | `.zip` | `qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/` |
 | macOS | `.zip` | `QLogg.app/Contents/{Info.plist, MacOS/QLogg, app/QLogg.cfg, app/lib/qlogg.jar, runtime/, Resources/QLogg.icns, Resources/swt/}` |
 
 `lib/swt/` holds the target's natives, `about.html` and `about_files/`,
@@ -116,6 +116,7 @@ recovery are in the root `README.md` under "Continuous integration".
 |---|---|
 | `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. `--gtk4` before `--` sets `SWT_GTK4=1` and is not passed to Java. Runs only `uname` and `readlink` besides Java |
 | `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation. CI's `bundle windows-aarch64` job (`windows-11-arm`) checks that it starts `runtime\bin\javaw.exe` with PE machine `ARM64` and opens the main window (`.github/scripts/check-bundle.ps1`) |
+| `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`; then `%*`. `start "" /b` returns at once and gives Java the console's output, so `-v`, `-h` and errors print as through `qlogg.exe`, and a double-clicked console closes. Without Java it prints a message, pauses and exits 1. cmd.exe parses `%*`: an unquoted argument holding `&`, `\|`, `<` or `>` ends the command and runs the rest as a new one, and an unquoted `^` is dropped. It does not read `qlogg.l4j.ini` |
 | `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `-XX:MaxRAMPercentage=50` and `-XX:GCTimeRatio=1`; the layout copies jpackage's |
 
 `rcodesign` 0.29.0 ad-hoc signs each `QLogg.app` on Linux with
@@ -125,8 +126,15 @@ JVM needs under the hardened runtime. rcodesign cannot sign a shell script as
 the main executable, so the macOS launcher is the jpackage binary.
 CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
 The bundles are not notarized. On every target, the CI `bundle` job also runs
-the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` on Windows) with
-setup-java's JDK as `JAVA_HOME`.
+the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` and `qlogg.cmd` on
+Windows) with setup-java's JDK as `JAVA_HOME`. On Windows `check-bundle.ps1`
+also runs copies of `qlogg.cmd` over `LauncherProbe` and a `java.management`
+runtime, which the bundle's lacks, from folders named `with space` and
+`amp & pct 100%`: the probe must report the copy's `runtime`, its
+`lib\qlogg.jar`, `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1` and 11 quoted
+arguments holding a space, `&`, `^`, `%`, `!`, `(`, `)`, `'` or nothing. A copy
+without `runtime` must take `JAVA_HOME` before `PATH` and exit 1 without
+either, and `qlogg.cmd -v` must print the version.
 
 ## Icons
 
@@ -151,3 +159,7 @@ outlive the build:
 | Linux bundle with `-l`, `PATH` holding only `uname` and `readlink` | Reports its own `runtime/` as `java.home`, opens the same window, and after SIGTERM leaves one `qlogg-<pid>.log` holding the shutdown hook's line and no other file in `logs` |
 | Linux bundle `bin/qlogg --gtk4`, stub `runtime/bin/java` | Exports `SWT_GTK4=1`, drops `--gtk4` before `--` and passes one after it as a file name |
 | Linux bundle runtime | Has `jdk.charsets` and no `keytool`, and supports every charset the Encoding menu lists (`CharsetProbe`) |
+
+`LauncherProbe` is not a test: `check-bundle.ps1` runs it as `lib\qlogg.jar`
+under `qlogg.cmd`, and it writes `java.home`, the class path, the JVM options
+and the arguments to the file `QLOGG_PROBE_OUT` names.

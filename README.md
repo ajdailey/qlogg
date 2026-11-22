@@ -129,7 +129,7 @@ from the Ubuntu archive when the runner image lacks them.
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME` |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus the POM version, runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
 
@@ -201,7 +201,8 @@ To fix a bad draft, delete the draft and the tag
 | macos-aarch64 | `cocoa.macosx.aarch64` | `qlogg-<version>-macos-aarch64.zip` (`QLogg.app`) |
 
 - `qlogg-<version>.zip` holds the universal `lib/qlogg.jar`, which runs on all
-  six targets under an installed Java 21, with `bin/qlogg` and `qlogg.exe`.
+  six targets under an installed Java 21, with `bin/qlogg`, `qlogg.exe` and
+  `qlogg.cmd`.
 - Each bundle adds a Java runtime for its target, so it needs no installed
   Java.
 - Linux targets need the system GTK 3 libraries. GTK 4 is an experimental
@@ -220,6 +221,12 @@ and not notarized. A downloaded copy therefore needs one approval:
 |---|---|
 | Windows | SmartScreen shows "Windows protected your PC": choose More info, then Run anyway. Unblocking the downloaded zip first (Properties, Unblock) avoids the prompt. |
 | macOS | macOS refuses the first open. Open System Settings > Privacy & Security and choose Open Anyway for QLogg, or run `xattr -dr com.apple.quarantine QLogg.app` before the first launch. |
+
+On Windows `qlogg.cmd` starts the same `javaw.exe` and jar without
+`qlogg.exe`. What Windows shows for a downloaded `.cmd` is unverified: Explorer
+marks the files it extracts from a downloaded zip as from the internet, and
+opening a marked script may show an "Open File - Security Warning" rather than
+SmartScreen's page.
 
 The prompt follows the download mark (the Windows Mark of the Web, the macOS
 quarantine attribute), so a copy without it, such as one from removable media,
@@ -247,7 +254,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows |
 | `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
-| `--gtk4` | `bin/qlogg` only: sets `SWT_GTK4=1` for the experimental GTK 4 backend and is not passed to Java, so `qlogg.jar` and `qlogg.exe` reject it |
+| `--gtk4` | `bin/qlogg` only: sets `SWT_GTK4=1` for the experimental GTK 4 backend and is not passed to Java, so `qlogg.jar`, `qlogg.exe` and `qlogg.cmd` reject it |
 | `--` | End of options |
 | `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f` and `+line:N` |
 

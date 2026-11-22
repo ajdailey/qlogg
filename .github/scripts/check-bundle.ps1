@@ -4,8 +4,10 @@
 # bundle, the image's PE machine is $env:EXPECTED_MACHINE and its log shows the
 # main window and no failure. An ARM64 image
 # cannot run under x86 or x64 emulation, so ARM64 proves a native arm64 JVM.
-# Then starts the universal zip's qlogg.exe, which has no runtime, and passes
-# when its child runs javaw.exe from $env:JAVA_HOME.
+# qlogg.cmd then runs the same check; it also runs LauncherProbe in place of qlogg.jar to check
+# the Java it picks, the JVM options and the arguments it passes, and its -v must print the
+# version. Both launchers of the universal zip, which has no runtime, then run the first check
+# and pass when the child runs javaw.exe from $env:JAVA_HOME.
 $ErrorActionPreference = 'Stop'
 
 function Get-PeMachine([string] $Path) {
@@ -48,13 +50,14 @@ function Wait-LogLine([string] $Path, [string] $Text) {
   }
 }
 
-# Starts $Exe on the mock log and checks the javaw.exe child it starts: its
-# image must be $Javaw with PE machine $env:EXPECTED_MACHINE, and its log
+# Starts $Exe, qlogg.exe or qlogg.cmd, on the mock log and checks the javaw.exe child it starts
+# (for qlogg.cmd, the child of its cmd.exe): its image must be $Javaw with PE machine $env:EXPECTED_MACHINE, and its log
 # (-l; qlogg-<pid>.log under -m) must show the main window and no unhandled or
 # UI task failure. $Name names the run's settings directory.
 function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   $settings = Join-Path $work "settings-$Name"
-  Write-Output "$Name qlogg.exe image: $(Get-PeMachine $Exe)"
+  $exeName = Split-Path -Leaf $Exe
+  if ($exeName -like '*.exe') { Write-Output "$Name $exeName image: $(Get-PeMachine $Exe)" }
   $launcher = Start-Process -FilePath $Exe -ArgumentList @('-m', '-l', '--settings', "`"$settings`"", "`"$log`"") -PassThru
 
   $child = $null
@@ -65,11 +68,11 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
       Select-Object -First 1
     if (-not $child) { Start-Sleep -Milliseconds 100 }
   }
-  if (-not $child) { throw "$Name qlogg.exe (pid $($launcher.Id)) started no javaw.exe running qlogg.jar within 60 s" }
+  if (-not $child) { throw "$Name $exeName (pid $($launcher.Id)) started no javaw.exe running qlogg.jar within 60 s" }
 
   $path = $child.ExecutablePath
   $machine = Get-PeMachine $path
-  Write-Output "$Name child pid $($child.ProcessId) of qlogg.exe pid $($launcher.Id)"
+  Write-Output "$Name child pid $($child.ProcessId) of $exeName pid $($launcher.Id)"
   Write-Output "$Name child image: $path"
   Write-Output "$Name child image machine: $machine, expected $env:EXPECTED_MACHINE"
   Write-Output "$Name child command line: $($child.CommandLine)"
@@ -90,12 +93,110 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   if (-not $text.Contains('Main window open')) { throw "$Name opened no main window within 60 s" }
   if ($text.Contains('Unhandled failure')) { throw "$Name logged an unhandled failure" }
   if ($text.Contains('UI task failed')) { throw "$Name logged a UI task failure" }
-  Write-Output "PASS: $Name qlogg.exe started the $machine runtime $path and opened the main window"
+  Write-Output "PASS: $Name $exeName started the $machine runtime $path and opened the main window"
+}
+
+# Runs cmd.exe /d /s /c "$Line" with $Line passed as given, standard input closed and each
+# $Environment entry set, or removed when its value is $null. Returns the exit code, stdout and
+# stderr, which close only when every process holding them ends, Java's included.
+function Invoke-Cmd([string] $Line, [hashtable] $Environment) {
+  $info = New-Object System.Diagnostics.ProcessStartInfo $env:ComSpec
+  $info.Arguments = "/d /s /c `"$Line`""
+  $info.UseShellExecute = $false
+  $info.RedirectStandardInput = $true
+  $info.RedirectStandardOutput = $true
+  $info.RedirectStandardError = $true
+  foreach ($key in $Environment.Keys) {
+    if ($null -eq $Environment[$key]) { [void] $info.Environment.Remove($key) }
+    else { $info.Environment[$key] = $Environment[$key] }
+  }
+  $process = [System.Diagnostics.Process]::Start($info)
+  $process.StandardInput.Close()
+  $stdout = $process.StandardOutput.ReadToEndAsync()
+  $stderr = $process.StandardError.ReadToEndAsync()
+  if (-not $process.WaitForExit(60000)) {
+    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    throw "cmd.exe /c $Line did not exit within 60 s"
+  }
+  # javaw.exe shows a launcher error, such as an unreadable jar, in a dialog and holds the output.
+  if (-not ($stdout.Wait(60000) -and $stderr.Wait(60000))) { throw "cmd.exe /c $Line started a Java that has not ended within 60 s" }
+  [pscustomobject] @{ ExitCode = $process.ExitCode; Stdout = $stdout.Result; Stderr = $stderr.Result }
+}
+
+# Copies $Bundle's qlogg.cmd, with LauncherProbe as lib\qlogg.jar, into $Folder\qlogg, and the
+# probe runtime as its runtime unless $NoRuntime. Returns the copy's qlogg folder.
+function New-ProbeTree([string] $Bundle, [string] $Folder, [switch] $NoRuntime) {
+  $tree = Join-Path $Folder 'qlogg'
+  New-Item -ItemType Directory -Path (Join-Path $tree 'lib') -Force | Out-Null
+  Copy-Item -LiteralPath (Join-Path $Bundle 'qlogg.cmd') -Destination $tree
+  Copy-Item -LiteralPath $probeJar -Destination (Join-Path $tree 'lib\qlogg.jar')
+  if (-not $NoRuntime) { Copy-Item -LiteralPath $probeRuntime -Destination (Join-Path $tree 'runtime') -Recurse }
+  $tree
+}
+
+# Runs $Tree\qlogg.cmd with the raw argument text $Arguments and returns LauncherProbe's lines.
+function Invoke-Probe([string] $Tree, [string] $Arguments, [hashtable] $Environment) {
+  $out = Join-Path $work "probe-$([guid]::NewGuid()).txt"
+  $Environment['QLOGG_PROBE_OUT'] = $out
+  $result = Invoke-Cmd "`"$(Join-Path $Tree 'qlogg.cmd')`" $Arguments" $Environment
+  if ($result.ExitCode -ne 0) { throw "qlogg.cmd in $Tree exited $($result.ExitCode): $($result.Stderr)" }
+  # qlogg.cmd returns once javaw starts; the probe writes its file after.
+  $deadline = (Get-Date).AddSeconds(60)
+  while (-not (Test-Path -LiteralPath $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
+  if (-not (Test-Path -LiteralPath $out)) { throw "LauncherProbe under $Tree wrote no $out within 60 s" }
+  Get-Content -LiteralPath $out -Encoding utf8
+}
+
+# Fails unless $Lines name $JavaHome, $Tree\lib\qlogg.jar, the JVM options of qlogg.exe and
+# exactly $Expected as the arguments.
+function Assert-Probe([string[]] $Lines, [string] $Tree, [string] $JavaHome, [string[]] $Expected) {
+  $want = @("home=$JavaHome", "jar=$(Join-Path $Tree 'lib\qlogg.jar')", 'opt=-XX:MaxRAMPercentage=50', 'opt=-XX:GCTimeRatio=1')
+  foreach ($arg in $Expected) { $want += "arg=$arg" }
+  $got = $Lines -join "`n"
+  if ($got -cne ($want -join "`n")) { throw "qlogg.cmd in $Tree passed`n$got`nexpected`n$($want -join "`n")" }
+}
+
+$cmdArguments = @('-m', '+3:2', 'a b.txt', 'x&y.txt', 'c^d.txt', '100%.txt', '5%x%.txt', 'bang!.txt', '(p).txt', "it's.txt", '')
+# Each argument quoted, as typed at a command prompt.
+$cmdLine = ($cmdArguments | ForEach-Object { "`"$_`"" }) -join ' '
+
+# qlogg.cmd from a folder named $FolderName passes the arguments unchanged to the runtime beside
+# it, ahead of JAVA_HOME.
+function Test-CmdArguments([string] $Bundle, [string] $FolderName) {
+  $tree = New-ProbeTree $Bundle (Join-Path $work "cmd\$FolderName")
+  $lines = Invoke-Probe $tree $cmdLine @{ JAVA_HOME = $jdk }
+  Assert-Probe $lines $tree (Join-Path $tree 'runtime') $cmdArguments
+  Write-Output "PASS: qlogg.cmd in '$FolderName' passed $($cmdArguments.Count) arguments to its runtime"
+}
+
+# Without a runtime folder qlogg.cmd takes JAVA_HOME, else javaw.exe on PATH, else exits 1.
+function Test-CmdJavaOrder([string] $Bundle) {
+  $tree = New-ProbeTree $Bundle (Join-Path $work 'cmd\no runtime') -NoRuntime
+  $system = Join-Path $env:SystemRoot 'System32'
+  $empty = New-Item -ItemType Directory -Path (Join-Path $work 'cmd\empty') -Force
+  $lines = Invoke-Probe $tree '"a b.txt"' @{ JAVA_HOME = $jdk; PATH = $system }
+  Assert-Probe $lines $tree $jdk @('a b.txt')
+  $lines = Invoke-Probe $tree '"a b.txt"' @{ JAVA_HOME = $empty.FullName; PATH = "$jdk\bin;$system" }
+  Assert-Probe $lines $tree $jdk @('a b.txt')
+  $result = Invoke-Cmd "`"$(Join-Path $tree 'qlogg.cmd')`"" @{ JAVA_HOME = $null; PATH = $system }
+  if ($result.ExitCode -ne 1) { throw "qlogg.cmd without Java exited $($result.ExitCode)" }
+  if (-not $result.Stderr.Contains('QLogg needs Java 21')) { throw "qlogg.cmd without Java wrote: $($result.Stderr)" }
+  Write-Output 'PASS: qlogg.cmd took JAVA_HOME, then PATH, and exited 1 without Java'
+}
+
+# qlogg.cmd -v prints the bundle's version to this console as its first line.
+function Test-CmdVersion([string] $Bundle) {
+  $result = Invoke-Cmd "`"$(Join-Path $Bundle 'qlogg.cmd')`" -v" @{}
+  $want = "qlogg $version"
+  $first = ($result.Stdout -split "`r?`n")[0]
+  if ($first -cne $want) { throw "qlogg.cmd -v printed [$($result.Stdout)] [$($result.Stderr)], expected $want" }
+  Write-Output "PASS: qlogg.cmd -v printed $want"
 }
 
 $work = Join-Path $PWD 'bundle-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 $archive = Get-Item "dist\qlogg-*-$env:TARGET.zip"
+$version = $archive.Name.Substring(6, $archive.Name.Length - 6 - "-$env:TARGET.zip".Length)
 Expand-Archive -Path $archive.FullName -DestinationPath $work
 $bundle = (Resolve-Path (Join-Path $work 'qlogg')).Path
 
@@ -112,6 +213,23 @@ if (Test-Path (Join-Path $bundle 'runtime\bin\keytool.exe')) { throw 'runtime ha
 $log = Join-Path $work 'app.log'
 Set-Content -Path $log -Value 'mock line'
 Test-Launcher (Join-Path $bundle 'qlogg.exe') (Join-Path $bundle 'runtime\bin\javaw.exe') 'bundle'
+Test-Launcher (Join-Path $bundle 'qlogg.cmd') (Join-Path $bundle 'runtime\bin\javaw.exe') 'bundle-cmd'
+
+$jdk = (Resolve-Path $env:JAVA_HOME).Path
+$probeClasses = Join-Path $work 'probe-classes'
+& (Join-Path $jdk 'bin\javac.exe') -d $probeClasses 'qlogg-dist\src\test\java\io\github\ajdailey\qlogg\dist\LauncherProbe.java'
+if ($LASTEXITCODE -ne 0) { throw "javac exited $LASTEXITCODE" }
+$probeJar = Join-Path $work 'probe.jar'
+& (Join-Path $jdk 'bin\jar.exe') --create --file $probeJar --main-class io.github.ajdailey.qlogg.dist.LauncherProbe -C $probeClasses .
+if ($LASTEXITCODE -ne 0) { throw "jar exited $LASTEXITCODE" }
+# LauncherProbe reads the JVM options through java.management, which the bundle's runtime lacks.
+$probeRuntime = Join-Path $work 'probe-runtime'
+& (Join-Path $jdk 'bin\jlink.exe') --add-modules java.base,java.management --output $probeRuntime
+if ($LASTEXITCODE -ne 0) { throw "jlink exited $LASTEXITCODE" }
+Test-CmdArguments $bundle 'with space'
+Test-CmdArguments $bundle 'amp & pct 100%'
+Test-CmdJavaOrder $bundle
+Test-CmdVersion $bundle
 
 $universal = Get-ChildItem dist -Filter 'qlogg-*.zip' |
   Where-Object { $_.Name -notmatch '-(linux|macos|windows)-' } |
@@ -119,5 +237,5 @@ $universal = Get-ChildItem dist -Filter 'qlogg-*.zip' |
 if (-not $universal) { throw 'no universal zip in dist' }
 $universalDir = Join-Path $work 'universal'
 Expand-Archive -Path $universal.FullName -DestinationPath $universalDir
-$jdk = (Resolve-Path $env:JAVA_HOME).Path
 Test-Launcher (Join-Path $universalDir 'qlogg\qlogg.exe') (Join-Path $jdk 'bin\javaw.exe') 'universal'
+Test-Launcher (Join-Path $universalDir 'qlogg\qlogg.cmd') (Join-Path $jdk 'bin\javaw.exe') 'universal-cmd'
