@@ -123,14 +123,14 @@ function Invoke-Cmd([string] $Line, [hashtable] $Environment) {
   [pscustomobject] @{ ExitCode = $process.ExitCode; Stdout = $stdout.Result; Stderr = $stderr.Result }
 }
 
-# Copies $Bundle's qlogg.cmd, with LauncherProbe as lib\qlogg.jar, into $Folder\qlogg, and the
-# probe runtime as its runtime unless $NoRuntime. Returns the copy's qlogg folder.
+# Copies $Bundle's qlogg.cmd, with LauncherProbe as lib\qlogg.jar, into $Folder\qlogg, and
+# $Bundle's runtime unless $NoRuntime. Returns the copy's qlogg folder.
 function New-ProbeTree([string] $Bundle, [string] $Folder, [switch] $NoRuntime) {
   $tree = Join-Path $Folder 'qlogg'
   New-Item -ItemType Directory -Path (Join-Path $tree 'lib') -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path $Bundle 'qlogg.cmd') -Destination $tree
   Copy-Item -LiteralPath $probeJar -Destination (Join-Path $tree 'lib\qlogg.jar')
-  if (-not $NoRuntime) { Copy-Item -LiteralPath $probeRuntime -Destination (Join-Path $tree 'runtime') -Recurse }
+  if (-not $NoRuntime) { Copy-Item -LiteralPath (Join-Path $Bundle 'runtime') -Destination (Join-Path $tree 'runtime') -Recurse }
   $tree
 }
 
@@ -222,10 +222,6 @@ if ($LASTEXITCODE -ne 0) { throw "javac exited $LASTEXITCODE" }
 $probeJar = Join-Path $work 'probe.jar'
 & (Join-Path $jdk 'bin\jar.exe') --create --file $probeJar --main-class io.github.ajdailey.qlogg.dist.LauncherProbe -C $probeClasses .
 if ($LASTEXITCODE -ne 0) { throw "jar exited $LASTEXITCODE" }
-# LauncherProbe reads the JVM options through java.management, which the bundle's runtime lacks.
-$probeRuntime = Join-Path $work 'probe-runtime'
-& (Join-Path $jdk 'bin\jlink.exe') --add-modules java.base,java.management --output $probeRuntime
-if ($LASTEXITCODE -ne 0) { throw "jlink exited $LASTEXITCODE" }
 Test-CmdArguments $bundle 'with space'
 Test-CmdArguments $bundle 'amp & pct 100%'
 Test-CmdJavaOrder $bundle

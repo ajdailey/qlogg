@@ -38,8 +38,11 @@
   <!-- jdeps over the application jars reports java.desktop (SWT_AWT only,
        unused), java.logging and java.naming; jdk.zipfs serves the bootstrap's
        nested-jar loader; jdk.charsets holds the encodings java.base lacks on
-       Windows and macOS (Big5, EUC-JP, EUC-KR, Shift_JIS among them). -->
-  <property name="modules" value="java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs"/>
+       Windows and macOS (Big5, EUC-JP, EUC-KR, Shift_JIS among them);
+       java.management lets CI's LauncherProbe read the JVM options qlogg.cmd
+       passes to this runtime. -->
+  <property name="modules"
+      value="java.base,java.logging,java.management,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs"/>
 
   <!-- Every jar and zip entry carries project.build.outputTimestamp. Ant
        writes zip entry times in the host time zone, so archive.time is that

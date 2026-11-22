@@ -223,10 +223,10 @@ and not notarized. A downloaded copy therefore needs one approval:
 | macOS | macOS refuses the first open. Open System Settings > Privacy & Security and choose Open Anyway for QLogg, or run `xattr -dr com.apple.quarantine QLogg.app` before the first launch. |
 
 On Windows `qlogg.cmd` starts the same `javaw.exe` and jar without
-`qlogg.exe`. What Windows shows for a downloaded `.cmd` is unverified: Explorer
-marks the files it extracts from a downloaded zip as from the internet, and
-opening a marked script may show an "Open File - Security Warning" rather than
-SmartScreen's page.
+`qlogg.exe`. From a downloaded zip extracted by Explorer, it shows "Open File -
+Security Warning" (publisher not verified; Run or Cancel) instead of
+SmartScreen's page; after Unblock neither launcher prompts (measured on
+Windows 11 with SmartScreen at its default and Smart App Control off).
 
 The prompt follows the download mark (the Windows Mark of the Web, the macOS
 quarantine attribute), so a copy without it, such as one from removable media,

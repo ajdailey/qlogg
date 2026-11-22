@@ -50,11 +50,12 @@ directory](../qlogg-app/docs/settings.md#settings-directory).
 The runtime is linked by the build JDK's `jlink` from the target JDK's jmods
 (Temurin 21.0.13.1+2, and 21.0.12.1+1 for windows-aarch64, which has no
 21.0.13.1+2 build; downloaded and verified by SHA-256) with
-`java.base,java.logging,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,
+`java.base,java.logging,java.management,java.naming,jdk.charsets,jdk.unsupported,jdk.zipfs`,
 `--strip-java-debug-attributes`, `--no-header-files` and `--no-man-pages`.
 `jdk.charsets` carries the Encoding menu's CJK charsets, which `java.base`
-lacks on Windows and macOS. `jdeps` reports `java.desktop` too, used only by
-`SWT_AWT`, so it is left out. `--strip-debug` is not used: it runs the host
+lacks on Windows and macOS. `java.management` lets `LauncherProbe` read the JVM
+options `qlogg.cmd` passes to the bundle's runtime. `jdeps` reports
+`java.desktop` too, used only by `SWT_AWT`, so it is left out. `--strip-debug` is not used: it runs the host
 `objcopy` on target binaries and fails across targets.
 
 The `runtime` macro deletes `keytool` (`keytool.exe` on Windows) from
@@ -128,9 +129,8 @@ CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
 The bundles are not notarized. On every target, the CI `bundle` job also runs
 the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` and `qlogg.cmd` on
 Windows) with setup-java's JDK as `JAVA_HOME`. On Windows `check-bundle.ps1`
-also runs copies of `qlogg.cmd` over `LauncherProbe` and a `java.management`
-runtime, which the bundle's lacks, from folders named `with space` and
-`amp & pct 100%`: the probe must report the copy's `runtime`, its
+also runs copies of `qlogg.cmd` over `LauncherProbe` and a copy of the
+bundle's `runtime` from folders named `with space` and `amp & pct 100%`: the probe must report the copy's `runtime`, its
 `lib\qlogg.jar`, `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1` and 11 quoted
 arguments holding a space, `&`, `^`, `%`, `!`, `(`, `)`, `'` or nothing. A copy
 without `runtime` must take `JAVA_HOME` before `PATH` and exit 1 without
