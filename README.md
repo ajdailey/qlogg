@@ -8,6 +8,7 @@
 [![CI](https://github.com/ajdailey/qlogg/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ajdailey/qlogg/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ajdailey/qlogg)](https://github.com/ajdailey/qlogg/releases/latest)
 [![License](https://img.shields.io/github/license/ajdailey/qlogg)](LICENSE)
+[![Continuous build](https://img.shields.io/github/release-date-pre/ajdailey/qlogg?label=continuous)](https://github.com/ajdailey/qlogg/releases/tag/continuous)
 
 QLogg is a cross-platform viewer for large and growing log files, written in
 Java 21 with SWT. It makes no outbound network connections; its only socket is
@@ -128,10 +129,11 @@ from the Ubuntu archive when the runner image lacks them.
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
 | `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
-| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus the POM version, runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
+| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
+| `continuous` | `ubuntu-24.04` | Pushes to `main` only, after the same jobs as `release`: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
 
 CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg`, cached by the
 `package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
@@ -141,25 +143,46 @@ Maven cache holds no JDK.
 
 The draft Release carries the seven archives the `bundle` jobs ran,
 `SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
-release notes. Only the `release` job has `contents: write`. To release:
+release notes. Only the `release` and `continuous` jobs have `contents:
+write`.
 
-1. Check the bundled Temurin build (`jdk.*` in `qlogg-dist/src/build/dist.xml`)
+The [`continuous`](https://github.com/ajdailey/qlogg/releases/tag/continuous)
+pre-release holds the build of the newest `main` commit whose CI run passed,
+never marked Latest; its body names the commit, the run and the date.
+Publishes run one at a time, and `publish-continuous.sh` skips a commit older
+than the one `continuous` holds, so a re-run of an older run never replaces a
+newer build.
+
+Every module's version is `${revision}`, set once in the parent POM
+(`<revision>0.1.1-SNAPSHOT</revision>`); flatten-maven-plugin writes the
+resolved POM into each jar. The `package` job builds with `-Drevision`: the
+tag's version for a `v*` tag, otherwise `<revision>+<short commit>` (for
+example `0.1.1-SNAPSHOT+60d8d67`), which the archive names,
+`Implementation-Version`, `qlogg.exe`'s version text and `-v` carry. A local
+build without `-Drevision` uses `<revision>`.
+
+To release:
+
+1. Set `project.build.outputTimestamp` to the release date and commit; the tag
+   goes on that commit, whose `<revision>` stays `<version>-SNAPSHOT`. After
+   the release, set `<revision>` to the next `-SNAPSHOT` version.
+2. Check the bundled Temurin build (`jdk.*` in `qlogg-dist/src/build/dist.xml`)
    against the latest Oracle Critical Patch Update and the OpenJDK advisories;
    move the pins if a fixed build exists.
-2. Push an annotated tag:
+3. Push an annotated tag:
 
    ```sh
    git tag -a v<version> -m "QLogg <version>" && git push origin v<version>
    ```
 
-3. Review the draft on the repository's Releases page.
-4. Replace the generated notes with the hand-written release notes:
+4. Review the draft on the repository's Releases page.
+5. Replace the generated notes with the hand-written release notes:
 
    ```sh
    gh release edit v<version> --notes-file <notes>.md
    ```
 
-5. Publish the draft on the Releases page, or with `gh release edit v<version>
+6. Publish the draft on the Releases page, or with `gh release edit v<version>
    --draft=false`.
 
 To fix a bad draft, delete the draft and the tag

@@ -75,8 +75,8 @@ match what unzips.
 ## Reproducible output
 
 Every archive entry, and every entry of `qlogg.jar`, is dated
-`project.build.outputTimestamp` (parent POM; set it to the release date when
-the version changes):
+`project.build.outputTimestamp` (parent POM; the release commit sets it to the
+release date):
 
 - `jar` and `zip` take `modificationtime` from `archive.time`, the instant's
   UTC wall time. Ant writes DOS entry times in the host time zone, so every
@@ -95,7 +95,9 @@ The jlink runtimes and the ad-hoc rcodesign signature hold no build time.
 jlink runs under `LC_ALL=C.UTF-8`: under a non-UTF-8 locale it writes a
 different `lib/modules`. `.github/scripts/check-reproducible.sh` builds twice,
 the second time under another time zone, umask and locale, and compares the SHA-256 of every archive,
-`qlogg.exe` and module jar.
+`qlogg.exe` and module jar. The version is part of the output: two builds
+compare equal only with the same `-Drevision`, so the `release` job passes the
+tag's.
 
 ## Release artifacts
 
@@ -107,8 +109,11 @@ lists them; `stage-lib` excludes `org.eclipse.platform`, so the archives are
 unchanged. In CI, `.github/scripts/sbom-components.sh` adds the Temurin
 releases `dist.xml` downloads and launch4j's header.
 
+The archive and SBOM names carry the version `-Drevision` sets: the tag's
+version for a `v*` tag, `<revision>+<short commit>` for any other CI build.
 A pushed `v*` tag ends in a draft GitHub Release holding the seven archives,
-`SHA256SUMS` and the SBOM; the maintainer reviews and publishes it. Steps and
+`SHA256SUMS` and the SBOM; the maintainer reviews and publishes it. A green
+push to `main` replaces the `continuous` pre-release with the same set. Steps and
 recovery are in the root `README.md` under "Continuous integration".
 
 ## Launchers

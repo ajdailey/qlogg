@@ -7,7 +7,7 @@
 
     <groupId>io.github.ajdailey.qlogg</groupId>
     <artifactId>qlogg-parent</artifactId>
-    <version>0.1.1</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>QLogg</name>
@@ -31,12 +31,16 @@
     </modules>
 
     <properties>
+        <!-- The version of every module. CI overrides it with -Drevision:
+             the tag's version for a v* tag, this value plus "+" and the short
+             commit otherwise. -->
+        <revision>0.1.1-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <!-- Entry time of every jar and archive the build writes, and the
-             qlogg.exe link time. Set it to the release date when the version
-             changes. ISO-8601 UTC with seconds, the form dist.xml passes to
+             qlogg.exe link time. The release commit sets it to the release
+             date. ISO-8601 UTC with seconds, the form dist.xml passes to
              Ant, GNU tar and PeTimestamp. -->
         <project.build.outputTimestamp>2026-11-19T00:00:00Z</project.build.outputTimestamp>
 
@@ -47,6 +51,7 @@
         <checkstyle.version>14.4.0</checkstyle.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
         <findsecbugs.version>1.14.0</findsecbugs.version>
+        <flatten-maven-plugin.version>1.9.0</flatten-maven-plugin.version>
         <!-- 1.37.0 fails inside spotless-maven-plugin 3.11.0 (InvocationTargetException
              on every file) while it formats correctly standalone. -->
         <google-java-format.version>1.36.1</google-java-format.version>
@@ -417,6 +422,28 @@
         </pluginManagement>
 
         <plugins>
+            <!-- Writes target/.flattened-pom.xml with ${revision} resolved and
+                 makes it the project's POM, so the jars' META-INF/maven POMs
+                 and the installed POMs name the real version. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <updatePomFile>true</updatePomFile>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
