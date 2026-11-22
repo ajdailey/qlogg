@@ -16,6 +16,7 @@ loads every other QLogg class, and SWT, through its own class loader.
 | `Natives`, `NativesLocation` | Native library verification and extraction |
 | `NestedJarClassLoader` | Classes and resources from nested jars |
 | `MacRelaunch` | Relaunch with `-XstartOnFirstThread` |
+| `CmdArguments` | The arguments `qlogg.cmd` passes in `QLOGG_CMDLINE` |
 
 ## Startup
 
@@ -23,7 +24,10 @@ loads every other QLogg class, and SWT, through its own class loader.
 `QLogg requires Java 21 or later; <java.home> is Java <version>.` and exits 2
 instead of failing with `UnsupportedClassVersionError`. It reaches `Boot`
 through reflection, because a Java 8 compilation cannot link to Java 21
-bytecode. `Boot.start` then:
+bytecode. Under `qlogg.cmd` (`-Dqlogg.launcher=cmd` and no arguments)
+`Boot.start` takes the arguments from `QLOGG_CMDLINE`, split by the C runtime
+rules (`CmdArguments`), and every later step and the launcher see those. It
+then:
 
 1. Maps `os.name` and `os.arch` to a `Target` (`Target.current`); any other
    platform prints one line and exits 2. `NativesLocation` and `MacRelaunch`
@@ -126,6 +130,7 @@ inherited.
 |---|---|
 | `MainTest` | Java 21 and later accepted, the message naming the running Java, `Main` compiled as Java 8 bytecode; `java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named by `-Dqlogg.test.java8=<path to java>` and is skipped without it |
 | `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
+| `CmdArgumentsTest` | Microsoft's examples of the C runtime rules, empty quoted arguments, wildcards and CJK passed unchanged, the variable read only under `qlogg.cmd` with no arguments |
 | `RelaunchTest` | A relaunch parent killed with `Process.destroy` (SIGTERM; the child gone when the parent has exited) and `destroyForcibly` (SIGKILL; the child gone within a bound). On macOS the parent runs the real relaunch with `-XstartOnFirstThread` over a generated jar; elsewhere it runs the child through `MacRelaunch.run`. On Windows both kills end the parent without hooks, so both take the standard input path |
 | `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both, `current` matching this JVM |
 | `NativesTest` | Extraction into an owner-only directory, an existing cache directory set owner-only, a tampered library extracted again, a failed move over a matching library succeeding and over a mismatched one failing, a bundle directory verified and never written, names outside the directory refused |

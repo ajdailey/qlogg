@@ -1458,7 +1458,12 @@ public enum UiText {
   FOLDER_STATUS_ACCESS_DENIED,
   // Last used tab.
   /** Preferences box making a close of the shown tab show the most recently used tab. */
-  PREFERENCES_CLOSE_SHOWS_LAST_USED;
+  PREFERENCES_CLOSE_SHOWS_LAST_USED,
+  // Command-line names not opened.
+  /** Startup message: file arguments holding {@code ?} or {@code *}, not opened. */
+  LAUNCH_NAMES_UNPASSED,
+  /** Startup message: the Java launcher expanded these patterns; no command-line file opened. */
+  LAUNCH_NAMES_EXPANDED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

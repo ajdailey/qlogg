@@ -17,11 +17,18 @@ meaning. The option table is in the root `README.md`.
   starting `+` is a file name anywhere.
 - `-s` with `-n` is an error.
 - Paths are resolved against the working directory without touching the file
-  system. The caller validates them with `SafePaths`.
+  system. The caller validates them with `SafePaths`. A file argument holding
+  `?` or `*` that the file system refuses as a path (Windows) goes to
+  `CommandLine.unpassed`, with its `+line:N` dropped, instead of failing the
+  parse: a Windows launcher delivers a name outside the ANSI code page with
+  `?`.
+- `WildcardExpansion.patterns` recognizes the Windows Java launcher's
+  expansion of such an argument from `sun.java.command`; the launcher module
+  then opens no file of that launch.
 - A parse error is a `CommandLineException` with a one-line message.
 
 The result is a `CommandLine`: an `Action` (`RUN`, `HELP`, `VERSION`), a
-`StartupRequest`, the `-d` level and the `-l` flag. In `StartupRequest`, a null
+`StartupRequest`, the `-d` level, the `-l` flag and the unpassed names. In `StartupRequest`, a null
 width, height, x or y means not given.
 
 `Version.get()` reads `Implementation-Version` from this module's jar manifest,

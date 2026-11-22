@@ -834,10 +834,28 @@ is safe. A program that passes an unquoted `|`, `<` or `>` to `qlogg.cmd` has
 it acted on by cmd.exe before the script runs; no file name holds one. Started
 from a command prompt opened with `cmd /q`, `qlogg.cmd` cannot read its
 arguments: it prints `qlogg.cmd could not read its arguments through "<file>".`
-and starts nothing. Through either launcher a file name with characters outside
-the Windows code page for non-Unicode programs, such as a Japanese name on an
-English system, arrives with `?` in their place; open it from File > Open.
-Neither launcher starts from a folder whose path holds `;` or such characters.
+and starts nothing. A batch file that runs `call qlogg.cmd` keeps its echo
+setting. A program reading `qlogg.cmd`'s output through a pipe reaches its end
+once the QLogg window opens; QLogg's later output is discarded.
+
+A file name with characters outside the Windows code page for non-Unicode
+programs, such as a Japanese name on an English system:
+
+| Launch | Result |
+|---|---|
+| Dropped on `qlogg.cmd`, or passed to it by a program or shortcut | Opens |
+| Typed after `qlogg.cmd` at a command prompt | Opens under console code page 65001 (`chcp 65001`) |
+| `qlogg.exe`, quoted | Not opened; a message names it with `?` in place of the characters |
+| `qlogg.exe`, unquoted, as a drop passes it | Java reads `?` as a wildcard: no file named at that launch opens, and a message names the pattern |
+
+Open such a file from File > Open or through `qlogg.cmd`. A launch with that
+message does not restore the previous session unless `-s` is given, and while
+QLogg runs it opens its own window beside the running one. `qlogg.exe` also
+turns some characters into a look-alike: a fullwidth a (U+FF41) arrives as `a`
+and a dotless i (U+0131) as `i`, so such a name can open a different file, and
+a fullwidth quote (U+FF02) arrives as `"`, which splits the name into several
+arguments. Neither launcher starts from a folder whose path holds `;` or
+characters outside the code page.
 
 ## Known issues
 

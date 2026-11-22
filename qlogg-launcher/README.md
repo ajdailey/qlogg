@@ -19,6 +19,8 @@ module except the bootstrap, so it holds the architecture rules.
 | `UiFailures` | The Display's runtime-exception and error handlers |
 | `LogConfigurator`, `StderrHandler`, `RecentHandler`, `FileRelayHandler`, `LogFileHandler`, `LineFormatter`, `RetainingLogManager` | Logging |
 | `FileLog` | The debug log file (`LogFiles`) and pruning |
+| `UnopenedNames` | Command-line names a launch does not open, and the message |
+| `CmdStreams` | Closes standard output and error under `qlogg.cmd` |
 
 ## Exit status
 
@@ -38,8 +40,8 @@ module except the bootstrap, so it holds the architecture rules.
 
 `Launcher` resolves the settings directory (`SettingsLocation.fromSystem`) and
 loads `qlogg.conf`, `positions.conf`, and `qlogg_session.conf` when the session
-is restored: with `-s`, or with neither `-s` nor `-n`, no file given and
-`session.loadLast` on.
+is restored: with `-s`, or with neither `-s` nor `-n`, no file given, no name
+left unopened (`UnopenedNames`) and `session.loadLast` on.
 
 `PlatformSetup` then sets, from `OsTraits.current()`:
 
@@ -68,6 +70,26 @@ A failure at any step, an endpoint file another account could have written
 included (`EndpointFile`), logs one WARN, and the launch opens its own window
 as with `-m`. A launch that stays opens the debug log file when `-l` or
 `log.file` asks for it.
+
+### Names a launch does not open
+
+On Windows the Java launcher hands a name outside the ANSI code page over with
+`?` in place of those characters, and expands an unquoted argument holding `*`
+or `?` into the files it matches before `main` runs. `Main` compares the
+arguments with `sun.java.command`, which holds them unexpanded
+(`WildcardExpansion`); after an expansion `UnopenedNames` drops every file of
+the launch, since an expanded name can be another file. A file argument holding
+`?` or `*` that is not a valid path is left out by the parser
+(`CommandLine.unpassed`). Either way the launch restores the session only with
+`-s` (`SessionMode.NEW` replaces the default), `Launcher` logs the message at
+INFO, and the first window shows it in a dialog after the command line's files
+are requested. Such a launch never hands off: with a primary running it runs
+`ALONE`, so the message shows in its own window. `qlogg.cmd` passes the
+arguments through the environment, where neither applies (`qlogg-bootstrap`).
+
+Under `qlogg.cmd` `CmdStreams` closes standard output and error once the first
+window is open, so a caller reading them through a pipe reaches the end;
+`-v`, `-h` and command-line errors print before that.
 
 ## Gui
 
@@ -302,6 +324,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `SigtermTest` (`swt`, Linux) | `Main` as a child process restoring a two-file session: after both files' `Indexing ... done` lines in its `-l` log, SIGTERM (`Process.destroy`) ends it within the hook's bound, the endpoint file is gone, the session and positions files were written, and the hook's INFO line reached the log. Windows has no SIGTERM; `destroy` there terminates without hooks |
 | `ShutdownHookTest` | The hook's task run directly: it requests the quit and releases once it finishes, only releases after an ordered quit, and returns after its bound when the quit never finishes, naming the surviving threads |
 | `LauncherProcessTest` | Launches as real processes through `LaunchMain`: a primary asked to open, import from or export over `instance.lock` keeps the lock, and the next launch hands its files over, also in a group-writable settings directory (POSIX) |
+| `UnopenedNamesTest` | After an expansion the request keeps its options and loses its files; unpassed names keep the other files; either way a default session becomes `NEW` and `-s` stands; without either the request stands; the message for unpassed names and for an expansion, none when every name opens |
 | `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |

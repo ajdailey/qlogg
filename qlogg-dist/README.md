@@ -121,9 +121,27 @@ recovery are in the root `README.md` under "Continuous integration".
 | Launcher | Behavior |
 |---|---|
 | `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. `--gtk4` before `--` sets `SWT_GTK4=1` and is not passed to Java. Runs only `uname` and `readlink` besides Java |
-| `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation. CI's `bundle windows-aarch64` job (`windows-11-arm`) checks that it starts `runtime\bin\javaw.exe` with PE machine `ARM64` and opens the main window (`.github/scripts/check-bundle.ps1`) |
-| `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`; then the arguments. Started as `cmd.exe /c ""<qlogg.cmd>" ..."` (Explorer, a shortcut, PowerShell, another program), it takes the arguments from `%cmdcmdline%` as the caller wrote them, before that cmd.exe's parse, and ends that cmd.exe with `exit`, so a command after an unquoted `&` never runs. From a command prompt or a batch file it reads `%*` back from an echoed `rem` line through a file in `%TEMP%`; where that fails, as under `cmd /q`, it runs nothing and prints `qlogg.cmd could not read its arguments through "<file>".` with exit 1. Either way the arguments reach `start` through delayed expansion, which follows parsing. The calling cmd.exe acts on an unquoted `\|`, `<` or `>` before the script runs; no file name holds one. `start "" /b` returns at once and gives Java the console's output: `-v`, `-h` and errors print when it is redirected or piped, and not in an interactive console, as with `qlogg.exe` (measured on Windows 11 26H2). A double-clicked `qlogg.cmd` leaves no console open (same host). Without Java it prints a message, pauses and exits 1. Like `qlogg.exe`, it passes a name outside the ANSI code page with `?` in place of those characters, since Java's Windows launcher reads its command line in that code page, and neither starts from an install path holding `;`, which splits the `-jar` class path. It does not read `qlogg.l4j.ini` |
+| `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation. CI's `bundle windows-aarch64` job (`windows-11-arm`) checks that it starts `runtime\bin\javaw.exe` with PE machine `ARM64` and opens the main window (`.github/scripts/check-bundle.ps1`). The header reads its command line in the ANSI code page with best-fit mapping and starts Java with `CreateProcessA`: a character outside the code page arrives as `?` or as an ASCII look-alike (U+FF41 as `a`, U+0131 as `i`, U+FF02 as `"`, U+FF0A as `*`), quoted or not (measured, below) |
+| `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1 -Dqlogg.launcher=cmd`, with the arguments in `QLOGG_CMDLINE`. Started as `cmd.exe /c ""<qlogg.cmd>" ..."` (Explorer, a shortcut, PowerShell, another program), it takes the arguments from `%cmdcmdline%` as the caller wrote them, before that cmd.exe's parse, and ends that cmd.exe with `exit`, so a command after an unquoted `&` never runs. From a command prompt or a batch file it reads `%*` back from an echoed `rem` line through a file in `%TEMP%`; where that fails, as under `cmd /q`, it runs nothing and prints `qlogg.cmd could not read its arguments through "<file>".` with exit 1. A name outside the ANSI code page arrives intact this way under console code page 65001 (measured on CI). Either way the script sets `QLOGG_CMDLINE` to the argument text through delayed expansion, which follows parsing, and starts Java with `-Dqlogg.launcher=cmd` and no arguments; the bootstrap splits the variable by the C runtime rules (`qlogg-bootstrap`). Java reads the environment in UTF-16, so a name outside the ANSI code page arrives intact and the Java launcher expands no wildcard. The calling cmd.exe acts on an unquoted `\|`, `<` or `>` before the script runs; no file name holds one. Every line starts with `@`: a calling batch keeps its echo state, and the prompt path restores echo on after its read-back. `start "" /b` returns at once and gives Java the console's output: `-v`, `-h` and errors print when it is redirected or piped, and not in an interactive console, as with `qlogg.exe` (measured on Windows 11 26H2). Once its window opens QLogg closes both handles (`CmdStreams`), so a caller reading a pipe reaches its end while QLogg runs. A double-clicked `qlogg.cmd` leaves no console open (same host). Without Java it prints a message, pauses and exits 1. Neither launcher starts from an install path holding `;`, which splits the `-jar` class path. It does not read `qlogg.l4j.ini` |
 | `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `-XX:MaxRAMPercentage=50` and `-XX:GCTimeRatio=1`; the layout copies jpackage's |
+
+### Names outside the ANSI code page
+
+Measured on `windows-2025` and `windows-11-arm`, ANSI code page 1252, with a
+CJK name and a fullwidth `a` (U+FF41) beside the decoys `zz.txt` and `a.txt`. Explorer's drop and ShellExecute pass the long name,
+unquoted unless it holds a space.
+
+| Launch | `qlogg.exe` hands Java | QLogg | `qlogg.cmd` |
+|---|---|---|---|
+| Drop or ShellExecute, CJK | `??.txt`, unquoted | The Java launcher expands `??.txt` to every matching file; QLogg opens no file named at that launch and shows a message naming the pattern | Opens the name |
+| Quoted, CJK | `"??.txt"` | Not opened; the message names it | Opens the name |
+| Any form, U+FF41 | `a.txt` | Opens the decoy `a.txt` | Opens the name |
+
+QLogg cannot recognize a look-alike, since `javaw` never receives the
+original name. Through `java -jar` the Java launcher converts without
+look-alikes, so U+FF41 arrives as `?`.
+
+### Signing and CI checks
 
 `rcodesign` 0.29.0 ad-hoc signs each `QLogg.app` on Linux with
 `src/macos/qlogg.entitlements` (`allow-jit`,
@@ -137,7 +155,7 @@ Windows) with setup-java's JDK as `JAVA_HOME`. On Windows `check-bundle.ps1`
 also runs copies of `qlogg.cmd` over `LauncherProbe` and a copy of the bundle's
 `runtime` from folders named `with space` and `amp & pct 100%`: the probe must
 report the copy's `runtime`, its `lib\qlogg.jar`, `-XX:MaxRAMPercentage=50
--XX:GCTimeRatio=1` and 11 quoted arguments holding a space, `&`, `^`, `%`, `!`,
+-XX:GCTimeRatio=1`, `-Dqlogg.launcher=cmd` and 11 quoted arguments holding a space, `&`, `^`, `%`, `!`,
 `(`, `)`, `'` or nothing. Through ShellExecute, as Explorer drops them, it
 passes unquoted `<folder>\a&mark`, `c^d.txt`, `e!f.txt`, `g%h%.txt` with `h`
 defined, `(p).txt`, a name holding U+00E9 and a quoted `"x y&mark.txt"`; at a
@@ -146,7 +164,15 @@ command prompt (`cmd /d` reading standard input), `a^&mark`, `c^^d.txt`,
 11 quoted arguments. Each name must arrive unchanged and `mark.cmd`, which
 writes `marker.txt` when run, must not run. A copy without `runtime` must take
 `JAVA_HOME` before `PATH` and exit 1 without either, and `qlogg.cmd -v` must
-print the version.
+print the version. A CJK name beside a decoy `zz.txt` goes through `qlogg.exe`
+and `qlogg.cmd`, unquoted and quoted, by ShellExecute and from a console batch
+file under code page 65001, with `-l -d 2`: `qlogg.cmd` must log
+`Command-line file: <the name>`, `qlogg.exe` the expansion message unquoted and
+`Not opened: <folder>\??.txt.` quoted, and no log may name `zz.txt`. With an
+instance running, an unquoted `qlogg.exe` launch must open its own window with
+the message and hand nothing over. Batch files with echo on and with echo off
+call `qlogg.cmd` with output captured through a pipe: echo must keep its state
+after the call, and the pipe must end while QLogg runs.
 
 ## Icons
 
@@ -174,4 +200,5 @@ outlive the build:
 
 `LauncherProbe` is not a test: `check-bundle.ps1` runs it as `lib\qlogg.jar`
 under `qlogg.cmd`, and it writes `java.home`, the class path, the JVM options
-and the arguments to the file `QLOGG_PROBE_OUT` names.
+and the arguments, as the bundle's `CmdArguments` reads them, to the file
+`QLOGG_PROBE_OUT` names.

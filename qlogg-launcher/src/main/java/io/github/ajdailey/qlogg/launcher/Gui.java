@@ -91,6 +91,7 @@ final class Gui {
   private final InstanceServer server;
   private final LogFiles logFiles;
   private final List<Shell> shells = new ArrayList<Shell>();
+  private String message;
 
   Gui(
       StartupRequest request,
@@ -123,6 +124,17 @@ final class Gui {
     this.observer = observer;
     this.server = server;
     this.logFiles = logFiles;
+  }
+
+  /**
+   * Sets a message the first window shows once the command line's files are requested.
+   *
+   * @param text the message, or null for none
+   * @return this composition
+   */
+  Gui withMessage(String text) {
+    message = text;
+    return this;
   }
 
   /**
@@ -302,6 +314,10 @@ final class Gui {
         controller.noticeErrorExit(skipped);
       }
       controller.open(request.files(), request.follow());
+      if (message != null) {
+        controller.noticeUnopenedNames(message);
+      }
+      CmdStreams.closeAfterWindow();
       if (server != null) {
         server.deliverTo(
             new InstanceServer.Receiver() {

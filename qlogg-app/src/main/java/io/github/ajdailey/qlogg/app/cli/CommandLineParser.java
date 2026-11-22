@@ -13,7 +13,10 @@ import java.util.List;
  * +line:} is a file name.
  *
  * <p>Paths are resolved against the working directory without touching the file system; the caller
- * validates them.
+ * validates them. A file argument holding {@code ?} or {@code *} that the file system refuses as a
+ * path (Windows) is listed in {@link CommandLine#unpassed} rather than failing the parse, and a
+ * pending {@code +line:N} is dropped with it: the Windows launchers deliver a name outside the ANSI
+ * code page with {@code ?} in place of those characters.
  */
 public final class CommandLineParser {
   private static final String LINE_PREFIX = "+line:";
@@ -91,6 +94,7 @@ public final class CommandLineParser {
     Integer y;
     Path settings;
     final List<FileRequest> files = new ArrayList<FileRequest>();
+    final List<String> unpassed = new ArrayList<String>();
 
     void apply(Option option, String value) throws CommandLineException {
       switch (option) {
@@ -139,7 +143,11 @@ public final class CommandLineParser {
         }
         pendingLine = line(arg);
       } else {
-        state.files.add(new FileRequest(path(arg, arg), pendingLine));
+        if (wildcard(arg) && !validPath(arg)) {
+          state.unpassed.add(arg);
+        } else {
+          state.files.add(new FileRequest(path(arg, arg), pendingLine));
+        }
         pendingLine = 0;
       }
     }
@@ -166,7 +174,7 @@ public final class CommandLineParser {
         state.help
             ? CommandLine.Action.HELP
             : state.version ? CommandLine.Action.VERSION : CommandLine.Action.RUN;
-    return new CommandLine(action, request, state.level, state.log);
+    return new CommandLine(action, request, state.level, state.log, state.unpassed);
   }
 
   private int parseLong(State state, String arg, String[] args, int next)
@@ -286,6 +294,19 @@ public final class CommandLineParser {
       return Long.parseLong(text);
     } catch (NumberFormatException e) {
       throw new CommandLineException(option + " needs a number");
+    }
+  }
+
+  private static boolean wildcard(String value) {
+    return value.indexOf('?') >= 0 || value.indexOf('*') >= 0;
+  }
+
+  private boolean validPath(String value) {
+    try {
+      workingDirectory.resolve(value);
+      return true;
+    } catch (InvalidPathException e) {
+      return false;
     }
   }
 

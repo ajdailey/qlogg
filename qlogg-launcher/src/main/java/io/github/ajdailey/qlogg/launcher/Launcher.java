@@ -74,6 +74,19 @@ public final class Launcher {
    * @return the exit status
    */
   public int run(String[] args) {
+    return run(args, List.of());
+  }
+
+  /**
+   * Runs QLogg to completion. After a wildcard expansion the launch opens no command-line file
+   * ({@link UnopenedNames}). Names it does not open are logged at INFO and shown in a message in
+   * this launch's window, which opens beside a running instance rather than handing off to it.
+   *
+   * @param args the command line
+   * @param expanded the patterns the Java launcher expanded in {@code args}
+   * @return the exit status
+   */
+  public int run(String[] args, List<String> expanded) {
     CommandLine line;
     try {
       line = new CommandLineParser(Path.of("").toAbsolutePath()).parse(args);
@@ -93,16 +106,25 @@ public final class Launcher {
     LogConfigurator.setLevel(line.logLevel());
     LogConfigurator.holdForFile();
     try {
-      return start(line);
+      return start(line, new UnopenedNames(expanded, line.unpassed()));
     } finally {
       LogConfigurator.endHold();
     }
   }
 
   /** Runs the launch after the command line parsed; ends the log hold before {@link Gui}. */
-  private int start(CommandLine line) {
+  private int start(CommandLine line, UnopenedNames unopened) {
     Thread.setDefaultUncaughtExceptionHandler(new FailureLogger());
-    StartupRequest request = line.request();
+    StartupRequest request = unopened.apply(line.request());
+    String message = unopened.message();
+    if (message != null && LOG.isInfoEnabled()) {
+      LOG.info("{}", LogText.oneLine(message));
+    }
+    if (LOG.isDebugEnabled()) {
+      for (FileRequest file : request.files()) {
+        LOG.debug("Command-line file: {}", LogText.oneLine(file.path()));
+      }
+    }
     Path settings = null;
     if (request.settingsDirectory() != null) {
       try {
@@ -125,6 +147,7 @@ public final class Launcher {
     Preferences preferences = config.load();
     InstanceServer server = null;
     if (!request.multi()) {
+      showsMessage = message != null;
       Handoff handoff = handOff(location.directory(), request);
       if (handoff == Handoff.HANDED) {
         return 0;
@@ -144,7 +167,9 @@ public final class Launcher {
         }
       }
       LogConfigurator.endHold();
-      return new Gui(request, config, preferences, err, null, server, logFile).run();
+      return new Gui(request, config, preferences, err, null, server, logFile)
+          .withMessage(message)
+          .run();
     } catch (IOException e) {
       err.println("qlogg: " + LogText.oneLine(e.getMessage()));
       return EXIT_USAGE;
@@ -190,6 +215,9 @@ public final class Launcher {
 
   private InstanceServer primary;
 
+  /** True when this launch has a message about names it did not open; {@link #handOff} reads it. */
+  private boolean showsMessage;
+
   /**
    * Returns the listener of a launch that became the primary.
    *
@@ -199,7 +227,11 @@ public final class Launcher {
     return primary;
   }
 
-  /** Becomes the primary instance, or hands the files to it. */
+  /**
+   * Becomes the primary instance, or hands the files to it. A launch with a message about names it
+   * did not open runs {@link Handoff#ALONE} beside a running primary instead, so the message shows
+   * in its own window.
+   */
   Handoff handOff(Path directory, StartupRequest request) {
     try {
       SafePaths.settingsDirectory(directory);
@@ -211,6 +243,10 @@ public final class Launcher {
       primary = InstanceServer.claim(directory);
       if (primary != null) {
         return Handoff.PRIMARY;
+      }
+      if (showsMessage) {
+        LOG.info("An instance is running; this launch opens its own window for its message");
+        return Handoff.ALONE;
       }
       List<FileRequest> files = request.files().isEmpty() ? openedDocuments() : request.files();
       InstanceClient.handOff(directory, files, request.follow());

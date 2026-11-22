@@ -331,6 +331,17 @@ class ApplicationControllerTest {
   }
 
   @Test
+  void unopenedNamesShowAMessageDialog() throws Exception {
+    FakeView view = new FakeView();
+    ManualUiDispatcher ui = new ManualUiDispatcher();
+    Workers workers = new Workers(1, RETHROW);
+    ApplicationController controller = controller(workers, ui, view, MemoryBudget.of(1L << 28));
+    controller.noticeUnopenedNames("Not opened: ??.txt.");
+    assertEquals(List.of("Open: Not opened: ??.txt."), view.infos);
+    shutDown(controller, ui, view, workers);
+  }
+
+  @Test
   void setPreferencesSavesOnAWorker() throws Exception {
     final FakeView view = new FakeView();
     ManualUiDispatcher ui = new ManualUiDispatcher();

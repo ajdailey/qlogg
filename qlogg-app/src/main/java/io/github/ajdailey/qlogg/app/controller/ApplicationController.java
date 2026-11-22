@@ -1985,6 +1985,15 @@ public final class ApplicationController
     view.showNotice((tabsSkipped ? UiText.NOTICE_ERROR_EXIT : UiText.NOTICE_ERROR_EXIT_LOG).text());
   }
 
+  /**
+   * Shows the message about command-line names the launch did not open.
+   *
+   * @param message the message
+   */
+  public void noticeUnopenedNames(String message) {
+    view.showInfo(UiText.OPEN_DIALOG_TITLE.text(), message);
+  }
+
   @Override
   public void documentStateChanged() {
     remembered.scheduleSave();
