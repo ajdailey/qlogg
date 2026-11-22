@@ -129,7 +129,7 @@ from the Ubuntu archive when the runner image lacks them.
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus the POM version, runs `check-reproducible.sh`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
 
@@ -209,6 +209,10 @@ To fix a bad draft, delete the draft and the tag
   opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
   (GTK 4 libraries required; without them QLogg runs on GTK 3 and logs a
   WARN). Open SWT GTK 4 defects affect scrolling and painting in the log view.
+- On Windows, `qlogg.cmd` is a second launcher beside `qlogg.exe`. It passes
+  file names dropped on it or typed after it to QLogg as given, `&`, `^`, `%`
+  and `!` included, and runs nothing in them; limits are in
+  [qlogg-dist](qlogg-dist/README.md#launchers).
 - The Windows launchers and the macOS bundles are not signed by a publisher; see
   [First launch of an unsigned build](#first-launch-of-an-unsigned-build).
 
@@ -219,14 +223,14 @@ and not notarized. A downloaded copy therefore needs one approval:
 
 | Platform | First launch |
 |---|---|
-| Windows | SmartScreen shows "Windows protected your PC": choose More info, then Run anyway. Unblocking the downloaded zip first (Properties, Unblock) avoids the prompt. |
+| Windows | `qlogg.exe`: SmartScreen shows "Windows protected your PC"; choose More info, then Run anyway. `qlogg.cmd`: "Open File - Security Warning", "The publisher could not be verified"; choose Run. |
 | macOS | macOS refuses the first open. Open System Settings > Privacy & Security and choose Open Anyway for QLogg, or run `xattr -dr com.apple.quarantine QLogg.app` before the first launch. |
 
-On Windows `qlogg.cmd` starts the same `javaw.exe` and jar without
-`qlogg.exe`. From a downloaded zip extracted by Explorer, it shows "Open File -
-Security Warning" (publisher not verified; Run or Cancel) instead of
-SmartScreen's page; after Unblock neither launcher prompts (measured on
-Windows 11 with SmartScreen at its default and Smart App Control off).
+On Windows, unblock the downloaded zip before extracting it (Properties,
+Unblock, or `Unblock-File`): nothing extracted from it then carries the
+internet mark, and neither launcher prompts. Neither leaves a console window
+open. Measured on Windows 11 26H2 with SmartScreen at its default and Smart App
+Control off.
 
 The prompt follows the download mark (the Windows Mark of the Web, the macOS
 quarantine attribute), so a copy without it, such as one from removable media,

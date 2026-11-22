@@ -117,7 +117,7 @@ recovery are in the root `README.md` under "Continuous integration".
 |---|---|
 | `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. `--gtk4` before `--` sets `SWT_GTK4=1` and is not passed to Java. Runs only `uname` and `readlink` besides Java |
 | `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation. CI's `bundle windows-aarch64` job (`windows-11-arm`) checks that it starts `runtime\bin\javaw.exe` with PE machine `ARM64` and opens the main window (`.github/scripts/check-bundle.ps1`) |
-| `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`; then `%*`. `start "" /b` returns at once and gives Java the console's output, so `-v`, `-h` and errors print as through `qlogg.exe`, and a double-clicked console closes. Without Java it prints a message, pauses and exits 1. cmd.exe parses `%*`: an unquoted argument holding `&`, `\|`, `<` or `>` ends the command and runs the rest as a new one, and an unquoted `^` is dropped. It does not read `qlogg.l4j.ini` |
+| `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`; then the arguments. Started as `cmd.exe /c ""<qlogg.cmd>" ..."` (Explorer, a shortcut, PowerShell, another program), it takes the arguments from `%cmdcmdline%` as the caller wrote them, before that cmd.exe's parse, and ends that cmd.exe with `exit`, so a command after an unquoted `&` never runs. From a command prompt or a batch file it reads `%*` back from an echoed `rem` line through a file in `%TEMP%`; where that fails, as under `cmd /q`, it runs nothing and prints `qlogg.cmd could not read its arguments through "<file>".` with exit 1. Either way the arguments reach `start` through delayed expansion, which follows parsing. The calling cmd.exe acts on an unquoted `\|`, `<` or `>` before the script runs; no file name holds one. `start "" /b` returns at once and gives Java the console's output: `-v`, `-h` and errors print when it is redirected or piped, and not in an interactive console, as with `qlogg.exe` (measured on Windows 11 26H2). A double-clicked `qlogg.cmd` leaves no console open (same host). Without Java it prints a message, pauses and exits 1. Like `qlogg.exe`, it passes a name outside the ANSI code page with `?` in place of those characters, since Java's Windows launcher reads its command line in that code page, and neither starts from an install path holding `;`, which splits the `-jar` class path. It does not read `qlogg.l4j.ini` |
 | `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `-XX:MaxRAMPercentage=50` and `-XX:GCTimeRatio=1`; the layout copies jpackage's |
 
 `rcodesign` 0.29.0 ad-hoc signs each `QLogg.app` on Linux with
@@ -129,12 +129,19 @@ CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
 The bundles are not notarized. On every target, the CI `bundle` job also runs
 the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` and `qlogg.cmd` on
 Windows) with setup-java's JDK as `JAVA_HOME`. On Windows `check-bundle.ps1`
-also runs copies of `qlogg.cmd` over `LauncherProbe` and a copy of the
-bundle's `runtime` from folders named `with space` and `amp & pct 100%`: the probe must report the copy's `runtime`, its
-`lib\qlogg.jar`, `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1` and 11 quoted
-arguments holding a space, `&`, `^`, `%`, `!`, `(`, `)`, `'` or nothing. A copy
-without `runtime` must take `JAVA_HOME` before `PATH` and exit 1 without
-either, and `qlogg.cmd -v` must print the version.
+also runs copies of `qlogg.cmd` over `LauncherProbe` and a copy of the bundle's
+`runtime` from folders named `with space` and `amp & pct 100%`: the probe must
+report the copy's `runtime`, its `lib\qlogg.jar`, `-XX:MaxRAMPercentage=50
+-XX:GCTimeRatio=1` and 11 quoted arguments holding a space, `&`, `^`, `%`, `!`,
+`(`, `)`, `'` or nothing. Through ShellExecute, as Explorer drops them, it
+passes unquoted `<folder>\a&mark`, `c^d.txt`, `e!f.txt`, `g%h%.txt` with `h`
+defined, `(p).txt`, a name holding U+00E9 and a quoted `"x y&mark.txt"`; at a
+command prompt (`cmd /d` reading standard input), `a^&mark`, `c^^d.txt`,
+`e!f.txt`, `g%q9z%.txt`, `i^|mark`, `k^>l.txt`, `"x&y.txt"`, `(p).txt` and the
+11 quoted arguments. Each name must arrive unchanged and `mark.cmd`, which
+writes `marker.txt` when run, must not run. A copy without `runtime` must take
+`JAVA_HOME` before `PATH` and exit 1 without either, and `qlogg.cmd -v` must
+print the version.
 
 ## Icons
 
