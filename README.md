@@ -5,6 +5,10 @@
 
 # QLogg
 
+[![CI](https://github.com/ajdailey/qlogg/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ajdailey/qlogg/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ajdailey/qlogg)](https://github.com/ajdailey/qlogg/releases/latest)
+[![License](https://img.shields.io/github/license/ajdailey/qlogg)](LICENSE)
+
 QLogg is a cross-platform viewer for large and growing log files, written in
 Java 21 with SWT. It makes no outbound network connections; its only socket is
 a loopback endpoint that passes files from a second launch to the running
