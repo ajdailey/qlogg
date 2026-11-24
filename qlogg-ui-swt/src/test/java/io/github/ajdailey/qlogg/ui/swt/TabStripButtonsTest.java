@@ -142,11 +142,6 @@ class TabStripButtonsTest {
               public void preferDark(boolean dark) {
                 system.preferDark(dark);
               }
-
-              @Override
-              public boolean showsNow(boolean dark) {
-                return true;
-              }
             });
     window.attach(controller);
     window.place(new WindowGeometry.Request(0, 0, 700, 500), null);

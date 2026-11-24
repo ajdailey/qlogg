@@ -440,6 +440,30 @@ class ChromeColorsTest {
   }
 
   /**
+   * A window waiting for its rebuild keeps the native setting its controls were created under: a
+   * switch that records the dark setting leaves a field holding text in the system colors on the
+   * light side and the checked ink dark.
+   */
+  @Test
+  void aWindowWaitingForItsRebuildKeepsTheSettingItWasBuiltUnder() {
+    show();
+    display.setData(DialogColors.NATIVE_DARK, Boolean.FALSE);
+    List<RGB> system = fieldColors();
+    ChromeColors chrome = chrome(WIN32);
+    chrome.apply(false);
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    setText(fields.get(0), "mock");
+    chrome.apply(true);
+    assertEquals(FIELD, fields.get(0).getBackground().getRGB(), "dark side");
+    chrome.apply(false);
+    assertEquals(system.subList(0, 2), fieldColors().subList(0, 2), "light side, built light");
+    toggle.setSelection(true);
+    toggle.notifyListeners(SWT.Selection, new Event());
+    chrome.apply(true);
+    assertInk(DARK_INK, toggle.getImage().getImageData());
+  }
+
+  /**
    * A checked tool item draws the startup native theme's checked background: dark after a dark
    * start and light after a light start, whatever the row. Its icon takes the light ink only when
    * both the start and the theme are dark, on check and uncheck; its faded disabled copy keeps the

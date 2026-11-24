@@ -721,9 +721,9 @@ public final class MainWindow implements MainView, ApplicationListener {
     searchBar.setKeymap(keymap);
     quickFindBar = new QuickFindBar(shell, application);
     GridData barData = new GridData(SWT.FILL, SWT.CENTER, true, false);
-    barData.exclude = true;
+    barData.exclude = !application.quickFind().isOpen();
     quickFindBar.control().setLayoutData(barData);
-    quickFindBar.control().setVisible(false);
+    quickFindBar.control().setVisible(application.quickFind().isOpen());
     quickFindBar.control().moveBelow(split);
     int remembered = application.preferences().state().split();
     setSplit(remembered != 0 ? remembered : application.preferences().splitPercent());
@@ -782,6 +782,15 @@ public final class MainWindow implements MainView, ApplicationListener {
             syncEnablement();
           }
         });
+  }
+
+  /**
+   * Disconnects the window from its controller before a rebuild replaces it: it stops listening and
+   * disposes the views, and the controller keeps every document.
+   */
+  void detach() {
+    controller.removeListener(this);
+    activeDocumentChanged(null);
   }
 
   // Tab move between windows.
@@ -1640,7 +1649,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     dialog.setText(CommandId.SAVE_SELECTION.title());
     dialog.setFileName(suggestedName);
     dialog.setOverwrite(true);
-    String chosen = dialog.open();
+    String chosen = NativeDialogs.open(dialog);
     if (chosen == null) {
       return null;
     }
@@ -1856,7 +1865,7 @@ public final class MainWindow implements MainView, ApplicationListener {
       dialog.setFilterPath(initialDirectory.toString());
     }
     List<Path> chosen = new ArrayList<Path>();
-    if (dialog.open() == null) {
+    if (NativeDialogs.open(dialog) == null) {
       return chosen;
     }
     for (String name : dialog.getFileNames()) {
@@ -2034,6 +2043,14 @@ public final class MainWindow implements MainView, ApplicationListener {
    */
   Shell logShell() {
     return logWindow == null ? null : logWindow.shell();
+  }
+
+  TextWindow logWindow() {
+    return logWindow;
+  }
+
+  ShortcutsWindow shortcuts() {
+    return shortcuts;
   }
 
   @Override
@@ -2219,7 +2236,18 @@ public final class MainWindow implements MainView, ApplicationListener {
       guide.show(file);
       return true;
     }
-    GuideWindow created = GuideWindow.create(shell, file, this::guideFailed);
+    return showGuideAt(file, null);
+  }
+
+  /**
+   * Opens the guide window at a location in the guide.
+   *
+   * @param file the guide's file
+   * @param at a {@link GuideWindow#location}, or null for the top
+   * @return false when the window has no browser
+   */
+  boolean showGuideAt(Path file, String at) {
+    GuideWindow created = GuideWindow.create(shell, file, at, this::guideFailed);
     if (created == null) {
       return false;
     }

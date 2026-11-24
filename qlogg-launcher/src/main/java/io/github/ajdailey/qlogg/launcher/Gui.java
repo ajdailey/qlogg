@@ -31,14 +31,16 @@ import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.AppMenu;
 import io.github.ajdailey.qlogg.ui.swt.MainWindow;
+import io.github.ajdailey.qlogg.ui.swt.MainWindowSlot;
 import io.github.ajdailey.qlogg.ui.swt.SwtThemeService;
 import io.github.ajdailey.qlogg.ui.swt.SwtUiDispatcher;
+import io.github.ajdailey.qlogg.ui.swt.WindowViews;
 import java.io.PrintStream;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWTError;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -50,23 +52,24 @@ import org.slf4j.LoggerFactory;
 /**
  * Composes the application and runs the SWT event loop on the calling thread, which becomes the UI
  * thread. The theme resolves before the first Shell: light and dark, and system on win32, also set
- * the native controls' theme ({@link SwtThemeService#open}), which on win32 a later switch reaches
- * only at the next start; on cocoa native controls follow the system. Startup after the Display
- * exists does not block it: the command-line files open on workers once the first window is shown,
- * each in a tab, following with {@code -f}; each further window of a restored session opens with
- * its tabs. When {@link EventLoopWatchdog#enabled} is true at start ({@code -d 2} and above, or the
- * debug log file attached), an {@link EventLoopWatchdog} logs UI-thread stalls. A primary
- * instance's {@link InstanceServer} accepts handoffs from the start of {@link #run} and, once the
- * command-line files are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit
- * closes it before the workers, and so does a run that ends before the first window. A JVM shutdown
- * hook ({@link ShutdownHook}) runs the quit when the process is ended without it. {@link
- * UiFailures} handles a failure of a UI-thread task. The first launch after it writes the {@link
- * ErrorExitMarker} shows a notice and records that in the marker; a launch that would restore the
- * session and finds the marker skips the session's tabs and windows and, as the session owner,
- * deletes the marker. A failure that leaves {@code readAndDispatch} goes to {@link UiFailures} too;
- * when the quit it runs throws, the loop ends at once. A primary with the debug log file attached
- * deletes other processes' old log files on a lifecycle worker ({@link FileLog#prune}). The loop
- * ends when every window is disposed, then the Display is disposed and {@link #run} returns.
+ * the native controls' theme ({@link SwtThemeService#open}); on win32 a later switch rebuilds each
+ * main window through its {@link MainWindowSlot} ({@link WindowViews}), and on cocoa native
+ * controls follow the system. Startup after the Display exists does not block it: the command-line
+ * files open on workers once the first window is shown, each in a tab, following with {@code -f};
+ * each further window of a restored session opens with its tabs. When {@link
+ * EventLoopWatchdog#enabled} is true at start ({@code -d 2} and above, or the debug log file
+ * attached), an {@link EventLoopWatchdog} logs UI-thread stalls. A primary instance's {@link
+ * InstanceServer} accepts handoffs from the start of {@link #run} and, once the command-line files
+ * are on their way, delivers handed files to {@link WindowSet#openHandoff}; quit closes it before
+ * the workers, and so does a run that ends before the first window. A JVM shutdown hook ({@link
+ * ShutdownHook}) runs the quit when the process is ended without it. {@link UiFailures} handles a
+ * failure of a UI-thread task. The first launch after it writes the {@link ErrorExitMarker} shows a
+ * notice and records that in the marker; a launch that would restore the session and finds the
+ * marker skips the session's tabs and windows and, as the session owner, deletes the marker. A
+ * failure that leaves {@code readAndDispatch} goes to {@link UiFailures} too; when the quit it runs
+ * throws, the loop ends at once. A primary with the debug log file attached deletes other
+ * processes' old log files on a lifecycle worker ({@link FileLog#prune}). The loop ends when every
+ * window is disposed, then the Display is disposed and {@link #run} returns.
  */
 final class Gui {
   private static final Logger LOG = LoggerFactory.getLogger(Gui.class);
@@ -90,7 +93,7 @@ final class Gui {
   private final Observer observer;
   private final InstanceServer server;
   private final LogFiles logFiles;
-  private final List<Shell> shells = new ArrayList<Shell>();
+  private WindowViews views;
   private String message;
 
   Gui(
@@ -220,6 +223,8 @@ final class Gui {
             options.defaultCharset(),
             server == null ? null : server.heldLock());
     final SwtThemeService system = SwtThemeService.open(display, preferences.theme());
+    views = new WindowViews(display);
+    system.setWindows(views);
     final Palette palette =
         ThemeController.resolve(
             preferences.theme(),
@@ -256,8 +261,9 @@ final class Gui {
     AppMenu.hook(display, set);
     WindowState remembered = firstWindow(sessions, preferences.state().window());
     final MainWindow window = new MainWindow(display, set.keymap(), palette);
-    ApplicationController controller = new ApplicationController(set, window);
-    attach(window, controller);
+    MainWindowSlot slot = views.add(window);
+    ApplicationController controller = new ApplicationController(set, slot);
+    slot.attach(controller);
     window.place(
         new WindowGeometry.Request(request.x(), request.y(), request.width(), request.height()),
         new WindowGeometry.Request(
@@ -340,7 +346,7 @@ final class Gui {
       if (observer != null) {
         observer.opened(window, controller, workers);
       }
-      return loop(display, failures, shells);
+      return loop(display, failures, views::anyOpen);
     } finally {
       removeHook(hook);
     }
@@ -369,8 +375,9 @@ final class Gui {
       WindowGeometry.Request persisted,
       boolean maximized) {
     MainWindow window = new MainWindow(display, set.keymap(), palette);
-    ApplicationController controller = new ApplicationController(set, window);
-    attach(window, controller);
+    MainWindowSlot slot = views.add(window);
+    ApplicationController controller = new ApplicationController(set, slot);
+    slot.attach(controller);
     window.place(request, persisted);
     if (maximized) {
       window.shell().setMaximized(true);
@@ -410,24 +417,18 @@ final class Gui {
     }
   }
 
-  private void attach(MainWindow window, final ApplicationController controller) {
-    window.attach(controller);
-    window.onCloseRequest(controller::closeWindow);
-    shells.add(window.shell());
-  }
-
   /**
-   * Runs the event loop until every shell is disposed, or until the quit {@link UiFailures} ran
+   * Runs the event loop until no main window is open, or until the quit {@link UiFailures} ran
    * failed. A runtime exception or error that leaves {@code readAndDispatch} goes to {@code
    * failures}; the loop continues. The caller disposes the Display, which disposes the shells left.
    *
    * @param display the Display
    * @param failures the Display's handlers
-   * @param shells the main windows' shells
+   * @param open reports whether any main window is open, a rebuilt one included
    * @return 0, or {@link Launcher#EXIT_UI_FAILURE} once {@code failures} ran the quit
    */
-  static int loop(Display display, UiFailures failures, List<Shell> shells) {
-    while (anyOpen(shells) && !failures.quitFailed()) {
+  static int loop(Display display, UiFailures failures, BooleanSupplier open) {
+    while (open.getAsBoolean() && !failures.quitFailed()) {
       if (!dispatch(display, failures)) {
         display.sleep();
       }
@@ -446,15 +447,6 @@ final class Gui {
       failures.error(e);
       return true;
     }
-  }
-
-  private static boolean anyOpen(List<Shell> shells) {
-    for (Shell shell : shells) {
-      if (!shell.isDisposed()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /** Registers the JVM shutdown hook that quits when the process is ended without a quit. */

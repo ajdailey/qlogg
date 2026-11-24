@@ -532,13 +532,13 @@ The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
 Files), Wrap Line (`W`), markers for tabs, trailing spaces and line
 ends, hiding ANSI color sequences (for display, copy and search), syntax
 colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to menus, scroll bars and
-other controls: at once on Linux, at the next start on Windows, which says so
-when you change it. On Windows the system theme applies them too, from the
-Windows setting at start; the title bar, menu bar, buttons, scroll bars, lists
-and dialogs turn dark. The toolbar, search row, quick find bar, status bar, splitter
-and their text fields turn dark under the dark theme on Windows and follow a
-change at once, either way. After a dark start, a field holding text stays dark
-under the light theme until the next start. With no file open, the log and
+other controls at once. On Windows the system theme applies them too and
+follows a change of the Windows setting; the title bar, menu bar, buttons,
+scroll bars, lists and dialogs turn dark, and so do the toolbar, search row,
+quick find bar, status bar, splitter and their text fields. On Windows each
+window is rebuilt for a switch, which pauses it for about a third of a second;
+open tabs, searches, marks, tool windows and running work stay. A window with a
+dialog open switches when the dialog closes. With no file open, the log and
 results areas show the log views' background. On Linux the
 GTK theme must have a dark variant. On macOS controls follow the system
 appearance and the theme recolors the log views.

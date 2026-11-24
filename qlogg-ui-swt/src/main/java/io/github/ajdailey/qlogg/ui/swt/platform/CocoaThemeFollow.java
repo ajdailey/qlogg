@@ -40,7 +40,5 @@ final class CocoaThemeFollow implements ThemeFollow {
   public void preferDark(boolean dark) {}
 
   @Override
-  public boolean showsNow(boolean dark, boolean nativeDark) {
-    return true;
-  }
+  public void showOnWindows(boolean dark, WindowRebuild windows) {}
 }

@@ -1363,4 +1363,26 @@ class ArchitectureTest {
         .callConstructorWhere(newInstanceOf(org.eclipse.swt.widgets.TabFolder.class))
         .because("a native TabFolder keeps a light tab row under a dark win32 start");
   }
+
+  @Test
+  void nativeChoosersOnlyThroughNativeDialogs() {
+    nativeChoosersOnlyThroughNativeDialogsRule().check(classes);
+  }
+
+  @Test
+  void nativeChooserRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        nativeChoosersOnlyThroughNativeDialogsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$OpensFileDialog",
+        "OpensFileDialog.choose");
+  }
+
+  private static ArchRule nativeChoosersOnlyThroughNativeDialogsRule() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(ROOT + ".ui.swt.NativeDialogs")
+        .should()
+        .callMethodWhere(call(org.eclipse.swt.widgets.Dialog.class, "open"))
+        .because("a window rebuild waits only for a chooser NativeDialogs counts");
+  }
 }

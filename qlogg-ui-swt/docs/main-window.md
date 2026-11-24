@@ -388,7 +388,7 @@ the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
 
 | Interface (factory) | win32 | cocoa | GTK 3 | GTK 4 | Caller |
 |---|---|---|---|---|---|
-| `ThemeFollow` (`themeFollow`) | `Win32ThemeFollow`: sets the native theme at startup in every mode; polls the system setting every 500 ms; a side shows only when it is the startup one | `CocoaThemeFollow`: never sets the theme; polls; `CocoaChrome` recolors shells | `GtkThemeFollow`: sets the theme at startup for Light and Dark and again at each switch | as GTK 3 | `SwtThemeService` ([theme.md](theme.md)) |
+| `ThemeFollow` (`themeFollow`) | `Win32ThemeFollow`: sets the native theme at startup in every mode; polls the system setting every 500 ms; `showOnWindows` sets a changed side and rebuilds the windows | `CocoaThemeFollow`: never sets the theme; polls; `CocoaChrome` recolors shells; `showOnWindows` does nothing | `GtkThemeFollow`: sets the theme at startup for Light and Dark and again at each switch; `showOnWindows` does nothing | as GTK 3 | `SwtThemeService` ([theme.md](theme.md#window-rebuild)) |
 | `FullScreen` (`fullScreen`) | `NativeFullScreen` | `CocoaFullScreen` | `NativeFullScreen` | `NativeFullScreen` | `MainWindow` ([Full Screen](#full-screen)) |
 | `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu` ([menus.md](menus.md)) |
 | `LaunchDocuments` (`launchDocuments`) | `NativeLaunchDocuments`: no wait | `CocoaLaunchDocuments`: runs the `OpenDocument` wait | no wait | no wait | `OpenDocuments.await` |
@@ -415,7 +415,9 @@ the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
 
 ## Busy cursor
 
-`setActive` and `setIdle` count overlapping operations in a `BusyCounter`.
+`setActive` and `setIdle` count overlapping operations in a `BusyCounter`. In
+the launcher the count lives in the window's `MainWindowSlot`, so it survives a
+[window rebuild](theme.md#window-rebuild) and the new window takes the cursor.
 While any is active, `WindowBusyCursor` sets `PlatformTraits.busyCursor` on the
 main shell and on every shell it owns at any depth (`Shell.getShells`): the
 dialogs and tool windows from `Dialogs.shell`. The busy cursor keeps the window

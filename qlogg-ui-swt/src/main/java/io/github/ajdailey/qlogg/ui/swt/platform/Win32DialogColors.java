@@ -21,10 +21,10 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 
 /**
- * Dialog surfaces on win32: dark when native controls started dark ({@link
- * DialogColors#nativeDark}, read at each use), native otherwise. The dark start draws the title
- * bar, push buttons and read-only combos dark and leaves every other surface light, so a dialog
- * body takes the title bar's color and fields a lighter one. Measured with SWT 3.135.0 on {@code
+ * Dialog surfaces on win32: dark for a dialog prepared while native controls are dark ({@link
+ * DialogColors#nativeDark}), native otherwise. The dark native theme draws the title bar, push
+ * buttons and read-only combos dark and leaves every other surface light, so a dialog body takes
+ * the title bar's color and fields a lighter one. Measured with SWT 3.135.0 on {@code
  * windows-2025}: the title bar draws {@code #202020} and a push button face {@code #333333}; {@code
  * setBackground} and {@code setForeground} reach composites, labels, links, check boxes, groups,
  * tab pages, tool bars, text fields, combos, spinners, lists and tables. A {@code TabFolder}'s tab
@@ -37,8 +37,8 @@ import org.eclipse.swt.widgets.Tree;
  *
  * <p>A control is colored when {@code Dialogs.open} walks the shell and again at its {@code
  * SWT.Skin} event, so controls added after the dialog opens match. Only a default color is
- * replaced: a color the application set stays. The colors follow the startup setting, as win32
- * native controls do, so a theme change shows at the next start in open and new dialogs alike.
+ * replaced: a color the application set stays. A dialog keeps the side it was prepared under; one
+ * opened after a theme switch takes the new side.
  */
 final class Win32DialogColors implements DialogColors {
   /** Dialog background: the dark title bar. */

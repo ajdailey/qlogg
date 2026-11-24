@@ -284,16 +284,13 @@ public final class ApplicationController
   }
 
   /**
-   * Sets {@code ui.theme}, saves it and applies the palette. When native controls show the theme
-   * only from the next start, says so.
+   * Sets {@code ui.theme}, saves it and applies the palette and the native theme.
    *
    * @param mode the theme
    */
   public void setTheme(ThemeMode mode) {
     setPreferences(preferences.get().withTheme(mode));
-    if (!theme.setMode(mode)) {
-      view.showInfo(UiText.THEME_RESTART_TITLE.text(), UiText.THEME_RESTART_MESSAGE.text());
-    }
+    theme.setMode(mode);
   }
 
   @Override

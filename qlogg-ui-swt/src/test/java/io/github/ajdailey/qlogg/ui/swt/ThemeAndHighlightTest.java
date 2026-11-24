@@ -215,17 +215,6 @@ class ThemeAndHighlightTest {
     shell.dispose();
   }
 
-  @Test
-  void openReportsWhenASwitchWaitsForRestart() {
-    try {
-      SwtThemeService service = SwtThemeService.open(display, ThemeMode.DARK);
-      assertTrue(service.showsNow(true));
-      assertEquals("win32".equals(SWT.getPlatform()), !service.showsNow(false));
-    } finally {
-      display.setDarkThemePreferred(false);
-    }
-  }
-
   /**
    * The test GTK theme has a dark variant, so the dark tests reach native chrome: a theme without
    * one, or a named theme that is missing, keeps native controls light.
@@ -274,7 +263,6 @@ class ThemeAndHighlightTest {
     SwtThemeService service =
         new SwtThemeService(
             display,
-            false,
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {

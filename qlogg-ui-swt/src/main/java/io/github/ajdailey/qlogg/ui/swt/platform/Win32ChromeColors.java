@@ -35,10 +35,10 @@ import org.eclipse.swt.widgets.Tree;
  * resolves to light every such color is null and composites take {@code SWT.INHERIT_NONE}. Both
  * directions apply live.
  *
- * <p>After a dark start ({@link DialogColors#nativeDark}) a field holding text keeps the dark
- * colors on the light side until the next start, because the dark native field draws near-black
- * under any light colors; an empty field takes the system colors. A field is colored again when it
- * becomes empty or takes text ({@code SWT.Modify}).
+ * <p>While native controls are dark ({@link DialogColors#nativeDark}) a field holding text keeps
+ * the dark colors on the light side, because the dark native field draws near-black under any light
+ * colors; an empty field takes the system colors. A field is colored again when it becomes empty or
+ * takes text ({@code SWT.Modify}).
  *
  * <p>Push and arrow buttons, read-only combos, lists, tables, trees, spinners, progress bars, a
  * {@link StyledText}, a {@link Browser}, a {@link CTabFolder} and a control with {@link
@@ -47,8 +47,8 @@ import org.eclipse.swt.widgets.Tree;
  *
  * <p>Each {@link #apply} colors the surfaces first and then re-inks every icon set, since the ink
  * is read from a colored tool bar. Under dark a set's disabled items show faded copies. A checked
- * tool item draws the checked background of the startup native theme, light after a light start, so
- * a checked item takes the light ink only after a dark start.
+ * tool item draws the checked background of the native theme its window was built under, light
+ * under the light one, so a checked item takes the light ink only under the dark native theme.
  */
 final class Win32ChromeColors implements ChromeColors {
   /** Background of every surface under dark. */
@@ -89,6 +89,7 @@ final class Win32ChromeColors implements ChromeColors {
   private final List<Icons> icons = new ArrayList<Icons>();
   private boolean dark;
   private boolean painted;
+  private Boolean built;
 
   /**
    * Creates the colors for a window.
@@ -98,6 +99,19 @@ final class Win32ChromeColors implements ChromeColors {
   Win32ChromeColors(Display display) {
     this.display = display;
     display.addListener(SWT.Skin, skin);
+  }
+
+  /**
+   * Returns the native setting at the first {@link #apply} and keeps it: the setting the window's
+   * controls were created under, also while the window waits for a rebuild after a switch. {@link
+   * #add(Icons)} reads it without keeping it, so the theme service may record it after the window
+   * is built.
+   */
+  private boolean nativeDark() {
+    if (built == null) {
+      built = DialogColors.nativeDark(display);
+    }
+    return built;
   }
 
   @Override
@@ -129,12 +143,13 @@ final class Win32ChromeColors implements ChromeColors {
   @Override
   public void add(Icons set) {
     icons.add(set);
-    set.lightChecked(DialogColors.nativeDark(display));
+    set.lightChecked(built == null ? DialogColors.nativeDark(display) : built);
     set.fadeDisabled(dark);
   }
 
   @Override
   public void apply(boolean value) {
+    nativeDark();
     if (!value && !painted) {
       return;
     }
@@ -146,7 +161,7 @@ final class Win32ChromeColors implements ChromeColors {
       }
     }
     for (Icons set : icons) {
-      set.lightChecked(DialogColors.nativeDark(display));
+      set.lightChecked(nativeDark());
       set.fadeDisabled(value);
       set.reink();
     }
@@ -174,7 +189,7 @@ final class Win32ChromeColors implements ChromeColors {
   }
 
   private void colorField(final Control field) {
-    boolean darkField = dark || (DialogColors.nativeDark(display) && length(field) > 0);
+    boolean darkField = dark || (nativeDark() && length(field) > 0);
     field.setBackground(darkField ? color(FIELD) : null);
     field.setForeground(darkField ? color(FIELD_TEXT) : null);
     if (field.getData(FOLLOWED) != null) {

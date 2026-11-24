@@ -26,8 +26,8 @@ public interface MenuBehavior {
   void decorate(Menu menu, ItemImages images);
 
   /**
-   * Chooses the menu icons' ink source. win32 menus take the native theme's startup setting and
-   * keep it, while the toolbar follows the live theme; GTK menus show the theme the owner toolbar
+   * Chooses the menu icons' ink source. win32 menus take the native side the window was built
+   * under, while the toolbar follows the live theme; GTK menus show the theme the owner toolbar
    * shows.
    *
    * @param <T> the icon set type

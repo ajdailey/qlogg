@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.controller.MarksListController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.TableEditor;
 import org.eclipse.swt.layout.GridData;
@@ -38,6 +39,15 @@ final class MarksWindow {
 
   MarksWindow(Shell parent, ApplicationController application) {
     shell = Dialogs.shell(parent, UiText.MARKS_TITLE.text(), false);
+    // Closing it drops a comment edit in progress.
+    WindowViews.holdWhile(
+        shell,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return field != null;
+          }
+        });
     summary = Dialogs.label(shell, "");
     table =
         new Table(shell, SWT.BORDER | SWT.MULTI | SWT.FULL_SELECTION | SWT.V_SCROLL | SWT.VIRTUAL);

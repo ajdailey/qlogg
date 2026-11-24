@@ -99,8 +99,9 @@ window is open, so a caller reading them through a pipe reaches the end;
    handoffs are accepted before the Display exists.
 2. Resolves `ui.theme` before the first Shell. For light and dark,
    `SwtThemeService.open` also sets the native widgets' theme (system leaves
-   them to the OS); on Windows a theme change reaches them at the next start,
-   and on macOS they always follow the OS.
+   them to the OS); on Windows a theme change rebuilds each main window, so
+   `SwtThemeService.setWindows` receives the `WindowViews` that wraps every
+   window in a `MainWindowSlot`, and on macOS they always follow the OS.
 3. Loads the default time zone's rules on a `qlogg-lifecycle-` worker, so the
    first open does not read the JDK time-zone data on the UI thread.
 4. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
@@ -277,6 +278,7 @@ sources), so a rule that stops matching fails:
 | `SWT.getPlatform()` and strings starting `org.eclipse.swt.internal.` (system properties, class names) only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
 | `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
 | A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.prepare` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
+| `Dialog.open` (file, folder and color choosers) is called only in `ui.swt.NativeDialogs` (`nativeChoosersOnlyThroughNativeDialogs`) | A window rebuild for a theme switch waits only for a chooser `NativeDialogs` counts |
 | A native `TabFolder` is created only in `ui.swt.platform` (`tabFoldersOnlyThroughDialogTabs`) | A dialog takes its folder from `PlatformTraits.dialogTabs`, dark after a dark win32 start |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |

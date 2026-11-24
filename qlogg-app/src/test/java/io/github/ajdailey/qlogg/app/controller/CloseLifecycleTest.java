@@ -191,11 +191,6 @@ class CloseLifecycleTest {
                 public void preferDark(boolean dark) {
                   // No native controls.
                 }
-
-                @Override
-                public boolean showsNow(boolean dark) {
-                  return true;
-                }
               });
       set.setFactory(
           new WindowSet.Factory() {

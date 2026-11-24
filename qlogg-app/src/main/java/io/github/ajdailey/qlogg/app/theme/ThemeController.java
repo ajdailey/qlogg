@@ -111,16 +111,12 @@ public final class ThemeController {
    * Changes the setting and pushes the palette when it changes.
    *
    * @param next the mode
-   * @return true when native controls show the mode now; false when they show it from the next
-   *     start
    */
-  public boolean setMode(ThemeMode next) {
+  public void setMode(ThemeMode next) {
     mode = next;
-    boolean dark = resolve(next, systemDark).dark();
-    service.preferDark(dark);
+    service.preferDark(resolve(next, systemDark).dark());
     apply(current());
     applyTheme();
-    return service.showsNow(dark);
   }
 
   /**

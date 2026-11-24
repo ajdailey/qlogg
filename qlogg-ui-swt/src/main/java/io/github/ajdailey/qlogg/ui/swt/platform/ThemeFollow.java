@@ -9,7 +9,8 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
  * every platform. Confined to the UI thread.
  *
  * <p>GTK applies {@code Display.setDarkThemePreferred} to existing controls at once; win32 controls
- * read it only when created; cocoa controls follow the system appearance and it is never called.
+ * read it only when created, so a switch rebuilds the windows; cocoa controls follow the system
+ * appearance and it is never called.
  */
 public interface ThemeFollow {
   /**
@@ -49,12 +50,14 @@ public interface ThemeFollow {
   void preferDark(boolean dark);
 
   /**
-   * Reports whether native controls show a side now: on GTK after {@link #preferDark}, on cocoa at
-   * every start, and on win32 only when it is the startup setting.
+   * Shows a side on the existing windows. {@code SwtThemeService} calls it after {@link
+   * #preferDark} on every change of the side {@code ui.theme} resolves to: View > Theme, and a
+   * system change under System. win32 sets the native theme, records it as {@link
+   * DialogColors#NATIVE_DARK} and rebuilds the windows when the side differs from the recorded one,
+   * since win32 controls take the theme only when created; GTK and cocoa do nothing here.
    *
    * @param dark the side
-   * @param nativeDark the startup setting {@link #start} made
-   * @return false when the side shows only after a restart
+   * @param windows rebuilds the main windows
    */
-  boolean showsNow(boolean dark, boolean nativeDark);
+  void showOnWindows(boolean dark, WindowRebuild windows);
 }

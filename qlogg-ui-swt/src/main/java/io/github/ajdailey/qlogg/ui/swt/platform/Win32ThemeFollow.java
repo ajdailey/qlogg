@@ -4,7 +4,10 @@ import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.widgets.Display;
 
-/** win32: controls read the theme setting only when created, so it is set once at startup. */
+/**
+ * win32: controls read the theme setting only when created, so it is set before the first Shell and
+ * a later switch rebuilds the windows.
+ */
 final class Win32ThemeFollow implements ThemeFollow {
   private final Display display;
 
@@ -29,7 +32,12 @@ final class Win32ThemeFollow implements ThemeFollow {
   public void preferDark(boolean dark) {}
 
   @Override
-  public boolean showsNow(boolean dark, boolean nativeDark) {
-    return dark == nativeDark;
+  public void showOnWindows(boolean dark, WindowRebuild windows) {
+    if (display.isDisposed() || dark == DialogColors.nativeDark(display)) {
+      return;
+    }
+    display.setDarkThemePreferred(dark);
+    display.setData(DialogColors.NATIVE_DARK, dark);
+    windows.rebuild();
   }
 }

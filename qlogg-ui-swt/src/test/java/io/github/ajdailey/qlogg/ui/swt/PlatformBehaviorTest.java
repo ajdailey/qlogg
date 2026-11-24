@@ -8,8 +8,8 @@ import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ToolItemSizing;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowRebuild;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
-import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Display;
@@ -30,14 +30,6 @@ class PlatformBehaviorTest {
   private static final String PLATFORM = SWT.getPlatform();
   private static final boolean WIN32 = "win32".equals(PLATFORM);
   private static final boolean COCOA = "cocoa".equals(PLATFORM);
-
-  private static final BooleanSupplier LIGHT_SYSTEM =
-      new BooleanSupplier() {
-        @Override
-        public boolean getAsBoolean() {
-          return false;
-        }
-      };
 
   private Display display;
 
@@ -76,17 +68,38 @@ class PlatformBehaviorTest {
   }
 
   @Test
-  void restartForNativeTheme() {
-    SwtThemeService service = new SwtThemeService(display, false, LIGHT_SYSTEM);
-    assertTrue(service.showsNow(false));
-    assertEquals(!WIN32, service.showsNow(true));
+  void aSwitchRebuildsTheWindowsOnWin32Only() {
+    final int[] rebuilds = {0};
+    try {
+      SwtThemeService service = SwtThemeService.open(display, ThemeMode.LIGHT);
+      service.setWindows(
+          new WindowRebuild() {
+            @Override
+            public void rebuild() {
+              rebuilds[0]++;
+            }
+          });
+      service.preferDark(true);
+      service.preferDark(true);
+      assertEquals(WIN32 ? 1 : 0, rebuilds[0]);
+      assertEquals(WIN32, DialogColors.nativeDark(display));
+    } finally {
+      display.setDarkThemePreferred(false);
+      display.setData(DialogColors.NATIVE_DARK, null);
+    }
   }
 
   @Test
   void systemModeFixesNativeThemeAtStartOnWin32() {
     boolean system = Display.isSystemDarkTheme();
-    SwtThemeService service = SwtThemeService.open(display, ThemeMode.SYSTEM);
-    assertEquals(!WIN32, service.showsNow(!system));
+    try {
+      SwtThemeService.open(display, ThemeMode.SYSTEM);
+      assertEquals(
+          WIN32 ? Boolean.valueOf(system) : null, display.getData(DialogColors.NATIVE_DARK));
+    } finally {
+      display.setDarkThemePreferred(false);
+      display.setData(DialogColors.NATIVE_DARK, null);
+    }
   }
 
   @Test

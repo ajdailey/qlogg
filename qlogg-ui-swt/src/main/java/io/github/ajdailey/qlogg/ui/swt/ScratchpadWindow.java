@@ -5,6 +5,9 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.scratch.TransformListener;
 import io.github.ajdailey.qlogg.app.scratch.Transforms;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
@@ -43,9 +46,28 @@ final class ScratchpadWindow {
   private final Font font;
   private int created;
 
+  /**
+   * The tabs' titles and text, the shown tab and the count that numbers the next new tab.
+   *
+   * @param titles each tab's title
+   * @param texts each tab's text
+   * @param selected the shown tab, or -1
+   * @param created tabs created so far
+   */
+  record Tabs(List<String> titles, List<String> texts, int selected, int created) {}
+
   ScratchpadWindow(Shell parent, ApplicationController controller) {
     this.controller = controller;
     shell = Dialogs.shell(parent, UiText.SCRATCHPAD_TITLE.text(), false);
+    // Closing it drops the result of a transform that runs.
+    WindowViews.holdWhile(
+        shell,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return transforming();
+          }
+        });
     font =
         new Font(shell.getDisplay(), Dialogs.monospaceName(), Dialogs.monospaceSize(), SWT.NORMAL);
     Composite row = new Composite(shell, SWT.NONE);
@@ -210,6 +232,16 @@ final class ScratchpadWindow {
     values.setText(String.join("    ", Transforms.values(selected, ZoneId.systemDefault())));
   }
 
+  /** Reports whether a tab waits for a transform's result. */
+  private boolean transforming() {
+    for (CTabItem item : tabs.getItems()) {
+      if (item.getControl() instanceof Text text && !text.isDisposed() && !text.getEditable()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** The shown tab's text, a new tab when every tab was closed. */
   Text current() {
     CTabItem item = tabs.getSelection();
@@ -217,6 +249,43 @@ final class ScratchpadWindow {
       return newTab();
     }
     return (Text) item.getControl();
+  }
+
+  /**
+   * Returns the tabs' titles and text; a tab whose transform runs gives its text before the result.
+   *
+   * @return the tabs
+   */
+  Tabs tabsContent() {
+    List<String> titles = new ArrayList<String>();
+    List<String> texts = new ArrayList<String>();
+    for (CTabItem item : tabs.getItems()) {
+      titles.add(item.getText());
+      texts.add(item.getControl() instanceof Text text ? text.getText() : "");
+    }
+    return new Tabs(titles, texts, tabs.getSelectionIndex(), created);
+  }
+
+  /**
+   * Replaces the tabs with given ones.
+   *
+   * @param content the tabs
+   */
+  void restore(Tabs content) {
+    for (CTabItem item : tabs.getItems()) {
+      if (item.getControl() != null) {
+        item.getControl().dispose();
+      }
+      item.dispose();
+    }
+    for (int i = 0; i < content.titles().size(); i++) {
+      newTab().setText(content.texts().get(i));
+      tabs.getItem(i).setText(content.titles().get(i));
+    }
+    created = content.created();
+    if (content.selected() >= 0 && content.selected() < tabs.getItemCount()) {
+      tabs.setSelection(content.selected());
+    }
   }
 
   /**

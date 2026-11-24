@@ -82,6 +82,15 @@ final class TextWindow {
     close.setFocus();
   }
 
+  /**
+   * Returns the text shown.
+   *
+   * @return the text
+   */
+  String content() {
+    return content;
+  }
+
   /** Shows the first line and focuses Close. */
   void showStart() {
     text.setSelection(0);

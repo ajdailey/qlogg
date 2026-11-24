@@ -145,10 +145,6 @@ class TabColorsGuiTest {
               }
 
               /** True, so win32 opens no modal restart notice in the test. */
-              @Override
-              public boolean showsNow(boolean dark) {
-                return true;
-              }
             });
     window.attach(controller);
     window.place(new WindowGeometry.Request(0, 0, 1100, 700), null);

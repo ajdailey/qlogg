@@ -42,7 +42,7 @@ import org.eclipse.swt.widgets.Text;
  * Choosing a line (double-click or Enter) shows it in a tab through {@link
  * FolderSearchController#open}; the step keys of {@link CommandId#NEXT_FOLDER_MATCH} and {@link
  * CommandId#PREVIOUS_FOLDER_MATCH} work in the window too. Both tables are virtual. Closing the
- * window stops the search; the sets stay with the controller.
+ * window stops the search, except after {@link #keepSearch}; the sets stay with the controller.
  */
 final class FolderSearchWindow {
   private final Shell shell;
@@ -70,6 +70,7 @@ final class FolderSearchWindow {
   private FolderResultSet shownSet;
   private List<FileHits> listed = List.of();
   private FileHits shown;
+  private boolean keepSearch;
   private final FolderSearchController.Listener listener =
       new FolderSearchController.Listener() {
         @Override
@@ -238,7 +239,9 @@ final class FolderSearchWindow {
           public void handleEvent(Event event) {
             display.removeFilter(SWT.KeyDown, steps);
             FolderSearchWindow.this.search.removeListener(listener);
-            FolderSearchWindow.this.search.cancel();
+            if (!keepSearch) {
+              FolderSearchWindow.this.search.cancel();
+            }
           }
         });
     sync();
@@ -344,7 +347,7 @@ final class FolderSearchWindow {
   private void browse() {
     DirectoryDialog dialog = new DirectoryDialog(shell);
     dialog.setFilterPath(folder.getText());
-    String chosen = dialog.open();
+    String chosen = NativeDialogs.open(dialog);
     if (chosen != null && !folder.isDisposed()) {
       folder.setText(chosen);
     }
@@ -512,6 +515,11 @@ final class FolderSearchWindow {
 
   Button recursive() {
     return recursive;
+  }
+
+  /** Lets a running search continue when the window is disposed, for a window rebuild. */
+  void keepSearch() {
+    keepSearch = true;
   }
 
   boolean isDisposed() {

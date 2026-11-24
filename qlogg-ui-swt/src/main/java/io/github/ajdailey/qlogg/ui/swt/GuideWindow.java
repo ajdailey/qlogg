@@ -94,7 +94,20 @@ final class GuideWindow {
    * @return the window, not yet open, or null when the browser fails here, the fallback not called
    */
   static GuideWindow create(Shell parent, Path file, Consumer<Path> fallback) {
-    return create(parent, file, fallback, BROWSER, LOAD_BOUND_MILLIS);
+    return create(parent, file, null, fallback, BROWSER, LOAD_BOUND_MILLIS);
+  }
+
+  /**
+   * Creates the window and starts loading the guide at a location within it.
+   *
+   * @param parent the main window
+   * @param file the guide's HTML file
+   * @param at a location {@link #location} returned, or null for the top of the guide
+   * @param fallback receives the guide's file when the window fails after this returns
+   * @return the window, not yet open, or null when the browser fails here, the fallback not called
+   */
+  static GuideWindow create(Shell parent, Path file, String at, Consumer<Path> fallback) {
+    return create(parent, file, at, fallback, BROWSER, LOAD_BOUND_MILLIS);
   }
 
   /**
@@ -109,6 +122,16 @@ final class GuideWindow {
    */
   static GuideWindow create(
       Shell parent, Path file, Consumer<Path> fallback, BrowserFactory factory, int boundMillis) {
+    return create(parent, file, null, fallback, factory, boundMillis);
+  }
+
+  private static GuideWindow create(
+      Shell parent,
+      Path file,
+      String at,
+      Consumer<Path> fallback,
+      BrowserFactory factory,
+      int boundMillis) {
     Shell shell = Dialogs.shell(parent, UiText.GUIDE_TITLE.text(), false);
     GuideWindow window = null;
     try {
@@ -122,7 +145,7 @@ final class GuideWindow {
         Composite buttons = Dialogs.buttonRow(shell, 1);
         Button close = Dialogs.button(buttons, UiText.BUTTON_CLOSE.text(), Dialogs.closer(shell));
         shell.setDefaultButton(close);
-        window.load(file);
+        window.load(file, at);
       } finally {
         // A failure deferred here runs when open returns.
         window.calls--;
@@ -167,13 +190,16 @@ final class GuideWindow {
         });
   }
 
-  /** Starts a load of the guide and the bound on it; a browser exception propagates. */
-  private void load(Path guide) {
+  /**
+   * Starts a load of the guide, at an allowed location within it when given, and the bound on it; a
+   * browser exception propagates.
+   */
+  private void load(Path guide, String at) {
     file = guide;
     location = null;
     completed = false;
     bound.arm();
-    browser.setUrl(guide.toUri().toString());
+    browser.setUrl(at != null && allowed(at, guide) ? at : guide.toUri().toString());
   }
 
   private void settle() {
@@ -264,7 +290,7 @@ final class GuideWindow {
   void show(Path guide) {
     calls++;
     try {
-      load(guide);
+      load(guide, null);
       shell.setActive();
     } catch (SWTException | SWTError e) {
       file = guide;
@@ -276,6 +302,15 @@ final class GuideWindow {
 
   Shell shell() {
     return shell;
+  }
+
+  /**
+   * Returns the guide's file.
+   *
+   * @return the file the last load requested
+   */
+  Path file() {
+    return file;
   }
 
   /**

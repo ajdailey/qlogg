@@ -62,7 +62,7 @@ final class ColorField {
           public void handleEvent(Event event) {
             ColorDialog dialog = new ColorDialog(choose.getShell());
             dialog.setRGB(new RGB(color.red(), color.green(), color.blue()));
-            RGB picked = dialog.open();
+            RGB picked = NativeDialogs.open(dialog);
             if (picked != null) {
               color = new Rgb(picked.red, picked.green, picked.blue);
               sync();

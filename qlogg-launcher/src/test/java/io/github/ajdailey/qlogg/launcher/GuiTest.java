@@ -270,7 +270,7 @@ class GuiTest {
               shell.dispose();
             }
           });
-      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, List.of(shell)));
+      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, openWhile(shell)));
       assertEquals(1, quits[0]);
       assertTrue(shell.isDisposed());
       assertEquals(ErrorExitMarker.State.PENDING, marker().read());
@@ -306,7 +306,7 @@ class GuiTest {
               shell.dispose();
             }
           });
-      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, List.of(shell)));
+      assertEquals(Launcher.EXIT_UI_FAILURE, Gui.loop(display, failures, openWhile(shell)));
       assertTrue(failures.quitFailed());
       assertFalse(shell.isDisposed());
       assertEquals(ErrorExitMarker.State.PENDING, marker().read());
@@ -533,5 +533,14 @@ class GuiTest {
       }
       throw (RuntimeException) thrown;
     }
+  }
+
+  private static BooleanSupplier openWhile(final Shell shell) {
+    return new BooleanSupplier() {
+      @Override
+      public boolean getAsBoolean() {
+        return !shell.isDisposed();
+      }
+    };
   }
 }

@@ -496,7 +496,7 @@ final class HighlightersDialog {
     FileDialog dialog = new FileDialog(shell, style);
     dialog.setText(style == SWT.SAVE ? UiText.BUTTON_EXPORT.text() : UiText.BUTTON_IMPORT.text());
     dialog.setOverwrite(true);
-    String chosen = dialog.open();
+    String chosen = NativeDialogs.open(dialog);
     if (chosen == null) {
       return null;
     }

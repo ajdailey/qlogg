@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ThemeFollow;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowRebuild;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -17,7 +18,8 @@ import org.eclipse.swt.widgets.Listener;
  * The system's light or dark setting from {@link Display#isSystemDarkTheme}, with a change event
  * from {@code SWT.Settings}. On GTK the setting is read once when the Display is created, so a
  * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. Native
- * controls take the theme through the platform's {@link ThemeFollow}.
+ * controls take the theme through the platform's {@link ThemeFollow}, which on win32 rebuilds the
+ * main windows through the {@link WindowRebuild} the launcher sets.
  */
 public final class SwtThemeService implements ThemeService {
   private static final BooleanSupplier SYSTEM_SETTING =
@@ -32,7 +34,7 @@ public final class SwtThemeService implements ThemeService {
   private final BooleanSupplier system;
   private final ThemeFollow follow;
   private boolean dark;
-  private final boolean nativeDark;
+  private WindowRebuild windows = WindowRebuild.NONE;
 
   /**
    * Creates the service with native controls following the system; call on the UI thread.
@@ -40,18 +42,17 @@ public final class SwtThemeService implements ThemeService {
    * @param display the Display
    */
   public SwtThemeService(Display display) {
-    this(display, PlatformTraits.PLATFORM.themeFollow(display), false, SYSTEM_SETTING);
+    this(display, PlatformTraits.PLATFORM.themeFollow(display), SYSTEM_SETTING);
   }
 
   /**
    * Creates the service over a given setting, with the running platform's {@link ThemeFollow}.
    *
    * @param display the Display
-   * @param nativeDark the startup setting of native controls
    * @param system reads the system setting
    */
-  SwtThemeService(Display display, boolean nativeDark, BooleanSupplier system) {
-    this(display, PlatformTraits.PLATFORM.themeFollow(display), nativeDark, system);
+  SwtThemeService(Display display, BooleanSupplier system) {
+    this(display, PlatformTraits.PLATFORM.themeFollow(display), system);
   }
 
   /**
@@ -59,12 +60,10 @@ public final class SwtThemeService implements ThemeService {
    *
    * @param display the Display
    * @param follow the native controls' theme handling
-   * @param nativeDark the startup setting of native controls
    * @param system reads the system setting
    */
-  SwtThemeService(Display display, ThemeFollow follow, boolean nativeDark, BooleanSupplier system) {
+  SwtThemeService(Display display, ThemeFollow follow, BooleanSupplier system) {
     this.follow = follow;
-    this.nativeDark = nativeDark;
     this.system = system;
     dark = system.getAsBoolean();
     display.addListener(
@@ -119,7 +118,18 @@ public final class SwtThemeService implements ThemeService {
    * @return the service
    */
   static SwtThemeService open(Display display, ThemeMode mode, ThemeFollow follow) {
-    return new SwtThemeService(display, follow, follow.start(mode), SYSTEM_SETTING);
+    follow.start(mode);
+    return new SwtThemeService(display, follow, SYSTEM_SETTING);
+  }
+
+  /**
+   * Sets the main windows a switch rebuilds where native controls take the theme only when created;
+   * {@link WindowRebuild#NONE} until called.
+   *
+   * @param windows the main windows
+   */
+  public void setWindows(WindowRebuild windows) {
+    this.windows = windows;
   }
 
   @Override
@@ -135,10 +145,6 @@ public final class SwtThemeService implements ThemeService {
   @Override
   public void preferDark(boolean value) {
     follow.preferDark(value);
-  }
-
-  @Override
-  public boolean showsNow(boolean value) {
-    return follow.showsNow(value, nativeDark);
+    follow.showOnWindows(value, windows);
   }
 }

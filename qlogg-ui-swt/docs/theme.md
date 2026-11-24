@@ -24,7 +24,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
 | `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
-| Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
+| Dialogs and tool windows on win32 under the dark side | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
 
@@ -34,13 +34,68 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | Platform | `Display.setDarkThemePreferred` | System appearance change |
 |---|---|---|
 | GTK | `SwtThemeService.open` calls it for Light and Dark and `preferDark` at each switch; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
-| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment, and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); native controls take a system change at the next start |
+| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment; at a switch `showOnWindows` sets the new side and rebuilds every main window ([Window rebuild](#window-rebuild)) | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); under System a change rebuilds the windows like a switch |
 | cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one. Table and Tree headers get explicit colors of the current appearance on every change, never null (null colors draw blank labels in dark), and a Table's header is hidden and shown again so it repaints, the area right of the last column included |
 
 `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
-into a change event.
+into a change event. Its `preferDark` calls `ThemeFollow.preferDark` and then
+`ThemeFollow.showOnWindows` with the `WindowRebuild` the launcher set
+(`WindowRebuild.NONE` until then) on every platform.
 
-- win32: under a dark startup setting, check box labels draw near-white, which
+## Window rebuild
+
+On win32 the menu bar, title bar, scroll bars and buttons take the theme only
+when created: a forced repaint, `setMenuBar`, a resize or a minimize and
+restore leaves the menu bar `#ffffff` after `setDarkThemePreferred(true)`
+(measured, `windows-2025`). `Win32ThemeFollow.showOnWindows` therefore sets the
+preference and `DialogColors.NATIVE_DARK` when the side differs from the
+recorded one, and calls `WindowRebuild.rebuild`.
+
+`WindowViews` implements `WindowRebuild`. The launcher wraps each `MainWindow`
+in a `MainWindowSlot`, which implements `MainView` by forwarding to the current
+window, so the `ApplicationController`, its sub-controllers and their hosts keep
+one view. `WindowViews` rebuilds one window per UI turn, starting on the turn
+after the request, so no window is disposed inside its own menu or key handler.
+A window waits, checked every 250 ms, while it owns a visible modal shell, a
+native chooser runs over it, a menu bar menu shows, or a modeless window it owns
+holds input (`WindowViews.holdWhile`): Preferences while open, Marks List while
+a comment edit is open, the scratchpad while a transform runs. Disposing any of
+them would drop the user's input or the dialog's result. QLogg has no print
+dialog. Every `FileDialog`, `DirectoryDialog`
+and `ColorDialog` opens through `NativeDialogs`, which counts it on its
+top-level shell. `WindowViews` records the side each window was built under
+(`DialogColors.nativeDark` when it is added or rebuilt) and rebuilds a window
+only while that side differs from the current one, so a switch and back before
+a window's turn leaves it alone, and a window opened after a switch is not
+rebuilt. A hidden window, or one whose controller shuts down, takes the side
+without a rebuild.
+
+`MainWindowSlot.rebuild` reads a `RebuildState`, detaches the old window
+(`MainWindow.detach`: it stops listening and disposes the views), builds a
+`MainWindow` over the same controller, adds the tabs, applies the state, and
+disposes the old shell last, so `WindowViews.anyOpen`, the launcher's event
+loop condition, never sees no window. Documents, views' positions, searches,
+marks, follow, quick find, kept results and the shown set live in the
+controllers and carry unchanged; running work (indexing, a search, Search in
+Folder, through `FolderSearchWindow.keepSearch`) continues, and the busy count
+stays in the slot.
+
+| Carried by `RebuildState` | How |
+|---|---|
+| Bounds, maximized, full screen, title | Placed before the tabs; full screen after open |
+| Minimized | Minimized again after open, with the restore bounds kept; a minimized window rebuilds like a shown one and activates only another main window that was active |
+| Always on Top | `setOnTop` before open |
+| Focus (main view, filtered view, search row, quick find) and the active shell | Restored when the main window or one of its tool windows was active |
+| Marks, Search All Files, Search in Folder, scratchpad, Show Log, Keyboard Shortcuts, user guide | Reopened at their bounds with the scratchpad's tabs and text, the log text, the shortcuts filter and the guide's last location |
+| Command palette, context menus, a status notice | Closed |
+
+A rebuild of one window takes 187 to 334 ms on `windows-2025` (1, 5 and 20
+tabs; the tab count barely matters, since only the shown tab has views), over
+the 100 ms UI bound; a switch is rare and user-initiated, and the stall is
+accepted. The user guide reloads at its last anchor; JavaScript is off, so the
+scroll position within a section is not kept.
+
+- win32: while native controls are dark, check box labels draw near-white, which
   a light page cannot show. Every check box therefore comes from
   `DialogColors.check` (through `Dialogs.check`): `Win32DialogColors` creates it
   with the theme off, except in a dialog it colors, whose page is dark. On the quick find bar
@@ -75,10 +130,14 @@ the colors are null and composites take `SWT.INHERIT_NONE`. Both directions
 apply live. The colors follow `ui.theme`, not the `view.colors` scheme, as
 native controls do.
 
-After a dark start (`DialogColors.nativeDark`), a field holding text keeps the
-dark colors under light until the next start: the dark native field draws
-near-black under any light colors. An empty field takes the system colors. A
-field is colored again on the `SWT.Modify` that empties it or gives it text.
+`Win32ChromeColors` reads `DialogColors.nativeDark` at its first `apply` and
+keeps it, one instance per window: the side the window's controls were created
+under, also while the window waits for a rebuild with a dialog open. While that
+side is dark, a field holding text keeps the dark colors under light: the
+dark native field draws near-black under any light colors. A switch rebuilds
+the window, so this holds only under a fixed `view.colors` scheme. An empty
+field takes the system colors. A field is colored again on the `SWT.Modify`
+that empties it or gives it text.
 
 `MainWindow` registers the top row, the search row, the quick find bar, the
 status bar and each sash of the split. The fields are the path field (read-only),
@@ -94,9 +153,10 @@ toolbar's and the search row's `ToolIcons`. The ink is read from a tool bar the
 walk colors, so a re-ink before the walk keeps the light-row ink;
 `ChromeColorsTest` fails in that order.
 
-A checked tool item draws the checked background of the startup native theme,
-not the painted row (measured on Windows 11 and `windows-2025`): `#455160`
-after a dark start under dark, `#c0c0c0` after a dark start under light,
+A checked tool item draws the checked background of the native theme the
+window was built under, not the painted row (measured on Windows 11 and
+`windows-2025` after a start; a rebuilt window is built like a started one):
+`#455160` after a dark start under dark, `#c0c0c0` after a dark start under light,
 `#cce8ff` after a light start under either. A disabled checked item draws the
 same after a dark start and the row after a light start. `add(Icons)` calls
 `lightChecked(nativeDark)`, so an enabled checked item takes the light ink only
@@ -129,7 +189,7 @@ shell built another way calls both. `DialogColors.of` takes the class from
 
 | Class | When | Colors |
 |---|---|---|
-| `Win32DialogColors` | win32; colors only while `DialogColors.nativeDark` holds, read at each use | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` after a dark start; none set after a light one |
+| `Win32DialogColors` | win32; colors a dialog prepared while `DialogColors.nativeDark` holds | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` under the dark side; none set under the light one |
 | `NativeDialogColors` | GTK, cocoa | None set |
 
 A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`
@@ -164,8 +224,8 @@ fails a `TabFolder` created outside `ui.swt.platform`:
 
 | Class | When | Folder |
 |---|---|---|
-| `Win32DialogTabs` | win32 after a dark start (`DialogColors.nativeDark`, read when the dialog is built) | A flat `CTabFolder` without a border: tab row, unselected tabs and pages `#202020`, selected tab `#2b2b2b`, tab text `#ffffff` (16.3:1 and 14.2:1) |
-| `NativeDialogTabs` | win32 after a light start, GTK, cocoa | The native `TabFolder` |
+| `Win32DialogTabs` | win32 under the dark side (`DialogColors.nativeDark`, read when the dialog is built) | A flat `CTabFolder` without a border: tab row, unselected tabs and pages `#202020`, selected tab `#2b2b2b`, tab text `#ffffff` (16.3:1 and 14.2:1) |
+| `NativeDialogTabs` | win32 under the light side, GTK, cocoa | The native `TabFolder` |
 
 `CTabFolder` draws the selected tab `#2b2b2b` only while focus is in the
 folder, and `#202020` while a dialog button holds it. It outlines the selected
@@ -180,8 +240,10 @@ fails where they differ. No tab title carries a mnemonic. After a dark start the
 row and the folder's edge read `#202020` and the selected tab, with focus in a
 page, `#2b2b2b` (measured, `windows-2025`).
 
-The colors follow the startup setting, as win32 native controls do: after a
-theme change, open and newly opened dialogs keep them until the next start.
+The colors follow `DialogColors.NATIVE_DARK`, which a switch sets: a dialog
+opened after a switch takes the new side. A window with a modal dialog open
+waits for its rebuild until the dialog closes, and the dialog keeps the colors
+it was prepared with.
 `Dialogs.background` reports a new dialog's background, from which About picks
 its logo, and `Dialogs.disabledText` the gray of a disabled table row.
 

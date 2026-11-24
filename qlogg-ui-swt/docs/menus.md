@@ -73,7 +73,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 |---|---|---|---|---|
 | `decorate`: icons | yes | yes | no: SWT ignores `MenuItem.setImage` | no |
 | `decorate`: blank images | no: the menu reserves the image column | yes | - | - |
-| `ink` | fixed: the startup setting | live | live | live |
+| `ink` | fixed: the native side | live | live | live |
 | `disabledOnDark` | the icon | a faded copy | a faded copy | the icon |
 | `addWindowControls` | nothing | nothing | nothing | Minimize and Zoom |
 | `systemCommands` | empty | empty | empty | About, Preferences, Quit |
@@ -85,8 +85,9 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 - The ink follows the main toolbar's shown background on GTK
   (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
   theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
-  `reink` on the UI turn after a palette change. win32 menus keep the startup dark setting
-  (`DialogColors.nativeDark`), while the toolbar takes `ChromeColors` from
+  `reink` on the UI turn after a palette change. win32 menus take the native side
+  (`DialogColors.nativeDark`), which a switch changes together with a window
+  rebuild, while the toolbar takes `ChromeColors` from
   the live theme.
 
 ## Listed entries

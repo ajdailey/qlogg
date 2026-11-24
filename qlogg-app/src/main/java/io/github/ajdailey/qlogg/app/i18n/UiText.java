@@ -1140,12 +1140,6 @@ public enum UiText {
   /** Preferences Folding error: the most continuation patterns kept. */
   PREFERENCES_FOLD_TOO_MANY,
 
-  // Theme restart notice.
-  /** Title of the notice that native controls change at the next start. */
-  THEME_RESTART_TITLE,
-  /** The notice that native controls change at the next start. */
-  THEME_RESTART_MESSAGE,
-
   // Lines a search skips.
   /** A finished search's status and the count of lines too long to search. */
   SEARCH_SKIPPED_LINES,

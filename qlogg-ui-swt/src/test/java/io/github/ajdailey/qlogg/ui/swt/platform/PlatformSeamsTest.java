@@ -51,14 +51,31 @@ class PlatformSeamsTest {
   }
 
   @Test
-  void onlyWin32ShowsASideOnlyWhenItIsTheStartupSetting() {
-    for (boolean dark : new boolean[] {false, true}) {
-      for (boolean nativeDark : new boolean[] {false, true}) {
-        assertTrue(new GtkThemeFollow(display).showsNow(dark, nativeDark));
-        assertTrue(new CocoaThemeFollow(display).showsNow(dark, nativeDark));
-        assertEquals(dark == nativeDark, new Win32ThemeFollow(display).showsNow(dark, nativeDark));
-      }
-    }
+  void onlyWin32RebuildsTheWindowsForAChangedSide() {
+    final int[] rebuilds = {0};
+    WindowRebuild windows =
+        new WindowRebuild() {
+          @Override
+          public void rebuild() {
+            rebuilds[0]++;
+          }
+        };
+    new Win32ThemeFollow(display).start(ThemeMode.LIGHT);
+    new GtkThemeFollow(display).showOnWindows(true, windows);
+    new CocoaThemeFollow(display).showOnWindows(true, windows);
+    assertEquals(0, rebuilds[0]);
+    assertEquals(Boolean.FALSE, display.getData(DialogColors.NATIVE_DARK));
+    Win32ThemeFollow win32 = new Win32ThemeFollow(display);
+    win32.showOnWindows(false, windows);
+    assertEquals(0, rebuilds[0]);
+    win32.showOnWindows(true, windows);
+    assertEquals(1, rebuilds[0]);
+    assertEquals(Boolean.TRUE, display.getData(DialogColors.NATIVE_DARK));
+    win32.showOnWindows(true, windows);
+    assertEquals(1, rebuilds[0]);
+    win32.showOnWindows(false, windows);
+    assertEquals(2, rebuilds[0]);
+    assertEquals(Boolean.FALSE, display.getData(DialogColors.NATIVE_DARK));
   }
 
   @Test

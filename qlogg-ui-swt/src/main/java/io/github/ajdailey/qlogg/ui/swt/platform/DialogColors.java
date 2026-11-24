@@ -16,7 +16,10 @@ public interface DialogColors {
   /** Display data key holding the Display's instance. */
   String KEY = DialogColors.class.getName();
 
-  /** Display data key: {@code Boolean.TRUE} when native controls started dark. */
+  /**
+   * Display data key: {@code Boolean.TRUE} while native controls are dark, set at startup and by a
+   * theme switch on win32.
+   */
   String NATIVE_DARK = DialogColors.class.getName() + ".nativeDark";
 
   /** Shell data key: set on a shell whose surfaces {@link Win32DialogColors} colors. */
@@ -40,10 +43,10 @@ public interface DialogColors {
   }
 
   /**
-   * Reports whether native controls started dark, as {@link #NATIVE_DARK} records.
+   * Reports whether native controls are dark, as {@link #NATIVE_DARK} records.
    *
    * @param display the Display
-   * @return true when the theme service set the dark native theme at startup
+   * @return true when the theme service set the dark native theme
    */
   static boolean nativeDark(Display display) {
     return Boolean.TRUE.equals(display.getData(NATIVE_DARK));

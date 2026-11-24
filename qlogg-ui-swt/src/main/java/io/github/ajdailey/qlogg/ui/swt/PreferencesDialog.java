@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.layout.GridData;
@@ -120,6 +121,15 @@ final class PreferencesDialog {
     this.initialFont = preferences.options().font();
     this.platformSize = Dialogs.monospaceSize();
     shell = Dialogs.shell(parent, CommandId.PREFERENCES.title(), false);
+    // Closing it drops edits not yet applied.
+    WindowViews.holdWhile(
+        shell,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return true;
+          }
+        });
     folder = Dialogs.tabs(shell);
     general(tab(folder, UiText.PREFERENCES_TAB_GENERAL), preferences);
     view(tab(folder, UiText.PREFERENCES_TAB_VIEW));

@@ -57,7 +57,7 @@ class WindowSetTest {
   private WindowSet set;
   private ApplicationController first;
   private FakeView firstView;
-  private boolean nativeLive = true;
+  private final List<Boolean> preferred = new ArrayList<Boolean>();
 
   /** A log file that opens unless told to fail. */
   private final class FakeLogFiles implements LogFiles {
@@ -120,12 +120,7 @@ class WindowSetTest {
 
               @Override
               public void preferDark(boolean dark) {
-                // No native controls.
-              }
-
-              @Override
-              public boolean showsNow(boolean dark) {
-                return nativeLive;
+                preferred.add(dark);
               }
             });
     set.setLogging(recent, logFiles);
@@ -195,14 +190,11 @@ class WindowSetTest {
   }
 
   @Test
-  void aThemeNativeControlsShowOnlyAfterRestartIsAnnounced() {
+  void aThemeSwitchReachesNativeControlsWithoutANotice() {
     first.execute(CommandId.THEME_DARK);
-    assertEquals(List.of(), firstView.infos);
-    nativeLive = false;
     first.execute(CommandId.THEME_LIGHT);
-    assertEquals(
-        List.of(UiText.THEME_RESTART_TITLE.text() + ": " + UiText.THEME_RESTART_MESSAGE.text()),
-        firstView.infos);
+    assertEquals(List.of(true, false), preferred);
+    assertEquals(List.of(), firstView.infos);
   }
 
   @Test

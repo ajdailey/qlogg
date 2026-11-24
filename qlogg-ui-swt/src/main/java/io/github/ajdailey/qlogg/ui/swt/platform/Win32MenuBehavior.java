@@ -5,7 +5,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.MenuItem;
 
-/** win32 menus: icons in the reserved image column, inked for the startup theme setting. */
+/** win32 menus: icons in the reserved image column, inked for the native side. */
 final class Win32MenuBehavior extends ImageMenuBehavior {
   @Override
   void align(List<MenuItem> plain, ItemImages images) {}

@@ -114,6 +114,13 @@ final class ViewViolations {
     }
   }
 
+  /** Opens a native chooser outside NativeDialogs. */
+  static final class OpensFileDialog {
+    String choose(org.eclipse.swt.widgets.Shell parent) {
+      return new org.eclipse.swt.widgets.FileDialog(parent).open();
+    }
+  }
+
   // Always on Top.
 
   /** Reaches an SWT internal by reflection outside the Always on Top platform classes. */
