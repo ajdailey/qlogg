@@ -112,6 +112,7 @@ class ChromeColorsTest {
       control.setBackground(new Color(OWN_BACKGROUND));
       control.setForeground(new Color(OWN_TEXT));
     }
+    assertFalse(icons.darkBackground(), "native controls start light; a test left them dark");
   }
 
   @AfterEach

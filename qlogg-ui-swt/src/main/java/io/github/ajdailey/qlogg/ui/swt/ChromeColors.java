@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
+import java.util.List;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
 import org.eclipse.swt.custom.CTabFolder;
@@ -17,7 +18,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Link;
-import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.ProgressBar;
 import org.eclipse.swt.widgets.Shell;
@@ -70,8 +70,8 @@ final class ChromeColors {
           }
         }
       };
-  private final ArrayList<Control> surfaces = new ArrayList<Control>();
-  private final ArrayList<ToolIcons> icons = new ArrayList<ToolIcons>();
+  private final List<Control> surfaces = new ArrayList<Control>();
+  private final List<ToolIcons> icons = new ArrayList<ToolIcons>();
   private boolean dark;
   private boolean painted;
 
@@ -126,7 +126,7 @@ final class ChromeColors {
    *
    * @return a copy, in the order added
    */
-  ArrayList<Control> surfaces() {
+  List<Control> surfaces() {
     return new ArrayList<Control>(surfaces);
   }
 
@@ -148,7 +148,7 @@ final class ChromeColors {
    *
    * @return a copy, in the order added
    */
-  ArrayList<ToolIcons> icons() {
+  List<ToolIcons> icons() {
     return new ArrayList<ToolIcons>(icons);
   }
 
@@ -223,7 +223,7 @@ final class ChromeColors {
     }
     return control instanceof Text
         || control instanceof Combo
-        || control instanceof List
+        || control instanceof org.eclipse.swt.widgets.List
         || control instanceof Table
         || control instanceof Tree
         || control instanceof Spinner

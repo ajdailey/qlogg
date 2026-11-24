@@ -185,6 +185,7 @@ class TabStripButtonsTest {
             return window.shell().isDisposed();
           }
         });
+    display.setDarkThemePreferred(false);
     display.dispose();
     assertTrue(failures.isEmpty(), failures.toString());
   }

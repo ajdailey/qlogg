@@ -219,6 +219,7 @@ class TabColorsGuiTest {
           });
     }
     if (display != null) {
+      display.setDarkThemePreferred(false);
       display.dispose();
     }
     assertTrue(failures.isEmpty(), failures.toString());

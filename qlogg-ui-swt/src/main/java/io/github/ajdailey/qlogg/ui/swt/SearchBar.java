@@ -78,6 +78,7 @@ public final class SearchBar {
   private final ToolBar filterBar;
   private final ToolItem filters;
   private final Menu filterMenu;
+  private Point filterMenuAt;
   private final ToolItem regex;
   private final ToolItem matchCase;
   private final ToolItem wholeWord;
@@ -590,8 +591,8 @@ public final class SearchBar {
           }
         });
     Rectangle bounds = filters.getBounds();
-    Point at = filterBar.toDisplay(bounds.x, bounds.y + bounds.height);
-    filterMenu.setLocation(at);
+    filterMenuAt = filterBar.toDisplay(bounds.x, bounds.y + bounds.height);
+    filterMenu.setLocation(filterMenuAt);
     filterMenu.setVisible(true);
   }
 
@@ -667,7 +668,7 @@ public final class SearchBar {
   /**
    * Returns the Predefined filters menu button.
    *
-   * @return the drop-down tool item
+   * @return the push tool item
    */
   ToolItem filtersButton() {
     return filters;
@@ -716,6 +717,15 @@ public final class SearchBar {
    */
   Menu filterMenu() {
     return filterMenu;
+  }
+
+  /**
+   * Returns where the filters menu last opened.
+   *
+   * @return the display point under the button's left edge, or null before the menu opens
+   */
+  Point filterMenuAt() {
+    return filterMenuAt;
   }
 
   /**

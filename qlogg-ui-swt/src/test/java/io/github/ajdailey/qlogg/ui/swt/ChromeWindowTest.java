@@ -35,6 +35,7 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
@@ -42,6 +43,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
@@ -115,6 +117,9 @@ class ChromeWindowTest {
             },
             BOUND),
         "the split lays out its sash");
+    assertFalse(
+        window.searchBar().icons().darkBackground(),
+        "native controls start light; a test left them dark");
   }
 
   @AfterEach
@@ -248,39 +253,52 @@ class ChromeWindowTest {
     }
   }
 
+  /**
+   * win32 and cocoa show a popup menu in a modal loop at the next event dispatch, so the test hides
+   * it before dispatching; GTK shows it at once, so there the test also waits for {@code SWT.Show}.
+   */
   @Test
   void theFiltersButtonIsAPushItemWithItsArrowInTheIconAndOpensTheMenuUnderIt() {
     final ToolItem filters = window.searchBar().filtersButton();
     assertEquals(SWT.PUSH, filters.getStyle() & (SWT.PUSH | SWT.DROP_DOWN));
     assertNotNull(filters.getImage());
     assertNotEquals("", filters.getToolTipText());
-    final boolean[] shown = new boolean[1];
-    window
-        .searchBar()
-        .filterMenu()
-        .addListener(
-            SWT.Show,
-            new Listener() {
-              @Override
-              public void handleEvent(Event event) {
-                shown[0] = true;
-              }
-            });
-    filters.notifyListeners(SWT.Selection, new Event());
-    assertTrue(window.searchBar().filterMenu().getItemCount() > 0, "the menu is built");
-    assertTrue(
-        EventLoop.runUntil(
-            display,
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return shown[0];
-              }
-            },
-            BOUND),
-        "the menu opens");
-    window.searchBar().filterMenu().setVisible(false);
     ToolBar bar = filters.getParent();
     assertEquals(bar, window.searchBar().control().getChildren()[2]);
+    final Menu menu = window.searchBar().filterMenu();
+    final boolean[] shown = new boolean[1];
+    menu.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            shown[0] = true;
+          }
+        });
+    filters.notifyListeners(SWT.Selection, new Event());
+    try {
+      assertTrue(menu.getItemCount() > 0, "the menu is built");
+      assertTrue(menu.getVisible(), "the menu opens");
+      Rectangle bounds = filters.getBounds();
+      assertEquals(
+          bar.toDisplay(bounds.x, bounds.y + bounds.height),
+          window.searchBar().filterMenuAt(),
+          "under the button");
+      if ("gtk".equals(SWT.getPlatform())) {
+        assertTrue(
+            EventLoop.runUntil(
+                display,
+                new BooleanSupplier() {
+                  @Override
+                  public boolean getAsBoolean() {
+                    return shown[0];
+                  }
+                },
+                BOUND),
+            "GTK shows the menu");
+      }
+    } finally {
+      menu.setVisible(false);
+    }
   }
 }
