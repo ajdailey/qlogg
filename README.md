@@ -137,7 +137,10 @@ from the Ubuntu archive when the runner image lacks them.
 
 CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg`, cached by the
 `package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
-Maven cache holds no JDK.
+Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
+`package`, `release` and `test-gtk4` restore it, since a Linux cache saved by a
+job that skips `verify` or builds part of the reactor would lack plugins and
+send every later job to Maven Central for them.
 
 #### Releases
 

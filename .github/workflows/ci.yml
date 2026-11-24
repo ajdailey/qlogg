@@ -73,6 +73,8 @@ jobs:
           distribution: temurin
           java-version: "21.0.13.1+2"
           cache: maven
+          # A partial build; the full test job saves the Linux cache.
+          cache-read-only: true
       - name: Xvfb and GTK 3
         run: .github/scripts/linux-display-deps.sh
       - name: GTK 4
@@ -97,6 +99,8 @@ jobs:
           distribution: temurin
           java-version: "21.0.13.1+2"
           cache: maven
+          # Skips verify, so a cache it saved would lack SpotBugs.
+          cache-read-only: true
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/qlogg
@@ -189,6 +193,8 @@ jobs:
           distribution: temurin
           java-version: "21.0.13.1+2"
           cache: maven
+          # Restores only; the test jobs save the Linux cache.
+          cache-read-only: true
       # The package job built the tag's version; the tag must name the
       # commit's <revision>, with or without -SNAPSHOT.
       - name: Tag matches the POM revision
