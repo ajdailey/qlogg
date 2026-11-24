@@ -125,7 +125,7 @@ final class RebuildState {
     reopen(next);
     if (minimized) {
       next.shell().setMinimized(true);
-      if (active != null && !active.isDisposed() && active.getParent() == null) {
+      if (active != null && active != shell && !active.isDisposed() && active.getParent() == null) {
         active.setActive();
       }
     } else if (active == shell) {

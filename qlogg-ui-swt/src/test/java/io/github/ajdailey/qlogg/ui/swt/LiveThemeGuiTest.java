@@ -535,6 +535,9 @@ class LiveThemeGuiTest {
             }),
         "bounds tracked");
     WindowGeometry.Request normal = old.windowBounds();
+    // Brings the window to the front: the macOS runners left a background window unminimized.
+    old.shell().forceActive();
+    windows.settle();
     old.shell().setMinimized(true);
     boolean minimized =
         EventLoop.runUntil(
@@ -545,13 +548,25 @@ class LiveThemeGuiTest {
                 return old.shell().getMinimized();
               }
             },
-            Duration.ofSeconds(5));
+            Duration.ofSeconds(10));
+    line("minimized before the rebuild: %s", minimized);
     // Skips where setMinimized does not take; GTK 3 under Xvfb minimizes.
     assumeTrue(minimized, "the platform did not minimize the window");
     switchTo(true);
     final MainWindow next = slot.window();
     assertNotSame(old, next);
-    assertTrue(next.shell().getMinimized(), "minimized after the rebuild");
+    // cocoa reports the window minimized only once its miniaturize animation ends.
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return next.shell().getMinimized();
+              }
+            },
+            Duration.ofSeconds(5)),
+        "minimized after the rebuild");
     assertEquals(normal, next.windowBounds());
     next.shell().setMinimized(false);
     EventLoop.runUntil(
