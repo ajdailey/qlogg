@@ -23,7 +23,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink, the empty log and results areas | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
-| `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
+| `CocoaChrome` shell, list and header colors | The pinned side, `ui.theme`; skips `PALETTE_COLORED` folders |
 | Dialogs and tool windows on win32 under the dark side | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
@@ -35,7 +35,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 |---|---|---|
 | GTK | `SwtThemeService.open` calls it for Light and Dark and `preferDark` at each switch; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
 | win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment; at a switch `showOnWindows` sets the new side and rebuilds every main window ([Window rebuild](#window-rebuild)) | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); under System a change rebuilds the windows like a switch |
-| cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one. Table and Tree headers get explicit colors of the current appearance on every change, never null (null colors draw blank labels in dark), and a Table's header is hidden and shown again so it repaints, the area right of the last column included |
+| cocoa | `start` pins the application appearance to the side `ui.theme` resolves to in every mode, System from the system setting at that moment; at a switch `showOnWindows` pins the new side and `CocoaChrome` recolors every shell ([Cocoa chrome](#cocoa-chrome)); no rebuild | No `SWT.Settings` is sent (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms; under System a change re-pins like a switch, since SWT has no call that unpins |
 
 `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
 into a change event. Its `preferDark` calls `ThemeFollow.preferDark` and then
@@ -100,10 +100,42 @@ scroll position within a section is not kept.
   `DialogColors.check` (through `Dialogs.check`): `Win32DialogColors` creates it
   with the theme off, except in a dialog it colors, whose page is dark. On the quick find bar
   `Win32ChromeColors` gives an enabled box's label the palette text under dark.
-- cocoa: do not set an application appearance. cocoa SWT caches its widget
-  colors under the system appearance, and a different application appearance
-  draws text in that appearance over the cached backgrounds (white on light
-  gray).
+- cocoa: pin the application appearance only together with `CocoaChrome`.
+  cocoa SWT caches its widget colors under the system appearance at Display
+  creation, and a pinned appearance that differs draws native text over the
+  cached backgrounds (white on light gray).
+
+## Cocoa chrome
+
+While the pinned side differs from the side SWT cached its colors under,
+`CocoaChrome` gives each shell the window color of the pinned side with
+`INHERIT_FORCE`, from constants measured on macOS 15. A `TabFolder` stops that
+inheritance, so check boxes get a transparent background over its native panel
+and its titles the text color; tables, lists, combos, fields, spinners and a
+`CTabFolder` without `PALETTE_COLORED` get list colors. A `SWT.Show` filter
+covers shells opened later and an `SWT.Skin` listener controls created later,
+such as a new scratchpad tab's field or the Marks List comment field. Each
+control of a recolored shell receives `SWT.Settings`, so `ToolIcons` re-inks.
+Back on the cached side the colors return to null, except Table and Tree
+headers: they get explicit colors of the pinned side on every change, never
+null (null colors draw blank labels in dark), and a Table's header is hidden
+and shown again so it repaints, the area right of the last column included.
+
+A control type that `CocoaChrome.style` does not list keeps SWT's cached
+colors behind text AppKit draws in the pinned appearance; a new type that SWT
+paints with cached colors needs a row there. Labels, links, push and toggle
+buttons, scroll bars, sliders, progress bars and the guide's `Browser` take
+their text and fill from AppKit.
+
+Limits on cocoa:
+
+- Menus and the menu bar follow the system appearance, not the pin. AppKit
+  draws them whole, so they stay readable.
+- `Display.getSystemColor` returns the cached side for the life of the
+  process. `COLOR_WIDGET_NORMAL_SHADOW`, the sash grip, is one gray on both
+  sides. `NativeDialogColors.disabledText` stays `#dcdcdc` after a light start
+  and `#464646` after a dark one; on either pinned side the command palette's
+  disabled rows read dimmer than enabled ones (measured, macOS 15).
 
 ## Chrome colors
 

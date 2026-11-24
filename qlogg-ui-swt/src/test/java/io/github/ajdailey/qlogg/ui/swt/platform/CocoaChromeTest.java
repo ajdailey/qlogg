@@ -63,7 +63,7 @@ class CocoaChromeTest {
   }
 
   @Test
-  void cocoaChromeFollowsAnAppearanceThatDiffersFromTheStartupOne() {
+  void cocoaChromeFollowsAPinnedSideThatDiffersFromTheCachedOne() {
     RGB window = new RGB(0x32, 0x32, 0x32);
     Shell shell = new Shell(display);
     Composite row = new Composite(shell, SWT.NONE);
@@ -99,6 +99,32 @@ class CocoaChromeTest {
     assertEquals(fieldBefore, field.getBackground().getRGB());
     assertEquals(2, settings[0]);
     shell.dispose();
+  }
+
+  @Test
+  void cocoaChromeColorsAControlCreatedWhileTheSidesDiffer() {
+    Shell shell = new Shell(display);
+    shell.open();
+    Text before = new Text(shell, SWT.SINGLE);
+    RGB cached = before.getBackground().getRGB();
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    chrome.apply(true);
+    Text field = new Text(shell, SWT.SINGLE);
+    RGB list = new RGB(0x1e, 0x1e, 0x1e);
+    pump();
+    assertEquals(list, field.getBackground().getRGB());
+    chrome.apply(false);
+    Text after = new Text(shell, SWT.SINGLE);
+    pump();
+    assertEquals(cached, after.getBackground().getRGB());
+    shell.dispose();
+  }
+
+  /** Runs pending events, the {@link SWT#Skin} events of new controls among them. */
+  private void pump() {
+    for (int i = 0; i < 1000 && display.readAndDispatch(); i++) {
+      // Each turn runs one batch.
+    }
   }
 
   @Test

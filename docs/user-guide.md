@@ -540,8 +540,9 @@ window is rebuilt for a switch, which pauses it for about a third of a second;
 open tabs, searches, marks, tool windows and running work stay. A window with a
 dialog open switches when the dialog closes. With no file open, the log and
 results areas show the log views' background. On Linux the
-GTK theme must have a dark variant. On macOS controls follow the system
-appearance and the theme recolors the log views.
+GTK theme must have a dark variant. On macOS every theme applies to windows,
+dialogs and controls at once, and the system theme follows a change of the
+macOS setting; menus and the menu bar follow the macOS setting.
 
 With text wrap off, a line that runs past the right edge shows a chevron in a
 narrow strip there. Clicking it, or `W` on the current line, wraps that one

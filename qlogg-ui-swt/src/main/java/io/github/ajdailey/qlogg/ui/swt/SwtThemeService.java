@@ -19,7 +19,8 @@ import org.eclipse.swt.widgets.Listener;
  * from {@code SWT.Settings}. On GTK the setting is read once when the Display is created, so a
  * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. Native
  * controls take the theme through the platform's {@link ThemeFollow}, which on win32 rebuilds the
- * main windows through the {@link WindowRebuild} the launcher sets.
+ * main windows through the {@link WindowRebuild} the launcher sets and on cocoa pins the
+ * application appearance in every mode.
  */
 public final class SwtThemeService implements ThemeService {
   private static final BooleanSupplier SYSTEM_SETTING =

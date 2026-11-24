@@ -36,8 +36,7 @@ final class Win32ThemeFollow implements ThemeFollow {
     if (display.isDisposed() || dark == DialogColors.nativeDark(display)) {
       return;
     }
-    display.setDarkThemePreferred(dark);
-    display.setData(DialogColors.NATIVE_DARK, dark);
+    NativeTheme.set(display, dark);
     windows.rebuild();
   }
 }

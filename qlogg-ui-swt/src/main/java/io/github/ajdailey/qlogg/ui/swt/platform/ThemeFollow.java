@@ -9,14 +9,15 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
  * every platform. Confined to the UI thread.
  *
  * <p>GTK applies {@code Display.setDarkThemePreferred} to existing controls at once; win32 controls
- * read it only when created, so a switch rebuilds the windows; cocoa controls follow the system
- * appearance and it is never called.
+ * read it only when created, so a switch rebuilds the windows; cocoa pins the application
+ * appearance with it, and {@code CocoaChrome} recolors the shells from the side SWT cached its
+ * colors under.
  */
 public interface ThemeFollow {
   /**
    * Sets the native controls' startup theme for a setting and records it as {@link
-   * DialogColors#NATIVE_DARK}: for light and dark on GTK, and for every setting on win32, where
-   * system mode reads the system setting here. Call before the first Shell exists.
+   * DialogColors#NATIVE_DARK}: for light and dark on GTK, and for every setting on win32 and cocoa,
+   * where system mode reads the system setting here. Call before the first Shell exists.
    *
    * @param mode the theme setting
    * @return the startup setting made, false when none was made
@@ -26,17 +27,17 @@ public interface ThemeFollow {
   /**
    * Starts following the system setting. win32 and cocoa call {@code refresh} every 500 ms, since
    * cocoa sends no {@code SWT.Settings} for an appearance change and win32 sends it 2 s after
-   * {@code WM_SETTINGCHANGE}. cocoa also starts recoloring shells shown while the appearance
-   * differs from {@code dark}.
+   * {@code WM_SETTINGCHANGE}. cocoa also starts {@code CocoaChrome} and applies the startup pin.
    *
-   * @param dark the system setting now
+   * @param dark the system setting now, the side cocoa SWT cached its colors under
    * @param timers schedules the polls
    * @param refresh reads the system setting and reports a change
    */
   void watch(boolean dark, UiDispatcher timers, Runnable refresh);
 
   /**
-   * Takes a changed system setting: cocoa recolors every shell.
+   * Takes a changed system setting; every platform ignores it. Under System the theme controller
+   * passes the new side to {@link #preferDark} and {@link #showOnWindows}.
    *
    * @param dark the new setting
    */
@@ -54,7 +55,8 @@ public interface ThemeFollow {
    * #preferDark} on every change of the side {@code ui.theme} resolves to: View > Theme, and a
    * system change under System. win32 sets the native theme, records it as {@link
    * DialogColors#NATIVE_DARK} and rebuilds the windows when the side differs from the recorded one,
-   * since win32 controls take the theme only when created; GTK and cocoa do nothing here.
+   * since win32 controls take the theme only when created. cocoa pins the side and {@code
+   * CocoaChrome} recolors every shell; GTK does nothing here.
    *
    * @param dark the side
    * @param windows rebuilds the main windows

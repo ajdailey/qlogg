@@ -20,10 +20,20 @@ final class NativeTheme {
    * @return true for dark
    */
   static boolean set(Display display, ThemeMode mode) {
-    boolean value = ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark();
-    display.setDarkThemePreferred(value);
-    display.setData(DialogColors.NATIVE_DARK, value);
-    return value;
+    return set(display, ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark());
+  }
+
+  /**
+   * Sets a side and records it.
+   *
+   * @param display the Display
+   * @param dark true for dark
+   * @return {@code dark}
+   */
+  static boolean set(Display display, boolean dark) {
+    display.setDarkThemePreferred(dark);
+    display.setData(DialogColors.NATIVE_DARK, dark);
+    return dark;
   }
 
   /**

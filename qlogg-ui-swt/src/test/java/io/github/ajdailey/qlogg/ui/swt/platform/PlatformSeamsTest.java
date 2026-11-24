@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.command.CommandGroup;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,9 @@ import org.eclipse.swt.accessibility.ACC;
 import org.eclipse.swt.accessibility.AccessibleControlEvent;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
@@ -60,9 +63,9 @@ class PlatformSeamsTest {
             rebuilds[0]++;
           }
         };
-    new Win32ThemeFollow(display).start(ThemeMode.LIGHT);
     new GtkThemeFollow(display).showOnWindows(true, windows);
     new CocoaThemeFollow(display).showOnWindows(true, windows);
+    new Win32ThemeFollow(display).start(ThemeMode.LIGHT);
     assertEquals(0, rebuilds[0]);
     assertEquals(Boolean.FALSE, display.getData(DialogColors.NATIVE_DARK));
     Win32ThemeFollow win32 = new Win32ThemeFollow(display);
@@ -79,10 +82,59 @@ class PlatformSeamsTest {
   }
 
   @Test
-  void cocoaAndGtkSystemModeMakeNoStartupSetting() {
-    assertFalse(new CocoaThemeFollow(display).start(ThemeMode.DARK));
+  void gtkSystemModeMakesNoStartupSetting() {
     assertFalse(new GtkThemeFollow(display).start(ThemeMode.SYSTEM));
     assertNull(display.getData(DialogColors.NATIVE_DARK));
+  }
+
+  @Test
+  void cocoaPinsTheResolvedSideInEveryMode() {
+    CocoaThemeFollow cocoa = new CocoaThemeFollow(display);
+    assertTrue(cocoa.start(ThemeMode.DARK));
+    assertEquals(Boolean.TRUE, display.getData(DialogColors.NATIVE_DARK));
+    assertFalse(cocoa.start(ThemeMode.LIGHT));
+    assertEquals(Boolean.FALSE, display.getData(DialogColors.NATIVE_DARK));
+    boolean system = Display.isSystemDarkTheme();
+    assertEquals(system, cocoa.start(ThemeMode.SYSTEM));
+    assertEquals(system, display.getData(DialogColors.NATIVE_DARK));
+  }
+
+  @Test
+  void cocoaRecolorsShellsFromTheCachedSideToThePinnedSide() {
+    RGB window = new RGB(0x32, 0x32, 0x32);
+    Composite row = new Composite(shell, SWT.NONE);
+    RGB cached = row.getBackground().getRGB();
+    CocoaThemeFollow cocoa = new CocoaThemeFollow(display);
+    cocoa.start(ThemeMode.DARK);
+    cocoa.watch(
+        false,
+        new UiDispatcher() {
+          @Override
+          public void asyncExec(Runnable task) {}
+
+          @Override
+          public void timerExec(int delayMillis, Runnable task) {}
+
+          @Override
+          public boolean isUiThread() {
+            return true;
+          }
+        },
+        new Runnable() {
+          @Override
+          public void run() {}
+        });
+    Shell shown = new Shell(display);
+    Composite shownRow = new Composite(shown, SWT.NONE);
+    shown.open();
+    assertEquals(window, shownRow.getBackground().getRGB());
+    shown.dispose();
+    cocoa.showOnWindows(false, WindowRebuild.NONE);
+    assertEquals(Boolean.FALSE, display.getData(DialogColors.NATIVE_DARK));
+    assertEquals(cached, row.getBackground().getRGB());
+    cocoa.showOnWindows(true, WindowRebuild.NONE);
+    assertEquals(Boolean.TRUE, display.getData(DialogColors.NATIVE_DARK));
+    assertEquals(window, row.getBackground().getRGB());
   }
 
   @Test
