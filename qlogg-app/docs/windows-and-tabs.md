@@ -66,11 +66,15 @@ notice "Folders are not opened".
   and the encoding is detected.
 - Each file goes first in the recent list.
 - A failure is logged at WARN with the exception's message and shown as
-  `Cannot open <name>: <reason>` (`OpenFailure`). A denied, missing or folder
-  path gets a fixed reason, since `AccessDeniedException` and
-  `NoSuchFileException` carry only the path; any other failure shows its
-  message. The end of the first indexing pass and of every search is logged at
-  INFO with its duration and counts.
+  `Cannot open <name>: <reason>` (`OpenFailure`). A path `SafePaths` rejects
+  by its text throws `PathFormException`, and `PathFormText` maps its reason
+  (empty, NUL character, Windows device, not valid) to a fixed wording before
+  any check on disk, since a Windows device name also reads as missing. Open
+  Path at Caret, folder search, save and filter and highlighter import and
+  export show the same wording. A denied, missing or folder path gets a fixed
+  reason, since `AccessDeniedException` and `NoSuchFileException` carry only
+  the path; any other failure shows its message. The end of the first indexing
+  pass and of every search is logged at INFO with its duration and counts.
 
 ### Clipboard text
 

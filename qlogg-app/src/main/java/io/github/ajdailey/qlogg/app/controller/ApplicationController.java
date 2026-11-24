@@ -405,12 +405,12 @@ public final class ApplicationController
                     HighlightFile.write(path, sets, held);
                   }
                 } catch (IOException e) {
-                  failure = LogText.oneLine(e.getMessage());
+                  failure = PathFormText.message(e);
                   LOG.warn(
                       "Highlighter file {} not {}: {}",
                       LogText.oneLine(path),
                       sets == null ? "read" : "written",
-                      failure);
+                      LogText.oneLine(e.getMessage()));
                 }
                 postFileResult(result, failure, listener);
               }
@@ -655,12 +655,12 @@ public final class ApplicationController
                     FilterFile.write(path, filters, held);
                   }
                 } catch (IOException e) {
-                  failure = LogText.oneLine(e.getMessage());
+                  failure = PathFormText.message(e);
                   LOG.warn(
                       "Filter file {} not {}: {}",
                       LogText.oneLine(path),
                       filters == null ? "read" : "written",
-                      failure);
+                      LogText.oneLine(e.getMessage()));
                 }
                 postFileResult(result, failure, listener);
               }

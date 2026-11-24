@@ -170,8 +170,9 @@ class DialogColorsTest {
   }
 
   /**
-   * An empty single-line field's hint, read-only or editable, draws in {@code HINT} on the field
-   * color at 4.5:1 or more; a field holding text and a multi-line field draw no hint.
+   * An empty single-line field, read-only or editable, is filled with the field color and its hint
+   * drawn in {@code HINT}, 4.5:1 or more on it; a field with no hint is filled too. A field holding
+   * text and a multi-line field are left to the native drawing.
    */
   @Test
   void win32DrawsAnEmptyFieldsHintReadably() {
@@ -180,37 +181,45 @@ class DialogColorsTest {
     colors.prepare(shell);
     Text readOnly = new Text(shell, SWT.SINGLE | SWT.BORDER | SWT.READ_ONLY);
     Text editable = new Text(shell, SWT.SINGLE | SWT.BORDER);
+    Text plain = new Text(shell, SWT.SINGLE | SWT.BORDER);
     Text multi = new Text(shell, SWT.MULTI | SWT.READ_ONLY | SWT.BORDER);
-    for (Text text : List.of(readOnly, editable, multi)) {
-      text.setMessage("MMMM mock hint");
+    for (Text text : List.of(readOnly, editable, plain, multi)) {
+      if (text != plain) {
+        text.setMessage("MMMM mock hint");
+      }
       text.setSize(200, 30);
     }
     colors.apply(shell);
     colors.apply(shell);
-    assertTrue(
-        Win32ChromeColors.contrast(
-                Win32DialogColors.HINT.getRGB(), Win32DialogColors.FIELD.getRGB())
-            >= 4.5);
-    assertTrue(
-        Win32ChromeColors.contrast(
-                Win32DialogColors.TEXT.getRGB(), Win32DialogColors.FIELD.getRGB())
-            >= 4.5);
+    RGB field = Win32DialogColors.FIELD.getRGB();
+    assertTrue(Win32ChromeColors.contrast(Win32DialogColors.HINT.getRGB(), field) >= 4.5);
+    assertTrue(Win32ChromeColors.contrast(Win32DialogColors.TEXT.getRGB(), field) >= 4.5);
     for (Text text : List.of(readOnly, editable)) {
       assertEquals(1, text.getListeners(SWT.Paint).length, "one hint listener");
-      ImageData drawn = paint(text);
-      assertEquals(Win32DialogColors.FIELD.getRGB(), drawn.palette.getRGB(drawn.getPixel(1, 1)));
-      // Font smoothing tints glyph edges, so the lightest pixel is near HINT, not equal.
-      assertTrue(
-          Win32ChromeColors.contrast(lightest(drawn), Win32DialogColors.FIELD.getRGB()) >= 4.5,
-          "" + text);
+      for (int type : new int[] {SWT.FocusIn, SWT.FocusOut, SWT.Modify}) {
+        assertEquals(1, text.getListeners(type).length, "redraw on " + type);
+      }
+      assertEquals(field, at(paint(text, null), 1, 1), "" + text);
+      // ClearType tints every glyph pixel at 150 %, so the ink is read from the paint GC.
+      assertEquals(Win32DialogColors.HINT.getRGB(), ink(text), "" + text);
       text.setText("mock");
-      assertEquals(OWN, paint(text).palette.getRGB(paint(text).getPixel(1, 1)), "holding text");
+      assertEquals(OWN, at(paint(text, null), 1, 1), "holding text");
     }
+    ImageData filled = paint(plain, null);
+    assertEquals(field, at(filled, 1, 1), "no hint");
+    assertEquals(OWN, ink(plain), "no hint drawn");
+    Rectangle left = new Rectangle(0, 0, 10, plain.getClientArea().height);
+    ImageData part = paint(plain, left);
+    assertEquals(field, at(part, 1, 1), "inside the damaged area");
+    assertEquals(OWN, at(part, 20, 1), "outside the damaged area");
     assertEquals(0, multi.getListeners(SWT.Paint).length);
   }
 
-  /** Sends a Paint event over an image filled with {@link #OWN}. */
-  private ImageData paint(Text text) {
+  /**
+   * Sends a Paint event over the given bounds, or the whole image, of an image filled with {@link
+   * #OWN}.
+   */
+  private ImageData paint(Text text, Rectangle bounds) {
     Rectangle area = text.getClientArea();
     Image image = new Image(display, Math.max(1, area.width), Math.max(1, area.height));
     GC gc = new GC(image);
@@ -219,7 +228,7 @@ class DialogColorsTest {
       gc.fillRectangle(0, 0, area.width, area.height);
       Event event = new Event();
       event.gc = gc;
-      event.setBounds(new Rectangle(0, 0, area.width, area.height));
+      event.setBounds(bounds != null ? bounds : new Rectangle(0, 0, area.width, area.height));
       text.notifyListeners(SWT.Paint, event);
     } finally {
       gc.dispose();
@@ -231,17 +240,29 @@ class DialogColorsTest {
     }
   }
 
-  private static RGB lightest(ImageData data) {
-    RGB best = data.palette.getRGB(data.getPixel(0, 0));
-    for (int y = 0; y < data.height; y++) {
-      for (int x = 0; x < data.width; x++) {
-        RGB rgb = data.palette.getRGB(data.getPixel(x, y));
-        if (rgb.red + rgb.green + rgb.blue > best.red + best.green + best.blue) {
-          best = rgb;
-        }
-      }
+  /**
+   * Sends a Paint event as {@link #paint} and returns the GC's foreground after it, {@link #OWN} at
+   * the start.
+   */
+  private RGB ink(Text text) {
+    Rectangle area = text.getClientArea();
+    Image image = new Image(display, Math.max(1, area.width), Math.max(1, area.height));
+    GC gc = new GC(image);
+    try {
+      gc.setForeground(new Color(OWN));
+      Event event = new Event();
+      event.gc = gc;
+      event.setBounds(new Rectangle(0, 0, area.width, area.height));
+      text.notifyListeners(SWT.Paint, event);
+      return gc.getForeground().getRGB();
+    } finally {
+      gc.dispose();
+      image.dispose();
     }
-    return best;
+  }
+
+  private static RGB at(ImageData data, int x, int y) {
+    return data.palette.getRGB(data.getPixel(x, y));
   }
 
   @Test

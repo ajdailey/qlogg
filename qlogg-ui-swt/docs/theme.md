@@ -139,10 +139,11 @@ title bar color with `INHERIT_DEFAULT`, then sets each control's colors where
 they are still the defaults, so a color the dialog set stays. Push buttons and
 read-only combos keep the native dark drawing. A field's text draws white on `#2b2b2b`
 (14.16:1), read-only and multi-line included. An empty, unfocused single-line
-`Text` with a hint (`setMessage`) draws it in `#9a9a9a` (5.03:1) from an
-`SWT.Paint` listener over the native hint, which is `#6d6d6d` read-only (SWT's
-`COLOR_GRAYTEXT`, 2.74:1) and `#575757` editable (1.96:1), measured on
-`windows-2025`. A control created after the
+`Text` is filled with the field color and its hint (`setMessage`) drawn in
+`#9a9a9a` (5.03:1) by `Win32EmptyField`, an `SWT.Paint` listener over the
+native hint, which is `#6d6d6d` read-only (SWT's `COLOR_GRAYTEXT`, 2.74:1) and
+`#575757` editable (1.96:1), measured on `windows-2025`. The field repaints on
+focus and modification. A control created after the
 dialog opens is colored at its `SWT.Skin` event.
 
 | Stays native | Drawn |

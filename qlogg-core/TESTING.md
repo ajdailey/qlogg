@@ -240,7 +240,7 @@ missing.
 |---|---|
 | `OsTraitsTest` | Each `os.name` form selecting one class, every answer of each class from a fixed name, `current()` matching this JVM, `EnvPaths.absolute` refusing null, empty, relative and NUL values; `runsInsteadOfOpening` by name per system, and by the execute bit on macOS and Linux (POSIX hosts) |
 | `RunnableTypesTest` | Every `WINDOWS` and `MAC` extension in either case, trailing dots and spaces on Windows, a `PATHEXT` entry added and malformed entries ignored |
-| `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of` |
+| `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of`; `aRejectedFormCarriesItsReason` checks the `PathFormException` reason of an empty path, a NUL character and, on Windows, an invalid path |
 
 ## Platform assumptions
 

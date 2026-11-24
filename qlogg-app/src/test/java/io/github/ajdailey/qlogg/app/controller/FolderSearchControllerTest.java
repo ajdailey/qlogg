@@ -258,6 +258,24 @@ class FolderSearchControllerTest {
     }
   }
 
+  /** A folder naming a Windows device fails with the device reason. OBERON G1 SM9. */
+  @Test
+  void aWindowsDeviceFolderFailsWithTheDeviceReason() throws Exception {
+    assumeTrue(File.separatorChar == '\\', "device names open devices on Windows only");
+    FakeHost host = new FakeHost(Preferences.DEFAULTS);
+    FolderSearchController search = host.search();
+    try {
+      host.runAndWait(
+          search,
+          new FolderRequest(
+              logs().resolve("CON").toString(), NamePattern.DEFAULT, false, "hit", LITERAL, ""));
+      assertEquals(
+          UiText.FOLDER_FAILED.format(UiText.OPEN_REASON_DEVICE.text()), search.state().message());
+    } finally {
+      host.close(search);
+    }
+  }
+
   @Test
   void stopEndsTheRunAndClearAllReturnsTheResults() throws Exception {
     Path dir = logs();

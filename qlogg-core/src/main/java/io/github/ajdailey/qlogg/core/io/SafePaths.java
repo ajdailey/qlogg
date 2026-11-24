@@ -132,7 +132,8 @@ public final class SafePaths {
     try {
       return logFile(Path.of(path), held);
     } catch (InvalidPathException e) {
-      throw new IOException("Not a valid path: " + e.getReason(), e);
+      throw new PathFormException(
+          PathFormException.Reason.INVALID, "Not a valid path: " + e.getReason(), e);
     }
   }
 
@@ -152,7 +153,8 @@ public final class SafePaths {
     try {
       absolute = Path.of(path).toAbsolutePath().normalize();
     } catch (InvalidPathException e) {
-      throw new IOException("Not a valid path: " + e.getReason(), e);
+      throw new PathFormException(
+          PathFormException.Reason.INVALID, "Not a valid path: " + e.getReason(), e);
     }
     if (!Files.isDirectory(absolute)) {
       throw new IOException(absolute + " is not a directory");
@@ -215,17 +217,19 @@ public final class SafePaths {
    *
    * @param path the path text
    * @param os the system the path is for
-   * @throws IOException naming the reason
+   * @throws PathFormException naming the reason
    */
-  static void checkForm(String path, OsTraits os) throws IOException {
+  public static void checkForm(String path, OsTraits os) throws PathFormException {
     if (path == null || path.isEmpty()) {
-      throw new IOException("Empty path");
+      throw new PathFormException(PathFormException.Reason.EMPTY, "Empty path", null);
     }
     if (path.indexOf('\0') >= 0) {
-      throw new IOException("Path contains a NUL character");
+      throw new PathFormException(
+          PathFormException.Reason.NUL, "Path contains a NUL character", null);
     }
     if (os.deviceNames().opensDevice(path)) {
-      throw new IOException("Path names a Windows device");
+      throw new PathFormException(
+          PathFormException.Reason.DEVICE, "Path names a Windows device", null);
     }
   }
 }

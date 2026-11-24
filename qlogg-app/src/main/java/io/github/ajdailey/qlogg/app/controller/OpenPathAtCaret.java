@@ -206,6 +206,10 @@ final class OpenPathAtCaret {
       }
       return new Target(checked.given(), found.line(), null);
     } catch (IOException e) {
+      String form = PathFormText.reason(e);
+      if (form != null) {
+        return new Target(null, 0, UiText.OPEN_PATH_REFUSED.format(form));
+      }
       if (Files.isRegularFile(path)) {
         return new Target(null, 0, UiText.OPEN_PATH_REFUSED.format(e.getMessage()));
       }

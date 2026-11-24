@@ -136,6 +136,29 @@ class SafePathsTest {
     rejects("");
   }
 
+  /** Each rejection of a path's text carries its reason, which the open notice names. */
+  @Test
+  void aRejectedFormCarriesItsReason() {
+    assertEquals(PathFormException.Reason.EMPTY, formReason(""));
+    assertEquals(PathFormException.Reason.NUL, formReason("a\0b"));
+    if (File.separatorChar == '\\') {
+      assertEquals(PathFormException.Reason.INVALID, formReason("C:\\logs\\a<b.log"));
+    }
+  }
+
+  private static PathFormException.Reason formReason(final String path) {
+    return assertThrows(
+            PathFormException.class,
+            new Executable() {
+              @Override
+              public void execute() throws IOException {
+                SafePaths.logFile(path, null);
+              }
+            },
+            path)
+        .reason();
+  }
+
   @Test
   void rejectsFifo() throws Exception {
     assumeTrue(temp.getFileSystem().supportedFileAttributeViews().contains("posix"), "no POSIX");
@@ -195,15 +218,16 @@ class SafePathsTest {
 
   @Test
   void deviceFormsFollowTheSystem() throws IOException {
-    IOException refused =
+    PathFormException refused =
         assertThrows(
-            IOException.class,
+            PathFormException.class,
             new Executable() {
               @Override
               public void execute() throws IOException {
                 SafePaths.checkForm("logs\\nul.txt", OsTraits.of("Windows 11"));
               }
             });
+    assertEquals(PathFormException.Reason.DEVICE, refused.reason());
     assertEquals("Path names a Windows device", refused.getMessage());
     SafePaths.checkForm("logs\\nul.txt", OsTraits.of("Linux"));
     SafePaths.checkForm("logs\\nul.txt", OsTraits.of("Mac OS X"));

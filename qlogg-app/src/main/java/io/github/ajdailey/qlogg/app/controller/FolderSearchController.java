@@ -586,7 +586,7 @@ public final class FolderSearchController {
       return UiText.SEARCH_REGEX_ERROR.format(
           Math.max(0, syntax.getIndex()) + 1, LogText.oneLine(syntax.getDescription()));
     }
-    String message = failure == null ? null : LogText.oneLine(failure.getMessage());
+    String message = failure == null ? null : PathFormText.message(failure);
     return UiText.FOLDER_FAILED.format(
         message == null ? UiText.SEARCH_WORKER_FAILED.text() : message);
   }

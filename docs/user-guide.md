@@ -37,7 +37,8 @@ first lines show at once while indexing continues in the background; `Esc` or
 the Stop button stops it. File > Open from Clipboard (`Ctrl+V` in a log view)
 opens the clipboard's text, up to 16 MiB, held in memory only. A file that
 does not open is reported as `Cannot open <name>: <reason>`, such as
-`permission denied` or `its folder does not exist`.
+`permission denied`, `its folder does not exist` or, on Windows, `the path
+names a Windows device` for a name such as `CON` or `nul.txt`.
 
 Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
 color labels.

@@ -18,12 +18,14 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -143,6 +145,39 @@ class DocumentOpenerTest {
     assertEquals(
         UiText.OPEN_FAILED.format("locked.log", UiText.OPEN_REASON_DENIED.text()),
         recorder.failures.get(2));
+    assertTrue(recorder.documents.isEmpty());
+  }
+
+  /**
+   * {@code CON} and {@code logs\nul.txt} through an open (command line, handoff, File > Open,
+   * recent files), a drop and a session restore report the Windows device reason on Windows and a
+   * missing file elsewhere. OBERON G1 SM9: Windows showed "the file does not exist".
+   */
+  @Test
+  void aWindowsDeviceNameReportsItsReasonOnEveryOpeningPath() throws Exception {
+    Files.createDirectory(temp.resolve("logs"));
+    Path con = temp.resolve("CON");
+    Path nul = temp.resolve("logs").resolve("nul.txt");
+    opener.open(List.of(request(con), request(nul)), false, false, services);
+    opener.openDropped(List.of(con, nul), services);
+    List<Session.Tab> tabs = new ArrayList<Session.Tab>();
+    tabs.add(new Session.Tab(con.toString(), "", false, new long[0]));
+    tabs.add(new Session.Tab(nul.toString(), "", false, new long[0]));
+    opener.restore(new Session(tabs, 0), services);
+    awaitFailures(6);
+    String reason =
+        File.separatorChar == '\\'
+            ? UiText.OPEN_REASON_DEVICE.text()
+            : UiText.OPEN_REASON_MISSING.text();
+    List<String> expected = new ArrayList<String>();
+    List<String> shown = new ArrayList<String>(recorder.failures);
+    for (int i = 0; i < 3; i++) {
+      expected.add(UiText.OPEN_FAILED.format("CON", reason));
+      expected.add(UiText.OPEN_FAILED.format("nul.txt", reason));
+    }
+    Collections.sort(expected);
+    Collections.sort(shown);
+    assertEquals(expected, shown);
     assertTrue(recorder.documents.isEmpty());
   }
 

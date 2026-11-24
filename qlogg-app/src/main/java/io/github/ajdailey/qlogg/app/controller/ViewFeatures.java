@@ -248,7 +248,7 @@ final class ViewFeatures {
     try {
       checked = SafePaths.logFile(given, held);
     } catch (IOException e) {
-      error = UiText.SAVE_FAILED.format(LogText.oneLine(e.getMessage()));
+      error = UiText.SAVE_FAILED.format(PathFormText.message(e));
     }
     final Path file = checked;
     final String message = error;

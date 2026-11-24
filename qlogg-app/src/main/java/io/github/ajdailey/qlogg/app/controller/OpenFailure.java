@@ -9,9 +9,11 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
 /**
- * The error text shown when a file does not open. {@code AccessDeniedException} and {@code
- * NoSuchFileException} carry only the path as their message, so a denied, missing or folder path
- * maps to a fixed reason; any other failure shows its message.
+ * The error text shown when a file does not open. A path rejected by its text ({@link
+ * PathFormText}) names its reason before any check on disk, since a Windows device name also reads
+ * as missing. {@code AccessDeniedException} and {@code NoSuchFileException} carry only the path as
+ * their message, so a denied, missing or folder path maps to a fixed reason; any other failure
+ * shows its message.
  */
 final class OpenFailure {
   private OpenFailure() {}
@@ -32,6 +34,10 @@ final class OpenFailure {
 
   @WorkerThread
   private static String reason(Path path, IOException error) {
+    String form = PathFormText.reason(error);
+    if (form != null) {
+      return form;
+    }
     if (error instanceof AccessDeniedException) {
       return UiText.OPEN_REASON_DENIED.text();
     }

@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,6 +141,22 @@ class OpenPathAtCaretTest {
     assertEquals(
         UiText.OPEN_PATH_MISSING.format(temp.toAbsolutePath().resolve("folder")), lastNotice());
     assertEquals(2, fixture.application.documents().size());
+  }
+
+  /**
+   * A path naming a Windows device shows the device reason on Windows and a missing file elsewhere.
+   * OBERON G1 SM9: the open notice read "the file does not exist".
+   */
+  @Test
+  void aWindowsDeviceNameShowsTheDeviceReason() throws Exception {
+    Path logs = Files.createDirectory(temp.resolve("logs"));
+    DocumentController log = log("logs/nul.txt\n");
+    openAt(log, 0, 2);
+    assertEquals(
+        File.separatorChar == '\\'
+            ? UiText.OPEN_PATH_REFUSED.format(UiText.OPEN_REASON_DEVICE.text())
+            : UiText.OPEN_PATH_MISSING.format(logs.toAbsolutePath().resolve("nul.txt")),
+        lastNotice());
   }
 
   @Test

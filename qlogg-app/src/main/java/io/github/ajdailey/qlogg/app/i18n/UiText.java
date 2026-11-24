@@ -107,6 +107,14 @@ public enum UiText {
   OPEN_REASON_MISSING,
   /** Open failure reason: the file's folder does not exist. */
   OPEN_REASON_NO_FOLDER,
+  /** Path refusal reason: the path names a Windows device. */
+  OPEN_REASON_DEVICE,
+  /** Path refusal reason: the path is empty. */
+  OPEN_REASON_EMPTY,
+  /** Path refusal reason: the path contains a NUL character. */
+  OPEN_REASON_NUL,
+  /** Path refusal reason: the file system does not accept the path. */
+  OPEN_REASON_INVALID,
   /** A chosen name that is not a path: the reason. */
   OPEN_INVALID_PATH,
   /** The file is the running instance's lock. */
