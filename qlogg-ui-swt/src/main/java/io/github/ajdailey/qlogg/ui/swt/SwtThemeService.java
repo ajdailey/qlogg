@@ -1,17 +1,14 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
-import io.github.ajdailey.qlogg.app.theme.ThemeController;
 import io.github.ajdailey.qlogg.app.theme.ThemeListener;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
-import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.ThemeFollow;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
@@ -19,26 +16,10 @@ import org.eclipse.swt.widgets.Listener;
 /**
  * The system's light or dark setting from {@link Display#isSystemDarkTheme}, with a change event
  * from {@code SWT.Settings}. On GTK the setting is read once when the Display is created, so a
- * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. The
- * service polls there every 500 ms: cocoa SWT sends no {@code SWT.Settings} for an appearance
- * change, and win32 SWT sends it 2 s after {@code WM_SETTINGCHANGE}. On cocoa {@link CocoaChrome}
- * recolors the shells.
- *
- * <p>Native controls take the theme from {@link Display#setDarkThemePreferred}. GTK applies a
- * change at once, so {@link #preferDark} calls it there. win32 controls read it only when created,
- * so {@link #open} sets it before the first Shell, in system mode from the system setting at that
- * moment, and {@link #showsNow} reports whether that startup setting matches a request. On cocoa
- * native controls always follow the system appearance and the service never calls it: cocoa SWT
- * reads its widget colors once, under the system appearance, and an application appearance that
- * differs draws text in its own appearance over those backgrounds, white on light gray or black on
- * dark gray. Do not pin the cocoa appearance.
+ * change made while QLogg runs applies at the next start; win32 and cocoa read it per call. Native
+ * controls take the theme through the platform's {@link ThemeFollow}.
  */
 public final class SwtThemeService implements ThemeService {
-  private static final PlatformTraits PLATFORM = PlatformTraits.PLATFORM;
-
-  /** Milliseconds between reads of the system setting on cocoa and win32. */
-  private static final int POLL_MILLIS = 500;
-
   private static final BooleanSupplier SYSTEM_SETTING =
       new BooleanSupplier() {
         @Override
@@ -48,11 +29,10 @@ public final class SwtThemeService implements ThemeService {
       };
 
   private final List<ThemeListener> listeners = new ArrayList<ThemeListener>();
-  private final Display display;
   private final BooleanSupplier system;
+  private final ThemeFollow follow;
   private boolean dark;
   private final boolean nativeDark;
-  private CocoaChrome chrome;
 
   /**
    * Creates the service with native controls following the system; call on the UI thread.
@@ -60,18 +40,30 @@ public final class SwtThemeService implements ThemeService {
    * @param display the Display
    */
   public SwtThemeService(Display display) {
-    this(display, false, SYSTEM_SETTING);
+    this(display, PlatformTraits.PLATFORM.themeFollow(display), false, SYSTEM_SETTING);
   }
 
   /**
-   * Creates the service over a given setting.
+   * Creates the service over a given setting, with the running platform's {@link ThemeFollow}.
    *
    * @param display the Display
    * @param nativeDark the startup setting of native controls
    * @param system reads the system setting
    */
   SwtThemeService(Display display, boolean nativeDark, BooleanSupplier system) {
-    this.display = display;
+    this(display, PlatformTraits.PLATFORM.themeFollow(display), nativeDark, system);
+  }
+
+  /**
+   * Creates the service over a given setting.
+   *
+   * @param display the Display
+   * @param follow the native controls' theme handling
+   * @param nativeDark the startup setting of native controls
+   * @param system reads the system setting
+   */
+  SwtThemeService(Display display, ThemeFollow follow, boolean nativeDark, BooleanSupplier system) {
+    this.follow = follow;
     this.nativeDark = nativeDark;
     this.system = system;
     dark = system.getAsBoolean();
@@ -83,23 +75,15 @@ public final class SwtThemeService implements ThemeService {
             refresh();
           }
         });
-    if (PLATFORM.followsSystemAppearance()) {
-      chrome = new CocoaChrome(display, dark);
-    }
-    if (PLATFORM.pollsSystemTheme()) {
-      final SwtUiDispatcher timers = new SwtUiDispatcher(display);
-      timers.timerExec(
-          POLL_MILLIS,
-          new Runnable() {
-            @Override
-            public void run() {
-              if (!display.isDisposed()) {
-                refresh();
-                timers.timerExec(POLL_MILLIS, this);
-              }
-            }
-          });
-    }
+    follow.watch(
+        dark,
+        new SwtUiDispatcher(display),
+        new Runnable() {
+          @Override
+          public void run() {
+            refresh();
+          }
+        });
   }
 
   /** Reads the system setting and reports a change. */
@@ -107,9 +91,7 @@ public final class SwtThemeService implements ThemeService {
     boolean now = system.getAsBoolean();
     if (now != dark) {
       dark = now;
-      if (chrome != null) {
-        chrome.apply(now);
-      }
+      follow.systemChanged(now);
       for (ThemeListener listener : new ArrayList<ThemeListener>(listeners)) {
         listener.systemThemeChanged(now);
       }
@@ -117,62 +99,27 @@ public final class SwtThemeService implements ThemeService {
   }
 
   /**
-   * Creates the service and sets the native controls' theme to the mode's palette side: for light
-   * or dark on GTK and win32, and for system on win32, where the system setting is read once here.
-   * On cocoa, and for system on GTK, native controls follow the platform's own setting. Call before
-   * the first Shell exists.
+   * Creates the service and sets the native controls' startup theme for the mode ({@link
+   * ThemeFollow#start}). Call before the first Shell exists.
    *
    * @param display a Display with no Shell
    * @param mode the theme setting
    * @return the service
    */
   public static SwtThemeService open(Display display, ThemeMode mode) {
-    if (PLATFORM.followsSystemAppearance()
-        || (mode == ThemeMode.SYSTEM && !PLATFORM.themesAtCreation())) {
-      return new SwtThemeService(display);
-    }
-    boolean value = ThemeController.resolve(mode, Display.isSystemDarkTheme()).dark();
-    display.setDarkThemePreferred(value);
-    display.setData(DialogColors.NATIVE_DARK, value);
-    return new SwtThemeService(display, value, SYSTEM_SETTING);
+    return open(display, mode, PlatformTraits.PLATFORM.themeFollow(display));
   }
 
   /**
-   * Returns whether native controls started with the dark theme.
+   * Creates the service over a platform's {@link ThemeFollow} and sets the startup theme.
    *
-   * @param display the Display
-   * @return true after {@link #open} set the dark theme
+   * @param display a Display with no Shell
+   * @param mode the theme setting
+   * @param follow the platform's theme handling
+   * @return the service
    */
-  static boolean nativeDark(Display display) {
-    return DialogColors.nativeDark(display);
-  }
-
-  /**
-   * Creates a check box readable on its page. win32's dark native theme draws a check box label
-   * near-white, or light gray when disabled; {@code setForeground} reaches only an enabled box. The
-   * theme applies to a control when it is created, so under a dark startup setting a box on a light
-   * page is created with the theme off. A box in a dialog with {@code Win32DialogColors} sits on a
-   * dark page and keeps the theme.
-   *
-   * @param parent the parent
-   * @return the check box
-   */
-  static Button check(Composite parent) {
-    Display display = parent.getDisplay();
-    boolean light =
-        PLATFORM.lightChecksUnderDark()
-            && nativeDark(display)
-            && !DialogColors.colored(parent.getShell());
-    if (light) {
-      display.setDarkThemePreferred(false);
-    }
-    try {
-      return new Button(parent, SWT.CHECK);
-    } finally {
-      if (light) {
-        display.setDarkThemePreferred(true);
-      }
-    }
+  static SwtThemeService open(Display display, ThemeMode mode, ThemeFollow follow) {
+    return new SwtThemeService(display, follow, follow.start(mode), SYSTEM_SETTING);
   }
 
   @Override
@@ -187,16 +134,11 @@ public final class SwtThemeService implements ThemeService {
 
   @Override
   public void preferDark(boolean value) {
-    if (PLATFORM.switchesThemeLive() && !display.isDisposed()) {
-      display.setDarkThemePreferred(value);
-    }
+    follow.preferDark(value);
   }
 
   @Override
   public boolean showsNow(boolean value) {
-    // cocoa controls follow the system at every start, so a restart changes nothing.
-    return PLATFORM.switchesThemeLive()
-        || PLATFORM.followsSystemAppearance()
-        || value == nativeDark;
+    return follow.showsNow(value, nativeDark);
   }
 }

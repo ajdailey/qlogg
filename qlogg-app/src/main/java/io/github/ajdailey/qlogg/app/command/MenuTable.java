@@ -15,9 +15,10 @@ import java.util.Set;
  * and are left out of Help, Tools and File.
  */
 public final class MenuTable {
-  /** Commands the macOS application menu runs instead of the menu bar. */
+  /** Commands the macOS application menu runs instead of the menu bar; unmodifiable. */
   public static final Set<CommandId> APP_MENU_COMMANDS =
-      EnumSet.of(CommandId.ABOUT, CommandId.PREFERENCES, CommandId.QUIT);
+      Collections.unmodifiableSet(
+          EnumSet.of(CommandId.ABOUT, CommandId.PREFERENCES, CommandId.QUIT));
 
   private MenuTable() {}
 
@@ -25,13 +26,13 @@ public final class MenuTable {
    * Returns the commands a menu lists.
    *
    * @param group a group whose {@link CommandGroup#menu()} is true
-   * @param appMenu true when the system's application menu holds About, Preferences and Quit
+   * @param system the commands the system's own menu supplies, left out here
    * @return the commands in menu order
    */
-  public static List<CommandId> commands(CommandGroup group, boolean appMenu) {
+  public static List<CommandId> commands(CommandGroup group, Set<CommandId> system) {
     List<CommandId> commands = new ArrayList<CommandId>();
     for (CommandId command : CommandId.values()) {
-      if (command.group() == group && !(appMenu && APP_MENU_COMMANDS.contains(command))) {
+      if (command.group() == group && !system.contains(command)) {
         commands.add(command);
       }
     }

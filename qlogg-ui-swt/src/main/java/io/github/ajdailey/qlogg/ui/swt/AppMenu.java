@@ -5,16 +5,13 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.WindowSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.swt.widgets.MenuItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +21,8 @@ import org.slf4j.LoggerFactory;
  * leaves them out ({@link io.github.ajdailey.qlogg.app.command.MenuTable}). Hide, Hide Others and
  * Show All stay native. A quit request from the system (Cmd-Q, logout) runs {@link WindowSet#quit}
  * in place of SWT's own disposal, and a file opened from the Finder or the Dock goes to {@link
- * WindowSet#openHandoff}. Elsewhere {@link Display#getSystemMenu()} is null and nothing is added.
+ * WindowSet#openHandoff}. The platform's {@link MenuBehavior} connects the menu on cocoa and does
+ * nothing elsewhere.
  */
 public final class AppMenu {
   private static final Logger LOG = LoggerFactory.getLogger(AppMenu.class);
@@ -32,68 +30,41 @@ public final class AppMenu {
   private AppMenu() {}
 
   /**
-   * Reports whether the system supplies the application menu.
-   *
-   * @param display the Display
-   * @return true on cocoa
-   */
-  public static boolean present(Display display) {
-    return PlatformTraits.PLATFORM.systemAppMenu() && display.getSystemMenu() != null;
-  }
-
-  /**
-   * Adds the listeners when the application menu is present; call once, on the UI thread.
+   * Connects the application menu through the platform's {@link MenuBehavior#hookAppMenu}; call
+   * once, on the UI thread.
    *
    * @param display the Display
    * @param set the main windows
-   * @return true when the listeners were added
    */
-  public static boolean hook(Display display, final WindowSet set) {
-    if (!present(display)) {
-      return false;
-    }
-    Menu menu = display.getSystemMenu();
-    for (MenuItem item : menu.getItems()) {
-      final CommandId command = command(item.getID());
-      if (command != null) {
-        item.addListener(
-            SWT.Selection,
-            new Listener() {
+  public static void hook(Display display, final WindowSet set) {
+    PlatformTraits.PLATFORM
+        .menus()
+        .hookAppMenu(
+            display,
+            new MenuBehavior.AppMenuActions() {
               @Override
-              public void handleEvent(Event event) {
-                run(set, command);
+              public void select(int id) {
+                CommandId command = command(id);
+                if (command != null) {
+                  run(set, command);
+                }
+              }
+
+              @Override
+              public void quit() {
+                set.quit();
+              }
+
+              @Override
+              public void open(String file) {
+                try {
+                  set.openHandoff(List.of(new FileRequest(Path.of(file), 0)), false);
+                } catch (InvalidPathException e) {
+                  LOG.warn(
+                      "Cannot open {}: {}", LogText.oneLine(file), LogText.oneLine(e.getMessage()));
+                }
               }
             });
-      }
-    }
-    display.addListener(
-        SWT.Close,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            event.doit = false;
-            set.quit();
-          }
-        });
-    display.addListener(
-        SWT.OpenDocument,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            if (event.text == null || event.text.isEmpty()) {
-              return;
-            }
-            try {
-              set.openHandoff(List.of(new FileRequest(Path.of(event.text), 0)), false);
-            } catch (InvalidPathException e) {
-              LOG.warn(
-                  "Cannot open {}: {}",
-                  LogText.oneLine(event.text),
-                  LogText.oneLine(e.getMessage()));
-            }
-          }
-        });
-    return true;
   }
 
   /**

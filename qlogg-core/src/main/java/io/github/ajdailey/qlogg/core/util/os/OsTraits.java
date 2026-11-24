@@ -4,9 +4,10 @@ import java.nio.file.Path;
 import java.util.Map;
 
 /**
- * What differs between the operating systems QLogg runs on, one method per question a caller asks.
- * {@link #current()} is chosen once from {@code os.name}; no other class in core, app or the
- * launcher reads that property. Tests take another system's answers from {@link #of(String)}.
+ * What differs between the operating systems QLogg runs on: a value per question a caller asks, and
+ * the system's implementation of each seam whose behavior differs. {@link #current()} is chosen
+ * once from {@code os.name}; no other class in core, app or the launcher reads that property. Tests
+ * take another system's answers from {@link #of(String)}.
  */
 public interface OsTraits {
   /**
@@ -50,12 +51,18 @@ public interface OsTraits {
   }
 
   /**
-   * Reports whether a reserved device name such as {@code CON} or a {@code \\.\} prefix opens a
-   * device rather than a file.
+   * Returns the system's device path forms.
    *
-   * @return true on Windows
+   * @return the forms
    */
-  boolean opensDeviceNames();
+  DeviceNames deviceNames();
+
+  /**
+   * Returns how the launcher keeps SWT and browser files in the settings directory.
+   *
+   * @return the confinement
+   */
+  FileConfinement confinement();
 
   /**
    * Returns the per-user settings directory: {@code %APPDATA%\QLogg} on Windows, {@code
@@ -78,22 +85,6 @@ public interface OsTraits {
    *     where the launcher sits in the installation directory
    */
   Path launcherDirectory(Path home);
-
-  /**
-   * Reports whether explicit and portable mode keep QLogg's files out of the user's home: GTK SWT
-   * writes under {@code user.home} and WebKitGTK under the XDG directories, so {@code user.home}
-   * moves to the settings directory and the user guide opens outside the process.
-   *
-   * @return true on Linux
-   */
-  boolean confinesToSettings();
-
-  /**
-   * Reports whether the embedded browser is WebView2, which keeps a user data folder.
-   *
-   * @return true on Windows
-   */
-  boolean webView2();
 
   /**
    * Reports whether the default key bindings are the macOS set.

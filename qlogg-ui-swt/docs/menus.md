@@ -67,14 +67,17 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 - `MainMenuBar.build` and `LogCanvas` call `decorate` on each built menu, which
   covers its cascades. `MainMenuBar.setEnabled` calls `showState` after each
   enablement change.
-- `PlatformTraits` holds the platform differences:
+- The platform's `MenuBehavior` holds the platform differences:
 
-| Trait | win32 | GTK 3 | GTK 4 | cocoa |
+| `MenuBehavior` | win32 | GTK 3 | GTK 4 | cocoa |
 |---|---|---|---|---|
-| `menuImages` | yes | yes | no: SWT ignores `MenuItem.setImage` | no |
-| `padsMenuImages` | no: the menu reserves the image column | yes | - | - |
-| `fixedMenuInk` | yes | no | - | - |
-| `fadesDisabledIcons` | no | yes | - | - |
+| `decorate`: icons | yes | yes | no: SWT ignores `MenuItem.setImage` | no |
+| `decorate`: blank images | no: the menu reserves the image column | yes | - | - |
+| `ink` | fixed: the startup setting | live | live | live |
+| `disabledOnDark` | the icon | a faded copy | a faded copy | the icon |
+| `addWindowControls` | nothing | nothing | nothing | Minimize and Zoom |
+| `systemCommands` | empty | empty | empty | About, Preferences, Quit |
+| `hookAppMenu` | nothing | nothing | nothing | connects the system application menu |
 
 - On GTK 3 a label moves right when its item has an image, so every other item
   of a menu with an icon holds `ToolIcons.blank`, a transparent 16 px image. A
@@ -83,7 +86,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
   (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
   theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
   `reink` on the UI turn after a palette change. win32 menus keep the startup dark setting
-  (`SwtThemeService.nativeDark`), while the toolbar takes `ChromeColors` from
+  (`DialogColors.nativeDark`), while the toolbar takes `ChromeColors` from
   the live theme.
 
 ## Listed entries
@@ -130,9 +133,12 @@ in a group. `&` in a title is escaped.
 
 ## macOS application menu
 
-`AppMenu` connects the application menu when `PlatformTraits.systemAppMenu`
-is true (cocoa) and `Display.getSystemMenu()` is not null; elsewhere `present` is false and
-the menu bar keeps About, Preferences and Exit.
+`AppMenu.hook` calls `MenuBehavior.hookAppMenu` on every platform:
+`CocoaMenuBehavior` connects the system application menu, and the win32 and GTK
+classes do nothing. `MainMenuBar` passes `MenuBehavior.systemCommands` to
+`MenuTable.commands`, which leaves those commands out: About, Preferences and
+Quit on cocoa when SWT supplies the system menu, none elsewhere, so the menu bar
+keeps About, Preferences and Exit.
 
 | Event | Action |
 |---|---|
@@ -140,7 +146,6 @@ the menu bar keeps About, Preferences and Exit.
 | Display `SWT.Close` (Cmd-Q, logout) | Vetoed; runs `WindowSet.quit` |
 | `SWT.OpenDocument` | The file goes to `WindowSet.openHandoff` |
 
-Where `PlatformTraits.windowMenuControls` is true (cocoa), `MainMenuBar` puts
-Minimize (`Cmd+M`, `Shell.setMinimized`) and Zoom (toggles
+On cocoa `MenuBehavior.addWindowControls` puts Minimize (`Cmd+M`, `Shell.setMinimized`) and Zoom (toggles
 `Shell.setMaximized`) at the top of the Window menu; SWT adds neither to an
 application-defined Window menu. No QLogg binding uses `Cmd+M`.

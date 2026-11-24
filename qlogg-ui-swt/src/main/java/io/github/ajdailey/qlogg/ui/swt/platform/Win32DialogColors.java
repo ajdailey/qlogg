@@ -21,7 +21,8 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 
 /**
- * Dark dialog surfaces on win32 when native controls started dark. The dark start draws the title
+ * Dialog surfaces on win32: dark when native controls started dark ({@link
+ * DialogColors#nativeDark}, read at each use), native otherwise. The dark start draws the title
  * bar, push buttons and read-only combos dark and leaves every other surface light, so a dialog
  * body takes the title bar's color and fields a lighter one. Measured with SWT 3.135.0 on {@code
  * windows-2025}: the title bar draws {@code #202020} and a push button face {@code #333333}; {@code
@@ -77,6 +78,9 @@ final class Win32DialogColors implements DialogColors {
 
   @Override
   public void prepare(Shell shell) {
+    if (!DialogColors.nativeDark(display)) {
+      return;
+    }
     shell.setData(COLORED, Boolean.TRUE);
     shell.setBackground(BODY);
     shell.setForeground(TEXT);
@@ -98,12 +102,27 @@ final class Win32DialogColors implements DialogColors {
 
   @Override
   public Color background(Shell owner) {
-    return BODY;
+    return DialogColors.nativeDark(display) ? BODY : owner.getBackground();
+  }
+
+  @Override
+  public Button check(Composite parent) {
+    if (!DialogColors.nativeDark(display) || DialogColors.colored(parent.getShell())) {
+      return new Button(parent, SWT.CHECK);
+    }
+    display.setDarkThemePreferred(false);
+    try {
+      return new Button(parent, SWT.CHECK);
+    } finally {
+      display.setDarkThemePreferred(true);
+    }
   }
 
   @Override
   public Color disabledText(Display display) {
-    return DISABLED;
+    return DialogColors.nativeDark(display)
+        ? DISABLED
+        : display.getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND);
   }
 
   private void color(Control control) {

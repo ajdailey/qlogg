@@ -60,7 +60,7 @@ class PlatformBehaviorTest {
   @Test
   void macKeysAndApplicationMenu() {
     assertEquals(COCOA, SwtKeys.mac());
-    assertEquals(COCOA, AppMenu.present(display));
+    assertEquals(COCOA, !PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty());
   }
 
   @Test
@@ -93,7 +93,7 @@ class PlatformBehaviorTest {
   void darkModeSetsNativeThemeExceptOnCocoa() {
     try {
       SwtThemeService.open(display, ThemeMode.DARK);
-      assertEquals(!COCOA, SwtThemeService.nativeDark(display));
+      assertEquals(!COCOA, DialogColors.nativeDark(display));
       assertEquals(
           WIN32 ? "Win32DialogColors" : "NativeDialogColors",
           DialogColors.of(display).getClass().getSimpleName());

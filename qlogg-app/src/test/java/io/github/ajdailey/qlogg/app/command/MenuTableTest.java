@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -22,17 +23,24 @@ import org.junit.jupiter.api.Test;
 class MenuTableTest {
   @Test
   void theApplicationMenuTakesAboutPreferencesAndExit() {
-    assertTrue(MenuTable.commands(CommandGroup.TOOLS, false).contains(CommandId.PREFERENCES));
+    assertTrue(MenuTable.commands(CommandGroup.TOOLS, Set.of()).contains(CommandId.PREFERENCES));
     assertEquals("Pr&eferences...", CommandId.PREFERENCES.label());
-    assertTrue(MenuTable.commands(CommandGroup.HELP, false).contains(CommandId.ABOUT));
-    assertTrue(MenuTable.commands(CommandGroup.FILE, false).contains(CommandId.QUIT));
-    assertFalse(MenuTable.commands(CommandGroup.TOOLS, true).contains(CommandId.PREFERENCES));
-    assertFalse(MenuTable.commands(CommandGroup.HELP, true).contains(CommandId.ABOUT));
-    assertFalse(MenuTable.commands(CommandGroup.FILE, true).contains(CommandId.QUIT));
-    List<CommandId> tools = MenuTable.commands(CommandGroup.TOOLS, true);
+    assertTrue(MenuTable.commands(CommandGroup.HELP, Set.of()).contains(CommandId.ABOUT));
+    assertTrue(MenuTable.commands(CommandGroup.FILE, Set.of()).contains(CommandId.QUIT));
+    assertFalse(
+        MenuTable.commands(CommandGroup.TOOLS, MenuTable.APP_MENU_COMMANDS)
+            .contains(CommandId.PREFERENCES));
+    assertFalse(
+        MenuTable.commands(CommandGroup.HELP, MenuTable.APP_MENU_COMMANDS)
+            .contains(CommandId.ABOUT));
+    assertFalse(
+        MenuTable.commands(CommandGroup.FILE, MenuTable.APP_MENU_COMMANDS)
+            .contains(CommandId.QUIT));
+    List<CommandId> tools = MenuTable.commands(CommandGroup.TOOLS, MenuTable.APP_MENU_COMMANDS);
     assertEquals(CommandId.SCRATCHPAD, tools.get(tools.size() - 1));
     assertEquals(
-        MenuTable.commands(CommandGroup.VIEW, false), MenuTable.commands(CommandGroup.VIEW, true));
+        MenuTable.commands(CommandGroup.VIEW, Set.of()),
+        MenuTable.commands(CommandGroup.VIEW, MenuTable.APP_MENU_COMMANDS));
   }
 
   @Test
@@ -200,7 +208,7 @@ class MenuTableTest {
     Map<String, List<String>> menus = new LinkedHashMap<String, List<String>>();
     List<String> top = new ArrayList<String>();
     menus.put(group.label(), top);
-    for (CommandId command : MenuTable.commands(group, false)) {
+    for (CommandId command : MenuTable.commands(group, Set.of())) {
       String submenu = command.submenu();
       List<String> target = top;
       if (submenu != null) {

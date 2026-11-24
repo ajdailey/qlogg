@@ -12,7 +12,7 @@ and type-checked, not contained to a directory.
 
 | Method | Rule |
 |---|---|
-| `logPath`, `logFile` | Rejects empty, NUL and, on Windows (`OsTraits.opensDeviceNames`), device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. The file of the `HeldLock` given, when one is, is rejected under any name. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
+| `logPath`, `logFile` | Rejects empty, NUL and, on Windows (`DeviceNames.opensDevice`), device forms (`\\.\`, `\\?\`, `CON`, `NUL`, `COM1`...). Made absolute and normalized. An existing path resolves to its real path and must be a regular file: a FIFO blocks the reader and a device never ends. The file of the `HeldLock` given, when one is, is rejected under any name. A missing path needs an existing parent directory, so a log that appears later can be opened. `logPath` returns the path as given (absolute, normalized, symbolic links kept) and the real path; `logFile` returns the real path |
 | `logDirectory` | A folder to search: the same form checks as `logFile`, made absolute and normalized, must be an existing directory, resolved to its real path |
 | `settingsDirectory` | Absolute, normalized, created with POSIX `rwx------` where supported, resolved to its real path, must be a directory |
 | `child` | A fixed name matching `[A-Za-z0-9._-]+`, resolved inside the directory |

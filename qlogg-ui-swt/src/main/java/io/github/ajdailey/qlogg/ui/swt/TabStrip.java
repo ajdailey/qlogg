@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.controller.TabTips;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabFolder2Adapter;
@@ -515,13 +516,13 @@ final class TabStrip {
    * created, and the Display reads them once, so they outlast a theme change. The selection
    * background shows only while focus is inside the folder; elsewhere the selected tab has the
    * strip's background and keeps the selection foreground, so that foreground must read on both.
-   * {@link CocoaChrome} leaves a folder colored here alone.
+   * {@link ChromeColors#PALETTE_COLORED} keeps the cocoa chrome off it.
    *
    * @param folder the folder
    * @param next the palette
    */
   static void colorTabs(CTabFolder folder, Palette next) {
-    folder.setData(CocoaChrome.PALETTE_COLORED, Boolean.TRUE);
+    folder.setData(ChromeColors.PALETTE_COLORED, Boolean.TRUE);
     folder.setBackground(color(next.gutter()));
     folder.setForeground(color(next.text()));
     folder.setSelectionBackground(color(next.background()));

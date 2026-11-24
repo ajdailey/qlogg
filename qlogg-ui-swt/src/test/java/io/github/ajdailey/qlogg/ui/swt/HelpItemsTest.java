@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
@@ -29,6 +29,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -435,7 +436,9 @@ class HelpItemsTest {
 
   @Test
   void withoutTheApplicationMenuTheMenuBarKeepsAboutOptionsAndExit() {
-    assumeFalse(AppMenu.present(display), "Cocoa always has the application menu");
+    assumeTrue(
+        PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty(),
+        "Cocoa always has the application menu");
     assertSame(CommandId.PREFERENCES, AppMenu.command(SWT.ID_PREFERENCES));
     assertSame(CommandId.ABOUT, AppMenu.command(SWT.ID_ABOUT));
     assertSame(CommandId.QUIT, AppMenu.command(SWT.ID_QUIT));

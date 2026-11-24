@@ -2,13 +2,15 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * Dialog colors on GTK, cocoa and a light win32 start: the native theme draws every surface, so
- * nothing is set. {@code CocoaChrome} recolors cocoa shells after an appearance change.
+ * Dialog colors on GTK and cocoa: the native theme draws every surface, so nothing is set. {@code
+ * CocoaChrome} recolors cocoa shells after an appearance change.
  */
 final class NativeDialogColors implements DialogColors {
   @Override
@@ -20,6 +22,11 @@ final class NativeDialogColors implements DialogColors {
   @Override
   public Color background(Shell owner) {
     return owner.getBackground();
+  }
+
+  @Override
+  public Button check(Composite parent) {
+    return new Button(parent, SWT.CHECK);
   }
 
   @Override

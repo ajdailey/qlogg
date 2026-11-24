@@ -97,7 +97,7 @@ final class QuickFindBar {
   }
 
   private Button check(UiText label) {
-    Button button = SwtThemeService.check(bar);
+    Button button = Dialogs.check(bar);
     button.setText(label.text());
     return button;
   }

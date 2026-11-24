@@ -10,12 +10,12 @@ status bar. Module overview: [../README.md](../README.md); the menu bar is in
 Each main window is one `MainWindow`; the launcher creates more for New Window
 and a restored session.
 
-- `place` reads every monitor's bounds and work area and the shell trim
-  (`computeTrim`), and applies `WindowGeometry.place`. It skips the position
-  where `PlatformTraits.positionsWindows` is false: GTK under the GDK backend
+- `place` reads every monitor's bounds and work area and applies
+  `WindowGeometry.place` for the shell trim the platform's `WindowPlacement`
+  supplies: the `computeTrim` trim, and on win32 again with the trim measured
+  from the sized shell. It skips the position on GTK under the GDK backend
   `wayland` (`org.eclipse.swt.internal.gdk.backend`, a system property read
-  that fails safe when absent). On win32 it places again with the trim
-  measured from the sized shell (`remeasuresTrim`).
+  that fails safe when absent).
 - `windowBounds` and `windowMaximized` report the normal bounds kept from the
   last unmaximized move or resize, and the maximized state; both keep the
   state before [Full Screen](#full-screen).
@@ -240,7 +240,7 @@ The main view's canvas, the filtered view's canvas and the overview bar carry
 accessible names through `AccessibleName` (`UiText.ACCESSIBLE_*`): Log,
 Overview, and Filtered results, which adds the shown set's match count once a
 search has run. A screen reader reads the name on request; no name-change event
-is sent. On cocoa (`PlatformTraits.labelsByDescription`) the name is also the
+is sent. On cocoa (`CocoaAccessibleLabels`) the name is also the
 accessible description and the control reports `ACC.ROLE_GROUP`: VoiceOver
 reads a `Canvas` without a role as `SWTComposite` with a blank description.
 Unverified on a Mac.
@@ -329,15 +329,15 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
 
 View > Full Screen (`F11`; `Ctrl+Cmd+F` on macOS) calls
 `MainView.setFullScreen` with the opposite of `fullScreen`; `MainWindow` passes
-both to `FullScreen`, one per window. The state is not saved. While full
+both to its `FullScreen`, one per window. The state is not saved. While full
 screen, the bounds tracking skips every event, so `windowBounds` and
 `windowMaximized` report the window before full screen, which `qlogg.conf`
 `window.*` and the session's `window.W.*` save. `Esc` stays Stop Loading.
 
-| | win32, GTK | cocoa (`PlatformTraits.fullScreenSpace`) |
+| | win32, GTK (`NativeFullScreen`) | cocoa (`CocoaFullScreen`) |
 |---|---|---|
 | State | The last request: set before `Shell.setFullScreen(true)` and cleared after `setFullScreen(false)`, so the size events win32 sends inside the call count as full screen | `Shell.getFullScreen`, which the title bar button also changes |
-| Change | During the call on win32; a window manager request on GTK | An AppKit animation into a space of its own, after the call returns. AppKit ignores a change requested during the animation, so `FullScreen` holds a request made within `SETTLE_MS` (1 s) of the previous change until then, makes it again while the shell does not show it (at most `RETRIES`, 5), all through the UI dispatcher's timer, and the check item shows the held request |
+| Change | During the call on win32; a window manager request on GTK | An AppKit animation into a space of its own, after the call returns. AppKit ignores a change requested during the animation, so `CocoaFullScreen` holds a request made within `SETTLE_MS` (1 s) of the previous change until then, makes it again while the shell does not show it (at most `RETRIES`, 5), all through the UI dispatcher's timer, and the check item shows the held request |
 | Menu bar | Stays in the window | The system menu bar, shown when the pointer reaches the top edge |
 
 SWT's `Shell.setBounds` and `setSize` leave full screen on cocoa and GTK, so
@@ -347,25 +347,33 @@ size, a session window's saved bounds and the maximized state apply before
 
 ## Platform traits
 
-Every platform difference in the view layer is a method of `PlatformTraits`,
-answered by `Win32Traits`, `CocoaTraits`, `Gtk3Traits` and `Gtk4Traits`; the
-GTK pair share `GtkTraits`. They live in package `ui.swt.platform` with the
-classes per platform that `dialogColors`, `stacking` and `toolItemSizing`
-return; only `PlatformTraits`, `DialogColors`, `WindowStacking` and
-`ToolItemSizing` are public. `LoadedToolkit` chooses `PlatformTraits.PLATFORM`
-when the interface is first used, from `SWT.getPlatform()` and, on GTK, the
-major version of the GTK that SWT loaded: it initializes the `Display` class,
-which loads SWT's GTK library, then reads
-`org.eclipse.swt.internal.gtk.version`. SWT loads GTK 3 when `SWT_GTK4=1` is
-set and GTK 4 fails to load; QLogg then uses the GTK 3 traits and logs one
-WARN. Without `SWT_GTK4`, SWT loads GTK 4 when GTK 3 fails to load, and QLogg
-uses the GTK 4 traits with no WARN. When neither loads, `LoadedToolkit` logs
-the failure at DEBUG and chooses the GTK 3 traits, and `Gui` exits 3.
-`PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest`
-checks all four tables on Linux. `ArchitectureTest.platformOnlyInTraits` fails
-on a `SWT.getPlatform()` call or a string starting `org.eclipse.swt.internal.`
-outside `ui.swt.platform`, and on a `System.getenv` call in `ui.swt` outside
-that package or in the launcher.
+`PlatformTraits` holds the view layer's platform differences, answered by
+`Win32Traits`, `CocoaTraits`, `Gtk3Traits` and `Gtk4Traits`; the GTK pair share
+`GtkTraits`. A trait is either a value a caller passes on as data, or the
+factory of a seam: an interface with one class per platform, which callers call
+on every platform without checking the platform first. Everything lives in
+package `ui.swt.platform`; the traits classes and the per-platform classes are
+package-private. `LoadedToolkit` chooses `PlatformTraits.PLATFORM` when the
+interface is first used, from `SWT.getPlatform()` and, on GTK, the major
+version of the GTK that SWT loaded: it initializes the `Display` class, which
+loads SWT's GTK library, then reads `org.eclipse.swt.internal.gtk.version`. SWT
+loads GTK 3 when `SWT_GTK4=1` is set and GTK 4 fails to load; QLogg then uses
+the GTK 3 traits and logs one WARN. Without `SWT_GTK4`, SWT loads GTK 4 when
+GTK 3 fails to load, and QLogg uses the GTK 4 traits with no WARN. When neither
+loads, `LoadedToolkit` logs the failure at DEBUG and chooses the GTK 3 traits,
+and `Gui` exits 3.
+
+`PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest` checks
+every value and seam class on Linux, and `PlatformSeamsTest` constructs each
+platform's seam classes directly. `ArchitectureTest.platformOnlyInTraits` fails
+on a `SWT.getPlatform()` call, a `SWT_GTK4` string or a string starting
+`org.eclipse.swt.internal.` outside `ui.swt.platform`, and on a `System.getenv`
+call in `ui.swt` outside that package or in the launcher.
+`ArchitectureTest.behaviorOnlyThroughSeams` fails on a call to a boolean
+`PlatformTraits` or `OsTraits` method outside the two platform packages, except
+the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
+
+### Values
 
 | Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
 |---|---|---|---|---|---|
@@ -373,24 +381,24 @@ that package or in the launcher.
 | `toolkitVersion` | empty | empty | `GTK` and `org.eclipse.swt.internal.gtk.version` | as GTK 3 | `MainWindow.toolkitDescription` |
 | `monospaceFamily`, `monospaceSize` | Consolas 10 | Menlo 12 | Monospace 10 | Monospace 10 | `Dialogs.monospaceName`, `monospaceSize` |
 | `macKeys` | - | yes | - | - | `SwtKeys.mac`: key names and the keymap's platform |
-| `systemAppMenu` | - | yes | - | - | `AppMenu.present` |
-| `opensFilesByEvent` | - | yes | - | - | `OpenDocuments.await` |
-| `windowMenuControls` | - | yes | - | - | `MainMenuBar.addWindowControls` |
-| `fullScreenSpace` | - | yes | - | - | `FullScreen`: the state is the shell's (see [Full Screen](#full-screen)) |
-| `labelsByDescription` | - | yes | - | - | `AccessibleName.attach` |
-| `positionsWindows` | yes | yes | Not under Wayland | Not under Wayland | `MainWindow.place` |
-| `remeasuresTrim` | yes | - | - | - | `MainWindow.place` |
-| `opensBrowser` | yes | yes | yes | - | `MainWindow.showGuide`: otherwise a notice names the guide's file |
-| `switchesThemeLive` | - | - | yes | yes | `SwtThemeService.preferDark`, `showsNow` |
-| `followsSystemAppearance` | - | yes | - | - | `SwtThemeService`: `CocoaChrome`, `open`, `showsNow` |
-| `pollsSystemTheme` | yes | yes | - | - | `SwtThemeService`: polls `isSystemDarkTheme()` every 500 ms |
-| `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
-| `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
 | `busyCursor` | `CURSOR_APPSTARTING` | `CURSOR_WAIT` | `CURSOR_APPSTARTING` | `CURSOR_APPSTARTING` | `WindowBusyCursor` |
-| `dialogColors` | `Win32DialogColors` when started dark | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
-| `chromeColors` | `Win32ChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `MainWindow`: the window's rows and fields under a dark theme ([theme.md](theme.md#chrome-colors)) |
-| `stacking` | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
-| `toolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
+| `shownBackground` | `getBackground` | `getBackground` | a drawn pixel of a visible control | as GTK 3 | `ToolIcons.reink` |
+
+### Seams
+
+| Interface (factory) | win32 | cocoa | GTK 3 | GTK 4 | Caller |
+|---|---|---|---|---|---|
+| `ThemeFollow` (`themeFollow`) | `Win32ThemeFollow`: sets the native theme at startup in every mode; polls the system setting every 500 ms; a side shows only when it is the startup one | `CocoaThemeFollow`: never sets the theme; polls; `CocoaChrome` recolors shells | `GtkThemeFollow`: sets the theme at startup for Light and Dark and again at each switch | as GTK 3 | `SwtThemeService` ([theme.md](theme.md)) |
+| `FullScreen` (`fullScreen`) | `NativeFullScreen` | `CocoaFullScreen` | `NativeFullScreen` | `NativeFullScreen` | `MainWindow` ([Full Screen](#full-screen)) |
+| `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu` ([menus.md](menus.md)) |
+| `LaunchDocuments` (`launchDocuments`) | `NativeLaunchDocuments`: no wait | `CocoaLaunchDocuments`: runs the `OpenDocument` wait | no wait | no wait | `OpenDocuments.await` |
+| `AccessibleLabels` (`accessibleLabels`) | `NativeAccessibleLabels`: nothing | `CocoaAccessibleLabels`: description and group role | nothing | nothing | `AccessibleName.attach` |
+| `WindowPlacement` (`placement`) | `Win32WindowPlacement`: places again with the measured trim | `NativeWindowPlacement` | `GtkWindowPlacement`: no position under Wayland | as GTK 3 | `MainWindow.place` |
+| `GuideDisplay` (`guideDisplay`) | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `NoticeGuideDisplay`: a notice names the guide's file, since WebKitGTK 6.0 aborts the JVM under GTK 4 | `MainWindow.showGuide` |
+| `DialogColors` (`dialogColors`) | `Win32DialogColors`: dark surfaces after a dark start, native otherwise | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
+| `ChromeColors` (`chromeColors`) | `Win32ChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `MainWindow`: the window's rows and fields under a dark theme ([theme.md](theme.md#chrome-colors)) |
+| `WindowStacking` (`stacking`) | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
+| `ToolItemSizing` (`toolItemSizing`) | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
 
 ## Platform services
 

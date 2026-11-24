@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import io.github.ajdailey.qlogg.core.util.os.DeviceNames;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.File;
 import java.io.IOException;
@@ -159,6 +160,7 @@ class SafePathsTest {
 
   @Test
   void windowsDeviceForms() {
+    DeviceNames windows = OsTraits.of("Windows 11").deviceNames();
     for (String path :
         List.of(
             "CON",
@@ -167,10 +169,10 @@ class SafePathsTest {
             "\\\\.\\PhysicalDrive0",
             "\\\\?\\GLOBALROOT\\x",
             "lpt9.log")) {
-      assertTrue(SafePaths.windowsDevice(path), path);
+      assertTrue(windows.opensDevice(path), path);
     }
     for (String path : List.of("C:\\logs\\console.log", "context", "COM10", "app.log")) {
-      assertFalse(SafePaths.windowsDevice(path), path);
+      assertFalse(windows.opensDevice(path), path);
     }
   }
 

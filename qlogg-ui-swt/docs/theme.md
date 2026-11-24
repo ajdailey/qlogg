@@ -27,9 +27,12 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 
 ## Native widget theme
 
+`SwtThemeService` reaches native widgets through the platform's `ThemeFollow`:
+`GtkThemeFollow`, `Win32ThemeFollow` or `CocoaThemeFollow`.
+
 | Platform | `Display.setDarkThemePreferred` | System appearance change |
 |---|---|---|
-| GTK | `SwtThemeService.preferDark` calls it; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
+| GTK | `SwtThemeService.open` calls it for Light and Dark and `preferDark` at each switch; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
 | win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment, and `preferDark` does nothing; `showsNow` reports whether the startup setting matches a request | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); native controls take a system change at the next start |
 | cocoa | Never called: native widgets follow the system appearance | No `SWT.Settings` is sent and SWT keeps its startup colors (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms and `CocoaChrome` sets each shell's, list's and field's colors to the current appearance while it differs from the startup one. Table and Tree headers get explicit colors of the current appearance on every change, never null (null colors draw blank labels in dark), and a Table's header is hidden and shown again so it repaints, the area right of the last column included |
 
@@ -38,8 +41,8 @@ into a change event.
 
 - win32: under a dark startup setting, check box labels draw near-white, which
   a light page cannot show. Every check box therefore comes from
-  `SwtThemeService.check`, which creates it with the theme off, except in a
-  dialog with `Win32DialogColors`, whose page is dark. On the quick find bar
+  `DialogColors.check` (through `Dialogs.check`): `Win32DialogColors` creates it
+  with the theme off, except in a dialog it colors, whose page is dark. On the quick find bar
   `Win32ChromeColors` gives an enabled box's label the palette text under dark.
 - cocoa: do not set an application appearance. cocoa SWT caches its widget
   colors under the system appearance, and a different application appearance
@@ -120,8 +123,8 @@ shell built another way calls both. `DialogColors.of` takes the class from
 
 | Class | When | Colors |
 |---|---|---|
-| `Win32DialogColors` | win32, native controls started dark | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` |
-| `NativeDialogColors` | GTK, cocoa, win32 started light | None set |
+| `Win32DialogColors` | win32; colors only while `DialogColors.nativeDark` holds, read at each use | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` after a dark start; none set after a light one |
+| `NativeDialogColors` | GTK, cocoa | None set |
 
 A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`
 face, white text) and read-only combos dark and every other surface light
@@ -160,7 +163,7 @@ reads them once, so an uncolored strip keeps them through a theme change
   `selectionText`.
 - The strips follow the palette, not `ui.theme`: a fixed scheme keeps them
   through a theme change.
-- `colorTabs` sets `CocoaChrome.PALETTE_COLORED`, and `CocoaChrome` leaves such
+- `colorTabs` sets `ChromeColors.PALETTE_COLORED`, and `CocoaChrome` leaves such
   a folder alone: an appearance change does not change the palette, so nothing
   would restore the colors it wrote.
 

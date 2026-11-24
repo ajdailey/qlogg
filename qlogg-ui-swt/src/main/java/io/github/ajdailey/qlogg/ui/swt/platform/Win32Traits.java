@@ -1,9 +1,11 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 
 /** The win32 answers of {@link PlatformTraits}. */
 final class Win32Traits implements PlatformTraits {
@@ -33,80 +35,13 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public boolean opensFilesByEvent() {
-    return false;
-  }
-
-  @Override
-  public boolean windowMenuControls() {
-    return false;
-  }
-
-  @Override
-  public boolean pollsSystemTheme() {
-    return true;
-  }
-
-  @Override
-  public boolean fullScreenSpace() {
-    return false;
-  }
-
-  @Override
-  public boolean labelsByDescription() {
-    return false;
-  }
-
-  @Override
-  public boolean systemAppMenu() {
-    return false;
-  }
-
-  @Override
-  public boolean positionsWindows() {
-    return true;
-  }
-
-  @Override
-  public boolean remeasuresTrim() {
-    return true;
-  }
-
-  @Override
-  public boolean opensBrowser() {
-    return true;
-  }
-
-  @Override
-  public boolean switchesThemeLive() {
-    return false;
-  }
-
-  @Override
-  public boolean followsSystemAppearance() {
-    return false;
-  }
-
-  @Override
-  public boolean themesAtCreation() {
-    return true;
-  }
-
-  @Override
-  public boolean lightChecksUnderDark() {
-    return true;
-  }
-
-  @Override
   public int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }
 
   @Override
   public DialogColors dialogColors(Display display) {
-    return DialogColors.nativeDark(display)
-        ? new Win32DialogColors(display)
-        : new NativeDialogColors();
+    return new Win32DialogColors(display);
   }
 
   @Override
@@ -124,26 +59,39 @@ final class Win32Traits implements PlatformTraits {
     return NativeToolItemSizing.INSTANCE;
   }
 
-  // Menu item icons.
-
   @Override
-  public boolean menuImages() {
-    return true;
+  public ThemeFollow themeFollow(Display display) {
+    return new Win32ThemeFollow(display);
   }
 
   @Override
-  public boolean padsMenuImages() {
-    return false;
+  public FullScreen fullScreen(Shell shell, UiDispatcher ui) {
+    return new NativeFullScreen(shell);
   }
 
   @Override
-  public boolean fixedMenuInk() {
-    return true;
+  public MenuBehavior menus() {
+    return new Win32MenuBehavior();
   }
 
   @Override
-  public boolean fadesDisabledIcons() {
-    return false;
+  public LaunchDocuments launchDocuments() {
+    return new NativeLaunchDocuments();
+  }
+
+  @Override
+  public AccessibleLabels accessibleLabels() {
+    return new NativeAccessibleLabels();
+  }
+
+  @Override
+  public WindowPlacement placement() {
+    return new Win32WindowPlacement();
+  }
+
+  @Override
+  public GuideDisplay guideDisplay() {
+    return new BrowserGuideDisplay();
   }
 
   @Override

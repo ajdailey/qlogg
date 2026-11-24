@@ -45,6 +45,7 @@ class DialogColorsTest {
   @BeforeEach
   void open() {
     display = new Display();
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
     owner = new Shell(display);
   }
 
@@ -171,6 +172,33 @@ class DialogColorsTest {
     colors.apply(owner);
     assertFalse(DialogColors.colored(owner));
     assertEquals(before, label.getForeground().getRGB());
+  }
+
+  @Test
+  void win32AfterALightStartSetsNothing() {
+    display.setData(DialogColors.NATIVE_DARK, null);
+    Win32DialogColors colors = new Win32DialogColors(display);
+    Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
+    RGB background = shell.getBackground().getRGB();
+    colors.prepare(shell);
+    colors.apply(shell);
+    assertFalse(DialogColors.colored(shell));
+    assertEquals(background, shell.getBackground().getRGB());
+    assertEquals(owner.getBackground().getRGB(), colors.background(owner).getRGB());
+    assertEquals(
+        display.getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND).getRGB(),
+        colors.disabledText(display).getRGB());
+  }
+
+  @Test
+  void win32BuiltBeforeADarkStartColorsAfterIt() {
+    display.setData(DialogColors.NATIVE_DARK, null);
+    Win32DialogColors colors = new Win32DialogColors(display);
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
+    colors.prepare(shell);
+    assertTrue(DialogColors.colored(shell));
+    assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
   }
 
   @Test

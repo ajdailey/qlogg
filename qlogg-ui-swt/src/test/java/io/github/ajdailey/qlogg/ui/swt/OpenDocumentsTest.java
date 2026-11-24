@@ -3,10 +3,10 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongSupplier;
+import org.eclipse.swt.SWT;
 import org.junit.jupiter.api.Test;
 
 /** {@link OpenDocuments#collect} over a scripted event source and a fake clock, with no display. */
@@ -81,7 +81,7 @@ class OpenDocumentsTest {
 
   @Test
   void outsideCocoaAwaitReturnsAtOnceWithNoFile() {
-    assumeFalse(PlatformTraits.PLATFORM.opensFilesByEvent(), "cocoa runs the event loop");
+    assumeFalse("cocoa".equals(SWT.getPlatform()), "cocoa runs the event loop");
     assertEquals(List.of(), OpenDocuments.await());
   }
 }

@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ToolItemSizing;
 import java.io.IOException;
@@ -31,12 +32,12 @@ import org.eclipse.swt.widgets.ToolItem;
  * because toolbars and buttons are native; on a palette-painted tab strip it follows the palette.
  * GTK refreshes {@code getBackground} and sends {@code SWT.Settings} only on the first {@code
  * Display.sleep} after {@code setDarkThemePreferred}, so {@link #reink} reads the background
- * through {@link PlatformTraits#shownBackground}, a drawn pixel on GTK. GTK's disabled effect
- * lightens a menu image, which on a dark background brightens it, so there {@link #showState} shows
- * a disabled menu item a faded copy; {@link #fadeDisabled} gives disabled tool items the same copy.
- * {@link #lightChecked} keeps checked items in the dark ink where the checked background stays
- * light; code checks an item through {@link #check}. Images are created on first use on the UI
- * thread and disposed with the owner control.
+ * through {@link PlatformTraits#shownBackground}, a drawn pixel on GTK. {@link #showState} shows a
+ * disabled menu item on a dark background the image {@link MenuBehavior#disabledOnDark} returns, a
+ * faded copy on GTK; {@link #fadeDisabled} gives disabled tool items the same copy. {@link
+ * #lightChecked} keeps checked items in the dark ink where the checked background stays light; code
+ * checks an item through {@link #check}. Images are created on first use on the UI thread and
+ * disposed with the owner control.
  */
 final class ToolIcons implements ChromeColors.Icons {
   /** Opens files. */
@@ -178,7 +179,7 @@ final class ToolIcons implements ChromeColors.Icons {
   private final boolean fixedInk;
   // Menu item icons.
   private final Map<MenuItem, String> menuItems = new LinkedHashMap<MenuItem, String>();
-  private final boolean faded = PlatformTraits.PLATFORM.fadesDisabledIcons();
+  private final MenuBehavior menus = PlatformTraits.PLATFORM.menus();
   private boolean fadedTools;
   private boolean lightChecked = true;
   private final Listener checked =
@@ -356,7 +357,18 @@ final class ToolIcons implements ChromeColors.Icons {
     if (name == null || item.isDisposed()) {
       return;
     }
-    Image image = get(faded && darkBackground && !item.getEnabled() ? name + FADED : name);
+    Image image = get(name);
+    if (darkBackground && !item.getEnabled()) {
+      image =
+          menus.disabledOnDark(
+              image,
+              new MenuBehavior.FadedImage() {
+                @Override
+                public Image get() {
+                  return ToolIcons.this.get(name + FADED);
+                }
+              });
+    }
     if (item.getImage() != image) {
       item.setImage(image);
     }

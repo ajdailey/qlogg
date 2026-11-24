@@ -32,7 +32,10 @@ import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.FullScreen;
+import io.github.ajdailey.qlogg.ui.swt.platform.GuideDisplay;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.WindowPlacement;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -302,7 +305,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
-    fullScreen = new FullScreen(shell, dispatcher, PlatformTraits.PLATFORM);
+    fullScreen = PlatformTraits.PLATFORM.fullScreen(shell, dispatcher);
     this.chrome = chrome;
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
@@ -1044,38 +1047,29 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @return the placement applied
    */
   public WindowGeometry.Placement place(
-      WindowGeometry.Request request, WindowGeometry.Request persisted) {
+      final WindowGeometry.Request request, final WindowGeometry.Request persisted) {
     Display display = shell.getDisplay();
-    List<WindowGeometry.Screen> screens = new ArrayList<WindowGeometry.Screen>();
+    final List<WindowGeometry.Screen> screens = new ArrayList<WindowGeometry.Screen>();
     for (Monitor monitor : display.getMonitors()) {
       screens.add(screen(monitor));
     }
-    WindowGeometry.Screen primary = screen(display.getPrimaryMonitor());
-    Rectangle trim = shell.computeTrim(0, 0, 100, 100);
-    boolean positionSupported = PlatformTraits.PLATFORM.positionsWindows();
-    WindowGeometry.Placement placement =
-        WindowGeometry.place(
-            request,
-            persisted,
-            screens,
-            primary,
-            trim.width - 100,
-            trim.height - 100,
-            positionSupported);
-    apply(placement);
-    if (PlatformTraits.PLATFORM.remeasuresTrim()) {
-      Point size = shell.getSize();
-      Rectangle client = shell.getClientArea();
-      int trimWidth = size.x - client.width;
-      int trimHeight = size.y - client.height;
-      if (trimWidth != trim.width - 100 || trimHeight != trim.height - 100) {
-        placement =
-            WindowGeometry.place(
-                request, persisted, screens, primary, trimWidth, trimHeight, positionSupported);
-        apply(placement);
-      }
-    }
-    return placement;
+    final WindowGeometry.Screen primary = screen(display.getPrimaryMonitor());
+    final List<WindowGeometry.Placement> applied = new ArrayList<WindowGeometry.Placement>();
+    PlatformTraits.PLATFORM
+        .placement()
+        .place(
+            shell,
+            new WindowPlacement.Placer() {
+              @Override
+              public void place(int trimWidth, int trimHeight, boolean positions) {
+                WindowGeometry.Placement placement =
+                    WindowGeometry.place(
+                        request, persisted, screens, primary, trimWidth, trimHeight, positions);
+                apply(placement);
+                applied.add(placement);
+              }
+            });
+    return applied.get(applied.size() - 1);
   }
 
   private void apply(WindowGeometry.Placement placement) {
@@ -2200,16 +2194,27 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   // User guide.
 
-  /**
-   * Shows the user guide in a {@link GuideWindow}, or a notice naming the file, with no {@code
-   * Browser} created, where {@link PlatformTraits#opensBrowser} is false.
-   */
+  /** Shows the user guide where the platform's {@link GuideDisplay} puts it. */
   @Override
   public boolean showGuide(Path file) {
-    if (!PlatformTraits.PLATFORM.opensBrowser()) {
-      showNotice(UiText.NOTICE_GUIDE_AT.format(file));
-      return true;
-    }
+    return PlatformTraits.PLATFORM
+        .guideDisplay()
+        .show(
+            file,
+            new GuideDisplay.Shows() {
+              @Override
+              public boolean inBrowser(Path guideFile) {
+                return showGuideWindow(guideFile);
+              }
+
+              @Override
+              public void notice(Path guideFile) {
+                showNotice(UiText.NOTICE_GUIDE_AT.format(guideFile));
+              }
+            });
+  }
+
+  private boolean showGuideWindow(Path file) {
     if (guide != null && !guide.shell().isDisposed()) {
       guide.show(file);
       return true;

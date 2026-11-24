@@ -36,7 +36,7 @@ public final class UserGuide {
    * @return false on Linux outside per-user mode
    */
   public static boolean embedded(SettingsMode mode, OsTraits os) {
-    return mode == SettingsMode.PER_USER || !os.confinesToSettings();
+    return os.confinement().embedsGuide(mode == SettingsMode.PER_USER);
   }
 
   /**

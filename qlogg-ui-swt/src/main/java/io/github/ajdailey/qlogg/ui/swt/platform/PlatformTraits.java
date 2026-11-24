@@ -1,14 +1,17 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 
 /**
  * The view layer's platform differences: {@link Win32Traits}, {@link CocoaTraits}, {@link
- * Gtk3Traits} and {@link Gtk4Traits} each answer every question a view class asks. No view class
- * outside this package reads {@link SWT#getPlatform}, {@code SWT_GTK4} or {@link #GTK_VERSION}.
+ * Gtk3Traits} and {@link Gtk4Traits} each answer every value a view class reads and create every
+ * seam whose behavior differs. No view class outside this package reads {@link SWT#getPlatform},
+ * {@code SWT_GTK4} or {@link #GTK_VERSION}.
  */
 public interface PlatformTraits {
   /** System property SWT sets on GTK to {@code x11}, {@code wayland} or {@code unknown}. */
@@ -74,110 +77,6 @@ public interface PlatformTraits {
   boolean macKeys();
 
   /**
-   * Reports whether the system can supply the application menu.
-   *
-   * @return true on cocoa
-   */
-  boolean systemAppMenu();
-
-  /**
-   * Reports whether the system hands a launch its files as {@code SWT.OpenDocument} events after
-   * the Display exists rather than as arguments: Finder Open With can start a second copy with
-   * none.
-   *
-   * @return true on cocoa
-   */
-  boolean opensFilesByEvent();
-
-  /**
-   * Reports whether the Window menu carries Minimize ({@code Cmd+M}) and Zoom, which SWT does not
-   * add to an application-defined Window menu.
-   *
-   * @return true on cocoa
-   */
-  boolean windowMenuControls();
-
-  /**
-   * Reports whether a screen reader takes a custom control's label from its accessible description
-   * and needs an explicit role: VoiceOver reads a {@code Canvas} without a role as {@code
-   * SWTComposite} with a blank description and does not read the accessible name.
-   *
-   * @return true on cocoa
-   */
-  boolean labelsByDescription();
-
-  /**
-   * Reports whether the theme service polls {@code Display.isSystemDarkTheme()} for a change: cocoa
-   * sends no {@code SWT.Settings} for an appearance change, and win32 sends it 2 s after {@code
-   * WM_SETTINGCHANGE}.
-   *
-   * @return true on cocoa and win32
-   */
-  boolean pollsSystemTheme();
-
-  /**
-   * Reports whether full screen moves the window to a space of its own: the system animates the
-   * change after {@code Shell.setFullScreen} returns, the title bar button also enters and leaves
-   * it, and the system menu bar shows when the pointer reaches the top edge. Elsewhere the window
-   * keeps its menu bar and only {@code setFullScreen} changes the state.
-   *
-   * @return true on cocoa
-   */
-  boolean fullScreenSpace();
-
-  /**
-   * Reports whether a shell can be moved to a location; read at each placement.
-   *
-   * @return false on GTK under Wayland
-   */
-  boolean positionsWindows();
-
-  /**
-   * Reports whether a placement is made again with the trim measured from the sized shell. win32's
-   * {@code computeTrim} overstates the height once a menu bar is set.
-   *
-   * @return true on win32
-   */
-  boolean remeasuresTrim();
-
-  /**
-   * Reports whether a {@code Browser} can show the user guide. WebKitGTK 6.0 aborts the JVM when
-   * the browser starts under GTK 4 ("Failed to fully launch dbus-proxy").
-   *
-   * @return false on GTK 4
-   */
-  boolean opensBrowser();
-
-  /**
-   * Reports whether {@link Display#setDarkThemePreferred} restyles existing native controls.
-   *
-   * @return true on GTK
-   */
-  boolean switchesThemeLive();
-
-  /**
-   * Reports whether native controls always follow the system appearance, a change SWT reports with
-   * no {@code SWT.Settings} event.
-   *
-   * @return true on cocoa
-   */
-  boolean followsSystemAppearance();
-
-  /**
-   * Reports whether native controls read the dark theme setting only when created.
-   *
-   * @return true on win32
-   */
-  boolean themesAtCreation();
-
-  /**
-   * Reports whether the dark native theme draws a check box label too light for a light page.
-   *
-   * @return true on win32
-   */
-  boolean lightChecksUnderDark();
-
-  /**
    * Returns the busy cursor's {@link SWT} cursor style, an arrow with a progress mark that keeps
    * the window clickable. cocoa maps {@code CURSOR_APPSTARTING} to a plain arrow.
    *
@@ -189,8 +88,7 @@ public interface PlatformTraits {
    * Creates the Display's dialog colors.
    *
    * @param display the Display
-   * @return {@link Win32DialogColors} on win32 when native controls started dark, else {@link
-   *     NativeDialogColors}
+   * @return {@link Win32DialogColors} on win32, else {@link NativeDialogColors}
    */
   DialogColors dialogColors(Display display);
 
@@ -217,39 +115,59 @@ public interface PlatformTraits {
    */
   ToolItemSizing toolItemSizing();
 
-  // Menu item icons.
+  /**
+   * Creates the native controls' theme handling for a Display.
+   *
+   * @param display the Display
+   * @return {@link Win32ThemeFollow}, {@link CocoaThemeFollow} or {@link GtkThemeFollow}
+   */
+  ThemeFollow themeFollow(Display display);
 
   /**
-   * Reports whether menu items show images. cocoa menus show none, and GTK 4 SWT ignores {@code
-   * MenuItem.setImage}.
+   * Creates a main window's full screen state.
    *
-   * @return false on cocoa and GTK 4
+   * @param shell the window
+   * @param ui schedules the cocoa retries
+   * @return {@link CocoaFullScreen} on cocoa, else {@link NativeFullScreen}
    */
-  boolean menuImages();
+  FullScreen fullScreen(Shell shell, UiDispatcher ui);
 
   /**
-   * Reports whether every other item of a menu with an icon holds a blank image. GTK 3 reserves no
-   * image column, so a label moves right when its item has an image.
+   * Returns the menu bar behavior.
    *
-   * @return true on GTK
+   * @return {@link Win32MenuBehavior}, {@link CocoaMenuBehavior}, {@link Gtk3MenuBehavior} or
+   *     {@link Gtk4MenuBehavior}
    */
-  boolean padsMenuImages();
+  MenuBehavior menus();
 
   /**
-   * Reports whether menu icon ink comes from the native theme's startup setting. win32 menus take
-   * that setting and keep it, while the toolbar's colors follow the live theme.
+   * Returns how a launch receives its files.
    *
-   * @return true on win32
+   * @return {@link CocoaLaunchDocuments} on cocoa, else {@link NativeLaunchDocuments}
    */
-  boolean fixedMenuInk();
+  LaunchDocuments launchDocuments();
 
   /**
-   * Reports whether a disabled menu icon on a dark background takes a faded copy. GTK's disabled
-   * effect brightens an image there.
+   * Returns how a screen reader takes a custom control's label.
    *
-   * @return true on GTK
+   * @return {@link CocoaAccessibleLabels} on cocoa, else {@link NativeAccessibleLabels}
    */
-  boolean fadesDisabledIcons();
+  AccessibleLabels accessibleLabels();
+
+  /**
+   * Returns how a main window is placed.
+   *
+   * @return {@link Win32WindowPlacement}, {@link NativeWindowPlacement} on cocoa, or {@link
+   *     GtkWindowPlacement}
+   */
+  WindowPlacement placement();
+
+  /**
+   * Returns where the user guide shows.
+   *
+   * @return {@link NoticeGuideDisplay} on GTK 4, else {@link BrowserGuideDisplay}
+   */
+  GuideDisplay guideDisplay();
 
   /**
    * Returns the background a control shows now. GTK refreshes {@code getBackground} only on the

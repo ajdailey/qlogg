@@ -2,11 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 /** The GTK 3 answers of {@link PlatformTraits}. */
 final class Gtk3Traits extends GtkTraits {
-  @Override
-  public boolean opensBrowser() {
-    return true;
-  }
-
   /** {@link GtkX11Stacking} on X11; under Wayland the window manager's menu offers the setting. */
   @Override
   public WindowStacking stacking() {
@@ -20,10 +15,13 @@ final class Gtk3Traits extends GtkTraits {
     return NativeToolItemSizing.INSTANCE;
   }
 
-  // Menu item icons.
+  @Override
+  public MenuBehavior menus() {
+    return new Gtk3MenuBehavior();
+  }
 
   @Override
-  public boolean menuImages() {
-    return true;
+  public GuideDisplay guideDisplay() {
+    return new BrowserGuideDisplay();
   }
 }

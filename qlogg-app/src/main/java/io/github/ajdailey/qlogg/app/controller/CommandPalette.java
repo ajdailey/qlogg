@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * View > Command Palette: every menu command with its menu path, filtered by a typed query and run
@@ -46,7 +47,7 @@ public final class CommandPalette {
       if (!group.menu()) {
         continue;
       }
-      for (CommandId command : MenuTable.commands(group, false)) {
+      for (CommandId command : MenuTable.commands(group, Set.of())) {
         if (command == CommandId.COMMAND_PALETTE) {
           continue;
         }

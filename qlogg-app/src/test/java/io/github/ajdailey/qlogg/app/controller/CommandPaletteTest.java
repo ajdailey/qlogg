@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ class CommandPaletteTest {
     int count = 0;
     for (CommandGroup group : CommandGroup.values()) {
       if (group.menu()) {
-        count += MenuTable.commands(group, false).size();
+        count += MenuTable.commands(group, Set.of()).size();
       }
     }
     assertEquals(count - 1, entries.size());

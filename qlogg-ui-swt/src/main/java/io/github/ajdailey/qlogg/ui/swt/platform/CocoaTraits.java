@@ -1,9 +1,11 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 
 /** The cocoa answers of {@link PlatformTraits}. */
 final class CocoaTraits implements PlatformTraits {
@@ -33,71 +35,6 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public boolean opensFilesByEvent() {
-    return true;
-  }
-
-  @Override
-  public boolean windowMenuControls() {
-    return true;
-  }
-
-  @Override
-  public boolean pollsSystemTheme() {
-    return true;
-  }
-
-  @Override
-  public boolean fullScreenSpace() {
-    return true;
-  }
-
-  @Override
-  public boolean labelsByDescription() {
-    return true;
-  }
-
-  @Override
-  public boolean systemAppMenu() {
-    return true;
-  }
-
-  @Override
-  public boolean positionsWindows() {
-    return true;
-  }
-
-  @Override
-  public boolean remeasuresTrim() {
-    return false;
-  }
-
-  @Override
-  public boolean opensBrowser() {
-    return true;
-  }
-
-  @Override
-  public boolean switchesThemeLive() {
-    return false;
-  }
-
-  @Override
-  public boolean followsSystemAppearance() {
-    return true;
-  }
-
-  @Override
-  public boolean themesAtCreation() {
-    return false;
-  }
-
-  @Override
-  public boolean lightChecksUnderDark() {
-    return false;
-  }
-
-  @Override
   public int busyCursor() {
     return SWT.CURSOR_WAIT;
   }
@@ -122,26 +59,39 @@ final class CocoaTraits implements PlatformTraits {
     return NativeToolItemSizing.INSTANCE;
   }
 
-  // Menu item icons.
-
   @Override
-  public boolean menuImages() {
-    return false;
+  public ThemeFollow themeFollow(Display display) {
+    return new CocoaThemeFollow(display);
   }
 
   @Override
-  public boolean padsMenuImages() {
-    return false;
+  public FullScreen fullScreen(Shell shell, UiDispatcher ui) {
+    return new CocoaFullScreen(shell, ui);
   }
 
   @Override
-  public boolean fixedMenuInk() {
-    return false;
+  public MenuBehavior menus() {
+    return new CocoaMenuBehavior();
   }
 
   @Override
-  public boolean fadesDisabledIcons() {
-    return false;
+  public LaunchDocuments launchDocuments() {
+    return new CocoaLaunchDocuments();
+  }
+
+  @Override
+  public AccessibleLabels accessibleLabels() {
+    return new CocoaAccessibleLabels();
+  }
+
+  @Override
+  public WindowPlacement placement() {
+    return new NativeWindowPlacement();
+  }
+
+  @Override
+  public GuideDisplay guideDisplay() {
+    return new BrowserGuideDisplay();
   }
 
   @Override

@@ -73,7 +73,6 @@ final class Win32ChromeColors implements ChromeColors {
   private static final RGB WHITE = new RGB(0xff, 0xff, 0xff);
 
   private final Display display;
-  private final boolean nativeDark;
   private final Listener skin =
       new Listener() {
         @Override
@@ -98,7 +97,6 @@ final class Win32ChromeColors implements ChromeColors {
    */
   Win32ChromeColors(Display display) {
     this.display = display;
-    this.nativeDark = DialogColors.nativeDark(display);
     display.addListener(SWT.Skin, skin);
   }
 
@@ -131,7 +129,7 @@ final class Win32ChromeColors implements ChromeColors {
   @Override
   public void add(Icons set) {
     icons.add(set);
-    set.lightChecked(nativeDark);
+    set.lightChecked(DialogColors.nativeDark(display));
     set.fadeDisabled(dark);
   }
 
@@ -148,6 +146,7 @@ final class Win32ChromeColors implements ChromeColors {
       }
     }
     for (Icons set : icons) {
+      set.lightChecked(DialogColors.nativeDark(display));
       set.fadeDisabled(value);
       set.reink();
     }
@@ -175,7 +174,7 @@ final class Win32ChromeColors implements ChromeColors {
   }
 
   private void colorField(final Control field) {
-    boolean darkField = dark || (nativeDark && length(field) > 0);
+    boolean darkField = dark || (DialogColors.nativeDark(display) && length(field) > 0);
     field.setBackground(darkField ? color(FIELD) : null);
     field.setForeground(darkField ? color(FIELD_TEXT) : null);
     if (field.getData(FOLLOWED) != null) {

@@ -628,7 +628,7 @@ class LogViewTest {
             List.of("Predefined Filters", "Save as Filter", "-", "Scratchpad", "-", "Preferences")),
         labels(bar.getItem(7).getMenu()));
     List<String> windowMenu = new ArrayList<String>();
-    if (PlatformTraits.PLATFORM.windowMenuControls()) {
+    if ("cocoa".equals(SWT.getPlatform())) {
       windowMenu.addAll(List.of("Minimize", "Zoom", "-"));
     }
     windowMenu.addAll(
@@ -835,7 +835,7 @@ class LogViewTest {
    * or doubled, when the application menu is present.
    */
   private List<String> onThisPlatform(List<String> expected) {
-    if (!AppMenu.present(display)) {
+    if (PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty()) {
       return expected;
     }
     List<String> kept = new ArrayList<String>();

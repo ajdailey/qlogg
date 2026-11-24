@@ -111,7 +111,9 @@ line and column (`\n`, `\r\n` and `\r` end a line; a column counts chars).
 
 ## Operating system seam
 
-`OsTraits` answers each question that differs between operating systems.
+`OsTraits` answers each value that differs between operating systems and
+creates the system's class of each seam whose behavior differs; callers call a
+seam on every system without checking the system first.
 `OsTraits.current()` picks `WindowsTraits`, `MacTraits` or `LinuxTraits` once
 from `os.name`; a name that is neither Windows nor macOS takes the Linux
 answers. No other class in core, app or the launcher reads `os.name`, and
@@ -121,13 +123,21 @@ system's answers from `OsTraits.of(name)`.
 
 | Method | Windows | macOS | Linux | Caller |
 |---|---|---|---|---|
-| `opensDeviceNames` | true | false | false | `SafePaths` refuses device forms |
+| `deviceNames` | `WindowsDeviceNames` | `FileNames` | `FileNames` | `SafePaths` refuses a path `DeviceNames.opensDevice` matches: `\\.\`, `\\?\`, `CON`, `NUL`, `COM1`... on Windows, none elsewhere |
+| `confinement` | `WindowsFileConfinement` | `MacFileConfinement` | `LinuxFileConfinement` | `PlatformSetup` and `UserGuide.embedded`; see the next table |
 | `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
 | `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` ([portable mode](../qlogg-app/docs/settings.md#settings-directory)) |
-| `confinesToSettings` | false | false | true | `PlatformSetup` moves `user.home`; `UserGuide.embedded` |
-| `webView2` | true | false | false | `PlatformSetup` sets the WebView2 data folder |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |
 | `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
+
+`PlatformSetup` calls `confineHome` and `placeBrowserData` on every system
+before the Display exists:
+
+| `FileConfinement` | Windows | macOS | Linux |
+|---|---|---|---|
+| `confineHome` | nothing | nothing | sets `user.home` to the settings directory outside per-user mode |
+| `placeBrowserData` | sets `EDGE_DATA_DIR`, the WebView2 data folder | nothing | nothing |
+| `embedsGuide` | true | true | per-user mode only |
 
 `OsTraits.description()` is the About line: `os.name`, `os.version` and
 `os.arch`.

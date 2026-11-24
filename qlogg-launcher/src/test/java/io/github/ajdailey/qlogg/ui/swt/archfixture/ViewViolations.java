@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.List;
@@ -131,6 +132,13 @@ final class ViewViolations {
 
     String gtkVersion() {
       return System.getProperty("org.eclipse.swt.internal.gtk.version");
+    }
+  }
+
+  /** Reads a boolean trait outside the platform package. */
+  static final class SwitchesOnATrait {
+    boolean mac() {
+      return PlatformTraits.PLATFORM.macKeys();
     }
   }
 

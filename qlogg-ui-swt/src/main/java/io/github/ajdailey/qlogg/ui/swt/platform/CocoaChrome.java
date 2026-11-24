@@ -1,6 +1,5 @@
-package io.github.ajdailey.qlogg.ui.swt;
+package io.github.ajdailey.qlogg.ui.swt.platform;
 
-import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
@@ -29,16 +28,13 @@ import org.eclipse.swt.widgets.Tree;
  * appearance, forced onto its children. That inheritance stops at a {@link TabFolder}, so check
  * boxes turn transparent over its native panel, its titles get the text color, and lists and text
  * fields get the list colors. Menus stay native, and a {@link Canvas} that paints from the palette
- * keeps its colors, as does a {@link CTabFolder} with {@link #PALETTE_COLORED} set.
+ * keeps its colors, as does a {@link CTabFolder} with {@link ChromeColors#PALETTE_COLORED} set.
  *
  * <p>Table and Tree headers take explicit colors of the current appearance on every change, never
  * null. Each control then receives {@link SWT#Settings}, since the Display sends none for an
  * appearance change. Confined to the UI thread.
  */
 final class CocoaChrome {
-  /** Control data key: the owner colors this {@link CTabFolder} from the palette. */
-  static final String PALETTE_COLORED = ChromeColors.PALETTE_COLORED;
-
   /** {@code COLOR_WIDGET_BACKGROUND} and {@code COLOR_LIST_BACKGROUND}, measured on macOS 15. */
   private static final Color DARK_WINDOW = new Color(0x32, 0x32, 0x32);
 
@@ -101,7 +97,7 @@ final class CocoaChrome {
     Color list = differs() ? (dark ? DARK_LIST : LIGHT_LIST) : null;
     Color text = differs() ? (dark ? DARK_TEXT : LIGHT_TEXT) : null;
     if (control instanceof CTabFolder tabs) {
-      if (tabs.getData(PALETTE_COLORED) == null) {
+      if (tabs.getData(ChromeColors.PALETTE_COLORED) == null) {
         recolor(tabs, list, text);
       }
     } else if (control instanceof Table

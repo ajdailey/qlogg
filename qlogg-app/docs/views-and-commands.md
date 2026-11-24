@@ -145,9 +145,10 @@ Search, Go, View, Highlighters, Encoding, Tools, Window and Help. `LOG_VIEW`
 commands have no menu-bar item; some of them are in the log view's context
 menu.
 
-`MenuTable.commands(group, appMenu)` lists a menu's commands. With the macOS
-application menu present it leaves out About, Preferences and Exit, which that
-menu holds as About, Preferences and Quit. `MenuTable` also names the cascades
+`MenuTable.commands(group, system)` lists a menu's commands, leaving out the
+commands the system's own menu supplies: on macOS `APP_MENU_COMMANDS`, About,
+Preferences and Exit, which the application menu holds as About, Preferences and
+Quit. `MenuTable` also names the cascades
 filled from state (`cascadeBefore`, `cascadeAfter`), the Time Spread cascade
 (`nestedCascade`) and the radio items (`RADIO`: Theme, the filtered view
 modes, Encoding > Auto, Time Spread).

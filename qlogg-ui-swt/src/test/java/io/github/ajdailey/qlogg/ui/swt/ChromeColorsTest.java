@@ -2,11 +2,13 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.theme.Palette;
+import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
@@ -97,7 +99,7 @@ class ChromeColorsTest {
     gauge = new Canvas(surface, SWT.NONE);
     CTabFolder tabs = new CTabFolder(surface, SWT.NONE);
     Composite marked = new Composite(surface, SWT.NONE);
-    marked.setData(CocoaChrome.PALETTE_COLORED, Boolean.TRUE);
+    marked.setData(ChromeColors.PALETTE_COLORED, Boolean.TRUE);
     kept =
         List.of(
             new Button(surface, SWT.PUSH),
@@ -408,6 +410,33 @@ class ChromeColorsTest {
     chrome.apply(true);
     setText(fields.get(1), "");
     assertEquals(FIELD, fields.get(1).getBackground().getRGB(), "emptied under dark");
+  }
+
+  /** The start path records a dark win32 start for the chrome and dialog colors to read. */
+  @Test
+  void aDarkWin32StartRecordsTheStartupSetting() {
+    try {
+      SwtThemeService.open(display, ThemeMode.DARK, WIN32.themeFollow(display));
+      assertTrue(DialogColors.nativeDark(display));
+    } finally {
+      display.setDarkThemePreferred(false);
+    }
+  }
+
+  /** Chrome colors created before the start path records a dark start follow the field rule. */
+  @Test
+  void chromeCreatedBeforeTheDarkStartKeepsAFieldHoldingTextDark() {
+    ChromeColors chrome = chrome(WIN32);
+    try {
+      SwtThemeService.open(display, ThemeMode.DARK, WIN32.themeFollow(display));
+      setText(fields.get(0), "mock");
+      chrome.apply(true);
+      chrome.apply(false);
+      assertEquals(FIELD, fields.get(0).getBackground().getRGB(), "holding text");
+      assertNotEquals(FIELD, fields.get(1).getBackground().getRGB(), "empty");
+    } finally {
+      display.setDarkThemePreferred(false);
+    }
   }
 
   /**

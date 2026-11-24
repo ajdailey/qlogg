@@ -10,8 +10,13 @@ final class WindowsTraits implements OsTraits {
   private WindowsTraits() {}
 
   @Override
-  public boolean opensDeviceNames() {
-    return true;
+  public DeviceNames deviceNames() {
+    return new WindowsDeviceNames();
+  }
+
+  @Override
+  public FileConfinement confinement() {
+    return new WindowsFileConfinement();
   }
 
   @Override
@@ -26,16 +31,6 @@ final class WindowsTraits implements OsTraits {
   @Override
   public Path launcherDirectory(Path home) {
     return null;
-  }
-
-  @Override
-  public boolean confinesToSettings() {
-    return false;
-  }
-
-  @Override
-  public boolean webView2() {
-    return true;
   }
 
   @Override

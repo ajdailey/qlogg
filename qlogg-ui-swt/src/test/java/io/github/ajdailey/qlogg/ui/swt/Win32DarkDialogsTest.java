@@ -23,6 +23,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -219,7 +220,7 @@ class Win32DarkDialogsTest {
         "win32".equals(SWT.getPlatform()) && Display.isSystemDarkTheme(),
         "a system start on a dark win32 system");
     open(ThemeMode.SYSTEM);
-    assertTrue(SwtThemeService.nativeDark(display));
+    assertTrue(DialogColors.nativeDark(display));
     checkAll("system", true);
   }
 

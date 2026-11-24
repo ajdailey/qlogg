@@ -61,6 +61,7 @@ import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimeSamples;
 import io.github.ajdailey.qlogg.core.time.TimeSearch;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.beans.XMLDecoder;
 import java.io.IOException;
 import java.io.InputStream;
@@ -195,9 +196,9 @@ class ArchitectureTest {
   // Platform traits.
 
   /**
-   * Only {@code ui.swt.platform} reads {@code SWT.getPlatform()}, names an {@code
-   * org.eclipse.swt.internal} property or class, or, among view and launcher classes, reads the
-   * environment, where SWT takes {@code SWT_GTK4}.
+   * Only {@code ui.swt.platform} reads {@code SWT.getPlatform()}, names {@code SWT_GTK4} or an
+   * {@code org.eclipse.swt.internal} property or class, or, among view and launcher classes, reads
+   * the environment, where SWT takes {@code SWT_GTK4}.
    */
   @Test
   void platformOnlyInTraits() {
@@ -211,7 +212,8 @@ class ArchitectureTest {
         ROOT + ".ui.swt.archfixture.ViewViolations$ReadsPlatform",
         "SWT.getPlatform",
         "System.getenv",
-        "ReadsPlatform holds a string starting \"org.eclipse.swt.internal.\"");
+        "ReadsPlatform holds a string starting \"org.eclipse.swt.internal.\"",
+        "ReadsPlatform holds \"SWT_GTK4\"");
   }
 
   private static ArchRule platformOnlyInTraitsRule() {
@@ -233,7 +235,53 @@ class ArchitectureTest {
               }
             })
         .orShould(holdAStringStarting("org.eclipse.swt.internal."))
+        .orShould(holdTheString("SWT_GTK4"))
         .because("each view-layer platform difference is a PlatformTraits method");
+  }
+
+  /**
+   * The {@code PlatformTraits} and {@code OsTraits} booleans a class outside the platform packages
+   * may read: values passed on as data. Every other platform behavior is a seam method.
+   */
+  private static final String[] VALUE_TRAITS = {"macKeys", "macKeymap", "runsInsteadOfOpening"};
+
+  /** Outside the platform packages no class branches on a boolean trait other than a value one. */
+  @Test
+  void behaviorOnlyThroughSeams() {
+    behaviorOnlyThroughSeamsRule(VALUE_TRAITS).check(classes);
+  }
+
+  @Test
+  void seamRuleFailsOnItsFixtures() throws ClassNotFoundException {
+    assertViolations(
+        behaviorOnlyThroughSeamsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$SwitchesOnATrait",
+        "PlatformTraits.macKeys()");
+    assertViolations(
+        behaviorOnlyThroughSeamsRule(),
+        ROOT + ".app.controller.archfixture.ControllerViolations$AsksTheOs",
+        "OsTraits.macKeymap()");
+  }
+
+  private static ArchRule behaviorOnlyThroughSeamsRule(String... values) {
+    final List<String> allowed = List.of(values);
+    return noClasses()
+        .that()
+        .resideOutsideOfPackages(ROOT + ".ui.swt.platform..", ROOT + ".core.util.os..")
+        .should()
+        .callMethodWhere(
+            new DescribedPredicate<JavaMethodCall>(
+                "call a boolean PlatformTraits or OsTraits method that is not a value trait") {
+              @Override
+              public boolean test(JavaMethodCall call) {
+                JavaClass owner = call.getTarget().getOwner();
+                return (owner.isAssignableTo(PlatformTraits.class)
+                        || owner.isAssignableTo(OsTraits.class))
+                    && call.getTarget().getRawReturnType().isEquivalentTo(boolean.class)
+                    && !allowed.contains(call.getTarget().getName());
+              }
+            })
+        .because("a platform behavior is a seam method, not a trait a shared class branches on");
   }
 
   // Log view geometry.

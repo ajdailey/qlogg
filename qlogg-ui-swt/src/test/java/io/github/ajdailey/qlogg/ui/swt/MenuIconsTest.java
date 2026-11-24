@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.IOException;
 import java.io.InputStream;
@@ -177,7 +178,7 @@ class MenuIconsTest {
     return menu;
   }
 
-  private void assertBare(PlatformTraits platform) {
+  private void assertBare(MenuBehavior platform) {
     Menu menu = menu();
     new MenuIcons(bar, platform).decorate(menu);
     for (MenuItem item : menu.getItems()) {
@@ -187,19 +188,19 @@ class MenuIconsTest {
 
   @Test
   void cocoaItemsShowNoImage() {
-    assertBare(PlatformTraits.of("cocoa", false));
+    assertBare(PlatformTraits.of("cocoa", false).menus());
   }
 
   @Test
   void gtk4ItemsShowNoImage() {
-    assertBare(PlatformTraits.of("gtk", true));
+    assertBare(PlatformTraits.of("gtk", true).menus());
   }
 
   @Test
   void gtk3MenusAlignTheirItemsWithTheBlankImage() {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false));
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
     icons.decorate(menu);
     Image blank = icons.icons().blank();
     MenuItem[] items = menu.getItems();
@@ -216,7 +217,7 @@ class MenuIconsTest {
   void win32LeavesCheckAndPlainItemsBare() {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false));
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menus());
     icons.decorate(menu);
     MenuItem[] items = menu.getItems();
     assertSame(icons.icons().get(ToolIcons.COPY), items[0].getImage());
@@ -229,7 +230,7 @@ class MenuIconsTest {
   @Test
   void win32InkKeepsTheStartupSetting() {
     bar.setBackground(new Color(240, 240, 240));
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false));
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menus());
     assertFalse(icons.icons().darkBackground());
     bar.setBackground(new Color(30, 30, 30));
     icons.reink();
@@ -241,7 +242,7 @@ class MenuIconsTest {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     bar.setBackground(new Color(240, 240, 240));
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false));
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
     icons.decorate(menu);
     Image light = menu.getItem(0).getImage();
     bar.setBackground(new Color(30, 30, 30));
@@ -254,7 +255,10 @@ class MenuIconsTest {
 
   @Test
   void aDisabledItemOnDarkShowsAFadedCopyWhereThePlatformFades() {
-    assumeTrue(PlatformTraits.PLATFORM.menuImages(), "this platform's menus show no images");
+    boolean gtk = "gtk".equals(SWT.getPlatform());
+    assumeTrue(
+        "win32".equals(SWT.getPlatform()) || gtk && !Gtk4.active(),
+        "this platform's menus show no images");
     bar.setBackground(new Color(30, 30, 30));
     Menu menu = menu();
     MenuIcons icons = new MenuIcons(bar);
@@ -263,7 +267,7 @@ class MenuIconsTest {
     Image plain = icons.icons().get(ToolIcons.COPY);
     copy.setEnabled(false);
     icons.showState(copy);
-    assertEquals(PlatformTraits.PLATFORM.fadesDisabledIcons(), copy.getImage() != plain);
+    assertEquals(gtk, copy.getImage() != plain);
     copy.setEnabled(true);
     icons.showState(copy);
     assertSame(plain, copy.getImage());
@@ -271,7 +275,7 @@ class MenuIconsTest {
 
   @Test
   void theImagesAreDisposedWithTheOwner() {
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false));
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
     Image copy = icons.icons().get(ToolIcons.COPY);
     Image blank = icons.icons().blank();
     bar.dispose();

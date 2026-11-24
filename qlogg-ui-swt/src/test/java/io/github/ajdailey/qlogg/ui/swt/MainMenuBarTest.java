@@ -129,12 +129,12 @@ class MainMenuBarTest {
   void theWindowMenuCarriesMinimizeAndZoomOnlyWhereThePlatformAsks() {
     attach();
     Menu windowMenu = topMenu(CommandGroup.WINDOW);
-    boolean controls = PlatformTraits.PLATFORM.windowMenuControls();
+    boolean controls = "cocoa".equals(SWT.getPlatform());
     assertEquals(controls, UiText.MENU_MINIMIZE.text().equals(windowMenu.getItem(0).getText()));
     Shell shell = new Shell(display);
     Menu menu = new Menu(shell, SWT.DROP_DOWN);
     new MenuItem(menu, SWT.PUSH).setText("mock");
-    MainMenuBar.addWindowControls(menu, shell);
+    PlatformTraits.of("cocoa", false).menus().addWindowControls(menu, shell);
     assertEquals(4, menu.getItemCount());
     assertEquals(UiText.MENU_MINIMIZE.text(), menu.getItem(0).getText());
     assertEquals(SWT.MOD1 | 'M', menu.getItem(0).getAccelerator());
@@ -267,10 +267,8 @@ class MainMenuBarTest {
   @Test
   void commandItemsCarryTheirIconsWhereThePlatformShowsMenuImages() {
     attach();
-    boolean images = PlatformTraits.PLATFORM.menuImages();
-    if ("gtk".equals(SWT.getPlatform())) {
-      assertEquals(!Gtk4.active(), images);
-    }
+    String platform = SWT.getPlatform();
+    boolean images = "win32".equals(platform) || "gtk".equals(platform) && !Gtk4.active();
     int iconed = 0;
     for (MenuItem header : window.shell().getMenuBar().getItems()) {
       Menu menu = header.getMenu();
@@ -290,7 +288,7 @@ class MainMenuBarTest {
           assertEquals(null, item.getImage(), name);
         } else if (icon) {
           assertNotNull(item.getImage(), name);
-        } else if (any && PlatformTraits.PLATFORM.padsMenuImages()) {
+        } else if (any && "gtk".equals(platform)) {
           assertNotNull(item.getImage(), name + " holds the blank image");
         }
       }

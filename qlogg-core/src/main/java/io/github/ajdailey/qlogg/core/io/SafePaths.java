@@ -18,10 +18,6 @@ import java.util.regex.Pattern;
  * than contained; files QLogg owns are contained in their directory.
  */
 public final class SafePaths {
-  private static final Pattern WINDOWS_RESERVED =
-      Pattern.compile(
-          "(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9]|CONIN\\$|CONOUT\\$)(\\..*)?",
-          Pattern.CASE_INSENSITIVE);
   private static final Pattern CHILD_NAME = Pattern.compile("[A-Za-z0-9._-]+");
   private static final Set<PosixFilePermission> OWNER_DIR =
       PosixFilePermissions.fromString("rwx------");
@@ -210,28 +206,6 @@ public final class SafePaths {
     return file;
   }
 
-  /**
-   * Reports whether a path names a Windows device or uses a device or raw namespace prefix: {@code
-   * \\.\}, {@code \\?\}, or a component that is a reserved device name such as {@code CON} or
-   * {@code COM1}, with or without an extension.
-   *
-   * @param path the path text
-   * @return true when Windows would open a device rather than a file
-   */
-  static boolean windowsDevice(String path) {
-    String text = path.replace('/', '\\');
-    if (text.startsWith("\\\\.\\") || text.startsWith("\\\\?\\")) {
-      return true;
-    }
-    for (String part : text.split("[\\\\:]")) {
-      String name = part.strip();
-      if (WINDOWS_RESERVED.matcher(name).matches()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private static void checkForm(String path) throws IOException {
     checkForm(path, OsTraits.current());
   }
@@ -250,7 +224,7 @@ public final class SafePaths {
     if (path.indexOf('\0') >= 0) {
       throw new IOException("Path contains a NUL character");
     }
-    if (os.opensDeviceNames() && windowsDevice(path)) {
+    if (os.deviceNames().opensDevice(path)) {
       throw new IOException("Path names a Windows device");
     }
   }

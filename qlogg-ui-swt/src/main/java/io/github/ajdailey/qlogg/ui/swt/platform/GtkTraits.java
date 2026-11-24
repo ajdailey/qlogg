@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
@@ -8,6 +9,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 
 /** The answers of {@link PlatformTraits} that GTK 3 and GTK 4 share. */
 abstract class GtkTraits implements PlatformTraits {
@@ -42,66 +44,6 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
-  public final boolean opensFilesByEvent() {
-    return false;
-  }
-
-  @Override
-  public final boolean windowMenuControls() {
-    return false;
-  }
-
-  @Override
-  public final boolean pollsSystemTheme() {
-    return false;
-  }
-
-  @Override
-  public final boolean fullScreenSpace() {
-    return false;
-  }
-
-  @Override
-  public final boolean labelsByDescription() {
-    return false;
-  }
-
-  @Override
-  public final boolean systemAppMenu() {
-    return false;
-  }
-
-  @Override
-  public final boolean positionsWindows() {
-    return !"wayland".equals(System.getProperty(GDK_BACKEND));
-  }
-
-  @Override
-  public final boolean remeasuresTrim() {
-    return false;
-  }
-
-  @Override
-  public final boolean switchesThemeLive() {
-    return true;
-  }
-
-  @Override
-  public final boolean followsSystemAppearance() {
-    return false;
-  }
-
-  @Override
-  public final boolean themesAtCreation() {
-    return false;
-  }
-
-  @Override
-  public final boolean lightChecksUnderDark() {
-    return false;
-  }
-
-  @Override
   public final int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }
@@ -116,21 +58,29 @@ abstract class GtkTraits implements PlatformTraits {
     return new NativeChromeColors();
   }
 
-  // Menu item icons.
-
   @Override
-  public final boolean padsMenuImages() {
-    return true;
+  public final ThemeFollow themeFollow(Display display) {
+    return new GtkThemeFollow(display);
   }
 
   @Override
-  public final boolean fixedMenuInk() {
-    return false;
+  public final FullScreen fullScreen(Shell shell, UiDispatcher ui) {
+    return new NativeFullScreen(shell);
   }
 
   @Override
-  public final boolean fadesDisabledIcons() {
-    return true;
+  public final LaunchDocuments launchDocuments() {
+    return new NativeLaunchDocuments();
+  }
+
+  @Override
+  public final AccessibleLabels accessibleLabels() {
+    return new NativeAccessibleLabels();
+  }
+
+  @Override
+  public final WindowPlacement placement() {
+    return new GtkWindowPlacement();
   }
 
   @Override

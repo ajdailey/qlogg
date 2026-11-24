@@ -38,6 +38,8 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.AccessibleLabels;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,8 +53,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.accessibility.ACC;
-import org.eclipse.swt.accessibility.AccessibleControlEvent;
 import org.eclipse.swt.accessibility.AccessibleEvent;
+import org.eclipse.swt.accessibility.AccessibleListener;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.graphics.GC;
@@ -257,25 +259,33 @@ class FilteredPaneTest {
   }
 
   @Test
-  void aDescribedNameIsAlsoTheDescriptionWithAGroupRole() {
+  void theLabelsDescribeAControlWithItsCurrentName() {
     Canvas plain = new Canvas(window.shell(), SWT.NONE);
     Canvas described = new Canvas(window.shell(), SWT.NONE);
-    AccessibleName plainName = AccessibleName.attach(plain, "mock view", false);
-    AccessibleName describedName = AccessibleName.attach(described, "mock view", true);
+    AccessibleName plainName =
+        AccessibleName.attach(
+            plain, "mock view", PlatformTraits.of("win32", false).accessibleLabels());
+    final AccessibleListener[] description = new AccessibleListener[1];
+    AccessibleName describedName =
+        AccessibleName.attach(
+            described,
+            "mock view",
+            new AccessibleLabels() {
+              @Override
+              public void describe(Control control, AccessibleListener listener) {
+                description[0] = listener;
+              }
+            });
     AccessibleEvent event = new AccessibleEvent(plain.getAccessible());
     event.childID = ACC.CHILDID_SELF;
     plainName.getDescription(event);
     assertNull(event.result);
+    describedName.set("mock other");
     event = new AccessibleEvent(described.getAccessible());
     event.childID = ACC.CHILDID_SELF;
-    describedName.getDescription(event);
-    assertEquals("mock view", event.result);
-    assertEquals("mock view", nameOf(described, describedName));
-    AccessibleControlEvent role = new AccessibleControlEvent(described.getAccessible());
-    role.childID = ACC.CHILDID_SELF;
-    role.detail = -1;
-    AccessibleName.GROUP_ROLE.getRole(role);
-    assertEquals(ACC.ROLE_GROUP, role.detail);
+    description[0].getDescription(event);
+    assertEquals("mock other", event.result);
+    assertEquals("mock other", nameOf(described, describedName));
     plain.dispose();
     described.dispose();
   }

@@ -2,11 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 /** The GTK 4 answers of {@link PlatformTraits}. */
 final class Gtk4Traits extends GtkTraits {
-  @Override
-  public boolean opensBrowser() {
-    return false;
-  }
-
   /** The window manager's menu offers the setting. */
   @Override
   public WindowStacking stacking() {
@@ -18,10 +13,13 @@ final class Gtk4Traits extends GtkTraits {
     return Gtk4ToolItemSizing.create();
   }
 
-  // Menu item icons.
+  @Override
+  public MenuBehavior menus() {
+    return new Gtk4MenuBehavior();
+  }
 
   @Override
-  public boolean menuImages() {
-    return false;
+  public GuideDisplay guideDisplay() {
+    return new NoticeGuideDisplay();
   }
 }

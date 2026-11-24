@@ -22,6 +22,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
@@ -127,7 +128,7 @@ final class MainMenuBar {
     this.keymap = keymap;
     Menu bar = new Menu(shell, SWT.BAR);
     boolean mac = SwtKeys.mac();
-    boolean appMenu = AppMenu.present(shell.getDisplay());
+    Set<CommandId> system = PlatformTraits.PLATFORM.menus().systemCommands(shell.getDisplay());
     for (final CommandGroup group : CommandGroup.values()) {
       if (!group.menu()) {
         continue;
@@ -139,7 +140,7 @@ final class MainMenuBar {
       menus.put(group, menu);
       Menu target = menu;
       String cascade = null;
-      for (final CommandId command : MenuTable.commands(group, appMenu)) {
+      for (final CommandId command : MenuTable.commands(group, system)) {
         String submenu = command.submenu();
         if (submenu == null) {
           target = menu;
@@ -224,8 +225,8 @@ final class MainMenuBar {
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
       }
-      if (group == CommandGroup.WINDOW && PlatformTraits.PLATFORM.windowMenuControls()) {
-        addWindowControls(menu, shell);
+      if (group == CommandGroup.WINDOW) {
+        PlatformTraits.PLATFORM.menus().addWindowControls(menu, shell);
       }
       // Menu item icons.
       icons.decorate(menu);
@@ -243,38 +244,6 @@ final class MainMenuBar {
       old.dispose();
     }
     syncEnablement();
-  }
-
-  /**
-   * Puts Minimize ({@code Cmd+M}) and Zoom, then a separator, at the top of a Window menu. Zoom
-   * toggles the maximized state.
-   *
-   * @param menu the Window menu
-   * @param shell the window they act on
-   */
-  static void addWindowControls(Menu menu, final Shell shell) {
-    MenuItem minimize = new MenuItem(menu, SWT.PUSH, 0);
-    minimize.setText(UiText.MENU_MINIMIZE.text());
-    minimize.setAccelerator(SWT.MOD1 | 'M');
-    minimize.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            shell.setMinimized(true);
-          }
-        });
-    MenuItem zoom = new MenuItem(menu, SWT.PUSH, 1);
-    zoom.setText(UiText.MENU_ZOOM.text());
-    zoom.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            shell.setMaximized(!shell.getMaximized());
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR, 2);
   }
 
   /** Adds a cascade whose items are filled from the controller's state. */

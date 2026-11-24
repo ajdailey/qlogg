@@ -11,8 +11,13 @@ final class MacTraits implements OsTraits {
   private MacTraits() {}
 
   @Override
-  public boolean opensDeviceNames() {
-    return false;
+  public DeviceNames deviceNames() {
+    return new FileNames();
+  }
+
+  @Override
+  public FileConfinement confinement() {
+    return new MacFileConfinement();
   }
 
   @Override
@@ -23,16 +28,6 @@ final class MacTraits implements OsTraits {
   @Override
   public Path launcherDirectory(Path home) {
     return null;
-  }
-
-  @Override
-  public boolean confinesToSettings() {
-    return false;
-  }
-
-  @Override
-  public boolean webView2() {
-    return false;
   }
 
   @Override

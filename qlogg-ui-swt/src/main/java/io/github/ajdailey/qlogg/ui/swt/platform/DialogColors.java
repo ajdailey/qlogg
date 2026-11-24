@@ -1,6 +1,8 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -21,8 +23,8 @@ public interface DialogColors {
   String COLORED = DialogColors.class.getName() + ".colored";
 
   /**
-   * Returns the Display's instance: {@link Win32DialogColors} on win32 when native controls started
-   * dark, {@link NativeDialogColors} otherwise.
+   * Returns the Display's instance: {@link Win32DialogColors} on win32, {@link NativeDialogColors}
+   * elsewhere.
    *
    * @param display the Display
    * @return the instance, created on first use
@@ -78,6 +80,18 @@ public interface DialogColors {
    * @return the dialog background
    */
   Color background(Shell owner);
+
+  /**
+   * Creates a check box readable on its page. win32's dark native theme draws a check box label
+   * near-white, or light gray when disabled, and {@code setForeground} reaches only an enabled box.
+   * The theme applies to a control when it is created, so {@link Win32DialogColors} creates a box
+   * outside a colored dialog with the theme off; a box in a colored dialog sits on a dark page and
+   * keeps it.
+   *
+   * @param parent the parent
+   * @return the check box
+   */
+  Button check(Composite parent);
 
   /**
    * Returns the text color for a disabled table row in a dialog.

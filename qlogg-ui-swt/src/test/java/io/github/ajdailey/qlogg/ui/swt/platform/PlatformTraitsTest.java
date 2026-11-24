@@ -15,9 +15,9 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.function.Executable;
 
 /**
- * Every answer of every platform's traits that needs no Display or SWT internals, as the view
- * classes' platform branches gave them, so a Linux run checks the win32 and cocoa classes too. The
- * running platform's choice is checked on its own OS; win32 and cocoa run in CI.
+ * Every value of every platform's traits that needs no Display or SWT internals, and the class of
+ * each seam it creates, so a Linux run checks the win32 and cocoa choices too. The running
+ * platform's choice is checked on its own OS; win32 and cocoa run in CI.
  */
 class PlatformTraitsTest {
   /** Rows in the order of {@link #answers}. */
@@ -26,25 +26,14 @@ class PlatformTraitsTest {
     "monospaceFamily",
     "monospaceSize",
     "macKeys",
-    "systemAppMenu",
-    "remeasuresTrim",
-    "opensBrowser",
-    "switchesThemeLive",
-    "followsSystemAppearance",
-    "themesAtCreation",
-    "lightChecksUnderDark",
     "busyCursor",
-    // Menu item icons.
-    "menuImages",
-    "padsMenuImages",
-    "fixedMenuInk",
-    "fadesDisabledIcons",
-    // macOS launch, Window menu and accessibility.
-    "opensFilesByEvent",
-    "windowMenuControls",
-    "labelsByDescription",
-    "pollsSystemTheme",
-    "fullScreenSpace"
+    "themeFollow",
+    "fullScreen",
+    "menus",
+    "launchDocuments",
+    "accessibleLabels",
+    "placement",
+    "guideDisplay"
   };
 
   private static List<Object> answers(PlatformTraits traits) {
@@ -53,25 +42,14 @@ class PlatformTraitsTest {
     answers.add(traits.monospaceFamily());
     answers.add(traits.monospaceSize());
     answers.add(traits.macKeys());
-    answers.add(traits.systemAppMenu());
-    answers.add(traits.remeasuresTrim());
-    answers.add(traits.opensBrowser());
-    answers.add(traits.switchesThemeLive());
-    answers.add(traits.followsSystemAppearance());
-    answers.add(traits.themesAtCreation());
-    answers.add(traits.lightChecksUnderDark());
     answers.add(traits.busyCursor());
-    // Menu item icons.
-    answers.add(traits.menuImages());
-    answers.add(traits.padsMenuImages());
-    answers.add(traits.fixedMenuInk());
-    answers.add(traits.fadesDisabledIcons());
-    // macOS launch, Window menu and accessibility.
-    answers.add(traits.opensFilesByEvent());
-    answers.add(traits.windowMenuControls());
-    answers.add(traits.labelsByDescription());
-    answers.add(traits.pollsSystemTheme());
-    answers.add(traits.fullScreenSpace());
+    answers.add(traits.themeFollow(null).getClass());
+    answers.add(traits.fullScreen(null, null).getClass());
+    answers.add(traits.menus().getClass());
+    answers.add(traits.launchDocuments().getClass());
+    answers.add(traits.accessibleLabels().getClass());
+    answers.add(traits.placement().getClass());
+    answers.add(traits.guideDisplay().getClass());
     return answers;
   }
 
@@ -90,24 +68,14 @@ class PlatformTraitsTest {
         "Consolas",
         10,
         false,
-        false,
-        true,
-        true,
-        false,
-        false,
-        true,
-        true,
         SWT.CURSOR_APPSTARTING,
-        true,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false);
-    assertTrue(PlatformTraits.of("win32", false).positionsWindows());
+        Win32ThemeFollow.class,
+        NativeFullScreen.class,
+        Win32MenuBehavior.class,
+        NativeLaunchDocuments.class,
+        NativeAccessibleLabels.class,
+        Win32WindowPlacement.class,
+        BrowserGuideDisplay.class);
   }
 
   @Test
@@ -118,24 +86,14 @@ class PlatformTraitsTest {
         "Menlo",
         12,
         true,
-        true,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
         SWT.CURSOR_WAIT,
-        false,
-        false,
-        false,
-        false,
-        true,
-        true,
-        true,
-        true,
-        true);
-    assertTrue(PlatformTraits.of("cocoa", false).positionsWindows());
+        CocoaThemeFollow.class,
+        CocoaFullScreen.class,
+        CocoaMenuBehavior.class,
+        CocoaLaunchDocuments.class,
+        CocoaAccessibleLabels.class,
+        NativeWindowPlacement.class,
+        BrowserGuideDisplay.class);
   }
 
   @Test
@@ -146,23 +104,14 @@ class PlatformTraitsTest {
         "Monospace",
         10,
         false,
-        false,
-        false,
-        true,
-        true,
-        false,
-        false,
-        false,
         SWT.CURSOR_APPSTARTING,
-        true,
-        true,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false);
+        GtkThemeFollow.class,
+        NativeFullScreen.class,
+        Gtk3MenuBehavior.class,
+        NativeLaunchDocuments.class,
+        NativeAccessibleLabels.class,
+        GtkWindowPlacement.class,
+        BrowserGuideDisplay.class);
     assertSame(NativeToolItemSizing.INSTANCE, PlatformTraits.of("gtk", false).toolItemSizing());
   }
 
@@ -174,23 +123,14 @@ class PlatformTraitsTest {
         "Monospace",
         10,
         false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
         SWT.CURSOR_APPSTARTING,
-        false,
-        true,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false);
+        GtkThemeFollow.class,
+        NativeFullScreen.class,
+        Gtk4MenuBehavior.class,
+        NativeLaunchDocuments.class,
+        NativeAccessibleLabels.class,
+        GtkWindowPlacement.class,
+        NoticeGuideDisplay.class);
     assertSame(WindowStacking.WINDOW_MANAGER, PlatformTraits.of("gtk", true).stacking());
   }
 
@@ -203,13 +143,6 @@ class PlatformTraitsTest {
       assertEquals(
           version == null ? "" : "GTK " + version, PlatformTraits.of("gtk", gtk4).toolkitVersion());
     }
-  }
-
-  @Test
-  void gtkPositionsWindowsExceptUnderWayland() {
-    String backend = System.getProperty(PlatformTraits.GDK_BACKEND);
-    assertEquals(
-        !"wayland".equals(backend), PlatformTraits.of("gtk", false).positionsWindows(), backend);
   }
 
   @Test

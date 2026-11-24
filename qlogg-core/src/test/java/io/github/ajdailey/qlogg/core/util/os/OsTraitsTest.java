@@ -44,9 +44,8 @@ class OsTraitsTest {
   @Test
   void windows() {
     OsTraits os = OsTraits.of("Windows 11");
-    assertTrue(os.opensDeviceNames());
-    assertFalse(os.confinesToSettings());
-    assertTrue(os.webView2());
+    assertTrue(os.deviceNames().opensDevice("CON"));
+    assertTrue(os.confinement().embedsGuide(false));
     assertFalse(os.macKeymap());
     Path roaming = temp.resolve("Roaming");
     assertEquals(
@@ -59,9 +58,8 @@ class OsTraitsTest {
   @Test
   void macos() {
     OsTraits os = OsTraits.of("Mac OS X");
-    assertFalse(os.opensDeviceNames());
-    assertFalse(os.confinesToSettings());
-    assertFalse(os.webView2());
+    assertFalse(os.deviceNames().opensDevice("CON"));
+    assertTrue(os.confinement().embedsGuide(false));
     assertTrue(os.macKeymap());
     assertEquals(
         temp.resolve("Library").resolve("Application Support").resolve("QLogg"),
@@ -71,9 +69,9 @@ class OsTraitsTest {
   @Test
   void linux() {
     OsTraits os = OsTraits.of("Linux");
-    assertFalse(os.opensDeviceNames());
-    assertTrue(os.confinesToSettings());
-    assertFalse(os.webView2());
+    assertFalse(os.deviceNames().opensDevice("CON"));
+    assertFalse(os.confinement().embedsGuide(false));
+    assertTrue(os.confinement().embedsGuide(true));
     assertFalse(os.macKeymap());
     Path xdg = temp.resolve("xdg");
     assertEquals(

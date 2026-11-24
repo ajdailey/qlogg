@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.LaunchDocuments;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,11 +12,9 @@ import org.eclipse.swt.widgets.Listener;
 
 /**
  * Collects the files a launch receives as {@code SWT.OpenDocument} events before it hands off to
- * the running instance. On cocoa, Finder Open With can start a second copy of the bundle with no
- * arguments and send the file as an event once the Display exists; a launch that handed off at once
- * would lose it. {@link #await} runs the event loop until events arrive and {@link #QUIET_NANOS}
- * pass with no further one, or {@link #BOUND_NANOS} pass with none. Elsewhere it returns no files
- * and creates no Display.
+ * the running instance, on platforms that send them ({@link LaunchDocuments}). {@link #await} runs
+ * the event loop until events arrive and {@link #QUIET_NANOS} pass with no further one, or {@link
+ * #BOUND_NANOS} pass with none.
  */
 public final class OpenDocuments {
   /** Quiet time after the last event that ends the wait. */
@@ -60,15 +59,20 @@ public final class OpenDocuments {
    * @return the file paths in arrival order, empty elsewhere or when none came
    */
   public static List<String> await() {
-    if (!PlatformTraits.PLATFORM.opensFilesByEvent()) {
-      return new ArrayList<String>();
-    }
-    final Display display = new Display();
-    try {
-      return collect(new DisplaySource(display), System::nanoTime);
-    } finally {
-      display.dispose();
-    }
+    return PlatformTraits.PLATFORM
+        .launchDocuments()
+        .await(
+            new LaunchDocuments.Wait() {
+              @Override
+              public List<String> run() {
+                Display display = new Display();
+                try {
+                  return collect(new DisplaySource(display), System::nanoTime);
+                } finally {
+                  display.dispose();
+                }
+              }
+            });
   }
 
   /**

@@ -11,8 +11,13 @@ final class LinuxTraits implements OsTraits {
   private LinuxTraits() {}
 
   @Override
-  public boolean opensDeviceNames() {
-    return false;
+  public DeviceNames deviceNames() {
+    return new FileNames();
+  }
+
+  @Override
+  public FileConfinement confinement() {
+    return new LinuxFileConfinement();
   }
 
   @Override
@@ -27,16 +32,6 @@ final class LinuxTraits implements OsTraits {
   @Override
   public Path launcherDirectory(Path home) {
     return home.resolve("bin");
-  }
-
-  @Override
-  public boolean confinesToSettings() {
-    return true;
-  }
-
-  @Override
-  public boolean webView2() {
-    return false;
   }
 
   @Override

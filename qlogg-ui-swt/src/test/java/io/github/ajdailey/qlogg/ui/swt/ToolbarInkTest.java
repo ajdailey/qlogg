@@ -205,7 +205,8 @@ class ToolbarInkTest {
         for (ToolItem item : window.searchBar().toggles()) {
           images.add(item.getImage());
         }
-        if (PlatformTraits.PLATFORM.menuImages()) {
+        if ("win32".equals(SWT.getPlatform())
+            || "gtk".equals(SWT.getPlatform()) && !Gtk4.active()) {
           for (MenuItem header : window.shell().getMenuBar().getItems()) {
             Menu menu = header.getMenu();
             for (MenuItem item : menu.getItems()) {

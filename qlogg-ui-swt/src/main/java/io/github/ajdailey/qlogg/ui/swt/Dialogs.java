@@ -198,6 +198,16 @@ final class Dialogs {
   }
 
   /**
+   * Creates a check box readable on its page ({@link DialogColors#check}).
+   *
+   * @param parent the parent
+   * @return the check box
+   */
+  static Button check(Composite parent) {
+    return DialogColors.of(parent.getDisplay()).check(parent);
+  }
+
+  /**
    * Returns the platform's monospace font family.
    *
    * @return Consolas on Windows, Menlo on macOS, Monospace on Linux
