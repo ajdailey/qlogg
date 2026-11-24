@@ -113,6 +113,11 @@ API sets:
   `CTabFolder`'s selection highlight in the same renderer.
 - The top row's separators: a `Label` with `SWT.SEPARATOR` draws an etched
   pair, 1 px `#a0a0a0` and 1 px `#ffffff`, whatever its colors.
+- A bordered field's 1 px frame, set when the field is created: after a light
+  start it stays `#ffffff` around the dark field under dark; after a dark start
+  it is `#646464` (measured, `windows-2025`). Turning the dark preference on
+  around `setBackground` leaves the frame white and draws the field native dark
+  (`#212121`) after the switch back to light.
 
 ## Dialog colors
 
@@ -131,7 +136,12 @@ face, white text) and read-only combos dark and every other surface light
 (measured, SWT 3.135.0, `windows-2025`). `Win32DialogColors` gives the shell the
 title bar color with `INHERIT_DEFAULT`, then sets each control's colors where
 they are still the defaults, so a color the dialog set stays. Push buttons and
-read-only combos keep the native dark drawing. A control created after the
+read-only combos keep the native dark drawing. A field's text draws white on `#2b2b2b`
+(14.16:1), read-only and multi-line included. An empty, unfocused single-line
+`Text` with a hint (`setMessage`) draws it in `#9a9a9a` (5.03:1) from an
+`SWT.Paint` listener over the native hint, which is `#6d6d6d` read-only (SWT's
+`COLOR_GRAYTEXT`, 2.74:1) and `#575757` editable (1.96:1), measured on
+`windows-2025`. A control created after the
 dialog opens is colored at its `SWT.Skin` event.
 
 | Stays native | Drawn |
@@ -141,6 +151,7 @@ dialog opens is colored at its `SWT.Skin` event.
 | `Spinner` arrows | Light buttons beside the dark field |
 | A hovered or focused `ToolItem` | A light highlight under the light-ink icon (seen on Predefined Filters' focused Add; hover assumed the same) |
 | Disabled text | The system gray: a disabled label `#808080` on the body (4.1 contrast). `Dialogs.disabledText` (`#9a9a9a`) colors only the rows the command palette draws disabled |
+| `Table` and `Tree` selection | Native dark with white text: focused `#223e55` (table) and `#626262` (tree), unfocused `#252525` and `#333333`, 6.10:1 or more (measured, `windows-2025`) |
 | `Browser` (the user guide) | The page's own colors |
 | `FileDialog`, `ColorDialog` | The system dialogs |
 

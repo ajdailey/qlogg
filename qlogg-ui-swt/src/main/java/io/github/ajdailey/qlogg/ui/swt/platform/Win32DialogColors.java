@@ -5,6 +5,7 @@ import org.eclipse.swt.browser.Browser;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
@@ -31,6 +32,10 @@ import org.eclipse.swt.widgets.Tree;
  * row, a table's grid lines and header dividers, a spinner's arrows, disabled text and a {@link
  * Browser} stay native.
  *
+ * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
+ * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
+ * on {@code windows-2025}); {@link #HINT} draws over it.
+ *
  * <p>A control is colored when {@code Dialogs.open} walks the shell and again at its {@code
  * SWT.Skin} event, so controls added after the dialog opens match. Only a default color is
  * replaced: a color the application set stays. The colors follow the startup setting, as win32
@@ -51,6 +56,18 @@ final class Win32DialogColors implements DialogColors {
 
   /** Disabled table row text: 5.0 contrast on {@link #FIELD}. */
   static final Color DISABLED = new Color(0x9a, 0x9a, 0x9a);
+
+  /** Hint text of an empty single-line field: 5.0 contrast on {@link #FIELD}. */
+  static final Color HINT = DISABLED;
+
+  /** Hint x in the client area: where win32 draws a read-only field's hint at 100 % zoom. */
+  static final int HINT_X = 4;
+
+  /** Hint y in the client area, as {@link #HINT_X}. */
+  static final int HINT_Y = 1;
+
+  /** Control data key: set on a field once {@link #HINT} draws its hint. */
+  private static final String HINTED = Win32DialogColors.class.getName() + ".hinted";
 
   private final Display display;
 
@@ -153,6 +170,33 @@ final class Win32DialogColors implements DialogColors {
       table.setHeaderBackground(FIELD);
       table.setHeaderForeground(TEXT);
     }
+    if (control instanceof Text text && (text.getStyle() & SWT.MULTI) == 0) {
+      hint(text);
+    }
+  }
+
+  /** Draws an empty, unfocused field's hint in {@link #HINT} over the native one. */
+  private static void hint(final Text text) {
+    if (text.getData(HINTED) != null) {
+      return;
+    }
+    text.setData(HINTED, Boolean.TRUE);
+    text.addListener(
+        SWT.Paint,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (text.getCharCount() > 0 || text.isFocusControl() || text.getMessage().isEmpty()) {
+              return;
+            }
+            Rectangle area = text.getClientArea();
+            event.gc.setBackground(text.getBackground());
+            event.gc.fillRectangle(area);
+            event.gc.setForeground(HINT);
+            event.gc.setFont(text.getFont());
+            event.gc.drawText(text.getMessage(), area.x + HINT_X, area.y + HINT_Y, true);
+          }
+        });
   }
 
   private static boolean field(Control control) {

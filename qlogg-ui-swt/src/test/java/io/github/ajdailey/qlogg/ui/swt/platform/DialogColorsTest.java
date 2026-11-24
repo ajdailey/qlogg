@@ -11,12 +11,17 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.TableEditor;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
@@ -162,6 +167,81 @@ class DialogColorsTest {
       editor.dispose();
       place.dispose();
     }
+  }
+
+  /**
+   * An empty single-line field's hint, read-only or editable, draws in {@code HINT} on the field
+   * color at 4.5:1 or more; a field holding text and a multi-line field draw no hint.
+   */
+  @Test
+  void win32DrawsAnEmptyFieldsHintReadably() {
+    Win32DialogColors colors = new Win32DialogColors(display);
+    Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
+    colors.prepare(shell);
+    Text readOnly = new Text(shell, SWT.SINGLE | SWT.BORDER | SWT.READ_ONLY);
+    Text editable = new Text(shell, SWT.SINGLE | SWT.BORDER);
+    Text multi = new Text(shell, SWT.MULTI | SWT.READ_ONLY | SWT.BORDER);
+    for (Text text : List.of(readOnly, editable, multi)) {
+      text.setMessage("MMMM mock hint");
+      text.setSize(200, 30);
+    }
+    colors.apply(shell);
+    colors.apply(shell);
+    assertTrue(
+        Win32ChromeColors.contrast(
+                Win32DialogColors.HINT.getRGB(), Win32DialogColors.FIELD.getRGB())
+            >= 4.5);
+    assertTrue(
+        Win32ChromeColors.contrast(
+                Win32DialogColors.TEXT.getRGB(), Win32DialogColors.FIELD.getRGB())
+            >= 4.5);
+    for (Text text : List.of(readOnly, editable)) {
+      assertEquals(1, text.getListeners(SWT.Paint).length, "one hint listener");
+      ImageData drawn = paint(text);
+      assertEquals(Win32DialogColors.FIELD.getRGB(), drawn.palette.getRGB(drawn.getPixel(1, 1)));
+      // Font smoothing tints glyph edges, so the lightest pixel is near HINT, not equal.
+      assertTrue(
+          Win32ChromeColors.contrast(lightest(drawn), Win32DialogColors.FIELD.getRGB()) >= 4.5,
+          "" + text);
+      text.setText("mock");
+      assertEquals(OWN, paint(text).palette.getRGB(paint(text).getPixel(1, 1)), "holding text");
+    }
+    assertEquals(0, multi.getListeners(SWT.Paint).length);
+  }
+
+  /** Sends a Paint event over an image filled with {@link #OWN}. */
+  private ImageData paint(Text text) {
+    Rectangle area = text.getClientArea();
+    Image image = new Image(display, Math.max(1, area.width), Math.max(1, area.height));
+    GC gc = new GC(image);
+    try {
+      gc.setBackground(new Color(OWN));
+      gc.fillRectangle(0, 0, area.width, area.height);
+      Event event = new Event();
+      event.gc = gc;
+      event.setBounds(new Rectangle(0, 0, area.width, area.height));
+      text.notifyListeners(SWT.Paint, event);
+    } finally {
+      gc.dispose();
+    }
+    try {
+      return image.getImageData();
+    } finally {
+      image.dispose();
+    }
+  }
+
+  private static RGB lightest(ImageData data) {
+    RGB best = data.palette.getRGB(data.getPixel(0, 0));
+    for (int y = 0; y < data.height; y++) {
+      for (int x = 0; x < data.width; x++) {
+        RGB rgb = data.palette.getRGB(data.getPixel(x, y));
+        if (rgb.red + rgb.green + rgb.blue > best.red + best.green + best.blue) {
+          best = rgb;
+        }
+      }
+    }
+    return best;
   }
 
   @Test
