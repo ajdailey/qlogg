@@ -200,7 +200,7 @@ binds the `SearchBar` to its document.
 
 `SearchBar` is one full-width row: the filtered view's visibility combo; icon
 toggles for Match case, Regex, Whole word, Inverse, Combine, In selection,
-Auto-refresh and Range; the Predefined filters drop-down; the pattern field (a
+Auto-refresh and Range; the Predefined filters button; the pattern field (a
 `Combo` whose list is the search history, at least 160 px); the range end
 field, shown only while Range is on; two digit fields for the context lines
 above and below each result (0 to 1,000); Clear, Search, the Keep results
@@ -215,7 +215,10 @@ toggle and Stop; and the search status. With no document the row is disabled.
 - Typing completes inline with the most recent history entry that extends the
   text, compared under the Match case rule. Backspace and Delete do not
   complete.
-- Predefined filters opens a menu of the filters, each checked when its pattern
+- Predefined filters is a push item whose icon carries the down arrow, drawn in
+  the toolbar ink on every platform: win32 draws an `SWT.DROP_DOWN` item's
+  arrow `#010101` whatever the toolbar's colors (1.36:1 on the dark row). A
+  click opens a menu under it of the filters, each checked when its pattern
   stands in the field. Toggling one rewrites the field from the checked
   filters, switches to regex and searches.
 - The field's context menu holds Save as Filter, Edit Search History and Clear
@@ -383,6 +386,7 @@ that package or in the launcher.
 | `pollsSystemTheme` | yes | yes | - | - | `SwtThemeService`: polls `isSystemDarkTheme()` every 500 ms |
 | `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
 | `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
+| `colorsChromeUnderDark` | yes | - | - | - | `ChromeColors`: the main window's rows under a dark theme ([theme.md](theme.md#chrome-colors)) |
 | `busyCursor` | `CURSOR_APPSTARTING` | `CURSOR_WAIT` | `CURSOR_APPSTARTING` | `CURSOR_APPSTARTING` | `WindowBusyCursor` |
 | `dialogColors` | `Win32DialogColors` when started dark | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
 | `stacking` | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |

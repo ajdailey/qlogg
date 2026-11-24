@@ -163,6 +163,35 @@ class ThemeControllerTest {
     assertEquals("nightwater", theme.colors());
   }
 
+  @Test
+  void themeChangedFollowsTheThemeSideWhateverTheScheme() {
+    FakeSystem system = new FakeSystem();
+    ThemeController theme =
+        new ThemeController(system, ThemeMode.SYSTEM, ColorSchemes.NONE, "paper");
+    final List<Boolean> seen = new ArrayList<Boolean>();
+    theme.addListener(
+        new PaletteListener() {
+          @Override
+          public void paletteChanged(Palette palette) {
+            // The scheme is fixed.
+          }
+
+          @Override
+          public void themeChanged(boolean dark) {
+            seen.add(dark);
+          }
+        });
+    assertFalse(theme.dark());
+    system.flip(true);
+    system.flip(true);
+    theme.setMode(ThemeMode.DARK);
+    theme.setMode(ThemeMode.LIGHT);
+    system.flip(false);
+    theme.setMode(ThemeMode.SYSTEM);
+    assertEquals(List.of(true, false), seen);
+    assertFalse(theme.dark());
+  }
+
   // Light and Dark view colors.
 
   @Test

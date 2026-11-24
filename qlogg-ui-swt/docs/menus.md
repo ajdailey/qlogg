@@ -83,7 +83,8 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
   (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
   theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
   `reink` on the UI turn after a palette change. win32 menus keep the startup dark setting
-  (`SwtThemeService.nativeDark`), and the toolbar there stays light under it.
+  (`SwtThemeService.nativeDark`), while the toolbar takes `ChromeColors` from
+  the live theme.
 
 ## Listed entries
 

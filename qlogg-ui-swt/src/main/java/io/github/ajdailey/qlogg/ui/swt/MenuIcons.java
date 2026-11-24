@@ -16,7 +16,8 @@ import org.eclipse.swt.widgets.MenuItem;
  *
  * <p>The ink follows the native menu background. On GTK that is the theme the owner toolbar shows,
  * so the ink follows the toolbar's, a live switch included. win32 menus take the startup setting
- * and keep it, so the ink is fixed; the toolbar stays light there and says nothing about menus.
+ * and keep it, so the ink is fixed; the toolbar takes the live theme there and says nothing about
+ * menus.
  *
  * <p>GTK 3 reserves no image column: a label moves right when its item has an image. On GTK every
  * other item of a menu with an icon therefore holds {@link ToolIcons#blank}. win32 reserves the

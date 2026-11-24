@@ -2,8 +2,8 @@
 
 `SwtThemeService` applies `ui.theme` to native widgets and reports system
 appearance changes; `CocoaChrome` recolors native widgets on macOS;
-`DialogColors` colors dialogs on a dark Windows start;
-`TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
+`DialogColors` colors dialogs on a dark Windows start; `ChromeColors` colors
+the main window's rows under a dark theme on Windows; `TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
 images. Module overview: [../README.md](../README.md).
 
 ## Palette
@@ -20,6 +20,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 |---|---|
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
+| Top row, search row, quick find bar, status bar and sash on win32 | `ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
 | `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
 | Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
 
@@ -34,14 +35,48 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 `SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
 into a change event.
 
-- win32: under a dark startup setting, check box labels draw near-white while
-  the main window's pages stay light. Every check box therefore comes from
+- win32: under a dark startup setting, check box labels draw near-white, which
+  a light page cannot show. Every check box therefore comes from
   `SwtThemeService.check`, which creates it with the theme off, except in a
-  dialog with `Win32DialogColors`, whose page is dark.
+  dialog with `Win32DialogColors`, whose page is dark. On the quick find bar
+  `ChromeColors` gives an enabled box's label the palette text under dark.
 - cocoa: do not set an application appearance. cocoa SWT caches its widget
   colors under the system appearance, and a different application appearance
   draws text in that appearance over the cached backgrounds (white on light
   gray).
+
+## Chrome colors
+
+`ChromeColors` paints the main window's own rows on win32
+(`PlatformTraits.colorsChromeUnderDark`), where the dark native theme leaves a
+`ToolBar`, `Composite`, `Label` and `Link` light. While `ui.theme` resolves to
+dark (`ThemeController.dark`, reported by `PaletteListener.themeChanged`), every
+control under a registered surface takes `Palette.DARK.gutter` (`#162638`, the
+tab strip's background) and `Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a
+`Link` takes the system link color moved toward white to 4.5:1; each composite
+takes `SWT.INHERIT_DEFAULT`, so native push buttons show no light corners.
+Under light the colors are null and composites take `SWT.INHERIT_NONE`. Both
+directions apply live, though native controls change only at the next start.
+The colors follow `ui.theme`, not the `view.colors` scheme, as native controls
+do.
+
+`MainWindow` registers the top row, the search row, the quick find bar, the
+status bar and each sash of the split. A control created later under a surface
+is colored at its `SWT.Skin` event. The walk does not enter push and arrow
+buttons, `Text`, `Combo`, `List`, `Table`, `Tree`, `Spinner`, `ProgressBar`,
+`StyledText`, `Browser`, `CTabFolder` or a control with
+`CocoaChrome.PALETTE_COLORED`; the path field, the search row's combos and the
+context fields stay native. `TabStripButtons` paints itself from the palette
+and is not registered.
+
+`ChromeColors.apply` colors the surfaces first, then calls `fadeDisabled` and
+`reink` on the toolbar's and the search row's `ToolIcons`. The ink is read from
+a tool bar the walk colors, so a re-ink before the walk keeps the light-row
+ink; `ChromeColorsTest` fails in that order.
+
+Limits on win32: the 1 px `COLOR_WIDGET_NORMAL_SHADOW` line `CTabFolder` draws
+under its strip and around the selected tab stays, because SWT's renderer reads
+that color in package-private code.
 
 ## Dialog colors
 
@@ -104,8 +139,8 @@ reads them once, so an uncolored strip keeps them through a theme change
 | `ToolIcons` | The toolbar, toggle, dialog and menu item icons: `icons/tool/NAME-light-16.png` (dark ink) or `NAME-dark-16.png` (light ink), with the 32 px PNG at 200% zoom. Created on first use and disposed with the owner |
 
 `ToolIcons` picks the ink from the background of its ink source, the owner or
-a tool bar given as `ToolIcons(Control, Control)`, because toolbars are native:
-on Windows they stay light under the dark palette. `reink` reads the source
+a tool bar given as `ToolIcons(Control, Control)`, because toolbars are native
+or, on Windows under dark, painted by `ChromeColors`. `reink` reads the source
 through `PlatformTraits.shownBackground` and swaps the image of every item
 given to `apply`. It runs on `SWT.Settings`, from the Display or from
 `CocoaChrome` on the owner, and on the UI turn after a palette change, once
@@ -121,7 +156,14 @@ Filters take a tool bar of theirs as the source. win32 and cocoa read
 
 A menu item given to `apply(MenuItem, String)` follows the same ink. On GTK a
 disabled menu item on a dark background shows a copy at 40% opacity
-(`showState`), because GTK's disabled effect brightens the image there. A set
+(`showState`), because GTK's disabled effect brightens the image there.
+`fadeDisabled(true)` gives every tool item of a set the same faded copy through
+`setDisabledImage`; `ChromeColors` turns it on under dark on win32, where SWT's
+disabled copy maps the light ink to a gray brighter than the enabled ink.
+Measured under Xvfb, GTK 3, on `#162638` over every icon (SWT 3.135.0 uses the
+same `IMAGE_DISABLE` transform on win32): enabled 9.06:1 or more, SWT's disabled
+copy 10.14:1 or more, the faded copy 2.63:1 to 2.87:1. `fadeDisabled(false)`
+returns SWT's own disabled image. A set
 created with `ToolIcons(Control, boolean)` keeps that ink; `MenuIcons` uses it
 on win32. Menu icons: [menus.md](menus.md).
 

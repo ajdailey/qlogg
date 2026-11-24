@@ -98,6 +98,11 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
+  public boolean colorsChromeUnderDark() {
+    return false;
+  }
+
+  @Override
   public int busyCursor() {
     return SWT.CURSOR_WAIT;
   }

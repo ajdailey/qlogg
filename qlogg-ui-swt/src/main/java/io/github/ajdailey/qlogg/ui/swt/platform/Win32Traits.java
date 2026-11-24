@@ -98,6 +98,11 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
+  public boolean colorsChromeUnderDark() {
+    return true;
+  }
+
+  @Override
   public int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }

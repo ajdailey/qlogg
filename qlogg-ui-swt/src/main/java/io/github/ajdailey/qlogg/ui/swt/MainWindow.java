@@ -135,6 +135,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   private final ToolIcons toolIcons;
   // Menu item icons.
   private final MenuIcons menuIcons;
+  private final ChromeColors chrome;
   private final Text pathField;
   private final Label sizeLabel;
   private final Label encodingLabel;
@@ -287,6 +288,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
     fullScreen = new FullScreen(shell, dispatcher, PlatformTraits.PLATFORM);
+    chrome = new ChromeColors(PlatformTraits.PLATFORM, display);
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
     shell.setImages(icons.toArray(new Image[0]));
@@ -425,6 +427,7 @@ public final class MainWindow implements MainView, ApplicationListener {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
+            chrome.dispose();
             for (Image image : icons) {
               image.dispose();
             }
@@ -502,6 +505,7 @@ public final class MainWindow implements MainView, ApplicationListener {
           child.setData(GRIP, Boolean.TRUE);
           child.setToolTipText(UiText.SPLIT_GRIP.text());
           child.addListener(SWT.Paint, grip);
+          chrome.add(child);
           // Filtered view minimum: SashForm's own listener has moved the sash by now.
           child.addListener(
               SWT.Selection,
@@ -715,9 +719,22 @@ public final class MainWindow implements MainView, ApplicationListener {
           public void paletteChanged(Palette next) {
             applyPalette(next);
           }
+
+          @Override
+          public void themeChanged(boolean dark) {
+            chrome.apply(dark);
+          }
         };
     application.theme().addListener(paletteListener);
     applyPalette(application.theme().palette());
+    // Windows dark chrome.
+    chrome.add(topRow);
+    chrome.add(searchBar.control());
+    chrome.add(quickFindBar.control());
+    chrome.add(statusBar);
+    chrome.add(toolIcons);
+    chrome.add(searchBar.icons());
+    chrome.apply(application.theme().dark());
     // Tab data dot.
     tabStrip.listenToTabData(application);
     // Multiple windows and the warning marker.
@@ -1098,6 +1115,24 @@ public final class MainWindow implements MainView, ApplicationListener {
    */
   QuickFindBar quickFindBar() {
     return quickFindBar;
+  }
+
+  /**
+   * Returns the colors of the window's own rows under a dark theme.
+   *
+   * @return the colors
+   */
+  ChromeColors chrome() {
+    return chrome;
+  }
+
+  /**
+   * Returns the status bar.
+   *
+   * @return the bar
+   */
+  Composite statusBar() {
+    return statusBar;
   }
 
   /**

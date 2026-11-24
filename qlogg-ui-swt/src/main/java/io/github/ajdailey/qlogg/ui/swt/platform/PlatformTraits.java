@@ -178,6 +178,15 @@ public interface PlatformTraits {
   boolean lightChecksUnderDark();
 
   /**
+   * Reports whether the main window's own rows take the palette's colors under a dark theme. win32
+   * SWT draws a {@code ToolBar}, {@code Composite}, {@code Label} and {@code Link} light under the
+   * dark native theme.
+   *
+   * @return true on win32
+   */
+  boolean colorsChromeUnderDark();
+
+  /**
    * Returns the busy cursor's {@link SWT} cursor style, an arrow with a progress mark that keeps
    * the window clickable. cocoa maps {@code CURSOR_APPSTARTING} to a plain arrow.
    *
@@ -229,7 +238,7 @@ public interface PlatformTraits {
 
   /**
    * Reports whether menu icon ink comes from the native theme's startup setting. win32 menus take
-   * that setting and keep it, and the toolbar stays light under a dark one.
+   * that setting and keep it, while the toolbar's colors follow the live theme.
    *
    * @return true on win32
    */

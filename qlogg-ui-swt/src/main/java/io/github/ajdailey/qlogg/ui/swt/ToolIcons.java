@@ -32,8 +32,8 @@ import org.eclipse.swt.widgets.ToolItem;
  * Display.sleep} after {@code setDarkThemePreferred}, so {@link #reink} reads the background
  * through {@link PlatformTraits#shownBackground}, a drawn pixel on GTK. GTK's disabled effect
  * lightens a menu image, which on a dark background brightens it, so there {@link #showState} shows
- * a disabled menu item a faded copy. Images are created on first use on the UI thread and disposed
- * with the owner control.
+ * a disabled menu item a faded copy; {@link #fadeDisabled} gives disabled tool items the same copy.
+ * Images are created on first use on the UI thread and disposed with the owner control.
  */
 final class ToolIcons {
   /** Opens files. */
@@ -110,6 +110,9 @@ final class ToolIcons {
   /** Lists every tab. */
   static final String TAB_LIST = "tab-list-down";
 
+  /** Opens the Predefined filters menu; the icon carries the menu's down arrow. */
+  static final String FILTERS = "filters";
+
   // Menu item icons.
   /** Closes the file. */
   static final String CLOSE = "close";
@@ -170,6 +173,7 @@ final class ToolIcons {
   // Menu item icons.
   private final Map<MenuItem, String> menuItems = new LinkedHashMap<MenuItem, String>();
   private final boolean faded = PlatformTraits.PLATFORM.fadesDisabledIcons();
+  private boolean fadedTools;
   private Image blank;
 
   /**
@@ -262,6 +266,7 @@ final class ToolIcons {
     SIZING.keepIconSize(item);
     item.setImage(image);
     items.put(item, name);
+    showDisabled(item, name);
     return true;
   }
 
@@ -376,6 +381,7 @@ final class ToolIcons {
     for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
       if (!entry.getKey().isDisposed()) {
         entry.getKey().setImage(get(entry.getValue()));
+        showDisabled(entry.getKey(), entry.getValue());
       }
     }
     // Menu item icons.
@@ -386,6 +392,33 @@ final class ToolIcons {
       if (image != null) {
         image.dispose();
       }
+    }
+  }
+
+  /**
+   * Gives every tool item given to {@link #apply} a faded copy of its icon as its disabled image
+   * while on, and the platform's disabled image while off. SWT's disabled copy on win32 maps the
+   * light ink to a gray brighter than the enabled ink, so on a dark row {@link ChromeColors} paints
+   * a disabled item would look enabled.
+   *
+   * @param on true for the faded copies
+   */
+  void fadeDisabled(boolean on) {
+    if (on == fadedTools) {
+      return;
+    }
+    fadedTools = on;
+    for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
+      if (!entry.getKey().isDisposed()) {
+        showDisabled(entry.getKey(), entry.getValue());
+      }
+    }
+  }
+
+  private void showDisabled(ToolItem item, String name) {
+    Image disabled = fadedTools ? get(name + FADED) : null;
+    if (item.getDisabledImage() != disabled) {
+      item.setDisabledImage(disabled);
     }
   }
 

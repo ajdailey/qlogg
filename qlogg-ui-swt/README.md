@@ -15,7 +15,7 @@ against the build host's SWT fragment.
 | `MainMenuBar`, `MenuIcons`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu` | Menu bar, menu item icons, listed entries, Time Sync and Color Label cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
 | `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
-| `SwtThemeService`, `CocoaChrome`, `DialogColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
+| `SwtThemeService`, `CocoaChrome`, `DialogColors`, `ChromeColors`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, the main window's rows under dark on win32, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |
 | Package `ui.swt.platform`: `PlatformTraits` and its classes per platform, `DialogColors`, `WindowStacking`, `ToolItemSizing` and theirs | Every view-layer platform difference, dialog colors, Always on Top, tool item sizing | [docs/main-window.md](docs/main-window.md#platform-traits) |
 

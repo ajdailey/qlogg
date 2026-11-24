@@ -102,6 +102,11 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
+  public final boolean colorsChromeUnderDark() {
+    return false;
+  }
+
+  @Override
   public final int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }

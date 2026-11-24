@@ -178,8 +178,11 @@ public final class SearchBar {
     range = item(toggles, SWT.CHECK, ToolIcons.RANGE, UiText.SEARCH_RANGE, null);
     filterBar = new ToolBar(bar, SWT.FLAT);
     filterBar.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
-    filters = new ToolItem(filterBar, SWT.DROP_DOWN);
-    filters.setText(UiText.SEARCH_FILTERS.text());
+    // A push item with the arrow in its icon: win32 draws a DROP_DOWN arrow black on any toolbar.
+    filters = new ToolItem(filterBar, SWT.PUSH);
+    if (!icons.apply(filters, ToolIcons.FILTERS)) {
+      filters.setText(UiText.SEARCH_FILTERS.text());
+    }
     filters.setToolTipText(CommandId.PREDEFINED_FILTERS.title());
     filterMenu = new Menu(filterBar);
     pattern = new Combo(bar, SWT.DROP_DOWN);
@@ -227,6 +230,15 @@ public final class SearchBar {
   /** Re-inks the row's icons after a theme change ({@link ToolIcons#reink}). */
   void reinkIcons() {
     icons.reink();
+  }
+
+  /**
+   * Returns the row's icons.
+   *
+   * @return the icons of every tool bar in the row
+   */
+  ToolIcons icons() {
+    return icons;
   }
 
   /**

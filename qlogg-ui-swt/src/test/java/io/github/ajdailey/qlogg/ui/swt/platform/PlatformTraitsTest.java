@@ -33,6 +33,7 @@ class PlatformTraitsTest {
     "followsSystemAppearance",
     "themesAtCreation",
     "lightChecksUnderDark",
+    "colorsChromeUnderDark",
     "busyCursor",
     // Menu item icons.
     "menuImages",
@@ -60,6 +61,7 @@ class PlatformTraitsTest {
     answers.add(traits.followsSystemAppearance());
     answers.add(traits.themesAtCreation());
     answers.add(traits.lightChecksUnderDark());
+    answers.add(traits.colorsChromeUnderDark());
     answers.add(traits.busyCursor());
     // Menu item icons.
     answers.add(traits.menuImages());
@@ -97,6 +99,7 @@ class PlatformTraitsTest {
         false,
         true,
         true,
+        true,
         SWT.CURSOR_APPSTARTING,
         true,
         false,
@@ -123,6 +126,7 @@ class PlatformTraitsTest {
         true,
         false,
         true,
+        false,
         false,
         false,
         SWT.CURSOR_WAIT,
@@ -153,6 +157,7 @@ class PlatformTraitsTest {
         false,
         false,
         false,
+        false,
         SWT.CURSOR_APPSTARTING,
         true,
         true,
@@ -178,6 +183,7 @@ class PlatformTraitsTest {
         false,
         false,
         true,
+        false,
         false,
         false,
         false,

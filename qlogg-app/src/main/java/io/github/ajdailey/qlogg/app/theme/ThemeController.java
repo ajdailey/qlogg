@@ -8,7 +8,8 @@ import java.util.List;
  * views. {@link ThemeMode#SYSTEM} follows {@link ThemeService#systemDark} and its change events.
  * Each mode change, and each system change in {@link ThemeMode#SYSTEM}, also sets {@link
  * ThemeService#preferDark} from {@code ui.theme} alone, so native controls follow the theme while a
- * fixed scheme keeps the palette; the startup setting is the launcher's. Confined to the UI thread.
+ * fixed scheme keeps the palette; the startup setting is the launcher's. A change of that side
+ * reaches {@link PaletteListener#themeChanged}. Confined to the UI thread.
  */
 public final class ThemeController {
   private final List<PaletteListener> listeners = new ArrayList<PaletteListener>();
@@ -16,6 +17,7 @@ public final class ThemeController {
   private ThemeMode mode;
   private boolean systemDark;
   private Palette palette;
+  private boolean dark;
   // View colors.
   private final ColorSchemes schemes;
   private String colors;
@@ -46,6 +48,7 @@ public final class ThemeController {
     this.colors = colors;
     this.systemDark = service.systemDark();
     this.palette = resolve(mode, systemDark, schemes.find(colors));
+    this.dark = resolve(mode, systemDark).dark();
     service.addListener(
         new ThemeListener() {
           @Override
@@ -55,6 +58,7 @@ public final class ThemeController {
               ThemeController.this.service.preferDark(dark);
             }
             apply(current());
+            applyTheme();
           }
         });
   }
@@ -85,6 +89,16 @@ public final class ThemeController {
   }
 
   /**
+   * Reports the side {@code ui.theme} resolves to, which native controls follow whatever the
+   * scheme.
+   *
+   * @return true for dark
+   */
+  public boolean dark() {
+    return dark;
+  }
+
+  /**
    * Returns the resolved palette.
    *
    * @return the palette
@@ -105,6 +119,7 @@ public final class ThemeController {
     boolean dark = resolve(next, systemDark).dark();
     service.preferDark(dark);
     apply(current());
+    applyTheme();
     return service.showsNow(dark);
   }
 
@@ -171,6 +186,17 @@ public final class ThemeController {
 
   private Palette current() {
     return resolve(mode, systemDark, schemes.find(colors));
+  }
+
+  private void applyTheme() {
+    boolean next = resolve(mode, systemDark).dark();
+    if (next == dark) {
+      return;
+    }
+    dark = next;
+    for (PaletteListener listener : new ArrayList<PaletteListener>(listeners)) {
+      listener.themeChanged(next);
+    }
   }
 
   private void apply(Palette next) {
