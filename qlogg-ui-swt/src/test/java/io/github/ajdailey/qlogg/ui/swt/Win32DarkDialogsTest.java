@@ -1,5 +1,9 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import static io.github.ajdailey.qlogg.ui.swt.Pixels.contrast;
+import static io.github.ajdailey.qlogg.ui.swt.Pixels.luminance;
+import static io.github.ajdailey.qlogg.ui.swt.Pixels.mode;
+import static io.github.ajdailey.qlogg.ui.swt.Pixels.strongest;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -31,10 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
@@ -52,7 +54,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.TabFolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,8 @@ import org.junit.jupiter.api.io.TempDir;
  * read does not show the main window, as on the {@code windows-11-arm} runner, whose desktop lies
  * under the Windows setup screen, the test skips every body check and reads the first label through
  * {@code Control.print}, checking its text against its background; the same applies to a single
- * dialog a screen read does not show. Each dialog is saved to {@code
+ * dialog a screen read does not show. On each tab of a tabbed dialog the tab row, the folder's edge
+ * and the selected tab's text are read too: dark under a dark start. Each dialog is saved to {@code
  * target/diagnostics/win32-dark-dialogs/}, with the read of each check in the report there.
  */
 @Tag("swt")
@@ -286,13 +288,14 @@ class Win32DarkDialogsTest {
       return;
     }
     try {
-      TabFolder tabs = tabs(dialog);
+      Composite tabs = DialogTabReads.find(dialog);
       if (tabs == null) {
         check(dialog, name, dark, wrong);
       } else {
-        for (int i = 0; i < tabs.getItemCount(); i++) {
-          tabs.setSelection(i);
+        for (int i = 0; i < DialogTabReads.count(tabs); i++) {
+          DialogTabReads.select(tabs, i);
           check(dialog, name + "-tab" + i, dark, wrong);
+          checkTabs(tabs, name + "-tab" + i, dark, wrong);
         }
       }
     } finally {
@@ -400,13 +403,42 @@ class Win32DarkDialogsTest {
     }
   }
 
-  private static TabFolder tabs(Composite parent) {
-    for (Control child : parent.getChildren()) {
-      if (child instanceof TabFolder folder) {
-        return folder;
-      }
+  /**
+   * Reads a tab folder on screen: the empty part of the tab row, the folder's left edge below the
+   * row, where the native folder draws its frame, and the selected tab's text against its
+   * background. Under a dark start the row and the edge draw the dark body.
+   */
+  private void checkTabs(Composite tabs, String name, boolean dark, List<String> wrong) {
+    if (!screenShows || !shows(tabs.getShell())) {
+      return;
     }
-    return null;
+    DialogTabReads.Reading read =
+        DialogTabReads.read(
+            tabs,
+            new DialogTabReads.Screen() {
+              @Override
+              public ImageData capture(Rectangle area) {
+                return Win32DarkDialogsTest.this.capture(area);
+              }
+            });
+    if (read.contrast() < TEXT_CONTRAST) {
+      wrong.add(name + " selected tab");
+    }
+    if (dark
+        && ((read.row() != null && !near(read.row(), DARK_BODY))
+            || !near(read.edge(), DARK_BODY))) {
+      wrong.add(name + " tab row or frame");
+    }
+    report.append(
+        String.format(
+            "%s %s row=%s edge=%s selected tab ink=%s on %s contrast=%.2f%n",
+            name,
+            tabs.getClass().getSimpleName(),
+            read.row() == null ? "unread" : hex(read.row()),
+            hex(read.edge()),
+            hex(read.ink()),
+            hex(read.ground()),
+            read.contrast()));
   }
 
   private static Label firstLabel(Composite parent) {
@@ -420,15 +452,15 @@ class Win32DarkDialogsTest {
           && !label.getText().isEmpty()) {
         return label;
       }
-      if (child instanceof TabFolder folder && folder.getSelectionIndex() >= 0) {
-        Control page = folder.getItem(folder.getSelectionIndex()).getControl();
+      if (DialogTabReads.isTabs(child) && DialogTabReads.selection((Composite) child) >= 0) {
+        Control page = DialogTabReads.selectedPage((Composite) child);
         if (page instanceof Composite composite) {
           Label found = firstLabel(composite);
           if (found != null) {
             return found;
           }
         }
-      } else if (child instanceof Composite composite && !(child instanceof TabFolder)) {
+      } else if (child instanceof Composite composite && !DialogTabReads.isTabs(child)) {
         Label found = firstLabel(composite);
         if (found != null) {
           return found;
@@ -510,62 +542,6 @@ class Win32DarkDialogsTest {
       gc.dispose();
       image.dispose();
     }
-  }
-
-  /** Returns the most frequent color. */
-  private static RGB mode(ImageData data) {
-    return mode(data, new Rectangle(0, 0, data.width, data.height));
-  }
-
-  /** Returns the most frequent color inside an area. */
-  private static RGB mode(ImageData data, Rectangle area) {
-    Map<Integer, Integer> counts = new HashMap<Integer, Integer>();
-    int best = 0;
-    int bestCount = -1;
-    for (int y = Math.max(0, area.y); y < Math.min(data.height, area.y + area.height); y++) {
-      for (int x = Math.max(0, area.x); x < Math.min(data.width, area.x + area.width); x++) {
-        int pixel = data.getPixel(x, y);
-        Integer count = counts.get(pixel);
-        int next = count == null ? 1 : count + 1;
-        counts.put(pixel, next);
-        if (next > bestCount) {
-          best = pixel;
-          bestCount = next;
-        }
-      }
-    }
-    return data.palette.getRGB(best);
-  }
-
-  private static RGB strongest(ImageData data, RGB ground) {
-    RGB best = ground;
-    double max = 1;
-    for (int y = 0; y < data.height; y++) {
-      for (int x = 0; x < data.width; x++) {
-        RGB rgb = data.palette.getRGB(data.getPixel(x, y));
-        double value = contrast(rgb, ground);
-        if (value > max) {
-          max = value;
-          best = rgb;
-        }
-      }
-    }
-    return best;
-  }
-
-  private static double contrast(RGB a, RGB b) {
-    double la = luminance(a);
-    double lb = luminance(b);
-    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-  }
-
-  private static double luminance(RGB rgb) {
-    return 0.2126 * channel(rgb.red) + 0.7152 * channel(rgb.green) + 0.0722 * channel(rgb.blue);
-  }
-
-  private static double channel(int value) {
-    double c = value / 255.0;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   }
 
   private static boolean near(RGB a, RGB b) {

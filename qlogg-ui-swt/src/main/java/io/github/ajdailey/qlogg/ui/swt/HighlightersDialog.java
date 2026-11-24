@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.core.model.HighlightRule;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.model.RuleTrigger;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -27,8 +28,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Spinner;
-import org.eclipse.swt.widgets.TabFolder;
-import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
@@ -75,8 +74,7 @@ final class HighlightersDialog {
     HighlightSettings settings = application.highlightSettings();
     this.editor = new HighlightSetsEditor(settings);
     shell = Dialogs.sizedShell(parent, CommandId.EDIT_HIGHLIGHTERS.title());
-    TabFolder tabs = new TabFolder(shell, SWT.TOP);
-    tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    DialogTabs tabs = Dialogs.tabs(shell);
     Runnable edited =
         new Runnable() {
           @Override
@@ -207,12 +205,9 @@ final class HighlightersDialog {
     };
   }
 
-  private static Composite tab(TabFolder tabs, UiText title, int columns) {
-    TabItem item = new TabItem(tabs, SWT.NONE);
-    item.setText(title.text());
-    Composite body = new Composite(tabs, SWT.NONE);
+  private static Composite tab(DialogTabs tabs, UiText title, int columns) {
+    Composite body = tabs.add(title.text());
     body.setLayout(new GridLayout(columns, false));
-    item.setControl(body);
     return body;
   }
 

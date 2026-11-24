@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -99,6 +100,14 @@ public interface PlatformTraits {
    * @return {@link Win32ChromeColors} on win32, else {@link NativeChromeColors}
    */
   ChromeColors chromeColors(Display display);
+
+  /**
+   * Creates a dialog's tab folder. On win32 this reads {@link DialogColors#nativeDark}.
+   *
+   * @param parent the dialog composite holding it
+   * @return {@link Win32DialogTabs} on win32 after a dark start, else {@link NativeDialogTabs}
+   */
+  DialogTabs dialogTabs(Composite parent);
 
   /**
    * Creates the stacking for View > Always on Top. On GTK this reads the backend the Display

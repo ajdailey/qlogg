@@ -2,7 +2,8 @@
 
 `SwtThemeService` applies `ui.theme` to native widgets and reports system
 appearance changes; `CocoaChrome` recolors native widgets on macOS;
-`DialogColors` colors dialogs on a dark Windows start; `ChromeColors` colors
+`DialogColors` colors dialogs and `DialogTabs` their tab folders on a dark
+Windows start; `ChromeColors` colors
 the main window's rows and fields under a dark theme on Windows;
 `TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
 images. Module overview: [../README.md](../README.md).
@@ -23,7 +24,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
 | `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
-| Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
+| Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
 
@@ -146,7 +147,6 @@ dialog opens is colored at its `SWT.Skin` event.
 
 | Stays native | Drawn |
 |---|---|
-| `TabFolder` tab row and frame | Light; the selected page is dark |
 | `Table` grid lines and header dividers | Light lines between dark rows and header cells |
 | `Spinner` arrows | Light buttons beside the dark field |
 | A hovered or focused `ToolItem` | A light highlight under the light-ink icon (seen on Predefined Filters' focused Add; hover assumed the same) |
@@ -154,6 +154,30 @@ dialog opens is colored at its `SWT.Skin` event.
 | `Table` and `Tree` selection | Native dark with white text: focused `#223e55` (table) and `#626262` (tree), unfocused `#252525` and `#333333`, 6.10:1 or more (measured, `windows-2025`) |
 | `Browser` (the user guide) | The page's own colors |
 | `FileDialog`, `ColorDialog` | The system dialogs |
+
+A native `TabFolder` keeps a light tab row and a white frame around the page
+after a dark start, and no public API colors either. Preferences and Configure
+Highlighters therefore take their folder from `Dialogs.tabs`, which calls
+`PlatformTraits.dialogTabs`; `ArchitectureTest.tabFoldersOnlyThroughDialogTabs`
+fails a `TabFolder` created outside `ui.swt.platform`:
+
+| Class | When | Folder |
+|---|---|---|
+| `Win32DialogTabs` | win32 after a dark start (`DialogColors.nativeDark`, read when the dialog is built) | A flat `CTabFolder` without a border: tab row, unselected tabs and pages `#202020`, selected tab `#2b2b2b`, tab text `#ffffff` (16.3:1 and 14.2:1) |
+| `NativeDialogTabs` | win32 after a light start, GTK, cocoa | The native `TabFolder` |
+
+`CTabFolder` draws the selected tab `#2b2b2b` only while focus is in the
+folder, and `#202020` while a dialog button holds it. It outlines the selected
+tab, separates unselected ones and draws its selection bar in system colors (`COLOR_WIDGET_NORMAL_SHADOW`, then
+`COLOR_LIST_SELECTION` with focus in the folder or
+`COLOR_WIDGET_DISABLED_FOREGROUND` without), read in package-private renderer
+code. Ctrl+PageDown and Ctrl+PageUp from a page control reach either folder
+through SWT's traversal and wrap at the ends; Ctrl+Tab changes no tab in either,
+and a mnemonic reaches the shown page's buttons only (measured on
+`windows-2025`). `DialogTabsTest` posts these keys to both folders on win32 and
+fails where they differ. No tab title carries a mnemonic. After a dark start the
+row and the folder's edge read `#202020` and the selected tab, with focus in a
+page, `#2b2b2b` (measured, `windows-2025`).
 
 The colors follow the startup setting, as win32 native controls do: after a
 theme change, open and newly opened dialogs keep them until the next start.

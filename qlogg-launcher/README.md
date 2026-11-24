@@ -277,6 +277,7 @@ sources), so a rule that stops matching fails:
 | `SWT.getPlatform()` and strings starting `org.eclipse.swt.internal.` (system properties, class names) only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
 | `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
 | A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.prepare` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
+| A native `TabFolder` is created only in `ui.swt.platform` (`tabFoldersOnlyThroughDialogTabs`) | A dialog takes its folder from `PlatformTraits.dialogTabs`, dark after a dark win32 start |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |

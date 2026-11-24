@@ -107,6 +107,13 @@ final class ViewViolations {
     }
   }
 
+  /** Creates a native tab folder outside the platform package. */
+  static final class CreatesTabFolder {
+    org.eclipse.swt.widgets.TabFolder open(org.eclipse.swt.widgets.Shell parent) {
+      return new org.eclipse.swt.widgets.TabFolder(parent, SWT.TOP);
+    }
+  }
+
   // Always on Top.
 
   /** Reaches an SWT internal by reflection outside the Always on Top platform classes. */

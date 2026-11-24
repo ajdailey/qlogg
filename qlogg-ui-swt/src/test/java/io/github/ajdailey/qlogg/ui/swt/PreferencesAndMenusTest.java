@@ -337,9 +337,9 @@ class PreferencesAndMenusTest {
     org.eclipse.swt.widgets.List keys = keyList(dialog.shell());
     keys.setSelection(0);
     dialog.removeSelected();
-    dialog.folder().setSelection(3);
+    dialog.folder().select(3);
     shoot(dialog.shell(), "options-shortcuts.png");
-    dialog.folder().setSelection(1);
+    dialog.folder().select(1);
     shoot(dialog.shell(), "options-view.png");
     dialog.apply();
     assertEquals(
@@ -363,11 +363,11 @@ class PreferencesAndMenusTest {
     PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     List<String> texts = new ArrayList<String>();
-    pushButtons(dialog.folder().getItem(3).getControl(), texts);
+    pushButtons(dialog.folder().page(3), texts);
     assertEquals(
         List.of("Clear", "A&dd", "&Remove", "Default &Keys", "Re&store All Defaults"), texts);
     for (Control child : dialog.shell().getChildren()) {
-      if (child != dialog.folder()) {
+      if (child != dialog.folder().control()) {
         pushButtons(child, texts);
       }
     }
@@ -387,7 +387,7 @@ class PreferencesAndMenusTest {
   void theDefaultEncodingBoxListsTheEncodingChoices() {
     final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
-    final Combo box = combo((Composite) dialog.folder().getItem(2).getControl());
+    final Combo box = combo(dialog.folder().page(2));
     final EncodingChoices choices = EncodingChoices.available();
     assertTrue(
         runUntil(
@@ -463,7 +463,7 @@ class PreferencesAndMenusTest {
     dialog.foldStart().setText("[unclosed");
     assertFalse(dialog.apply());
     assertTrue(dialog.foldError().getText().startsWith("Pattern [unclosed"));
-    assertEquals(dialog.folder().getItemCount() - 1, dialog.folder().getSelectionIndex());
+    assertEquals(dialog.folder().count() - 1, dialog.folder().selection());
     assertEquals(FoldRules.DEFAULTS, controller.preferences().view().folds());
     shoot(dialog.shell(), "options-folding.png");
 
@@ -481,7 +481,7 @@ class PreferencesAndMenusTest {
     final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();
     assertFalse(dialog.keepClosed().getSelection());
-    dialog.folder().setSelection(4);
+    dialog.folder().select(4);
     dialog.keepClosed().setSelection(true);
     shoot(dialog.shell(), "options-advanced.png");
     assertTrue(dialog.apply());

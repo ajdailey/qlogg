@@ -20,6 +20,7 @@ import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -37,8 +38,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Spinner;
-import org.eclipse.swt.widgets.TabFolder;
-import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
@@ -87,7 +86,7 @@ final class PreferencesDialog {
   private org.eclipse.swt.widgets.List keys;
   private Text capture;
   private Label message;
-  private TabFolder folder;
+  private final DialogTabs folder;
   // Folding tab.
   private Text foldStart;
   private Text foldContinuation;
@@ -121,8 +120,7 @@ final class PreferencesDialog {
     this.initialFont = preferences.options().font();
     this.platformSize = Dialogs.monospaceSize();
     shell = Dialogs.shell(parent, CommandId.PREFERENCES.title(), false);
-    folder = new TabFolder(shell, SWT.TOP);
-    folder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    folder = Dialogs.tabs(shell);
     general(tab(folder, UiText.PREFERENCES_TAB_GENERAL), preferences);
     view(tab(folder, UiText.PREFERENCES_TAB_VIEW));
     file(tab(folder, UiText.PREFERENCES_TAB_FILE), preferences.options());
@@ -157,15 +155,12 @@ final class PreferencesDialog {
     applied = boxes(shown == null ? preferences.view().folds() : shown);
   }
 
-  private static Composite tab(TabFolder folder, UiText title) {
-    TabItem item = new TabItem(folder, SWT.NONE);
-    item.setText(title.text());
-    Composite page = new Composite(folder, SWT.NONE);
+  private static Composite tab(DialogTabs folder, UiText title) {
+    Composite page = folder.add(title.text());
     GridLayout layout = new GridLayout(2, false);
     layout.marginWidth = 10;
     layout.marginHeight = 10;
     page.setLayout(layout);
-    item.setControl(page);
     return page;
   }
 
@@ -588,7 +583,7 @@ final class PreferencesDialog {
     FoldRulesText folds = FoldRulesText.parse(foldStart.getText(), foldContinuation.getText());
     if (folds.rules() == null) {
       foldError.setText(folds.error());
-      folder.setSelection(folder.getItemCount() - 1);
+      folder.select(folder.count() - 1);
       foldError.getParent().layout(true);
       return false;
     }
@@ -766,7 +761,7 @@ final class PreferencesDialog {
     return shell;
   }
 
-  TabFolder folder() {
+  DialogTabs folder() {
     return folder;
   }
 

@@ -7,6 +7,7 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -56,6 +57,11 @@ abstract class GtkTraits implements PlatformTraits {
   @Override
   public final ChromeColors chromeColors(Display display) {
     return new NativeChromeColors();
+  }
+
+  @Override
+  public final DialogTabs dialogTabs(Composite parent) {
+    return new NativeDialogTabs(parent);
   }
 
   @Override

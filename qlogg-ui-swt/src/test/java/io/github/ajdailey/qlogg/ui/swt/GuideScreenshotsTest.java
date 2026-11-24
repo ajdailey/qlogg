@@ -202,7 +202,7 @@ class GuideScreenshotsTest {
 
     PreferencesDialog options = new PreferencesDialog(window.shell(), controller);
     options.open();
-    options.folder().setSelection(options.folder().getItemCount() - 1);
+    options.folder().select(options.folder().count() - 1);
     save(options.shell(), "options-folding.png");
     options.shell().dispose();
 
@@ -333,7 +333,7 @@ class GuideScreenshotsTest {
   private void viewColorsShots(DocumentController document) {
     PreferencesDialog options = new PreferencesDialog(window.shell(), controller);
     options.open();
-    options.folder().setSelection(1);
+    options.folder().select(1);
     options.viewColors().select(4);
     options.viewColors().setFocus();
     // Taller, so the open list fits inside the dialog.

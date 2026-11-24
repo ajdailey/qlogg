@@ -1335,4 +1335,32 @@ class ArchitectureTest {
             })
         .because("win32 draws a dialog body light under a dark start unless it is colored");
   }
+
+  // Dialog tabs.
+
+  /**
+   * Only {@code ui.swt.platform} creates a native {@code TabFolder}; a dialog takes its folder from
+   * {@code PlatformTraits.dialogTabs}, which gives a dark-start win32 dialog a dark folder.
+   */
+  @Test
+  void tabFoldersOnlyThroughDialogTabs() {
+    tabFoldersOnlyThroughDialogTabsRule().check(classes);
+  }
+
+  @Test
+  void dialogTabsRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        tabFoldersOnlyThroughDialogTabsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$CreatesTabFolder",
+        "CreatesTabFolder.open");
+  }
+
+  private static ArchRule tabFoldersOnlyThroughDialogTabsRule() {
+    return noClasses()
+        .that()
+        .resideOutsideOfPackage(ROOT + ".ui.swt.platform..")
+        .should()
+        .callConstructorWhere(newInstanceOf(org.eclipse.swt.widgets.TabFolder.class))
+        .because("a native TabFolder keeps a light tab row under a dark win32 start");
+  }
 }

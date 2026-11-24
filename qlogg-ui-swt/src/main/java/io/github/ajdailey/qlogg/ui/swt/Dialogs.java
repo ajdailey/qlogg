@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -205,6 +206,19 @@ final class Dialogs {
    */
   static Button check(Composite parent) {
     return DialogColors.of(parent.getDisplay()).check(parent);
+  }
+
+  /**
+   * Creates the platform's dialog tab folder ({@link PlatformTraits#dialogTabs}), filling a grid
+   * cell.
+   *
+   * @param parent the dialog composite, laid out as a grid
+   * @return the tabs
+   */
+  static DialogTabs tabs(Composite parent) {
+    DialogTabs tabs = PlatformTraits.PLATFORM.dialogTabs(parent);
+    tabs.control().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    return tabs;
   }
 
   /**
