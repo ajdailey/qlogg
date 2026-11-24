@@ -98,11 +98,6 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public boolean colorsChromeUnderDark() {
-    return false;
-  }
-
-  @Override
   public int busyCursor() {
     return SWT.CURSOR_WAIT;
   }
@@ -110,6 +105,11 @@ final class CocoaTraits implements PlatformTraits {
   @Override
   public DialogColors dialogColors(Display display) {
     return new NativeDialogColors();
+  }
+
+  @Override
+  public ChromeColors chromeColors(Display display) {
+    return new NativeChromeColors();
   }
 
   @Override

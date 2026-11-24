@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
 import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.theme.ThemeService;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -24,6 +26,7 @@ import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -54,14 +57,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The rows {@link MainWindow} gives {@link ChromeColors}, colored with the win32 traits on any
- * platform, and the search row's Predefined filters button.
+ * The rows and fields {@link MainWindow} gives the win32 {@link ChromeColors} on any platform, the
+ * empty view areas, and the search row's Predefined filters button.
  */
 @Tag("swt")
 class ChromeWindowTest {
   private static final Duration BOUND = Duration.ofSeconds(10);
   private static final PlatformTraits WIN32 = PlatformTraits.of("win32", false);
   private static final RGB OWN = new RGB(0x10, 0x20, 0x30);
+  private static final RGB BACKGROUND = rgb(Palette.DARK.gutter());
+  private static final RGB TEXT = rgb(Palette.DARK.text());
+  private static final RGB FIELD = rgb(Palette.DARK.background());
 
   @TempDir Path temp;
 
@@ -93,7 +99,7 @@ class ChromeWindowTest {
             new BlockCache(65536, 1 << 20),
             budget,
             StandardCharsets.ISO_8859_1);
-    window = new MainWindow(display);
+    window = new MainWindow(display, Keymap.defaults(), Palette.LIGHT, WIN32.chromeColors(display));
     controller =
         new ApplicationController(
             workers,
@@ -189,67 +195,85 @@ class ChromeWindowTest {
     return colors;
   }
 
-  private static List<RGB> fields(List<Control> controls) {
-    List<RGB> colors = new ArrayList<RGB>();
-    for (Control control : controls) {
-      colors.add(control.getBackground().getRGB());
+  /** The text fields and editable combos under the surfaces. */
+  private List<Control> fields() {
+    List<Control> fields = new ArrayList<Control>();
+    for (Control surface : surfaces()) {
+      addFields(surface, fields);
     }
-    return colors;
+    return fields;
+  }
+
+  private static void addFields(Control control, List<Control> fields) {
+    if (control instanceof Text
+        || (control instanceof Combo && (control.getStyle() & SWT.READ_ONLY) == 0)) {
+      fields.add(control);
+    } else if (control instanceof Composite composite) {
+      for (Control child : composite.getChildren()) {
+        addFields(child, fields);
+      }
+    }
   }
 
   @Test
-  void theWindowListsTheTopRowTheSearchRowTheQuickFindBarTheStatusBarAndTheSash() {
-    List<Control> listed = window.chrome().surfaces();
-    assertEquals(surfaces().size(), listed.size(), listed.toString());
-    assertTrue(listed.containsAll(surfaces()), listed.toString());
-    assertEquals(2, window.chrome().icons().size(), "the toolbar's and the search row's");
-    assertTrue(window.chrome().icons().contains(window.searchBar().icons()));
-    assertFalse(window.chrome().dark(), "the running platform's traits on a light theme");
-  }
-
-  @Test
-  void eachRowTakesTheDarkColorsAndFieldsStayNative() {
+  void eachRowAndFieldTakesTheDarkColors() {
     List<Control> controls = colored();
     List<RGB> system = colors(controls);
+    List<Control> fields = fields();
+    assertEquals(6, fields.size(), "path, pattern, range end, two context counts, quick find");
+    assertTrue(
+        fields.containsAll(
+            List.of(
+                window.pathField(),
+                window.searchBar().pattern(),
+                window.searchBar().rangeEnd(),
+                window.quickFindBar().field())),
+        fields.toString());
+    List<RGB> systemFields = colors(fields);
     List<Control> natives =
-        List.of(
-            window.pathField(),
-            window.searchBar().pattern(),
-            window.searchBar().visibility(),
-            window.tabStrip().buttons().control());
-    // Own colors, so a field that reports its parent's inherited color on GTK still shows a change.
-    for (int i = 0; i < 3; i++) {
-      natives.get(i).setBackground(new Color(OWN));
-    }
-    List<RGB> nativeColors = fields(natives);
-    ChromeColors chrome = new ChromeColors(WIN32, display);
-    try {
-      for (Control surface : window.chrome().surfaces()) {
-        chrome.add(surface);
-      }
-      for (ToolIcons set : window.chrome().icons()) {
-        chrome.add(set);
-      }
-      for (boolean dark : new boolean[] {true, false, true}) {
-        chrome.apply(dark);
-        if (dark) {
-          for (Control control : controls) {
-            assertEquals(
-                rgb(ChromeColors.BACKGROUND), control.getBackground().getRGB(), "" + control);
-            assertEquals(rgb(ChromeColors.TEXT), control.getForeground().getRGB(), "" + control);
-          }
-          assertTrue(window.searchBar().icons().darkBackground(), "search row ink");
-          for (ToolItem item : window.toolBar().getItems()) {
-            assertNotNull(item.getDisabledImage(), item.getToolTipText());
-          }
-        } else {
-          assertEquals(system, colors(controls));
-          assertFalse(window.searchBar().icons().darkBackground(), "search row ink");
+        List.of(window.searchBar().visibility(), window.tabStrip().buttons().control());
+    // Own colors, so a control that reports its parent's inherited color on GTK still shows a
+    // change.
+    natives.get(0).setBackground(new Color(OWN));
+    List<RGB> nativeColors = colors(natives);
+    ChromeColors chrome = window.chrome();
+    for (boolean dark : new boolean[] {true, false, true}) {
+      chrome.apply(dark);
+      if (dark) {
+        for (Control control : controls) {
+          assertEquals(BACKGROUND, control.getBackground().getRGB(), "" + control);
+          assertEquals(TEXT, control.getForeground().getRGB(), "" + control);
         }
-        assertEquals(nativeColors, fields(natives));
+        for (Control field : fields) {
+          assertEquals(FIELD, field.getBackground().getRGB(), "" + field);
+          assertEquals(TEXT, field.getForeground().getRGB(), "" + field);
+        }
+        assertTrue(window.searchBar().icons().darkBackground(), "search row ink");
+        for (ToolItem item : window.toolBar().getItems()) {
+          assertNotNull(item.getDisabledImage(), item.getToolTipText());
+        }
+      } else {
+        assertEquals(system, colors(controls));
+        assertEquals(systemFields, colors(fields));
+        assertFalse(window.searchBar().icons().darkBackground(), "search row ink");
       }
-    } finally {
-      chrome.dispose();
+      assertEquals(nativeColors, colors(natives));
+    }
+  }
+
+  /**
+   * With no file open, the log and results areas show the palette's background, as the views do.
+   */
+  @Test
+  void theEmptyViewAreasTakeThePaletteBackground() {
+    Composite split = window.sash().getParent();
+    Composite main = (Composite) split.getChildren()[0];
+    Composite results = (Composite) ((Composite) split.getChildren()[1]).getChildren()[1];
+    for (ThemeMode mode : new ThemeMode[] {ThemeMode.DARK, ThemeMode.LIGHT}) {
+      controller.theme().setMode(mode);
+      RGB expected = rgb(controller.theme().palette().background());
+      assertEquals(expected, main.getBackground().getRGB(), "main, " + mode);
+      assertEquals(expected, results.getBackground().getRGB(), "results, " + mode);
     }
   }
 

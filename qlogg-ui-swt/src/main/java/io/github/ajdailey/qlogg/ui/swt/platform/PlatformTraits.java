@@ -178,15 +178,6 @@ public interface PlatformTraits {
   boolean lightChecksUnderDark();
 
   /**
-   * Reports whether the main window's own rows take the palette's colors under a dark theme. win32
-   * SWT draws a {@code ToolBar}, {@code Composite}, {@code Label} and {@code Link} light under the
-   * dark native theme.
-   *
-   * @return true on win32
-   */
-  boolean colorsChromeUnderDark();
-
-  /**
    * Returns the busy cursor's {@link SWT} cursor style, an arrow with a progress mark that keeps
    * the window clickable. cocoa maps {@code CURSOR_APPSTARTING} to a plain arrow.
    *
@@ -202,6 +193,14 @@ public interface PlatformTraits {
    *     NativeDialogColors}
    */
   DialogColors dialogColors(Display display);
+
+  /**
+   * Creates a window's chrome colors.
+   *
+   * @param display the Display
+   * @return {@link Win32ChromeColors} on win32, else {@link NativeChromeColors}
+   */
+  ChromeColors chromeColors(Display display);
 
   /**
    * Creates the stacking for View > Always on Top. On GTK this reads the backend the Display

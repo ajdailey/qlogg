@@ -3,7 +3,8 @@
 `SwtThemeService` applies `ui.theme` to native widgets and reports system
 appearance changes; `CocoaChrome` recolors native widgets on macOS;
 `DialogColors` colors dialogs on a dark Windows start; `ChromeColors` colors
-the main window's rows under a dark theme on Windows; `TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
+the main window's rows and fields under a dark theme on Windows;
+`TabStrip.colorTabs` colors the tab strips; `Icons` and `ToolIcons` load the
 images. Module overview: [../README.md](../README.md).
 
 ## Palette
@@ -18,9 +19,9 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 
 | Surface | Colors from |
 |---|---|
-| `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink | The palette |
+| `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink, the empty log and results areas | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
-| Top row, search row, quick find bar, status bar and sash on win32 | `ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
+| Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
 | `CocoaChrome` shell, list and header colors | The system appearance; skips `PALETTE_COLORED` folders |
 | Dialogs and tool windows on win32 under a dark start | `Win32DialogColors`; see [Dialog colors](#dialog-colors) |
 
@@ -39,7 +40,7 @@ into a change event.
   a light page cannot show. Every check box therefore comes from
   `SwtThemeService.check`, which creates it with the theme off, except in a
   dialog with `Win32DialogColors`, whose page is dark. On the quick find bar
-  `ChromeColors` gives an enabled box's label the palette text under dark.
+  `Win32ChromeColors` gives an enabled box's label the palette text under dark.
 - cocoa: do not set an application appearance. cocoa SWT caches its widget
   colors under the system appearance, and a different application appearance
   draws text in that appearance over the cached backgrounds (white on light
@@ -47,36 +48,68 @@ into a change event.
 
 ## Chrome colors
 
-`ChromeColors` paints the main window's own rows on win32
-(`PlatformTraits.colorsChromeUnderDark`), where the dark native theme leaves a
-`ToolBar`, `Composite`, `Label` and `Link` light. While `ui.theme` resolves to
-dark (`ThemeController.dark`, reported by `PaletteListener.themeChanged`), every
-control under a registered surface takes `Palette.DARK.gutter` (`#162638`, the
-tab strip's background) and `Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a
-`Link` takes the system link color moved toward white to 4.5:1; each composite
-takes `SWT.INHERIT_DEFAULT`, so native push buttons show no light corners.
-Under light the colors are null and composites take `SWT.INHERIT_NONE`. Both
-directions apply live, though native controls change only at the next start.
-The colors follow `ui.theme`, not the `view.colors` scheme, as native controls
-do.
+`MainWindow` takes a `ChromeColors` from `PlatformTraits.chromeColors` and calls
+it on every platform: `Win32ChromeColors` on win32, where the dark native theme
+leaves a `ToolBar`, `Composite`, `Label`, `Link` and every field light, and
+`NativeChromeColors`, whose methods do nothing, on GTK and cocoa.
+
+| Method | `Win32ChromeColors` | `NativeChromeColors` |
+|---|---|---|
+| `add(Control)` | Lists a surface and colors it for the current side; a control created later under it is colored at its `SWT.Skin` event | Nothing |
+| `add(ChromeColors.Icons)` | Lists an icon set; sets its checked ink and faded disabled copies | Nothing |
+| `apply(boolean)` | Colors every surface for a side, then fades and re-inks every icon set | Nothing |
+| `dispose()` | Removes the `SWT.Skin` listener | Nothing |
+
+While `ui.theme` resolves to dark (`ThemeController.dark`, reported by
+`PaletteListener.themeChanged`), every control under a surface takes
+`Palette.DARK.gutter` (`#162638`, the tab strip's background) and
+`Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a `Link` takes the system link
+color moved toward white to 4.5:1; each composite takes `SWT.INHERIT_DEFAULT`,
+so native push buttons show no light corners. A `Text` and an editable `Combo`
+take `Palette.DARK.background` (`#1b2e44`, text 10.9:1) and `Palette.DARK.text`. Under light
+the colors are null and composites take `SWT.INHERIT_NONE`. Both directions
+apply live. The colors follow `ui.theme`, not the `view.colors` scheme, as
+native controls do.
+
+After a dark start (`DialogColors.nativeDark`), a field holding text keeps the
+dark colors under light until the next start: the dark native field draws
+near-black under any light colors. An empty field takes the system colors. A
+field is colored again on the `SWT.Modify` that empties it or gives it text.
 
 `MainWindow` registers the top row, the search row, the quick find bar, the
-status bar and each sash of the split. A control created later under a surface
-is colored at its `SWT.Skin` event. The walk does not enter push and arrow
-buttons, `Text`, `Combo`, `List`, `Table`, `Tree`, `Spinner`, `ProgressBar`,
-`StyledText`, `Browser`, `CTabFolder` or a control with
-`CocoaChrome.PALETTE_COLORED`; the path field, the search row's combos and the
-context fields stay native. `TabStripButtons` paints itself from the palette
-and is not registered.
+status bar and each sash of the split. The fields are the path field (read-only),
+the pattern and range combos, the two context fields and the quick find field.
+The walk does not enter push and arrow buttons, a read-only `Combo`, `List`,
+`Table`, `Tree`, `Spinner`, `ProgressBar`, `StyledText`, `Browser`,
+`CTabFolder` or a control with `ChromeColors.PALETTE_COLORED`; the visibility
+combo stays native. `TabStripButtons` paints itself from the palette and is not
+registered.
 
-`ChromeColors.apply` colors the surfaces first, then calls `fadeDisabled` and
-`reink` on the toolbar's and the search row's `ToolIcons`. The ink is read from
-a tool bar the walk colors, so a re-ink before the walk keeps the light-row
-ink; `ChromeColorsTest` fails in that order.
+`apply` colors the surfaces first, then calls `fadeDisabled` and `reink` on the
+toolbar's and the search row's `ToolIcons`. The ink is read from a tool bar the
+walk colors, so a re-ink before the walk keeps the light-row ink;
+`ChromeColorsTest` fails in that order.
 
-Limits on win32: the 1 px `COLOR_WIDGET_NORMAL_SHADOW` line `CTabFolder` draws
-under its strip and around the selected tab stays, because SWT's renderer reads
-that color in package-private code.
+A checked tool item draws the checked background of the startup native theme,
+not the painted row (measured on Windows 11 and `windows-2025`): `#455160`
+after a dark start under dark, `#c0c0c0` after a dark start under light,
+`#cce8ff` after a light start under either. A disabled checked item draws the
+same after a dark start and the row after a light start. `add(Icons)` calls
+`lightChecked(nativeDark)`, so an enabled checked item takes the light ink only
+after a dark start under dark (5.45:1, 6.25:1, 8.97:1 in the three cases); its
+faded disabled copy keeps the set's ink. `ToolIcons` re-inks a check item on its
+`SWT.Selection`. Code checks or unchecks an inked item only through
+`ToolIcons.check`, because `setSelection` sends no event.
+
+Limits on win32, all drawn by SWT or the native control from colors no public
+API sets:
+
+- The 1 px `COLOR_WIDGET_NORMAL_SHADOW` line `CTabFolder` draws under its strip
+  and around the selected tab, read in package-private renderer code.
+- A 4 px `#6d6d6d` band along the top of the selected tab (2.97:1 on the row),
+  `CTabFolder`'s selection highlight in the same renderer.
+- The top row's separators: a `Label` with `SWT.SEPARATOR` draws an etched
+  pair, 1 px `#a0a0a0` and 1 px `#ffffff`, whatever its colors.
 
 ## Dialog colors
 
@@ -140,7 +173,7 @@ reads them once, so an uncolored strip keeps them through a theme change
 
 `ToolIcons` picks the ink from the background of its ink source, the owner or
 a tool bar given as `ToolIcons(Control, Control)`, because toolbars are native
-or, on Windows under dark, painted by `ChromeColors`. `reink` reads the source
+or, on Windows under dark, painted by `Win32ChromeColors`. `reink` reads the source
 through `PlatformTraits.shownBackground` and swaps the image of every item
 given to `apply`. It runs on `SWT.Settings`, from the Display or from
 `CocoaChrome` on the owner, and on the UI turn after a palette change, once
@@ -158,7 +191,7 @@ A menu item given to `apply(MenuItem, String)` follows the same ink. On GTK a
 disabled menu item on a dark background shows a copy at 40% opacity
 (`showState`), because GTK's disabled effect brightens the image there.
 `fadeDisabled(true)` gives every tool item of a set the same faded copy through
-`setDisabledImage`; `ChromeColors` turns it on under dark on win32, where SWT's
+`setDisabledImage`; `Win32ChromeColors` turns it on under dark, where SWT's
 disabled copy maps the light ink to a gray brighter than the enabled ink.
 Measured under Xvfb, GTK 3, on `#162638` over every icon (SWT 3.135.0 uses the
 same `IMAGE_DISABLE` transform on win32): enabled 9.06:1 or more, SWT's disabled

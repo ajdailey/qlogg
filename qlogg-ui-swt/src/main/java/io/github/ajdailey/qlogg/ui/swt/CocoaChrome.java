@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
@@ -36,7 +37,7 @@ import org.eclipse.swt.widgets.Tree;
  */
 final class CocoaChrome {
   /** Control data key: the owner colors this {@link CTabFolder} from the palette. */
-  static final String PALETTE_COLORED = CocoaChrome.class.getName() + ".paletteColored";
+  static final String PALETTE_COLORED = ChromeColors.PALETTE_COLORED;
 
   /** {@code COLOR_WIDGET_BACKGROUND} and {@code COLOR_LIST_BACKGROUND}, measured on macOS 15. */
   private static final Color DARK_WINDOW = new Color(0x32, 0x32, 0x32);

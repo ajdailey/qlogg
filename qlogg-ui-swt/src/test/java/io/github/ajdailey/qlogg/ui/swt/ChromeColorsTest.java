@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -28,6 +31,7 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
@@ -40,7 +44,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-/** {@link ChromeColors} with each platform's traits, on any platform. */
+/**
+ * The win32 {@link ChromeColors} and the others, from {@link PlatformTraits#chromeColors}, on any
+ * platform.
+ */
 @Tag("swt")
 class ChromeColorsTest {
   private static final Duration BOUND = Duration.ofSeconds(30);
@@ -49,6 +56,10 @@ class ChromeColorsTest {
   private static final RGB OWN_TEXT = new RGB(0x40, 0x50, 0x60);
   private static final RGB LIGHT_INK = new RGB(0xd4, 0xd4, 0xd4);
   private static final RGB DARK_INK = new RGB(0x3a, 0x3a, 0x3a);
+  private static final RGB BACKGROUND = rgb(Palette.DARK.gutter());
+  private static final RGB TEXT = rgb(Palette.DARK.text());
+  private static final RGB FIELD = rgb(Palette.DARK.background());
+  private static final double LINK_CONTRAST = 4.5;
 
   /** Lowest contrast of a faded disabled icon's strongest pixel on the dark rows. */
   private static final double DISABLED_MIN = 2.5;
@@ -66,6 +77,8 @@ class ChromeColorsTest {
   private ToolIcons icons;
   private ToolIcons siblingIcons;
   private List<ToolItem> items;
+  private ToolItem toggle;
+  private List<Control> fields;
 
   @BeforeEach
   void create() {
@@ -89,14 +102,18 @@ class ChromeColorsTest {
         List.of(
             new Button(surface, SWT.PUSH),
             new Button(surface, SWT.ARROW | SWT.DOWN),
-            new Text(surface, SWT.SINGLE),
-            new Combo(surface, SWT.DROP_DOWN),
+            new Combo(surface, SWT.READ_ONLY),
             new Tree(surface, SWT.NONE),
             new StyledText(surface, SWT.NONE),
             tabs,
             new Label(tabs, SWT.NONE),
             marked,
             new Label(marked, SWT.NONE));
+    fields =
+        List.of(
+            new Text(surface, SWT.SINGLE),
+            new Text(surface, SWT.SINGLE | SWT.READ_ONLY),
+            new Combo(surface, SWT.DROP_DOWN));
     icons = new ToolIcons(bar);
     items = new ArrayList<ToolItem>();
     for (String name : names()) {
@@ -106,7 +123,8 @@ class ChromeColorsTest {
     }
     // The search row's set: owned by the row, inked from one of its tool bars.
     siblingIcons = new ToolIcons(surface, sibling);
-    siblingIcons.apply(new ToolItem(sibling, SWT.CHECK), ToolIcons.CASE);
+    toggle = new ToolItem(sibling, SWT.CHECK);
+    siblingIcons.apply(toggle, ToolIcons.CASE);
     // A kept control carries its own colors, as the log views, tab strips and fields do.
     for (Control control : kept) {
       control.setBackground(new Color(OWN_BACKGROUND));
@@ -156,7 +174,7 @@ class ChromeColorsTest {
   }
 
   private ChromeColors chrome(PlatformTraits traits) {
-    ChromeColors chrome = new ChromeColors(traits, display);
+    ChromeColors chrome = traits.chromeColors(display);
     chrome.add(surface);
     chrome.add(icons);
     chrome.add(siblingIcons);
@@ -182,17 +200,15 @@ class ChromeColorsTest {
   void aDarkThemeOnWin32ColorsTheSurfacesAndKeepsNativeControls() {
     chrome(WIN32).apply(true);
     for (Control control : painted()) {
-      assertEquals(rgb(ChromeColors.BACKGROUND), control.getBackground().getRGB(), "" + control);
-      assertEquals(rgb(ChromeColors.TEXT), control.getForeground().getRGB(), "" + control);
+      assertEquals(BACKGROUND, control.getBackground().getRGB(), "" + control);
+      assertEquals(TEXT, control.getForeground().getRGB(), "" + control);
     }
     for (Control control : kept) {
       assertEquals(OWN_BACKGROUND, control.getBackground().getRGB(), "" + control);
       assertEquals(OWN_TEXT, control.getForeground().getRGB(), "" + control);
     }
     assertEquals(SWT.INHERIT_DEFAULT, surface.getBackgroundMode());
-    assertTrue(
-        ChromeColors.contrast(link.getLinkForeground().getRGB(), rgb(ChromeColors.BACKGROUND))
-            >= ChromeColors.LINK_CONTRAST);
+    assertTrue(contrast(link.getLinkForeground().getRGB(), BACKGROUND) >= LINK_CONTRAST);
   }
 
   @Test
@@ -202,10 +218,9 @@ class ChromeColorsTest {
     ChromeColors chrome = chrome(WIN32);
     for (boolean dark : new boolean[] {true, false, true, false}) {
       chrome.apply(dark);
-      assertEquals(dark, chrome.dark());
       if (dark) {
-        assertEquals(rgb(ChromeColors.BACKGROUND), surface.getBackground().getRGB());
-        assertEquals(rgb(ChromeColors.TEXT), label.getForeground().getRGB());
+        assertEquals(BACKGROUND, surface.getBackground().getRGB());
+        assertEquals(TEXT, label.getForeground().getRGB());
       } else {
         assertEquals(system, colors(painted()));
         assertEquals(systemLink, link.getLinkForeground().getRGB());
@@ -226,8 +241,8 @@ class ChromeColorsTest {
             PlatformTraits.of("gtk", true))) {
       ChromeColors chrome = chrome(traits);
       chrome.apply(true);
-      assertFalse(chrome.dark(), traits.name());
-      assertEquals(List.of(surface), chrome.surfaces(), "listed on " + traits.name());
+      chrome.apply(false);
+      chrome.dispose();
     }
     assertEquals(system, colors(painted()));
     assertEquals(SWT.INHERIT_NONE, surface.getBackgroundMode());
@@ -241,7 +256,7 @@ class ChromeColorsTest {
   void aControlCreatedLaterUnderASurfaceTakesTheColors() {
     chrome(WIN32).apply(true);
     final Label added = new Label(surface, SWT.NONE);
-    final Label inTabs = new Label((Composite) kept.get(6), SWT.NONE);
+    final Label inTabs = new Label((Composite) kept.get(5), SWT.NONE);
     final RGB tabsLabel = inTabs.getForeground().getRGB();
     assertTrue(
         EventLoop.runUntil(
@@ -249,11 +264,11 @@ class ChromeColorsTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return added.getForeground().getRGB().equals(rgb(ChromeColors.TEXT));
+                return added.getForeground().getRGB().equals(TEXT);
               }
             },
             BOUND));
-    assertEquals(rgb(ChromeColors.BACKGROUND), added.getBackground().getRGB());
+    assertEquals(BACKGROUND, added.getBackground().getRGB());
     assertEquals(tabsLabel, inTabs.getForeground().getRGB());
   }
 
@@ -295,7 +310,7 @@ class ChromeColorsTest {
   @Test
   void theFadedCopyIsDimmerThanTheEnabledIconAndSwtsOwnIsNot() {
     chrome(WIN32).apply(true);
-    RGB ground = rgb(ChromeColors.BACKGROUND);
+    RGB ground = BACKGROUND;
     double enabledMin = Double.MAX_VALUE;
     double swtMin = Double.MAX_VALUE;
     double fadedMin = Double.MAX_VALUE;
@@ -324,12 +339,123 @@ class ChromeColorsTest {
   }
 
   @Test
-  void aDisposedSurfaceLeavesTheList() {
+  void aDisposedSurfaceIsSkipped() {
     ChromeColors chrome = chrome(WIN32);
+    Composite other = new Composite(shell, SWT.NONE);
+    chrome.add(other);
     surface.dispose();
     chrome.apply(true);
-    assertTrue(chrome.dark());
-    assertEquals(List.of(), chrome.surfaces());
+    assertEquals(BACKGROUND, other.getBackground().getRGB());
+  }
+
+  private List<RGB> fieldColors() {
+    return colors(fields);
+  }
+
+  private static List<RGB> dark(int count, RGB background, RGB text) {
+    List<RGB> colors = new ArrayList<RGB>();
+    for (int i = 0; i < count; i++) {
+      colors.add(background);
+      colors.add(text);
+    }
+    return colors;
+  }
+
+  private static void setText(Control field, String text) {
+    if (field instanceof Text value) {
+      value.setText(text);
+    } else {
+      ((Combo) field).setText(text);
+    }
+  }
+
+  @Test
+  void fieldsTakeThePaletteBackgroundUnderDarkAndTheSystemColorsUnderLight() {
+    List<RGB> system = fieldColors();
+    ChromeColors chrome = chrome(WIN32);
+    for (boolean dark : new boolean[] {true, false, true, false}) {
+      chrome.apply(dark);
+      assertEquals(dark ? dark(3, FIELD, TEXT) : system, fieldColors(), "dark " + dark);
+    }
+    setText(fields.get(0), "mock");
+    chrome.apply(false);
+    assertEquals(system, fieldColors(), "a light start keeps no field dark");
+  }
+
+  /**
+   * After a dark start a field holding text keeps the dark colors on the light side, and an empty
+   * one takes the system colors; a field turns when it empties or takes text.
+   */
+  @Test
+  void afterADarkStartAFieldHoldingTextStaysDarkOnTheLightSide() {
+    List<RGB> system = fieldColors();
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    ChromeColors chrome = chrome(WIN32);
+    setText(fields.get(0), "mock");
+    setText(fields.get(2), "mock");
+    for (boolean dark : new boolean[] {true, false, true, false}) {
+      chrome.apply(dark);
+      assertEquals(FIELD, fields.get(0).getBackground().getRGB(), "holding text, dark " + dark);
+      assertEquals(TEXT, fields.get(0).getForeground().getRGB(), "holding text, dark " + dark);
+      assertEquals(FIELD, fields.get(2).getBackground().getRGB(), "combo, dark " + dark);
+      assertEquals(
+          dark ? FIELD : system.get(2), fields.get(1).getBackground().getRGB(), "empty " + dark);
+    }
+    setText(fields.get(0), "");
+    assertEquals(system.subList(0, 2), fieldColors().subList(0, 2), "emptied");
+    setText(fields.get(1), "mock");
+    assertEquals(FIELD, fields.get(1).getBackground().getRGB(), "took text");
+    chrome.apply(true);
+    setText(fields.get(1), "");
+    assertEquals(FIELD, fields.get(1).getBackground().getRGB(), "emptied under dark");
+  }
+
+  /**
+   * A checked tool item draws the startup native theme's checked background: dark after a dark
+   * start and light after a light start, whatever the row. Its icon takes the light ink only when
+   * both the start and the theme are dark, on check and uncheck; its faded disabled copy keeps the
+   * row's ink.
+   */
+  @Test
+  void aCheckedItemTakesTheInkOfTheStartupCheckedBackground() {
+    show();
+    for (boolean nativeDark : new boolean[] {false, true}) {
+      display.setData(DialogColors.NATIVE_DARK, nativeDark);
+      ChromeColors chrome = chrome(WIN32);
+      for (boolean dark : new boolean[] {true, false}) {
+        chrome.apply(dark);
+        String at = "start dark " + nativeDark + ", theme dark " + dark;
+        toggle.setSelection(true);
+        toggle.notifyListeners(SWT.Selection, new Event());
+        RGB checked = nativeDark && dark ? LIGHT_INK : DARK_INK;
+        assertInk(checked, toggle.getImage().getImageData());
+        if (dark) {
+          assertInk(LIGHT_INK, toggle.getDisabledImage().getImageData());
+        }
+        toggle.setSelection(false);
+        toggle.notifyListeners(SWT.Selection, new Event());
+        assertInk(dark ? LIGHT_INK : DARK_INK, toggle.getImage().getImageData());
+        siblingIcons.check(toggle, true);
+        assertInk(checked, toggle.getImage().getImageData());
+        siblingIcons.check(toggle, false);
+      }
+      chrome.dispose();
+    }
+  }
+
+  private static double contrast(RGB first, RGB second) {
+    double a = luminance(first);
+    double b = luminance(second);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  private static double luminance(RGB rgb) {
+    return 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
+  }
+
+  private static double linear(int channel) {
+    double value = channel / 255.0;
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
   }
 
   private static void assertInk(RGB ink, ImageData data) {
@@ -350,7 +476,7 @@ class ChromeColorsTest {
             blend(ink.red, ground.red, alpha),
             blend(ink.green, ground.green, alpha),
             blend(ink.blue, ground.blue, alpha));
-    return ChromeColors.contrast(drawn, ground);
+    return contrast(drawn, ground);
   }
 
   private static int blend(int ink, int ground, int alpha) {

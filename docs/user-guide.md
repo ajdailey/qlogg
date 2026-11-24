@@ -534,9 +534,11 @@ colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark 
 other controls: at once on Linux, at the next start on Windows, which says so
 when you change it. On Windows the system theme applies them too, from the
 Windows setting at start; the title bar, menu bar, buttons, scroll bars, lists
-and dialogs turn dark. The toolbar, search row, quick find bar, status bar and
-splitter turn dark under the dark theme on Windows and follow a change at once,
-either way; text fields keep their color until the next start. On Linux the
+and dialogs turn dark. The toolbar, search row, quick find bar, status bar, splitter
+and their text fields turn dark under the dark theme on Windows and follow a
+change at once, either way. After a dark start, a field holding text stays dark
+under the light theme until the next start. With no file open, the log and
+results areas show the log views' background. On Linux the
 GTK theme must have a dark variant. On macOS controls follow the system
 appearance and the theme recolors the log views.
 

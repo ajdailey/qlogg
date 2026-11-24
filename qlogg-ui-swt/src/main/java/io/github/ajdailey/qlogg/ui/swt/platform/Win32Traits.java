@@ -98,11 +98,6 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public boolean colorsChromeUnderDark() {
-    return true;
-  }
-
-  @Override
   public int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }
@@ -112,6 +107,11 @@ final class Win32Traits implements PlatformTraits {
     return DialogColors.nativeDark(display)
         ? new Win32DialogColors(display)
         : new NativeDialogColors();
+  }
+
+  @Override
+  public ChromeColors chromeColors(Display display) {
+    return new Win32ChromeColors(display);
   }
 
   @Override

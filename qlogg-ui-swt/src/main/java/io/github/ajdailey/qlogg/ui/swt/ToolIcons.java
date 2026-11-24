@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ToolItemSizing;
 import java.io.IOException;
@@ -33,9 +34,11 @@ import org.eclipse.swt.widgets.ToolItem;
  * through {@link PlatformTraits#shownBackground}, a drawn pixel on GTK. GTK's disabled effect
  * lightens a menu image, which on a dark background brightens it, so there {@link #showState} shows
  * a disabled menu item a faded copy; {@link #fadeDisabled} gives disabled tool items the same copy.
- * Images are created on first use on the UI thread and disposed with the owner control.
+ * {@link #lightChecked} keeps checked items in the dark ink where the checked background stays
+ * light; code checks an item through {@link #check}. Images are created on first use on the UI
+ * thread and disposed with the owner control.
  */
-final class ToolIcons {
+final class ToolIcons implements ChromeColors.Icons {
   /** Opens files. */
   static final String OPEN = "open";
 
@@ -150,6 +153,9 @@ final class ToolIcons {
   /** Suffix of a faded copy's key in the image cache. */
   private static final String FADED = "#faded";
 
+  /** Suffix of the cache key of an image in the ink other than the set's. */
+  private static final String OTHER_INK = "#otherInk";
+
   /** Percent of its opacity a faded copy keeps. */
   private static final int FADE_PERCENT = 40;
 
@@ -174,6 +180,15 @@ final class ToolIcons {
   private final Map<MenuItem, String> menuItems = new LinkedHashMap<MenuItem, String>();
   private final boolean faded = PlatformTraits.PLATFORM.fadesDisabledIcons();
   private boolean fadedTools;
+  private boolean lightChecked = true;
+  private final Listener checked =
+      new Listener() {
+        @Override
+        public void handleEvent(Event event) {
+          ToolItem item = (ToolItem) event.widget;
+          show(item, items.get(item));
+        }
+      };
   private Image blank;
 
   /**
@@ -264,9 +279,11 @@ final class ToolIcons {
       return false;
     }
     SIZING.keepIconSize(item);
-    item.setImage(image);
     items.put(item, name);
-    showDisabled(item, name);
+    show(item, name);
+    if ((item.getStyle() & SWT.CHECK) != 0) {
+      item.addListener(SWT.Selection, checked);
+    }
     return true;
   }
 
@@ -350,7 +367,8 @@ final class ToolIcons {
    * image of every item given to {@link #apply}. Native controls change background with the theme.
    * A set of fixed ink keeps it.
    */
-  void reink() {
+  @Override
+  public void reink() {
     if (fixedInk || owner.isDisposed() || source.isDisposed()) {
       return;
     }
@@ -380,8 +398,7 @@ final class ToolIcons {
     images.clear();
     for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
       if (!entry.getKey().isDisposed()) {
-        entry.getKey().setImage(get(entry.getValue()));
-        showDisabled(entry.getKey(), entry.getValue());
+        show(entry.getKey(), entry.getValue());
       }
     }
     // Menu item icons.
@@ -403,20 +420,62 @@ final class ToolIcons {
    *
    * @param on true for the faded copies
    */
-  void fadeDisabled(boolean on) {
+  @Override
+  public void fadeDisabled(boolean on) {
     if (on == fadedTools) {
       return;
     }
     fadedTools = on;
     for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
       if (!entry.getKey().isDisposed()) {
-        showDisabled(entry.getKey(), entry.getValue());
+        show(entry.getKey(), entry.getValue());
       }
     }
   }
 
-  private void showDisabled(ToolItem item, String name) {
-    Image disabled = fadedTools ? get(name + FADED) : null;
+  /**
+   * Sets whether a checked tool item takes the light ink with the rest of the set. Off, an enabled
+   * checked item takes the dark ink, for a checked background that stays light on a dark row; its
+   * faded disabled copy keeps the set's ink, because a disabled checked item draws the row there.
+   *
+   * @param on false for the dark ink on checked items
+   */
+  @Override
+  public void lightChecked(boolean on) {
+    if (on != lightChecked) {
+      lightChecked = on;
+      for (Map.Entry<ToolItem, String> entry : items.entrySet()) {
+        if (!entry.getKey().isDisposed()) {
+          show(entry.getKey(), entry.getValue());
+        }
+      }
+    }
+  }
+
+  /**
+   * Checks or unchecks a tool item given to {@link #apply} and shows the ink its checked state
+   * calls for. SWT sends no event for {@code setSelection}, so code checks such an item only
+   * through this method.
+   *
+   * @param item the check item
+   * @param selected true to check it
+   */
+  void check(ToolItem item, boolean selected) {
+    item.setSelection(selected);
+    String name = items.get(item);
+    if (name != null) {
+      show(item, name);
+    }
+  }
+
+  /** Shows a tool item's image and disabled image in the ink its checked state calls for. */
+  private void show(ToolItem item, String name) {
+    boolean light = darkBackground && (lightChecked || !item.getSelection());
+    Image image = get(name, light);
+    if (item.getImage() != image) {
+      item.setImage(image);
+    }
+    Image disabled = fadedTools ? get(name + FADED, darkBackground) : null;
     if (item.getDisabledImage() != disabled) {
       item.setDisabledImage(disabled);
     }
@@ -442,10 +501,16 @@ final class ToolIcons {
    * @return the image, or null when its PNG is missing from the jar
    */
   Image get(String name) {
-    Image image = images.get(name);
-    if (image == null && !images.containsKey(name)) {
-      image = create(name);
-      images.put(name, image);
+    return get(name, darkBackground);
+  }
+
+  /** Returns an icon in an ink, created on first use; null when its PNG is missing. */
+  private Image get(String name, boolean lightInk) {
+    String key = lightInk == darkBackground ? name : name + OTHER_INK;
+    Image image = images.get(key);
+    if (image == null && !images.containsKey(key)) {
+      image = create(name, lightInk);
+      images.put(key, image);
     }
     return image;
   }
@@ -459,11 +524,11 @@ final class ToolIcons {
     return darkBackground;
   }
 
-  private Image create(String key) {
+  private Image create(String key, boolean lightInk) {
     // Menu item icons.
     final boolean fade = key.endsWith(FADED);
     String name = fade ? key.substring(0, key.length() - FADED.length()) : key;
-    final String prefix = "icons/tool/" + name + (darkBackground ? "-dark-" : "-light-");
+    final String prefix = "icons/tool/" + name + (lightInk ? "-dark-" : "-light-");
     if (data(prefix + 16) == null) {
       return null;
     }

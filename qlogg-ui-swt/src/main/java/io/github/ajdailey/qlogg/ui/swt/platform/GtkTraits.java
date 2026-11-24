@@ -102,11 +102,6 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
-  public final boolean colorsChromeUnderDark() {
-    return false;
-  }
-
-  @Override
   public final int busyCursor() {
     return SWT.CURSOR_APPSTARTING;
   }
@@ -114,6 +109,11 @@ abstract class GtkTraits implements PlatformTraits {
   @Override
   public final DialogColors dialogColors(Display display) {
     return new NativeDialogColors();
+  }
+
+  @Override
+  public final ChromeColors chromeColors(Display display) {
+    return new NativeChromeColors();
   }
 
   // Menu item icons.

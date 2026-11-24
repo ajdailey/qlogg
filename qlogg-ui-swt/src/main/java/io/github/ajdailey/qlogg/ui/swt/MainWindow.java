@@ -26,10 +26,12 @@ import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
+import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.file.InvalidPathException;
@@ -52,6 +54,7 @@ import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.FileTransfer;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -283,12 +286,24 @@ public final class MainWindow implements MainView, ApplicationListener {
    * @param palette the palette the views start with
    */
   public MainWindow(Display display, Keymap keymap, Palette palette) {
+    this(display, keymap, palette, PlatformTraits.PLATFORM.chromeColors(display));
+  }
+
+  /**
+   * Creates the window with given chrome colors, not yet visible.
+   *
+   * @param display the Display
+   * @param keymap the key bindings for menus and the log views
+   * @param palette the palette the views start with
+   * @param chrome the colors of the window's own rows
+   */
+  MainWindow(Display display, Keymap keymap, Palette palette, ChromeColors chrome) {
     this.keymap = keymap;
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
     fullScreen = new FullScreen(shell, dispatcher, PlatformTraits.PLATFORM);
-    chrome = new ChromeColors(PlatformTraits.PLATFORM, display);
+    this.chrome = chrome;
     shell.setText(UiText.WINDOW_TITLE.text());
     icons = Icons.load(display, Icons.Variant.DARK);
     shell.setImages(icons.toArray(new Image[0]));
@@ -574,7 +589,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     toolItems.get(CommandId.RELOAD).setEnabled(file);
     toolItems.get(CommandId.FOLLOW).setEnabled(file);
     toolItems.get(CommandId.STOP).setEnabled(document != null);
-    toolItems.get(CommandId.FOLLOW).setSelection(document != null && document.following());
+    toolIcons.check(toolItems.get(CommandId.FOLLOW), document != null && document.following());
   }
 
   /**
@@ -897,6 +912,11 @@ public final class MainWindow implements MainView, ApplicationListener {
     if (overviewBar != null) {
       overviewBar.setPalette(next);
     }
+    // Empty view areas.
+    Rgb ground = next.background();
+    Color empty = new Color(ground.red(), ground.green(), ground.blue());
+    mainHolder.setBackground(empty);
+    resultsHolder.setBackground(empty);
     // Native controls restyle after the theme call returns; re-ink the icons on the next turn.
     dispatcher.asyncExec(
         new Runnable() {

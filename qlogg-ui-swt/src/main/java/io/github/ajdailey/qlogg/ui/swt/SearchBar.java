@@ -823,15 +823,15 @@ public final class SearchBar {
       if (!pattern.getText().equals(text)) {
         pattern.setText(text);
       }
-      regex.setSelection(options.mode() == MatchMode.REGEX);
-      matchCase.setSelection(options.caseSensitive());
-      wholeWord.setSelection(options.wholeWord());
-      inverse.setSelection(options.inverse());
-      combine.setSelection(options.combining());
-      inSelection.setSelection(options.inSelection());
-      autoRefresh.setSelection(options.autoRefresh());
-      keepResults.setSelection(options.keepResults());
-      range.setSelection(options.range());
+      icons.check(regex, options.mode() == MatchMode.REGEX);
+      icons.check(matchCase, options.caseSensitive());
+      icons.check(wholeWord, options.wholeWord());
+      icons.check(inverse, options.inverse());
+      icons.check(combine, options.combining());
+      icons.check(inSelection, options.inSelection());
+      icons.check(autoRefresh, options.autoRefresh());
+      icons.check(keepResults, options.keepResults());
+      icons.check(range, options.range());
       if (!rangeEnd.getText().equals(options.rangeEnd())) {
         rangeEnd.setText(options.rangeEnd());
       }

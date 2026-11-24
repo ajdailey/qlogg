@@ -386,9 +386,9 @@ that package or in the launcher.
 | `pollsSystemTheme` | yes | yes | - | - | `SwtThemeService`: polls `isSystemDarkTheme()` every 500 ms |
 | `themesAtCreation` | yes | - | - | - | `SwtThemeService.open` in system mode, `showsNow` |
 | `lightChecksUnderDark` | yes | - | - | - | `SwtThemeService.check` |
-| `colorsChromeUnderDark` | yes | - | - | - | `ChromeColors`: the main window's rows under a dark theme ([theme.md](theme.md#chrome-colors)) |
 | `busyCursor` | `CURSOR_APPSTARTING` | `CURSOR_WAIT` | `CURSOR_APPSTARTING` | `CURSOR_APPSTARTING` | `WindowBusyCursor` |
 | `dialogColors` | `Win32DialogColors` when started dark | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
+| `chromeColors` | `Win32ChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `MainWindow`: the window's rows and fields under a dark theme ([theme.md](theme.md#chrome-colors)) |
 | `stacking` | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
 | `toolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
 
