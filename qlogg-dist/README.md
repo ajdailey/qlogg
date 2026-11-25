@@ -101,7 +101,7 @@ tag's.
 
 ## Release artifacts
 
-`package -Psbom cyclonedx:makeAggregateBom` writes
+`package -Psbom org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom` writes
 `dist/qlogg-<version>-sbom.cdx.json`, a CycloneDX aggregate SBOM of the modules
 and their compile and runtime dependencies (`qlogg-bench` excluded). The goal
 runs once, in the parent, after every module has packaged, and reads the module
