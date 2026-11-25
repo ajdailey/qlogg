@@ -245,7 +245,9 @@
                     <version>${launch4j-maven-plugin.version}</version>
                 </plugin>
                 <!-- The aggregate SBOM of what the archives ship: compile and
-                     runtime scope, without qlogg-bench. -->
+                     runtime scope, without qlogg-bench. Invoked as a goal
+                     after `package`, never bound to a phase: see
+                     qlogg-dist/README.md "Release artifacts". -->
                 <plugin>
                     <groupId>org.cyclonedx</groupId>
                     <artifactId>cyclonedx-maven-plugin</artifactId>
@@ -575,30 +577,6 @@
     </build>
 
     <profiles>
-        <!-- -Psbom writes dist/qlogg-<version>-sbom.cdx.json at package. The
-             aggregate goal runs once, in the parent, over the whole reactor;
-             an inherited execution would rewrite the file per module. -->
-        <profile>
-            <id>sbom</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.cyclonedx</groupId>
-                        <artifactId>cyclonedx-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>sbom</id>
-                                <phase>package</phase>
-                                <inherited>false</inherited>
-                                <goals>
-                                    <goal>makeAggregateBom</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
         <!-- On Linux without DISPLAY SWT cannot create a Display, so SWT tests
              are skipped; run them under a display or xvfb-run. Windows and
              macOS always run them. -->

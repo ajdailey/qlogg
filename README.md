@@ -129,7 +129,7 @@ from the Ubuntu archive when the runner image lacks them.
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom cyclonedx:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
 | `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
@@ -193,9 +193,10 @@ To fix a bad draft, delete the draft and the tag
 
 #### Dependencies
 
-- `-Psbom` writes the CycloneDX SBOM to `dist/`: every compile and runtime
-  dependency of the shipped modules, plus the six SWT fragments `qlogg.jar`
-  carries. It leaves out build-only tools and `qlogg-bench`.
+- `package -Psbom cyclonedx:makeAggregateBom` writes the CycloneDX SBOM to
+  `dist/`: the shipped modules and every compile and runtime dependency, plus
+  the six SWT fragments `qlogg.jar` carries. It leaves out build-only tools
+  and `qlogg-bench`.
   `.github/scripts/sbom-components.sh`, run by the `package` job, adds the
   Temurin releases `dist.xml` downloads and launch4j's header.
 - `.mvn/maven.config` sets `--strict-checksums` and a resolver filter that
