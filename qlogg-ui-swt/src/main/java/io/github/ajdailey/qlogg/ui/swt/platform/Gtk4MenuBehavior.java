@@ -26,6 +26,9 @@ final class Gtk4MenuBehavior implements MenuBehavior {
   public void addWindowControls(Menu menu, Shell shell) {}
 
   @Override
+  public void toolWindowMenus(Shell tool, ToolMenus menus) {}
+
+  @Override
   public Set<CommandId> systemCommands(Display display) {
     return Set.of();
   }

@@ -27,6 +27,7 @@ import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -142,6 +143,46 @@ class MainMenuBarTest {
     assertTrue((menu.getItem(2).getStyle() & SWT.SEPARATOR) != 0);
     assertEquals("mock", menu.getItem(3).getText());
     shell.dispose();
+  }
+
+  /**
+   * A tool window takes the owner's menus where the platform shows them (cocoa), and those items
+   * run the owner's commands; a disposed tool window drops its bar.
+   */
+  @Test
+  void aToolWindowCarriesItsOwnersMenus() {
+    attach();
+    Shell dialog = Dialogs.shell(window.shell(), "mock", false);
+    boolean cocoa = "cocoa".equals(SWT.getPlatform());
+    assertEquals(cocoa, dialog.getMenuBar() != null);
+    dialog.dispose();
+    MenuBehavior.ToolMenus menus = ToolMenuBars.of(window.shell());
+    ToolMenuBars bars = (ToolMenuBars) menus;
+    assertEquals(0, bars.size());
+    Shell tool = new Shell(window.shell(), SWT.SHELL_TRIM);
+    Shell nested = new Shell(tool, SWT.SHELL_TRIM);
+    assertSame(menus, ToolMenuBars.of(nested));
+    Shell unowned = new Shell(display);
+    assertSame(ToolMenuBars.NONE, ToolMenuBars.of(unowned));
+    unowned.dispose();
+    menus.build(tool);
+    assertEquals(1, bars.size());
+    assertEquals(window.shell().getMenuBar().getItemCount(), tool.getMenuBar().getItemCount());
+    Menu view = topMenu(CommandGroup.VIEW);
+    show(view);
+    boolean before = item(view, CommandId.TOGGLE_OVERVIEW).getSelection();
+    Menu toolView = toolMenu(tool, CommandGroup.VIEW);
+    MenuItem toggle = item(toolView, CommandId.TOGGLE_OVERVIEW);
+    toggle.setSelection(!before);
+    toggle.notifyListeners(SWT.Selection, new Event());
+    show(view);
+    assertEquals(!before, item(view, CommandId.TOGGLE_OVERVIEW).getSelection());
+    MenuItem close = item(toolMenu(tool, CommandGroup.FILE), CommandId.CLOSE);
+    assertTrue(close.getEnabled());
+    close.notifyListeners(SWT.Selection, new Event());
+    assertTrue(tool.isDisposed());
+    assertFalse(window.shell().isDisposed());
+    assertEquals(0, bars.size());
   }
 
   @Test
@@ -299,6 +340,15 @@ class MainMenuBarTest {
   /** Sends the menu's Show event, as opening it does. */
   private static void show(Menu menu) {
     menu.notifyListeners(SWT.Show, new Event());
+  }
+
+  private static Menu toolMenu(Shell tool, CommandGroup group) {
+    for (MenuItem header : tool.getMenuBar().getItems()) {
+      if (header.getText().equals(group.label())) {
+        return header.getMenu();
+      }
+    }
+    throw new AssertionError(group.name());
   }
 
   private Menu topMenu(CommandGroup group) {

@@ -46,6 +46,9 @@ abstract class ImageMenuBehavior implements MenuBehavior {
   public final void addWindowControls(Menu menu, Shell shell) {}
 
   @Override
+  public final void toolWindowMenus(Shell tool, ToolMenus menus) {}
+
+  @Override
   public final Set<CommandId> systemCommands(Display display) {
     return Set.of();
   }

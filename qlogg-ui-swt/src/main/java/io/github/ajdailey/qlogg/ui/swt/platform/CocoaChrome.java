@@ -26,16 +26,28 @@ import org.eclipse.swt.widgets.Tree;
  * pinned appearance, while SWT paints composites, tabs, lists and fields with the colors it read.
  * So while the two differ, each shell's background is the window color of the pinned appearance,
  * forced onto its children. That inheritance stops at a {@link TabFolder}, so check boxes turn
- * transparent over its native panel, its titles get the text color, and lists and text fields get
- * the list colors. Menus stay native, and a {@link Canvas} that paints from the palette keeps its
- * colors, as does a {@link CTabFolder} with {@link ChromeColors#PALETTE_COLORED} set.
+ * transparent over its native panel, its titles get the text color, and tables, trees, lists and
+ * text fields get the list colors. In the appearance SWT read every color returns to the default.
+ * Menus stay native, and a {@link Canvas} that paints from the palette keeps its colors, as does a
+ * control with {@link ChromeColors#PALETTE_COLORED} set.
  *
- * <p>Table and Tree headers take explicit colors of the pinned appearance on every change, never
- * null. A control created while the two differ, a new scratchpad tab's field for one, takes its
- * colors from {@link SWT#Skin}. Each control of a recolored shell receives {@link SWT#Settings},
- * since the Display sends none for an appearance change. Confined to the UI thread.
+ * <p>Table and tree headers always carry explicit list colors of the pinned appearance, from
+ * creation on: a null header draws blank labels in dark. In the appearance SWT read they are the
+ * Display's list colors, the header's own default. A visible {@link Table} header repaints new
+ * colors only when shown again, so a change of side hides and shows it; a {@link Tree} repaints at
+ * once.
+ *
+ * <p>A control created while the two differ, a new scratchpad tab's field for one, takes its colors
+ * from {@link SWT#Skin}. The Display sends that event only from its event loop, which does not run
+ * while a pop-up menu tracks, so a control styled for the other side is also styled at its {@link
+ * SWT#Show} and, while the two differ, at its first {@link SWT#Paint}. Each control of a recolored
+ * shell receives {@link SWT#Settings}, since the Display sends none for an appearance change.
+ * Confined to the UI thread.
  */
 final class CocoaChrome {
+  /** Control data: the side, true for dark, {@link #style} last applied. */
+  static final String STYLED = CocoaChrome.class.getName() + ".styled";
+
   /** {@code COLOR_WIDGET_BACKGROUND} and {@code COLOR_LIST_BACKGROUND}, measured on macOS 15. */
   private static final Color DARK_WINDOW = new Color(0x32, 0x32, 0x32);
 
@@ -49,6 +61,20 @@ final class CocoaChrome {
   private final Display display;
   private final boolean cachedDark;
   private boolean dark;
+  private boolean painting;
+
+  /** Styles a control at its first paint after the side changed. */
+  private final Listener paint =
+      new Listener() {
+        @Override
+        public void handleEvent(Event event) {
+          if (event.widget instanceof Control control
+              && !(control instanceof Shell)
+              && stale(control)) {
+            style(control);
+          }
+        }
+      };
 
   /**
    * Creates the chrome and covers each shell as it is shown and each control as it is created.
@@ -65,8 +91,12 @@ final class CocoaChrome {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.widget instanceof Shell shell && differs()) {
-              restyle(shell);
+            if (event.widget instanceof Shell shell) {
+              if (differs()) {
+                restyle(shell);
+              }
+            } else if (event.widget instanceof Control control && stale(control)) {
+              style(control);
             }
           }
         });
@@ -75,10 +105,12 @@ final class CocoaChrome {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.widget instanceof Control control
-                && !(control instanceof Shell)
-                && differs()) {
-              style(control);
+            if (event.widget instanceof Control control && !(control instanceof Shell)) {
+              if (differs()) {
+                style(control);
+              } else {
+                header(control);
+              }
             }
           }
         });
@@ -91,6 +123,14 @@ final class CocoaChrome {
    */
   void apply(boolean value) {
     dark = value;
+    if (differs() != painting) {
+      painting = differs();
+      if (painting) {
+        display.addFilter(SWT.Paint, paint);
+      } else {
+        display.removeFilter(SWT.Paint, paint);
+      }
+    }
     for (Shell shell : display.getShells()) {
       restyle(shell);
     }
@@ -98,6 +138,11 @@ final class CocoaChrome {
 
   private boolean differs() {
     return dark != cachedDark;
+  }
+
+  /** True while the sides differ and a control was not styled for the pinned one. */
+  private boolean stale(Control control) {
+    return differs() && !Boolean.valueOf(dark).equals(control.getData(STYLED));
   }
 
   private void restyle(Shell shell) {
@@ -117,13 +162,18 @@ final class CocoaChrome {
   }
 
   private void style(Control control) {
+    control.setData(STYLED, dark);
+    if (control.getData(ChromeColors.PALETTE_COLORED) != null) {
+      return;
+    }
     Color list = differs() ? (dark ? DARK_LIST : LIGHT_LIST) : null;
     Color text = differs() ? (dark ? DARK_TEXT : LIGHT_TEXT) : null;
     if (control instanceof CTabFolder tabs) {
-      if (tabs.getData(ChromeColors.PALETTE_COLORED) == null) {
-        recolor(tabs, list, text);
-      }
+      tabs.setForeground(text);
+      tabs.setSelectionForeground(text);
+      tabs.setSelectionBackground(list);
     } else if (control instanceof Table
+        || control instanceof Tree
         || control instanceof List
         || control instanceof Combo
         || control instanceof Text
@@ -134,47 +184,32 @@ final class CocoaChrome {
     } else if (control instanceof TabFolder) {
       control.setForeground(text);
     } else if (control instanceof Button && (control.getStyle() & SWT.CHECK) != 0) {
-      control.setBackground(CLEAR);
+      control.setBackground(differs() ? CLEAR : null);
     }
+    header(control);
+  }
+
+  private void header(Control control) {
+    Color background =
+        differs()
+            ? (dark ? DARK_LIST : LIGHT_LIST)
+            : display.getSystemColor(SWT.COLOR_LIST_BACKGROUND);
+    Color foreground =
+        differs()
+            ? (dark ? DARK_TEXT : LIGHT_TEXT)
+            : display.getSystemColor(SWT.COLOR_LIST_FOREGROUND);
     if (control instanceof Table table) {
-      table.setHeaderBackground(headerBackground(dark));
-      table.setHeaderForeground(headerForeground(dark));
-      // A Table repaints new header colors, the area right of the last column included, only when
-      // its header is shown again; redraw() leaves that area stale.
-      if (table.getHeaderVisible()) {
+      table.setHeaderBackground(background);
+      table.setHeaderForeground(foreground);
+      Object before = table.getData(ThemeFollow.HEADER_DARK);
+      table.setData(ThemeFollow.HEADER_DARK, dark);
+      if (table.getHeaderVisible() && !Boolean.valueOf(dark).equals(before)) {
         table.setHeaderVisible(false);
         table.setHeaderVisible(true);
       }
     } else if (control instanceof Tree tree) {
-      tree.setHeaderBackground(headerBackground(dark));
-      tree.setHeaderForeground(headerForeground(dark));
+      tree.setHeaderBackground(background);
+      tree.setHeaderForeground(foreground);
     }
-  }
-
-  /**
-   * Returns the header background of an appearance. A header always gets explicit colors: with null
-   * colors cocoa draws blank labels in dark appearance and keeps the earlier header drawing.
-   *
-   * @param dark true for dark
-   * @return the color, never null
-   */
-  static Color headerBackground(boolean dark) {
-    return dark ? DARK_WINDOW : LIGHT_WINDOW;
-  }
-
-  /**
-   * Returns the header text color of an appearance.
-   *
-   * @param dark true for dark
-   * @return the color, never null
-   */
-  static Color headerForeground(boolean dark) {
-    return dark ? DARK_TEXT : LIGHT_TEXT;
-  }
-
-  private static void recolor(CTabFolder tabs, Color list, Color text) {
-    tabs.setForeground(text);
-    tabs.setSelectionForeground(text);
-    tabs.setSelectionBackground(list);
   }
 }

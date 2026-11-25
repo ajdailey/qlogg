@@ -79,6 +79,8 @@ final class MainMenuBar {
   private Keymap keymap;
   // Menu item icons.
   private final MenuIcons icons;
+  // Tool window menus.
+  private Shell closes;
 
   /**
    * Creates the menu bar's owner; {@link #build} creates the menus.
@@ -92,6 +94,28 @@ final class MainMenuBar {
     this.controller = controller;
     this.states = new CommandStates(controller);
     this.icons = icons;
+  }
+
+  /**
+   * Makes Close close a tool window that carries this bar, always enabled; every other item still
+   * runs on the controller. Call before {@link #build}.
+   *
+   * @param tool the tool window the bar is on
+   */
+  void closesToolWindow(Shell tool) {
+    closes = tool;
+  }
+
+  private void run(CommandId command) {
+    if (command == CommandId.CLOSE && closes != null) {
+      closes.close();
+    } else {
+      controller.execute(command);
+    }
+  }
+
+  private boolean enabled(CommandId command) {
+    return (command == CommandId.CLOSE && closes != null) || states.enabled(command);
   }
 
   /**
@@ -182,7 +206,7 @@ final class MainMenuBar {
               public void handleEvent(Event event) {
                 // The item a radio choice clears also fires.
                 if (!radio || ((MenuItem) event.widget).getSelection()) {
-                  controller.execute(command);
+                  run(command);
                 }
               }
             });
@@ -288,7 +312,7 @@ final class MainMenuBar {
       if (command.group() != group || item.isDisposed()) {
         continue;
       }
-      setEnabled(item, states.enabled(command));
+      setEnabled(item, enabled(command));
       if (command.check()) {
         item.setSelection(states.checked(command));
       }
@@ -321,7 +345,7 @@ final class MainMenuBar {
   void syncEnablement() {
     for (Map.Entry<CommandId, MenuItem> entry : items.entrySet()) {
       if (!entry.getValue().isDisposed()) {
-        setEnabled(entry.getValue(), states.enabled(entry.getKey()));
+        setEnabled(entry.getValue(), enabled(entry.getKey()));
       }
     }
   }

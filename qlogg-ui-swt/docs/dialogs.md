@@ -25,7 +25,8 @@ built another way calls `inheritIcons`, or the window manager shows its generic
 icon, and `DialogColors.prepare` and `apply`, or it stays light under a dark
 Windows start ([theme.md](theme.md#dialog-colors));
 `ArchitectureTest.ownedShellsTakeDialogColors` fails an owned `Shell` created
-without `prepare`.
+without `prepare`. A modeless `Dialogs.shell` takes its main window's menus on
+macOS ([menus.md](menus.md#tool-window-menus)).
 
 A title taken from a menu, command or button label goes through
 `CommandId.title` or `UiText.title` (`WindowTitles.plain`), which removes the

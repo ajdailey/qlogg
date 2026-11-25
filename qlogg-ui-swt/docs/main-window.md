@@ -393,6 +393,17 @@ call in `ui.swt` outside that package or in the launcher.
 `PlatformTraits` or `OsTraits` method outside the two platform packages, except
 the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
 
+`platformQueriesOnlyInThePlatformPackage` fails on a call outside
+`ui.swt.platform` of `Display.getSystemMenu`, `getSystemTray`,
+`getSystemTaskBar`, `isSystemDarkTheme` or `Program.findProgram`;
+`SwtThemeService` reads the system setting through `NativeTheme.systemDark` and
+`MainWindow.launchAsText` finds the text program through `NativePrograms.text`.
+`valueTraitsOnlyInReviewedCallers` lists the callers of each value trait
+(`VALUE_TRAIT_CALLERS`: `SwtKeys`, `Keymap`, `PathCommands`) and fails on any
+other. ArchUnit sees the call, not the condition around it, so a new caller is
+reviewed before it is added: one that passes the value on stays, and one that
+would choose platform code calls a seam instead.
+
 ### Values
 
 | Method | win32 | cocoa | GTK 3 | GTK 4 | Caller |
@@ -410,7 +421,7 @@ the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
 |---|---|---|---|---|---|
 | `ThemeFollow` (`themeFollow`) | `Win32ThemeFollow`: sets the native theme at startup in every mode; polls the system setting every 500 ms; `showOnWindows` sets a changed side and rebuilds the windows | `CocoaThemeFollow`: pins the theme at startup in every mode; polls; `showOnWindows` pins a changed side and `CocoaChrome` recolors shells | `GtkThemeFollow`: sets the theme at startup for Light and Dark and again at each switch; `showOnWindows` does nothing | as GTK 3 | `SwtThemeService` ([theme.md](theme.md#window-rebuild)) |
 | `FullScreen` (`fullScreen`) | `NativeFullScreen` | `CocoaFullScreen` | `NativeFullScreen` | `NativeFullScreen` | `MainWindow` ([Full Screen](#full-screen)) |
-| `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu` ([menus.md](menus.md)) |
+| `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu; the owner's menus on tool windows | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu`, `Dialogs.shell` ([menus.md](menus.md)) |
 | `LaunchDocuments` (`launchDocuments`) | `NativeLaunchDocuments`: no wait | `CocoaLaunchDocuments`: runs the `OpenDocument` wait | no wait | no wait | `OpenDocuments.await` |
 | `AccessibleLabels` (`accessibleLabels`) | `NativeAccessibleLabels`: nothing | `CocoaAccessibleLabels`: description and group role | nothing | nothing | `AccessibleName.attach` |
 | `WindowPlacement` (`placement`) | `Win32WindowPlacement`: places again with the measured trim | `NativeWindowPlacement` | `GtkWindowPlacement`: no position under Wayland | as GTK 3 | `MainWindow.place` |
@@ -428,7 +439,7 @@ the value traits `macKeys`, `macKeymap` and `runsInsteadOfOpening`.
 | `clipboardText` | Reads the text of the `TextTransfer` clipboard, which is created on first use and disposed with the shell |
 | `setText` | Writes the text to that clipboard; an `SWTError` from `setContents` gets one retry, and a second shows the Copy failed notice and logs one WARN |
 | `launch` | `Program.launch` on a folder or file: the desktop's file association (GIO on GTK, `ShellExecuteEx` on Windows), no shell |
-| `launchAsText` | `Program.findProgram("txt")`, then `Program.execute` on the file: the plain-text application started with the file as its argument (`CreateProcess` on Windows, GIO on GTK, LaunchServices on macOS), no shell; `NO_PROGRAM` when `.txt` has no association |
+| `launchAsText` | `NativePrograms.text` (`Program.findProgram("txt")`), then `Program.execute` on the file: the plain-text application started with the file as its argument (`CreateProcess` on Windows, GIO on GTK, LaunchServices on macOS), no shell; `NO_PROGRAM` when `.txt` has no association |
 | `system` | `OsTraits.current()` |
 | `launchUrl` | `Program.launch` on the fixed issue or project page |
 | `setActive`, `setIdle` | A `BusyCounter` driving `WindowBusyCursor`; see [Busy cursor](#busy-cursor) |

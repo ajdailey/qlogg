@@ -78,6 +78,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 | `ink` | fixed: the native side | live | live | live |
 | `disabledOnDark` | the icon | a faded copy | a faded copy | the icon |
 | `addWindowControls` | nothing | nothing | nothing | Minimize and Zoom |
+| `toolWindowMenus` | nothing | nothing | nothing | the owner's menus on a tool window |
 | `systemCommands` | empty | empty | empty | About, Preferences, Quit |
 | `hookAppMenu` | nothing | nothing | nothing | connects the system application menu |
 
@@ -152,3 +153,20 @@ keeps About, Preferences and Exit.
 On cocoa `MenuBehavior.addWindowControls` puts Minimize (`Cmd+M`, `Shell.setMinimized`) and Zoom (toggles
 `Shell.setMaximized`) at the top of the Window menu; SWT adds neither to an
 application-defined Window menu. No QLogg binding uses `Cmd+M`.
+
+## Tool window menus
+
+The cocoa menu bar shows the key window's menus, and a window without a menu
+bar shows only the application menu. `Dialogs.shell` therefore calls
+`MenuBehavior.toolWindowMenus` for every modeless shell (Preferences, Marks
+List, Scratchpad, Keyboard Shortcuts, Search in Open Files, Search in Folder,
+the user guide, a modeless `TextWindow` such as Show Log); on cocoa it builds
+the owner's menus there through `ToolMenuBars`, which the main window records
+on its shell (`ToolMenuBars.KEY`, found on the owner or an owner's owner). Each
+tool window gets its own
+`MainMenuBar` over the main window's controller, so File, View and the
+accelerators act on that main window, except File > Close (`Cmd+W`), which
+closes the tool window and stays enabled (`MainMenuBar.closesToolWindow`). `MainWindow` rebuilds these bars with its
+own on a keymap change, fills their Encoding > Other cascade and syncs their
+enablement with its own. A modal dialog gets none. The win32 and GTK classes do
+nothing, since a menu bar draws inside its window there.

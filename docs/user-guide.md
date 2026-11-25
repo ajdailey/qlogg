@@ -730,6 +730,9 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Help | User Guide, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
 
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
+While a tool window such as Preferences, Marks or Scratchpad is in front, the
+menu bar keeps the main window's menus and shortcuts, which act on the window
+that opened it; File > Close (`Cmd+W`) closes the tool window.
 
 The log view's context menu holds the copy, mark, search, selection and save
 commands, Open Path at Caret, Toggle Fold, Wrap Line, Scroll All Tabs to This

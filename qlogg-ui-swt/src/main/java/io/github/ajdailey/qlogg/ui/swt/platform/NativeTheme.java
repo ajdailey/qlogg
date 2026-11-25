@@ -5,12 +5,24 @@ import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.widgets.Display;
 
-/** The native theme setting and the system-setting poll the {@link ThemeFollow} classes share. */
-final class NativeTheme {
+/**
+ * The native theme setting, the system setting and its poll. Only this package reads {@link
+ * Display#isSystemDarkTheme}.
+ */
+public final class NativeTheme {
   /** Milliseconds between reads of the system setting on cocoa and win32. */
   private static final int POLL_MILLIS = 500;
 
   private NativeTheme() {}
+
+  /**
+   * Reads the system's light or dark setting.
+   *
+   * @return {@link Display#isSystemDarkTheme}
+   */
+  public static boolean systemDark() {
+    return Display.isSystemDarkTheme();
+  }
 
   /**
    * Sets the theme a setting resolves to, with the system setting read now, and records it.

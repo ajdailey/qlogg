@@ -23,7 +23,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink, the empty log and results areas | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
 | Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
-| `CocoaChrome` shell, list and header colors | The pinned side, `ui.theme`; skips `PALETTE_COLORED` folders |
+| `CocoaChrome` shell, list and header colors | The pinned side, `ui.theme`; skips `PALETTE_COLORED` controls |
 | Dialogs and tool windows on win32 under the dark side | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
 
 ## Native widget theme
@@ -37,7 +37,8 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment; at a switch `showOnWindows` sets the new side and rebuilds every main window ([Window rebuild](#window-rebuild)) | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); under System a change rebuilds the windows like a switch |
 | cocoa | `start` pins the application appearance to the side `ui.theme` resolves to in every mode, System from the system setting at that moment; at a switch `showOnWindows` pins the new side and `CocoaChrome` recolors every shell ([Cocoa chrome](#cocoa-chrome)); no rebuild | No `SWT.Settings` is sent (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms; under System a change re-pins like a switch, since SWT has no call that unpins |
 
-`SwtThemeService` reads `Display.isSystemDarkTheme()` and turns `SWT.Settings`
+`SwtThemeService` reads the system setting through `NativeTheme.systemDark`
+(`Display.isSystemDarkTheme()`) and turns `SWT.Settings`
 into a change event. Its `preferDark` calls `ThemeFollow.preferDark` and then
 `ThemeFollow.showOnWindows` with the `WindowRebuild` the launcher set
 (`WindowRebuild.NONE` until then) on every platform.
@@ -114,21 +115,30 @@ While the pinned side differs from the side SWT cached its colors under,
 `CocoaChrome` gives each shell the window color of the pinned side with
 `INHERIT_FORCE`, from constants measured on macOS 15. A `TabFolder` stops that
 inheritance, so check boxes get a transparent background over its native panel
-and its titles the text color; tables, lists, combos, fields, spinners and a
-`CTabFolder` without `PALETTE_COLORED` get list colors. A `SWT.Show` filter
-covers shells opened later and an `SWT.Skin` listener controls created later,
-such as a new scratchpad tab's field or the Marks List comment field. Each
-control of a recolored shell receives `SWT.Settings`, so `ToolIcons` re-inks.
-Back on the cached side the colors return to null, except Table and Tree
-headers: they get explicit colors of the pinned side on every change, never
-null (null colors draw blank labels in dark), and a Table's header is hidden
-and shown again so it repaints, the area right of the last column included.
+and its titles the text color; tables, trees, lists, combos, fields, spinners
+and a `CTabFolder` get list colors. A control with `PALETTE_COLORED` keeps its
+colors. A `SWT.Show` filter covers shells opened later and an `SWT.Skin`
+listener controls created later, such as a new scratchpad tab's field or the
+Marks List comment field. The Display sends `SWT.Skin` only from its event
+loop, which does not run while a pop-up menu tracks, so a control not yet
+styled for the pinned side is also styled at its `SWT.Show` and, while the
+sides differ, at its first `SWT.Paint` (a Display filter added only then).
+Each control of a recolored shell receives `SWT.Settings`, so `ToolIcons`
+re-inks. Back on the cached side the colors return to null, except Table and
+Tree headers: they carry explicit list colors from creation, the Display's
+list colors on the cached side, never null (null colors draw blank labels in
+dark). A visible Table header is hidden and shown again when its side changes
+(`ThemeFollow.HEADER_DARK`), so it repaints, the area right of the last column
+included; a Tree repaints at once.
 
 A control type that `CocoaChrome.style` does not list keeps SWT's cached
 colors behind text AppKit draws in the pinned appearance; a new type that SWT
-paints with cached colors needs a row there. Labels, links, push and toggle
-buttons, scroll bars, sliders, progress bars and the guide's `Browser` take
-their text and fill from AppKit.
+paints with cached colors needs a row there. Composites, sash forms, tool bars
+and labels take the forced shell background. Links, push and toggle buttons,
+scroll bars, sliders, progress bars and the guide's `Browser` take their text
+and fill from AppKit (links, the slider and the progress bar unverified on
+macOS). `LogCanvas`, `OverviewBar` and `TabStripButtons` paint from the
+palette.
 
 Limits on cocoa:
 
@@ -232,8 +242,10 @@ A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`
 face, white text) and read-only combos dark and every other surface light
 (measured, SWT 3.135.0, `windows-2025`). `Win32DialogColors` gives the shell the
 title bar color with `INHERIT_DEFAULT`, then sets each control's colors where
-they are still the defaults, so a color the dialog set stays. Push buttons and
-read-only combos keep the native dark drawing. A field's text draws white on `#2b2b2b`
+they are still the defaults, so a color the dialog set stays. Push buttons keep
+the native dark drawing. A read-only combo takes the field colors, since the
+dark native theme draws its closed field and leaves its drop-down list white
+unless the combo has colors. A field's text draws white on `#2b2b2b`
 (14.16:1), read-only and multi-line included. An empty, unfocused single-line
 `Text` is filled with the field color and its hint (`setMessage`) drawn in
 `#9a9a9a` (5.03:1) by `Win32EmptyField`, an `SWT.Paint` listener over the
@@ -298,7 +310,7 @@ reads them once, so an uncolored strip keeps them through a theme change
 - The strips follow the palette, not `ui.theme`: a fixed scheme keeps them
   through a theme change.
 - `colorTabs` sets `ChromeColors.PALETTE_COLORED`, and `CocoaChrome` leaves such
-  a folder alone: an appearance change does not change the palette, so nothing
+  a control alone: an appearance change does not change the palette, so nothing
   would restore the colors it wrote.
 
 ## Icons

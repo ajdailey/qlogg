@@ -34,6 +34,7 @@ import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.FullScreen;
 import io.github.ajdailey.qlogg.ui.swt.platform.GuideDisplay;
+import io.github.ajdailey.qlogg.ui.swt.platform.NativePrograms;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowPlacement;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
@@ -174,6 +175,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   private ResultsPane results;
   private OverviewBar overviewBar;
   private MainMenuBar menuBar;
+  private ToolMenuBars toolMenus;
   private EncodingSource encodingSource =
       new EncodingSource() {
         @Override
@@ -956,14 +958,17 @@ public final class MainWindow implements MainView, ApplicationListener {
   private void buildMenuBar() {
     if (menuBar == null) {
       menuBar = new MainMenuBar(shell, controller, menuIcons);
+      toolMenus = new ToolMenuBars(shell, controller, menuIcons, keymap);
     }
     menuBar.build(keymap);
+    toolMenus.rebuild(keymap);
     encodingSource.load(
         new EncodingChoices.Listener() {
           @Override
           public void loaded(EncodingChoices choices) {
             if (!shell.isDisposed()) {
               menuBar.encodingsLoaded(choices);
+              toolMenus.encodingsLoaded(choices);
             }
           }
         });
@@ -999,6 +1004,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   void syncEnablement() {
     if (menuBar != null) {
       menuBar.syncEnablement();
+      toolMenus.syncEnablement();
     }
   }
 
@@ -1627,7 +1633,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public TextLaunch launchAsText(Path file) {
-    Program program = Program.findProgram("txt");
+    Program program = NativePrograms.text();
     if (program == null) {
       return TextLaunch.NO_PROGRAM;
     }

@@ -77,7 +77,6 @@ class DialogColorsTest {
     own.setForeground(new Color(OWN));
     RGB pushBackground = push.getBackground().getRGB();
     RGB pushForeground = push.getForeground().getRGB();
-    RGB comboBackground = readOnly.getBackground().getRGB();
     colors.apply(shell);
     assertEquals(Win32DialogColors.BODY.getRGB(), shell.getBackground().getRGB());
     assertEquals(Win32DialogColors.BODY.getRGB(), page.getBackground().getRGB());
@@ -90,10 +89,12 @@ class DialogColorsTest {
     assertEquals(Win32DialogColors.FIELD.getRGB(), table.getBackground().getRGB());
     assertEquals(Win32DialogColors.FIELD.getRGB(), table.getHeaderBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), table.getHeaderForeground().getRGB());
-    // The dark start draws push buttons and read-only combos dark already.
+    // The dark start draws push buttons dark already.
     assertEquals(pushBackground, push.getBackground().getRGB());
     assertEquals(pushForeground, push.getForeground().getRGB());
-    assertEquals(comboBackground, readOnly.getBackground().getRGB());
+    // A read-only combo's list draws white unless the combo has colors.
+    assertEquals(Win32DialogColors.FIELD.getRGB(), readOnly.getBackground().getRGB());
+    assertEquals(Win32DialogColors.TEXT.getRGB(), readOnly.getForeground().getRGB());
     assertEquals(OWN, own.getForeground().getRGB());
     assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
   }

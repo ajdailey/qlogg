@@ -14,8 +14,8 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * cocoa menus: no item icons, Minimize and Zoom at the top of the Window menu, and the system
- * application menu.
+ * cocoa menus: no item icons, Minimize and Zoom at the top of the Window menu, the system
+ * application menu, and the owner's menus on each tool window.
  */
 final class CocoaMenuBehavior implements MenuBehavior {
   @Override
@@ -55,6 +55,11 @@ final class CocoaMenuBehavior implements MenuBehavior {
           }
         });
     new MenuItem(menu, SWT.SEPARATOR, 2);
+  }
+
+  @Override
+  public void toolWindowMenus(Shell tool, ToolMenus menus) {
+    menus.build(tool);
   }
 
   @Override

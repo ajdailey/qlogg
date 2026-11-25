@@ -228,6 +228,24 @@ class PlatformSeamsTest {
     }
   }
 
+  @Test
+  void onlyCocoaGivesAToolWindowItsOwnersMenus() {
+    final List<Shell> built = new ArrayList<Shell>();
+    MenuBehavior.ToolMenus menus =
+        new MenuBehavior.ToolMenus() {
+          @Override
+          public void build(Shell tool) {
+            built.add(tool);
+          }
+        };
+    new Win32MenuBehavior().toolWindowMenus(shell, menus);
+    new Gtk3MenuBehavior().toolWindowMenus(shell, menus);
+    new Gtk4MenuBehavior().toolWindowMenus(shell, menus);
+    assertEquals(List.of(), built);
+    new CocoaMenuBehavior().toolWindowMenus(shell, menus);
+    assertEquals(List.of(shell), built);
+  }
+
   /** Records what an application menu runs. */
   private static MenuBehavior.AppMenuActions recorder(final List<String> calls) {
     return new MenuBehavior.AppMenuActions() {

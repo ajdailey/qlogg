@@ -58,6 +58,16 @@ public interface MenuBehavior {
   void addWindowControls(Menu menu, Shell shell);
 
   /**
+   * Gives a tool window its owner's menus on cocoa, where the menu bar shows the key window's menus
+   * and a window without a menu bar shows only the application menu. Does nothing elsewhere, where
+   * a menu bar draws inside its window.
+   *
+   * @param tool a modeless window a main window owns
+   * @param menus builds the owner's menus on the tool window
+   */
+  void toolWindowMenus(Shell tool, ToolMenus menus);
+
+  /**
    * Returns the commands the system's own application menu supplies, which the menu bar leaves out.
    *
    * @param display the Display
@@ -95,6 +105,17 @@ public interface MenuBehavior {
      * @param file the path, not empty
      */
     void open(String file);
+  }
+
+  /** Builds a main window's menus on one of its tool windows. */
+  interface ToolMenus {
+    /**
+     * Sets the owner's menus as the tool window's menu bar; Close closes the tool window and every
+     * other item acts on the owner.
+     *
+     * @param tool the tool window
+     */
+    void build(Shell tool);
   }
 
   /** Sets menu item icons. */

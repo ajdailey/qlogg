@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -51,7 +52,9 @@ final class Dialogs {
 
   /**
    * Creates a dialog shell with a given style, the owning shell's window icons and the platform's
-   * {@link DialogColors}. The icons stay owned by the shell that created them.
+   * {@link DialogColors}. The icons stay owned by the shell that created them. A modeless shell is
+   * a tool window and takes its main window's menus where the platform shows them ({@link
+   * MenuBehavior#toolWindowMenus}).
    *
    * @param parent the owning shell
    * @param title the title
@@ -63,6 +66,9 @@ final class Dialogs {
     shell.setText(title);
     inheritIcons(shell, parent);
     DialogColors.of(shell.getDisplay()).prepare(shell);
+    if ((style & (SWT.APPLICATION_MODAL | SWT.PRIMARY_MODAL | SWT.SYSTEM_MODAL)) == 0) {
+      PlatformTraits.PLATFORM.menus().toolWindowMenus(shell, ToolMenuBars.of(parent));
+    }
     GridLayout layout = new GridLayout(1, false);
     layout.marginWidth = 12;
     layout.marginHeight = 12;

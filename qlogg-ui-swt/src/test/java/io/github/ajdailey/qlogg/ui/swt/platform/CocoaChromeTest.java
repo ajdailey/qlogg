@@ -9,6 +9,7 @@ import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -40,23 +41,28 @@ class CocoaChromeTest {
   }
 
   @Test
-  void cocoaChromeLeavesAPaletteColoredFolderAlone() {
+  void cocoaChromeLeavesPaletteColoredControlsAlone() {
     Shell shell = new Shell(display);
     CTabFolder tabs = new CTabFolder(shell, SWT.NONE);
     tabs.setData(ChromeColors.PALETTE_COLORED, Boolean.TRUE);
+    Text field = new Text(shell, SWT.SINGLE);
+    field.setData(ChromeColors.PALETTE_COLORED, Boolean.TRUE);
     RGB mock = new RGB(0x12, 0x34, 0x56);
     tabs.setForeground(new Color(mock));
     tabs.setSelectionForeground(new Color(mock));
     tabs.setSelectionBackground(new Color(mock));
+    field.setBackground(new Color(mock));
     CocoaChrome chrome = new CocoaChrome(display, false);
     try {
       chrome.apply(true);
       assertEquals(mock, tabs.getForeground().getRGB());
       assertEquals(mock, tabs.getSelectionForeground().getRGB());
       assertEquals(mock, tabs.getSelectionBackground().getRGB());
+      assertEquals(mock, field.getBackground().getRGB());
       chrome.apply(false);
       assertEquals(mock, tabs.getForeground().getRGB());
       assertEquals(mock, tabs.getSelectionBackground().getRGB());
+      assertEquals(mock, field.getBackground().getRGB());
     } finally {
       shell.dispose();
     }
@@ -127,37 +133,97 @@ class CocoaChromeTest {
     }
   }
 
+  /**
+   * A control created while a pop-up menu tracks gets no {@link SWT#Skin} until the menu closes, so
+   * one styled for the other side takes the colors at its first paint or at its {@link SWT#Show}.
+   * No event loop runs here, so no {@code Skin} event reaches the fields.
+   */
   @Test
-  void cocoaChromeGivesHeadersExplicitColorsInBothDirections() {
-    assertNotEquals(
-        CocoaChrome.headerBackground(true).getRGB(), CocoaChrome.headerBackground(false).getRGB());
-    assertNotEquals(
-        CocoaChrome.headerForeground(true).getRGB(), CocoaChrome.headerBackground(true).getRGB());
-    assertNotEquals(
-        CocoaChrome.headerForeground(false).getRGB(), CocoaChrome.headerBackground(false).getRGB());
+  void cocoaChromeColorsAControlAtItsFirstPaintOrShow() {
     Shell shell = new Shell(display);
-    shell.setLayout(new FillLayout());
-    Table table = new Table(shell, SWT.BORDER);
-    table.setHeaderVisible(true);
-    new TableColumn(table, SWT.LEFT).setText("mock");
-    Tree tree = new Tree(shell, SWT.BORDER);
-    tree.setHeaderVisible(true);
-    new TreeColumn(tree, SWT.LEFT).setText("mock");
     shell.open();
     CocoaChrome chrome = new CocoaChrome(display, false);
-    for (boolean dark : new boolean[] {true, false}) {
-      chrome.apply(dark);
-      String name = dark ? "dark" : "light";
-      assertEquals(
-          CocoaChrome.headerBackground(dark).getRGB(), table.getHeaderBackground().getRGB(), name);
-      assertEquals(
-          CocoaChrome.headerForeground(dark).getRGB(), table.getHeaderForeground().getRGB(), name);
-      assertEquals(
-          CocoaChrome.headerBackground(dark).getRGB(), tree.getHeaderBackground().getRGB(), name);
-      assertEquals(
-          CocoaChrome.headerForeground(dark).getRGB(), tree.getHeaderForeground().getRGB(), name);
-      assertTrue(table.getHeaderVisible(), name);
+    RGB list = new RGB(0x1e, 0x1e, 0x1e);
+    try {
+      chrome.apply(true);
+      Text painted = new Text(shell, SWT.SINGLE);
+      painted.notifyListeners(SWT.Paint, new Event());
+      assertEquals(list, painted.getBackground().getRGB());
+      Text shown = new Text(shell, SWT.SINGLE);
+      shown.setVisible(false);
+      shown.setVisible(true);
+      assertEquals(list, shown.getBackground().getRGB());
+      chrome.apply(false);
+      Text cached = new Text(shell, SWT.SINGLE);
+      RGB before = cached.getBackground().getRGB();
+      cached.notifyListeners(SWT.Paint, new Event());
+      assertEquals(before, cached.getBackground().getRGB());
+      assertNotEquals(list, before);
+    } finally {
+      chrome.apply(false);
+      shell.dispose();
     }
+  }
+
+  /**
+   * A tree and its header take the list and text colors while the sides differ, and the header the
+   * Display's list colors back on the cached side, where a check box loses its clear background.
+   */
+  @Test
+  void cocoaChromeColorsTreesAndRestoresCheckBoxes() {
+    Shell shell = new Shell(display);
+    Tree tree = new Tree(shell, SWT.NONE);
+    tree.setHeaderVisible(true);
+    new TreeColumn(tree, SWT.LEFT).setText("mock");
+    Button check = new Button(shell, SWT.CHECK);
+    RGB checkBefore = check.getBackground().getRGB();
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    try {
+      chrome.apply(true);
+      assertEquals(new RGB(0x1e, 0x1e, 0x1e), tree.getBackground().getRGB());
+      assertEquals(new RGB(0xff, 0xff, 0xff), tree.getHeaderForeground().getRGB());
+      assertEquals(new RGB(0x1e, 0x1e, 0x1e), tree.getHeaderBackground().getRGB());
+    } finally {
+      chrome.apply(false);
+    }
+    assertEquals(
+        display.getSystemColor(SWT.COLOR_LIST_FOREGROUND).getRGB(),
+        tree.getHeaderForeground().getRGB());
+    assertEquals(checkBefore, check.getBackground().getRGB());
     shell.dispose();
+  }
+
+  /**
+   * A table header gets explicit colors from creation, on the cached side too, and stays visible
+   * through each change of side; {@link ThemeFollow#HEADER_DARK} records the side its colors are
+   * for.
+   */
+  @Test
+  void cocoaChromeGivesTableHeadersExplicitColorsOnEitherSide() {
+    CocoaChrome chrome = new CocoaChrome(display, false);
+    Shell shell = new Shell(display);
+    shell.setLayout(new FillLayout());
+    try {
+      Table table = new Table(shell, SWT.BORDER);
+      table.setHeaderVisible(true);
+      new TableColumn(table, SWT.LEFT).setText("mock");
+      shell.open();
+      pump();
+      assertEquals(Boolean.FALSE, table.getData(ThemeFollow.HEADER_DARK));
+      chrome.apply(true);
+      assertEquals(Boolean.TRUE, table.getData(ThemeFollow.HEADER_DARK));
+      assertEquals(new RGB(0x1e, 0x1e, 0x1e), table.getHeaderBackground().getRGB());
+      assertEquals(new RGB(0xff, 0xff, 0xff), table.getHeaderForeground().getRGB());
+      assertTrue(table.getHeaderVisible());
+      chrome.apply(false);
+      assertEquals(Boolean.FALSE, table.getData(ThemeFollow.HEADER_DARK));
+      assertEquals(
+          display.getSystemColor(SWT.COLOR_LIST_BACKGROUND).getRGB(),
+          table.getHeaderBackground().getRGB());
+      assertTrue(table.getHeaderVisible());
+    } finally {
+      chrome.apply(false);
+      shell.dispose();
+    }
   }
 }

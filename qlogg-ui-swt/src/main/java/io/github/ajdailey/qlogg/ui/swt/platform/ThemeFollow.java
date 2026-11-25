@@ -14,6 +14,9 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
  * colors under.
  */
 public interface ThemeFollow {
+  /** Data key on a table: true when cocoa gave its header the colors of dark. */
+  String HEADER_DARK = ThemeFollow.class.getName() + ".headerDark";
+
   /**
    * Sets the native controls' startup theme for a setting and records it as {@link
    * DialogColors#NATIVE_DARK}: for light and dark on GTK, and for every setting on win32 and cocoa,

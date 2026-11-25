@@ -29,7 +29,8 @@ import org.eclipse.swt.widgets.Tree;
  * setBackground} and {@code setForeground} reach composites, labels, links, check boxes, groups,
  * tab pages, tool bars, text fields, combos, spinners, lists and tables. A {@code TabFolder}'s tab
  * row, a table's grid lines and header dividers, a spinner's arrows, disabled text and a {@link
- * Browser} stay native.
+ * Browser} stay native. A read-only {@link Combo} takes the field colors too: the dark native theme
+ * draws its closed field and leaves its drop-down list white unless the combo has colors.
  *
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
@@ -145,9 +146,6 @@ final class Win32DialogColors implements DialogColors {
       return;
     }
     if (control instanceof Button && (control.getStyle() & SWT.PUSH) != 0) {
-      return;
-    }
-    if (control instanceof Combo && (control.getStyle() & SWT.READ_ONLY) != 0) {
       return;
     }
     boolean field = field(control);
