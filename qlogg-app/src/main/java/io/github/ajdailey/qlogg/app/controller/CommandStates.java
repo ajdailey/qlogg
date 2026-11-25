@@ -162,6 +162,7 @@ public final class CommandStates {
           document != null && document.time().format() != null;
       // Always on Top.
       case ALWAYS_ON_TOP -> application.alwaysOnTop().supported();
+      case MINIMIZE -> application.minimizeSupported();
       // Clear Results.
       case CLEAR_RESULTS ->
           document != null && document.search().state().phase() != SearchViewState.Phase.IDLE;

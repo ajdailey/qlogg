@@ -15,7 +15,6 @@ import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
-import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -28,7 +27,6 @@ import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -126,23 +124,33 @@ class MainMenuBarTest {
     assertTrue(failures.isEmpty(), failures.toString());
   }
 
+  /**
+   * Minimize and Zoom are command-table items on cocoa only, first in the Window menu, and act on
+   * the active window the main window owns.
+   */
   @Test
   void theWindowMenuCarriesMinimizeAndZoomOnlyWhereThePlatformAsks() {
     attach();
     Menu windowMenu = topMenu(CommandGroup.WINDOW);
     boolean controls = "cocoa".equals(SWT.getPlatform());
-    assertEquals(controls, UiText.MENU_MINIMIZE.text().equals(windowMenu.getItem(0).getText()));
-    Shell shell = new Shell(display);
-    Menu menu = new Menu(shell, SWT.DROP_DOWN);
-    new MenuItem(menu, SWT.PUSH).setText("mock");
-    PlatformTraits.of("cocoa", false).menus().addWindowControls(menu, shell);
-    assertEquals(4, menu.getItemCount());
-    assertEquals(UiText.MENU_MINIMIZE.text(), menu.getItem(0).getText());
-    assertEquals(SWT.MOD1 | 'M', menu.getItem(0).getAccelerator());
-    assertEquals(UiText.MENU_ZOOM.text(), menu.getItem(1).getText());
-    assertTrue((menu.getItem(2).getStyle() & SWT.SEPARATOR) != 0);
-    assertEquals("mock", menu.getItem(3).getText());
-    shell.dispose();
+    assertEquals(controls, windowMenu.getItem(0).getData() == CommandId.MINIMIZE);
+    if (controls) {
+      assertEquals(CommandId.ZOOM_WINDOW, windowMenu.getItem(1).getData());
+      assertTrue((windowMenu.getItem(2).getStyle() & SWT.SEPARATOR) != 0);
+      assertEquals(CommandId.NEW_WINDOW, windowMenu.getItem(3).getData());
+    } else {
+      assertEquals(CommandId.NEW_WINDOW, windowMenu.getItem(0).getData());
+    }
+    Shell tool = new Shell(window.shell(), SWT.SHELL_TRIM);
+    Shell nested = new Shell(tool, SWT.SHELL_TRIM);
+    Shell other = new Shell(display);
+    assertSame(tool, ActiveWindow.ownedBy(window.shell(), tool));
+    assertSame(nested, ActiveWindow.ownedBy(window.shell(), nested));
+    assertSame(window.shell(), ActiveWindow.ownedBy(window.shell(), window.shell()));
+    assertSame(window.shell(), ActiveWindow.ownedBy(window.shell(), other));
+    assertSame(window.shell(), ActiveWindow.ownedBy(window.shell(), null));
+    other.dispose();
+    tool.dispose();
   }
 
   /**

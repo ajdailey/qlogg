@@ -192,7 +192,7 @@ class PlatformSeamsTest {
   }
 
   @Test
-  void onlyGtk3PadsAndOnlyCocoaAddsWindowControls() {
+  void onlyGtk3PadsMenus() {
     for (MenuBehavior menus :
         List.of(
             new Win32MenuBehavior(),
@@ -217,7 +217,6 @@ class PlatformSeamsTest {
               calls.add("blank");
             }
           });
-      menus.addWindowControls(menu, shell);
       String name = menus.getClass().getSimpleName();
       boolean images = menus instanceof ImageMenuBehavior;
       boolean pads = menus instanceof Gtk3MenuBehavior;
@@ -230,7 +229,7 @@ class PlatformSeamsTest {
         expected.add("blank");
       }
       assertEquals(expected, calls, name);
-      assertEquals(menus instanceof CocoaMenuBehavior ? 5 : 2, menu.getItemCount(), name);
+      assertEquals(2, menu.getItemCount(), name);
     }
   }
 
@@ -250,6 +249,20 @@ class PlatformSeamsTest {
     assertEquals(List.of(), built);
     new CocoaMenuBehavior().toolWindowMenus(shell, menus);
     assertEquals(List.of(shell), built);
+  }
+
+  /**
+   * A cocoa tool window minimized while still a child window takes its owner off screen, so
+   * Minimize does nothing while the stacking is unsupported.
+   */
+  @Test
+  void cocoaMinimizeDoesNothingWhileUnsupported() {
+    CocoaStacking stacking = new CocoaStacking();
+    assumeTrue(!stacking.supported(), "the cocoa members resolve");
+    Shell tool = new Shell(shell, SWT.SHELL_TRIM);
+    tool.open();
+    stacking.minimize(tool);
+    assertFalse(tool.getMinimized());
   }
 
   /** Records what an application menu runs. */
@@ -272,15 +285,18 @@ class PlatformSeamsTest {
     };
   }
 
-  /** Asserts a platform class leaves every menu as complete as before and hooks nothing. */
-  private void assertNoSystemMenu(MenuBehavior menus) {
-    assertEquals(Set.of(), menus.systemCommands(display));
+  /**
+   * Asserts a platform class leaves out the given commands, every menu otherwise as complete as
+   * before, and hooks nothing.
+   */
+  private void assertNoSystemMenu(MenuBehavior menus, Set<CommandId> left) {
+    assertEquals(left, menus.systemCommands(display));
     for (CommandGroup group : CommandGroup.values()) {
       if (group.menu()) {
+        List<CommandId> expected = new ArrayList<CommandId>(MenuTable.commands(group, Set.of()));
+        expected.removeAll(left);
         assertEquals(
-            MenuTable.commands(group, Set.of()),
-            MenuTable.commands(group, menus.systemCommands(display)),
-            group.name());
+            expected, MenuTable.commands(group, menus.systemCommands(display)), group.name());
       }
     }
     List<String> calls = new ArrayList<String>();
@@ -289,18 +305,18 @@ class PlatformSeamsTest {
   }
 
   @Test
-  void win32MenusKeepAboutPreferencesAndExit() {
-    assertNoSystemMenu(new Win32MenuBehavior());
+  void win32MenusKeepAboutPreferencesAndExitAndLeaveOutMinimize() {
+    assertNoSystemMenu(new Win32MenuBehavior(), MenuTable.TITLE_BAR_COMMANDS);
   }
 
   @Test
-  void gtk3MenusKeepAboutPreferencesAndExit() {
-    assertNoSystemMenu(new Gtk3MenuBehavior());
+  void gtk3MenusKeepAboutPreferencesAndExitAndLeaveOutMinimize() {
+    assertNoSystemMenu(new Gtk3MenuBehavior(), MenuTable.TITLE_BAR_COMMANDS);
   }
 
   @Test
-  void gtk4MenusKeepAboutPreferencesAndExit() {
-    assertNoSystemMenu(new Gtk4MenuBehavior());
+  void gtk4MenusKeepAboutPreferencesAndExitAndLeaveOutMinimize() {
+    assertNoSystemMenu(new Gtk4MenuBehavior(), MenuTable.TITLE_BAR_COMMANDS);
   }
 
   @Test
@@ -308,7 +324,7 @@ class PlatformSeamsTest {
     CocoaMenuBehavior cocoa = new CocoaMenuBehavior();
     Set<CommandId> system = cocoa.systemCommands(display);
     if (display.getSystemMenu() == null) {
-      assertNoSystemMenu(cocoa);
+      assertNoSystemMenu(cocoa, Set.of());
       return;
     }
     assertEquals(MenuTable.APP_MENU_COMMANDS, system);

@@ -1489,6 +1489,8 @@ public final class ApplicationController
       // Always on Top.
       case ALWAYS_ON_TOP -> alwaysOnTop.toggle();
       case FULL_SCREEN -> view.setFullScreen(!view.fullScreen());
+      case MINIMIZE -> view.minimize();
+      case ZOOM_WINDOW -> view.zoom();
       // Close Multiple Tabs.
       case CLOSE_OTHERS -> {
         if (active != null) {
@@ -2017,6 +2019,15 @@ public final class ApplicationController
    */
   public AlwaysOnTop alwaysOnTop() {
     return alwaysOnTop;
+  }
+
+  /**
+   * Reports whether Window &gt; Minimize takes effect.
+   *
+   * @return {@link MainView#minimizeSupported}
+   */
+  public boolean minimizeSupported() {
+    return view.minimizeSupported();
   }
 
   /**

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
@@ -52,7 +53,8 @@ class PlatformBehaviorTest {
   @Test
   void macKeysAndApplicationMenu() {
     assertEquals(COCOA, SwtKeys.mac());
-    assertEquals(COCOA, !PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty());
+    assertEquals(
+        COCOA, PlatformTraits.PLATFORM.menus().systemCommands(display).contains(CommandId.ABOUT));
   }
 
   @Test

@@ -2,7 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
-import io.github.ajdailey.qlogg.app.i18n.UiText;
 import java.util.Set;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Image;
@@ -14,8 +13,8 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * cocoa menus: no item icons, Minimize and Zoom at the top of the Window menu, the system
- * application menu, and the owner's menus on each tool window.
+ * cocoa menus: no item icons, the system application menu, and the owner's menus on each tool
+ * window.
  */
 final class CocoaMenuBehavior implements MenuBehavior {
   @Override
@@ -29,32 +28,6 @@ final class CocoaMenuBehavior implements MenuBehavior {
   @Override
   public Image disabledOnDark(Image plain, FadedImage faded) {
     return plain;
-  }
-
-  @Override
-  public void addWindowControls(Menu menu, final Shell shell) {
-    MenuItem minimize = new MenuItem(menu, SWT.PUSH, 0);
-    minimize.setText(UiText.MENU_MINIMIZE.text());
-    minimize.setAccelerator(SWT.MOD1 | 'M');
-    minimize.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            WindowStacking.PLATFORM.minimize(shell);
-          }
-        });
-    MenuItem zoom = new MenuItem(menu, SWT.PUSH, 1);
-    zoom.setText(UiText.MENU_ZOOM.text());
-    zoom.addListener(
-        SWT.Selection,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            shell.setMaximized(!shell.getMaximized());
-          }
-        });
-    new MenuItem(menu, SWT.SEPARATOR, 2);
   }
 
   @Override

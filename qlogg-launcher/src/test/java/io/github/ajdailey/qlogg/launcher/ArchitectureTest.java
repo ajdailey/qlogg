@@ -241,7 +241,8 @@ class ArchitectureTest {
             })
         .orShould(holdAStringStarting("org.eclipse.swt.internal."))
         .orShould(holdTheString("SWT_GTK4"))
-        .because("each view-layer platform difference is a PlatformTraits method");
+        .because(
+            "view-layer platform code stays in ui.swt.platform, behind a seam PlatformTraits chooses");
   }
 
   /**
@@ -455,24 +456,27 @@ class ArchitectureTest {
 
   @Test
   void utilitiesDependOnNoOtherPackage() {
-    noClasses()
+    utilitiesDependOnNoOtherPackageRule().check(classes);
+  }
+
+  @Test
+  void utilitiesRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        utilitiesDependOnNoOtherPackageRule(),
+        ROOT + ".core.util.archfixture.UtilityViolations",
+        "core.folder.NamePattern",
+        "core.format.JsonStrings");
+  }
+
+  /** A class in {@code core.util} depends on no QLogg class outside {@code core.util}. */
+  private static ArchRule utilitiesDependOnNoOtherPackageRule() {
+    return noClasses()
         .that()
         .resideInAPackage(ROOT + ".core.util..")
         .should()
-        .dependOnClassesThat()
-        .resideInAnyPackage(
-            ROOT + ".core.concurrent..",
-            ROOT + ".core.io..",
-            ROOT + ".core.text..",
-            ROOT + ".core.index..",
-            ROOT + ".core.search..",
-            ROOT + ".core.watch..",
-            ROOT + ".core.model..",
-            ROOT + ".core.time..",
-            APP,
-            UI,
-            LAUNCHER)
-        .check(classes);
+        .dependOnClassesThat(
+            JavaClass.Predicates.resideInAPackage(ROOT + "..")
+                .and(JavaClass.Predicates.resideOutsideOfPackage(ROOT + ".core.util..")));
   }
 
   @Test

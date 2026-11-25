@@ -102,6 +102,9 @@ file shows a notice in the status bar.
   the window has room for them.
 - The status bar shows indexing, follow and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
+- Dialogs and tool windows open inside the screen's work area, clear of the
+  taskbar or Dock. Tool windows and the Highlighters, Filters and Edit Search
+  History dialogs reopen at their last size.
 
 ![The tab list open over a row of fourteen tabs](images/guide/tab-list.png)
 
@@ -123,6 +126,7 @@ file shows a notice in the status bar.
 | `Alt`+wheel, `Shift`+wheel | Scroll sideways, scroll by pages |
 | `Ctrl+Shift+P` | Command palette |
 | `F11` (macOS: `Ctrl+Cmd+F`) | Full screen |
+| `Cmd+M` (macOS) | Minimize the window in front, a tool window included |
 
 Go > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
 `+line:N`, Go to Time, Go to Top and Bottom, Find Next and Previous, the next or
@@ -131,7 +135,8 @@ a filtered-view row. Scrolling and moving the current line are not jumps. A
 reload keeps the jumps; a shorter file moves those past its end to its last
 line. Go Back and Go Forward are gray when there is no jump in that direction.
 
-View > Command Palette lists every menu command with its menu and keys. Type
+View > Command Palette lists every menu command with its menu and keys,
+Window > Minimize and Zoom included on every platform. Type
 letters of the command's name in order, such as `gtl` for Go to Line. The first
 row is selected and the arrow keys move the selection; `Enter` or a double
 click runs the command. Commands that cannot run now are gray and do not run.
@@ -239,7 +244,9 @@ text and toggles.
 File names takes globs separated by `;`; the default `*.log*` matches a log
 and its rotated copies. Exclude takes globs the same way and leaves out the
 files they match, such as `*.gz` for compressed rotations. Include subfolders
-searches the folders below it; links to folders are not followed.
+searches the folders below it; links to folders are not followed. The busy
+cursor shows on the main window and the Search in Folder window while the
+search runs.
 
 The upper table lists each file with its matches; selecting a file lists its
 matching lines below. Double-click a line, or press Enter, to open the file at
@@ -533,8 +540,9 @@ it was read.
 The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
 Files), Wrap Line (`W`), markers for tabs, trailing spaces and line
 ends, hiding ANSI color sequences (for display, copy and search), syntax
-colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to menus, scroll bars and
-other controls at once. On Windows the system theme applies them too and
+colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to scroll bars and
+other controls at once, and to menus except on Windows
+([Known issues](#known-issues)). On Windows the system theme applies them too and
 follows a change of the Windows setting; the title bar, menu bar, buttons,
 scroll bars, lists and dialogs turn dark, and so do the toolbar, search row,
 quick find bar, status bar, splitter and their text fields. On Windows each
@@ -542,7 +550,8 @@ window is rebuilt for a switch, which pauses it for about a third of a second;
 open tabs, searches, marks, tool windows and running work stay. A window with a
 dialog open switches when the dialog closes. With no file open, the log and
 results areas show the log views' background. On Linux the
-GTK theme must have a dark variant. On macOS every theme applies to windows,
+GTK theme must have a dark variant, and the system theme takes the desktop
+setting at start; a change applies at the next start. On macOS every theme applies to windows,
 dialogs and controls at once, and the system theme follows a change of the
 macOS setting; menus and the menu bar follow the macOS setting.
 
@@ -734,7 +743,9 @@ While a tool window such as Preferences, Marks or Scratchpad is in front, the
 menu bar keeps the main window's menus and shortcuts, which act on the window
 that opened it; File > Close (`Cmd+W`), Minimize and Zoom act on the tool
 window, and minimizing a tool window, from the menu or its title bar, leaves
-the main window on screen.
+the main window on screen. Elsewhere Minimize and Zoom are not in the Window
+menu, where the title bar has them; the command palette and Tools >
+Preferences, Shortcuts still list them, and they act on the window in front.
 
 The log view's context menu holds the copy, mark, search, selection and save
 commands, Open Path at Caret, Toggle Fold, Wrap Line, Scroll All Tabs to This
@@ -825,7 +836,7 @@ qlogg [options] [[+line:N] file]...
 | `-s`, `--load-session` | Restore the last session |
 | `-n`, `--new-session` | Start without the last session |
 | `-f`, `--follow` | Follow the files given |
-| `--window-width <px>`, `--window-height <px>` | Window size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
+| `--window-width <px>`, `--window-height <px>` | Client-area size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
 | `--settings <dir>` | [Settings directory](#settings-directory) |
 | `+line:N` | Open the next file at line N |

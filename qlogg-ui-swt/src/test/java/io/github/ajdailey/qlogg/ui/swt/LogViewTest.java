@@ -835,7 +835,7 @@ class LogViewTest {
    * or doubled, when the application menu is present.
    */
   private List<String> onThisPlatform(List<String> expected) {
-    if (PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty()) {
+    if (!PlatformTraits.PLATFORM.menus().systemCommands(display).contains(CommandId.ABOUT)) {
       return expected;
     }
     List<String> kept = new ArrayList<String>();

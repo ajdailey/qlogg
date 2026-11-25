@@ -44,6 +44,17 @@ class MenuTableTest {
   }
 
   @Test
+  void minimizeAndZoomLeadTheWindowMenuUnlessTheTitleBarTakesThem() {
+    List<CommandId> mac = MenuTable.commands(CommandGroup.WINDOW, MenuTable.APP_MENU_COMMANDS);
+    assertEquals(CommandId.MINIMIZE, mac.get(0));
+    assertEquals(CommandId.ZOOM_WINDOW, mac.get(1));
+    assertTrue(CommandId.NEW_WINDOW.separatorBefore());
+    List<CommandId> others = MenuTable.commands(CommandGroup.WINDOW, MenuTable.TITLE_BAR_COMMANDS);
+    assertEquals(CommandId.NEW_WINDOW, others.get(0));
+    assertEquals(mac.subList(2, mac.size()), others);
+  }
+
+  @Test
   void listedCascadesSitBesideTheirCommands() {
     assertEquals(UiText.MENU_TIME_FORMAT, MenuTable.cascadeBefore(CommandId.TIMESTAMP_FORMATS));
     assertEquals(UiText.MENU_OPENED_FILES, MenuTable.cascadeAfter(CommandId.SWITCH_FILE));

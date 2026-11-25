@@ -193,6 +193,10 @@ public final class Keymap {
     sequence(b, CommandId.SEARCH_FOLDER, 'd');
     window(b, CommandId.NEXT_FOLDER_MATCH, 0, KeyStroke.F4);
     window(b, CommandId.PREVIOUS_FOLDER_MATCH, S, KeyStroke.F4);
+    // Minimize: the Window menu item exists on macOS only.
+    if (mac) {
+      window(b, CommandId.MINIMIZE, P, 'm');
+    }
     // Full Screen; Control+F outside macOS folds into Find's Ctrl+F.
     if (mac) {
       window(b, CommandId.FULL_SCREEN, KeyStroke.CONTROL | P, 'f');

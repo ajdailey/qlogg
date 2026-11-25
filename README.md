@@ -129,10 +129,10 @@ from the Ubuntu archive when the runner image lacks them.
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
 | `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
-| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release |
+| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
 
 CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg`, cached by the
@@ -146,15 +146,16 @@ send every later job to Maven Central for them.
 
 The draft Release carries the seven archives the `bundle` jobs ran,
 `SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
-release notes. Only the `release` and `continuous` jobs have `contents:
-write`.
+release notes. A tag with a suffix (`v0.2.0-rc1`) drafts a pre-release, which
+never becomes the repository's latest release. Only the `release` and
+`continuous` jobs have `contents: write`.
 
 The [`continuous`](https://github.com/ajdailey/qlogg/releases/tag/continuous)
 pre-release holds the build of the newest `main` commit whose CI run passed,
 never marked Latest; its body names the commit, the run and the date.
 Publishes run one at a time, and `publish-continuous.sh` skips a commit older
-than the one `continuous` holds, so a re-run of an older run never replaces a
-newer build.
+than the one `continuous` holds unless it is the `main` head (a force push), so
+a re-run of an older run never replaces a newer build.
 
 Every module's version is `${revision}`, set once in the parent POM
 (`<revision>0.2.0-SNAPSHOT</revision>`); flatten-maven-plugin writes the
@@ -172,7 +173,9 @@ To release:
 2. Check the bundled Temurin build (`jdk.*` in `qlogg-dist/src/build/dist.xml`)
    against the latest Oracle Critical Patch Update and the OpenJDK advisories;
    move the pins if a fixed build exists.
-3. Push an annotated tag:
+3. Push an annotated tag. A release candidate adds `-rc<N>` to the tag
+   (`v0.2.0-rc1`) on the same `-SNAPSHOT` commit; its archives carry the
+   tag's version.
 
    ```sh
    git tag -a v<version> -m "QLogg <version>" && git push origin v<version>
@@ -346,9 +349,9 @@ signed bundle; portable use there goes through `--settings`.
 | `qlogg-launcher/` | Composition, logging configuration, architecture rules |
 | `qlogg-dist/` | Universal jar, launchers, runtimes and archives; icons |
 | `qlogg-bench/` | Benchmark harness, JMH probes and comparison scripts; not shipped |
-| `config/` | Checkstyle, SpotBugs and find-sec-bugs configuration |
+| `config/` | Checkstyle, SpotBugs, find-sec-bugs and dependency-check configuration |
 | `docker/`, `compose.yaml`, `scripts/` | Container build |
-| `.github/` | CI workflow and the scripts its steps run |
+| `.github/` | CI and dependency-check workflows, the scripts their steps run, Dependabot configuration |
 | `tools/icons.sh` | Renders the application icon from `qlogg-dist/src/icons/*.svg` |
 | `docs/user-guide.md`, `docs/images/guide/` | The user guide Help > User Guide shows, and its screenshots |
 | `tools/screenshots.sh`, `docs/images/` | Writes the light and dark screenshots and the user guide's images under Xvfb from generated mock logs (Linux) |

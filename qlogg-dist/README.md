@@ -115,7 +115,8 @@ releases `dist.xml` downloads and launch4j's header.
 The archive and SBOM names carry the version `-Drevision` sets: the tag's
 version for a `v*` tag, `<revision>+<short commit>` for any other CI build.
 A pushed `v*` tag ends in a draft GitHub Release holding the seven archives,
-`SHA256SUMS` and the SBOM; the maintainer reviews and publishes it. A green
+`SHA256SUMS` and the SBOM, a pre-release when the tag has a suffix
+(`v0.2.0-rc1`); the maintainer reviews and publishes it. A green
 push to `main` replaces the `continuous` pre-release with the same set. Steps and
 recovery are in the root `README.md` under "Continuous integration".
 

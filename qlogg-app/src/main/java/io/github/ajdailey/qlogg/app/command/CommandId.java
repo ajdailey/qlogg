@@ -323,8 +323,18 @@ public enum CommandId {
   /** Open the Preferences dialog. */
   PREFERENCES(CommandGroup.TOOLS, UiText.COMMAND_PREFERENCES, true, false),
   // Window menu.
+  /**
+   * Minimize the active window, a tool window included. In the Window menu on macOS only; elsewhere
+   * the title bar supplies it ({@link MenuTable#TITLE_BAR_COMMANDS}).
+   */
+  MINIMIZE(CommandGroup.WINDOW, UiText.COMMAND_MINIMIZE, false, false),
+  /**
+   * Maximize the active window, a tool window included, or restore it when maximized. In the Window
+   * menu on macOS only, like {@link #MINIMIZE}.
+   */
+  ZOOM_WINDOW(CommandGroup.WINDOW, UiText.COMMAND_ZOOM_WINDOW, false, false),
   /** Open an empty main window. */
-  NEW_WINDOW(CommandGroup.WINDOW, UiText.COMMAND_NEW_WINDOW, false, false),
+  NEW_WINDOW(CommandGroup.WINDOW, UiText.COMMAND_NEW_WINDOW, true, false),
   /** Move the active tab to a new window. */
   MOVE_TO_NEW_WINDOW(CommandGroup.WINDOW, UiText.COMMAND_MOVE_TO_NEW_WINDOW, true, false),
   /** Show the tab to the right. */

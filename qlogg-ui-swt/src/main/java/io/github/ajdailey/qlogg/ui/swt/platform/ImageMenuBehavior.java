@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -43,14 +44,11 @@ abstract class ImageMenuBehavior implements MenuBehavior {
   abstract void align(List<MenuItem> plain, ItemImages images);
 
   @Override
-  public final void addWindowControls(Menu menu, Shell shell) {}
-
-  @Override
   public final void toolWindowMenus(Shell tool, ToolMenus menus) {}
 
   @Override
   public final Set<CommandId> systemCommands(Display display) {
-    return Set.of();
+    return MenuTable.TITLE_BAR_COMMANDS;
   }
 
   @Override

@@ -636,10 +636,6 @@ public enum UiText {
   NOTICE_MARKS_NOT_KEPT,
   /** View submenu listing the open files. */
   MENU_OPENED_FILES,
-  /** Window menu on macOS: minimize the window. */
-  MENU_MINIMIZE,
-  /** Window menu on macOS: zoom the window. */
-  MENU_ZOOM,
   /** Tab context menu item. */
   TAB_CLOSE,
   /** Tab context menu item. */
@@ -1413,6 +1409,12 @@ public enum UiText {
   // Full Screen.
   /** Command label. */
   COMMAND_FULL_SCREEN,
+
+  // Minimize.
+  /** Command label: the Window menu on macOS. */
+  COMMAND_MINIMIZE,
+  /** Command label: the Window menu on macOS. */
+  COMMAND_ZOOM_WINDOW,
 
   // Tab strip buttons and the last tab.
   /** Tab list button tool tip and accessible name. */

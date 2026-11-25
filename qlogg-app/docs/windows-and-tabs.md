@@ -98,7 +98,7 @@ Each window's normal bounds and maximized state are saved per window with its
 tabs. The launcher opens the first window at its session bounds, else at the
 `qlogg.conf` geometry, with `--window-*` options winning, and each further
 session window through `WindowSet.openWindow(WindowState)`, which hands the
-bounds to the `Factory`. File > New Window and a tab moved to a new window take
+bounds to the `Factory`. Window > New Window and a tab moved to a new window take
 the `qlogg.conf` size and leave the position to the window system.
 
 `AlwaysOnTop` holds a window's View > Always on Top flag; `restoreSession`
@@ -267,8 +267,8 @@ and key; without one, the main view is focused.
 ### Command palette
 
 View > Command Palette (`Ctrl+Shift+P`) calls `MainView.showCommandPalette` over
-`commandPalette()`. `CommandPalette.filter` lists every menu command but itself
-with its menu path (`Search > Search Options`) and `CommandStates.enabled`. A
+`commandPalette()`. `CommandPalette.filter` lists every menu command but itself,
+Minimize and Zoom included on every platform, with its menu path (`Search > Search Options`) and `CommandStates.enabled`. A
 query matches when its non-blank chars appear in order in the title, ignoring
 case, else in the menu path and title; a char scores 1, 3 more right after the
 previous match and 5 more at a word start, and rows sort by score, then menu

@@ -199,6 +199,23 @@ class CommandStatesTest {
     assertFalse(states.checked(CommandId.SHOW_MARKS_AND_MATCHES));
   }
 
+  /** Minimize follows the view's stacking, so an unsupported stacking leaves it disabled. */
+  @Test
+  void aStackingReportingUnsupportedLeavesMinimizeDisabled() {
+    assertTrue(states.enabled(CommandId.MINIMIZE));
+    application.execute(CommandId.MINIMIZE);
+    assertEquals(1, view.minimizeCalls);
+    view.minimizeSupported = false;
+    assertFalse(states.enabled(CommandId.MINIMIZE));
+  }
+
+  @Test
+  void zoomIsEnabledAndRunsTheViewsZoom() {
+    assertTrue(states.enabled(CommandId.ZOOM_WINDOW));
+    application.execute(CommandId.ZOOM_WINDOW);
+    assertEquals(1, view.zoomCalls);
+  }
+
   @Test
   void favoritesSwapEnablement() throws Exception {
     open("favorite.log");

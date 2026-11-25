@@ -484,6 +484,35 @@ final class FakeView implements MainView {
     onTopCalls.add(onTop);
   }
 
+  // Minimize.
+
+  /** What {@link #minimizeSupported} reports. */
+  boolean minimizeSupported = true;
+
+  /** The number of {@link #minimize} calls. */
+  int minimizeCalls;
+
+  @Override
+  public boolean minimizeSupported() {
+    check("minimizeSupported");
+    return minimizeSupported;
+  }
+
+  @Override
+  public void minimize() {
+    check("minimize");
+    minimizeCalls++;
+  }
+
+  /** The number of {@link #zoom} calls. */
+  int zoomCalls;
+
+  @Override
+  public void zoom() {
+    check("zoom");
+    zoomCalls++;
+  }
+
   // Full Screen.
 
   /** What {@link #fullScreen} reports; {@link #setFullScreen} sets it. */

@@ -104,12 +104,15 @@ ms in both controllers), and the flush reads the latest published state.
 command line wins over persisted geometry, which wins over 1024 x 768. The size
 is the client area plus the trim.
 
-- The monitor is the one containing the requested top-left corner, else the
-  primary.
+- The monitor is the one containing the requested or persisted top-left
+  corner, else the primary.
 - Size is clamped to the monitor's work area, then the location is clamped so
   the window lies inside it.
 - Without a position, or where position is unsupported (Wayland), the window
   system places the window.
+- `fit(bounds, workArea)` clamps a window's size to a work area, then moves the
+  window inside it. Dialogs and tool windows use it when they open, and the
+  Windows placement after the main window opens.
 
 ### Test dispatcher
 
@@ -129,11 +132,17 @@ constructor folds it into `PRIMARY` (`KeyStroke.forPlatform`) and drops a
 binding the fold repeats, so a macOS binding read from `qlogg.conf` becomes the
 `Ctrl` binding.
 
-`Keymap.defaults()` takes `OsTraits.current().macKeymap()`; `defaults(mac)`
-differs only for Go Back and Go Forward: `Alt+Left` and `Alt+Right`, or
-`Control+Command+Left` and `Right` on macOS, where `Option`+arrow moves by word
-in a text field; and for Full Screen: `F11`, or `Control+Command+F` on macOS,
-since `Control+F` folds into Find's `Ctrl+F` elsewhere.
+`Keymap.defaults()` takes `OsTraits.current().macKeymap()`. `defaults(mac)`
+differs for:
+
+- Go Back and Go Forward: `Alt+Left` and `Alt+Right`, or `Control+Command+Left`
+  and `Right` on macOS, where `Option`+arrow moves by word in a text field.
+- Find Next and Find Previous: on macOS `Cmd+G` and `Cmd+Shift+G` are window
+  bindings, since a Mac keyboard sends `F3` as a media key; elsewhere `Ctrl+G`
+  and `Ctrl+Shift+G` are log view bindings.
+- Full Screen: `F11`, or `Control+Command+F` on macOS, since `Control+F` folds
+  into Find's `Ctrl+F` elsewhere.
+- Minimize: `Cmd+M` on macOS, none elsewhere.
 
 ### Commands and menus
 
@@ -148,7 +157,12 @@ menu.
 `MenuTable.commands(group, system)` lists a menu's commands, leaving out the
 commands the system's own menu supplies: on macOS `APP_MENU_COMMANDS`, About,
 Preferences and Exit, which the application menu holds as About, Preferences and
-Quit. `MenuTable` also names the cascades
+Quit; elsewhere `TITLE_BAR_COMMANDS`, Minimize and Zoom, which the title bar
+supplies. So Window > Minimize (`MINIMIZE`) and Zoom (`ZOOM_WINDOW`) lead the
+Window menu on macOS only; the command palette and the shortcut editor read the
+whole table and list both on every platform. `MINIMIZE` runs
+`MainView.minimize` and is enabled while `MainView.minimizeSupported` holds;
+`ZOOM_WINDOW` runs `MainView.zoom`, always enabled, and has no key. `MenuTable` also names the cascades
 filled from state (`cascadeBefore`, `cascadeAfter`), the Time Spread cascade
 (`nestedCascade`) and the radio items (`RADIO`: Theme, the filtered view
 modes, Encoding > Auto, Time Spread).
@@ -157,8 +171,9 @@ Every item of a menu, cascade or context menu has a mnemonic no other item
 there shares (`MenuTableTest` for the menu bar and the context menu tables,
 `LogViewTest` for every built menu); listed entries and Wrap Line have none. `MenuTable` holds
 the context menus' layout: `LOG_VIEW_MENU` with `logViewCascade` and
-`LOG_VIEW_CASCADES`, `TAB_MENU`, `PATH_MENU` and `SEARCH_FIELD_MENU`; null is a
-separator. The log view's
+`LOG_VIEW_CASCADES`, `TAB_MENU`, `RESULT_TAB_MENU` (a results tab's close
+items; the view adds Keep Results as a check item after a separator), `PATH_MENU`
+and `SEARCH_FIELD_MENU`; null is a separator. The log view's
 context menu shows `CommandId.label()`, so a command in both takes a letter
 free in both.
 

@@ -437,7 +437,7 @@ class HelpItemsTest {
   @Test
   void withoutTheApplicationMenuTheMenuBarKeepsAboutOptionsAndExit() {
     assumeTrue(
-        PlatformTraits.PLATFORM.menus().systemCommands(display).isEmpty(),
+        !PlatformTraits.PLATFORM.menus().systemCommands(display).contains(CommandId.ABOUT),
         "Cocoa always has the application menu");
     assertSame(CommandId.PREFERENCES, AppMenu.command(SWT.ID_PREFERENCES));
     assertSame(CommandId.ABOUT, AppMenu.command(SWT.ID_ABOUT));

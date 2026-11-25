@@ -148,7 +148,9 @@ resolves `ui.theme` (`ThemeMode`) against `ThemeService.systemDark()`, and
 | A scheme id | The scheme's, through every theme and system change | Follow `ui.theme` |
 
 Each mode change, and each system change in `SYSTEM`, calls
-`ThemeService.preferDark` with the theme's side, never the scheme's.
+`ThemeService.preferDark` with the theme's side, never the scheme's. When that
+side changes, `PaletteListener.themeChanged(dark)` fires after any palette
+change, whatever the scheme; `ThemeController.dark()` reports the side.
 
 `ApplicationController.theme()` is the `ThemeController`. The View menu's theme
 items call `setTheme`, which saves `ui.theme` and calls `ThemeController.setMode`.

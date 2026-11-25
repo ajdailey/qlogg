@@ -59,9 +59,10 @@ launch the primary, or `InstanceClient.handOff` sends the files, `-f` and
 starting; the client then waits for its first window, up to 35 s.
 
 A handing launch without file arguments first calls `OpenDocuments.await`
-(`qlogg-ui-swt`). On cocoa, Finder Open With can start a second copy of the
-bundle with no arguments and send the file as `SWT.OpenDocument` once a
-Display exists, so `await` creates the Display and dispatches events until
+(`qlogg-ui-swt`) through the `LaunchDocuments` seam (`CocoaLaunchDocuments`,
+`NativeLaunchDocuments` elsewhere). On cocoa, Finder Open With can start a
+second copy of the bundle with no arguments and send the file as
+`SWT.OpenDocument` once a Display exists, so `await` creates the Display and dispatches events until
 files arrive and 200 ms pass with no further one, or 1 s passes with none, and
 the launch hands off what came, possibly nothing. Elsewhere `await` returns no
 files at once. The bounds are unmeasured.
@@ -97,18 +98,21 @@ window is open, so a caller reading them through a pipe reaches the end;
 
 1. Creates `Workers` and starts the primary's `InstanceServer` on them, so
    handoffs are accepted before the Display exists.
-2. Resolves `ui.theme` before the first Shell. For light and dark,
-   `SwtThemeService.open` also sets the native widgets' theme (system leaves
-   them to the OS); on Windows a theme change rebuilds each main window, so
-   `SwtThemeService.setWindows` receives the `WindowViews` that wraps every
-   window in a `MainWindowSlot`, and on macOS they always follow the OS.
-3. Loads the default time zone's rules on a `qlogg-lifecycle-` worker, so the
-   first open does not read the JDK time-zone data on the UI thread.
-4. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
+2. Creates the `MemoryBudget` from `Runtime.maxMemory()` and the document
    services: an `Indexer` with default settings, a `BlockCache` of 64 KiB
    blocks holding the `BLOCK_CACHE` share up to 64 MiB, and
    `encoding.default` as the fallback charset, and the primary server's held
    lock (null without one).
+3. Resolves `ui.theme` before the first Shell. `SwtThemeService.open` starts
+   the platform's `ThemeFollow` (`GtkThemeFollow`, `Win32ThemeFollow`,
+   `CocoaThemeFollow`): GTK sets the native theme for light and dark and
+   leaves system to the OS; win32 sets it for every mode, and a later change
+   rebuilds each main window, so `SwtThemeService.setWindows` receives the
+   `WindowViews` that wraps every window in a `MainWindowSlot`; cocoa pins the
+   application appearance to the resolved side, and menus follow the system
+   appearance.
+4. Loads the default time zone's rules on a `qlogg-lifecycle-` worker, so the
+   first open does not read the JDK time-zone data on the UI thread.
 5. Creates the dispatcher and the `WindowSet` with `LogConfigurator.RECENT` and
    the `FileLog`, and connects the macOS application menu (`AppMenu.hook`, a
    no-op elsewhere).
@@ -267,15 +271,15 @@ a live instance's file: its process runs, and its writes keep it young.
 `ArchitectureTest` checks every class except the bootstrap; test classes and
 test jars are not imported. Each rule with a fixture test
 (`...FailsOnItsFixture`, `...FailOnTheirFixtures`) runs against the violating
-classes in `ui.swt.archfixture`, `app.controller.archfixture` and
-`core.archfixture` (test sources), so a rule that stops matching fails:
+classes in `ui.swt.archfixture`, `app.controller.archfixture`,
+`core.archfixture` and `core.util.archfixture` (test sources), so a rule that stops matching fails:
 
 | Rule | Why |
 |---|---|
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
 | No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
-| `SWT.getPlatform()` and strings starting `org.eclipse.swt.internal.` (system properties, class names) only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | Each view-layer platform difference is a `PlatformTraits` method |
+| `SWT.getPlatform()`, strings starting `org.eclipse.swt.internal.` (system properties, class names) and the string `SWT_GTK4` only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | View-layer platform code stays in `ui.swt.platform`, behind a seam `PlatformTraits` chooses |
 | Outside `ui.swt.platform` and `core.util.os`, no call of a boolean `PlatformTraits` or `OsTraits` method other than the value traits (`behaviorOnlyThroughSeams`) | Platform behavior goes through a seam interface the traits choose; a trait answers a value |
 | No call of `Display.getSystemMenu`, `getSystemTray`, `getSystemTaskBar`, `isSystemDarkTheme` or `Program.findProgram` outside `ui.swt.platform` (`platformQueriesOnlyInThePlatformPackage`) | Their answer is the platform; shared code takes it from a seam or a value trait |
 | A value trait (`macKeys`, `macKeymap`, `runsInsteadOfOpening`) is called only by the classes `VALUE_TRAIT_CALLERS` names (`valueTraitsOnlyInReviewedCallers`) | ArchUnit does not see a condition, so each new caller is reviewed: it passes the value on, or calls a seam instead |
@@ -286,7 +290,7 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture` and
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |
-| `core.util` depends on no other QLogg package | Utilities stay leaf classes |
+| `core.util` depends on no QLogg class outside `core.util` (`utilitiesDependOnNoOtherPackage`) | Utilities stay leaf classes |
 | `ui.swt` uses `core.{search, watch}` only for their enums | Views read controller state, not the search and file-watch model |
 | Views do not depend on `LogDocument`, `MutableLineSet`, `LineReader` or `FoldMap`, and do not call `Viewport` mutators | The controller owns the document, the sets and the viewport |
 | Views do not call `Highlighter.of` or `compile` | `HighlightComposer` and `HighlightSetsEditor` compose and validate rules |
@@ -319,7 +323,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 
 | Class | Covers |
 |---|---|
-| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; `Gui.loop` on a Display without handlers routing a runtime exception and an `Error` out of `readAndDispatch` to `UiFailures`, the `Error` quitting with status 4; a quit that throws ending the loop with status 4 and the window still open; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker; the first window taking its session bounds, else the `qlogg.conf` ones |
+| `GuiTest` (`swt`) | The composed application: waits for the file to name the window at 900 x 600, location 50,40, shuts down, and checks that no `qlogg-` thread survives; a failing UI task leaving the window open with status 0; 11 failing tasks, or one `Error`, quitting with status 4 with the session saved and the marker written; `Gui.loop` on a Display without handlers routing a runtime exception and an `Error` out of `readAndDispatch` to `UiFailures`, the `Error` quitting with status 4; a quit that throws ending the loop with status 4 and the window still open; with the marker, a `-s` launch with a file opens only that file, shows the notice and deletes the marker, and the next launch restores that file without the notice; a launch with a file and no restore shows the other notice once and keeps the marker, a second shows none, and a later `-s` launch skips the saved tab without a notice and deletes the marker; the first window taking its session bounds, else the `qlogg.conf` ones; a `--window-*` size and an `-m` window not saved back, the session keeping its bounds |
 | `UiFailuresTest` | 10 failures within 1 s keep running, the 11th quits once, failures more than 1 s apart keep running, an `Error` quits; each quit writes the marker; a quit that throws sets `quitFailed` and runs once |
 | `LargeFileGuiTest` (`swt`) | A 3 GiB file of 64-byte numbered lines (50,331,648 lines) in the temporary directory: the first line shows while indexing runs, go to line shows the last line (past 2^31 bytes) with the scroll bar at its end, a thumb drag shows the mapped line. Needs 4 GiB free and is skipped otherwise |
 | `ScreenshotsTest` (`swt`) | Runs only with `-Dqlogg.screenshots=<dir>` (`tools/screenshots.sh`): a generated mock log at 1100 x 700 (`-Dqlogg.screenshots.width` and `.height` override it; `-Dqlogg.screenshots.tabs=2` opens a second log so the tab row holds two tabs) with a highlighter set, a search and two marks; writes `qlogg-light.png` and `qlogg-dark.png` through `Shell.print` |
@@ -332,7 +336,7 @@ Classes tagged `swt` open windows and run under a display (Xvfb under
 | `ShutdownHookTest` | The hook's task run directly: it requests the quit and releases once it finishes, only releases after an ordered quit, and returns after its bound when the quit never finishes, naming the surviving threads |
 | `LauncherProcessTest` | Launches as real processes through `LaunchMain`: a primary asked to open, import from or export over `instance.lock` keeps the lock, and the next launch hands its files over, also in a group-writable settings directory (POSIX) |
 | `UnopenedNamesTest` | After an expansion the request keeps its options and loses its files; unpassed names keep the other files; either way a default session becomes `NEW` and `-s` stands; without either the request stands; the message for unpassed names and for an expansion, none when every name opens |
-| `LauncherTest` | The WebView2 data folder for per-user, portable and explicit settings on Windows; other systems leave the property unset |
+| `LauncherTest` | `-h` and `-v` output; an unknown option and a `--settings` path that is a file exiting 1; `user.home` moved to the settings directory in explicit and portable mode on Linux; the WebView2 data folder for per-user, portable and explicit settings on Windows, unset elsewhere |
 | `LogConfiguratorTest` | The planted handlers, levels and properties are gone after `install` |
 | `RetainingLogManagerTest` | `reset()` keeps the handlers once retained |
 | `FileRelayHandlerTest` | Held records written first and once, in order, then later records; records past the bound dropped and counted in one WARN; a release discarding them; nothing kept without a hold |

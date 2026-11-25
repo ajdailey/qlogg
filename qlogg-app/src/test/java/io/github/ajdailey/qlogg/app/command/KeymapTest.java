@@ -124,6 +124,24 @@ class KeymapTest {
   }
 
   @Test
+  void minimizeTakesCmdMOnMacosOnly() {
+    Keymap mac = Keymap.defaults(true);
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'm'), mac.accelerator(CommandId.MINIMIZE));
+    assertEquals("Cmd+M", mac.keysText(CommandId.MINIMIZE, true));
+    for (Binding binding : mac.bindingsFor(CommandId.MINIMIZE)) {
+      assertEquals(List.of(), mac.conflicts(binding), binding.text(true));
+    }
+    assertEquals(List.of(), Keymap.defaults(false).bindingsFor(CommandId.MINIMIZE));
+  }
+
+  @Test
+  void zoomWindowHasNoKey() {
+    for (boolean mac : new boolean[] {false, true}) {
+      assertEquals(List.of(), Keymap.defaults(mac).bindingsFor(CommandId.ZOOM_WINDOW));
+    }
+  }
+
+  @Test
   void closeAllAndPreferencesHaveKeysOnEveryPlatform() {
     for (boolean mac : new boolean[] {false, true}) {
       Keymap map = Keymap.defaults(mac);

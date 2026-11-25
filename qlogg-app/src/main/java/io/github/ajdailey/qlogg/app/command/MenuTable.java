@@ -12,13 +12,18 @@ import java.util.Set;
  * The commands each menu-bar menu lists, in {@link CommandId} declaration order, and the layout of
  * the log view, tab, path field and search field context menus. Where the system supplies an
  * application menu (macOS), About, Preferences and Exit sit there as About, Preferences and Quit
- * and are left out of Help, Tools and File.
+ * and are left out of Help, Tools and File. Outside macOS the title bar supplies Minimize and Zoom,
+ * which are left out of Window.
  */
 public final class MenuTable {
   /** Commands the macOS application menu runs instead of the menu bar; unmodifiable. */
   public static final Set<CommandId> APP_MENU_COMMANDS =
       Collections.unmodifiableSet(
           EnumSet.of(CommandId.ABOUT, CommandId.PREFERENCES, CommandId.QUIT));
+
+  /** Commands the title bar runs instead of the menu bar outside macOS; unmodifiable. */
+  public static final Set<CommandId> TITLE_BAR_COMMANDS =
+      Collections.unmodifiableSet(EnumSet.of(CommandId.MINIMIZE, CommandId.ZOOM_WINDOW));
 
   private MenuTable() {}
 

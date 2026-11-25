@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.app.command.MenuTable;
 import java.util.Set;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Display;
@@ -23,14 +24,11 @@ final class Gtk4MenuBehavior implements MenuBehavior {
   }
 
   @Override
-  public void addWindowControls(Menu menu, Shell shell) {}
-
-  @Override
   public void toolWindowMenus(Shell tool, ToolMenus menus) {}
 
   @Override
   public Set<CommandId> systemCommands(Display display) {
-    return Set.of();
+    return MenuTable.TITLE_BAR_COMMANDS;
   }
 
   @Override

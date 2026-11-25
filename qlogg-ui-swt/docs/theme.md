@@ -90,7 +90,7 @@ lay out again once `CTabFolder` measures their buttons on a later UI turn
 | Minimized | Minimized again after open, with the restore bounds kept; a minimized window rebuilds like a shown one and activates only another main window that was active |
 | Always on Top | `setOnTop` before open |
 | Focus (main view, filtered view, search row, quick find) and the active shell | Restored when the main window or one of its tool windows was active |
-| Marks, Search All Files, Search in Folder, scratchpad, Show Log, Keyboard Shortcuts, user guide | Reopened at their bounds with the scratchpad's tabs and text, the log text, the shortcuts filter and the guide's last location |
+| Marks, Search in Open Files, Search in Folder, scratchpad, Show Log, Keyboard Shortcuts, user guide | Reopened at their bounds with the scratchpad's tabs and text, the log text, the shortcuts filter and the guide's last location |
 | Command palette, context menus, a status notice | Closed |
 
 A rebuild of one window takes 187 to 334 ms on `windows-2025` (1, 5 and 20

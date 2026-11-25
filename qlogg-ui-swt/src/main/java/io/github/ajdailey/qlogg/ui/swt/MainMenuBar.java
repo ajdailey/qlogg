@@ -249,9 +249,6 @@ final class MainMenuBar {
       if (group == CommandGroup.ENCODING) {
         buildEncodings(menu);
       }
-      if (group == CommandGroup.WINDOW) {
-        PlatformTraits.PLATFORM.menus().addWindowControls(menu, shell);
-      }
       // Menu item icons.
       icons.decorate(menu);
       menu.addListener(

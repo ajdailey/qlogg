@@ -77,10 +77,13 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 | `decorate`: blank images | no: the menu reserves the image column | yes | - | - |
 | `ink` | fixed: the native side the Display started with | live | live | live |
 | `disabledOnDark` | the icon | a faded copy | a faded copy | the icon |
-| `addWindowControls` | nothing | nothing | nothing | Minimize and Zoom |
 | `toolWindowMenus` | nothing | nothing | nothing | the owner's menus on a tool window |
-| `systemCommands` | empty | empty | empty | About, Preferences, Quit |
+| `systemCommands` | Minimize, Zoom | Minimize, Zoom | Minimize, Zoom | About, Preferences, Quit |
 | `hookAppMenu` | nothing | nothing | nothing | connects the system application menu |
+
+`Win32MenuBehavior` and `Gtk3MenuBehavior` extend `ImageMenuBehavior`, which
+decorates the menus and leaves the cocoa-only methods empty; each subclass
+supplies the blank-image alignment, ink and disabled image.
 
 - On GTK 3 a label moves right when its item has an image, so every other item
   of a menu with an icon holds `ToolIcons.blank`, a transparent 16 px image. A
@@ -91,9 +94,10 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
   `reink` on the UI turn after a palette change. win32 pop-up menus keep the
   native side the Display started with through every live switch and window
   rebuild, so their icons take that side's ink (`NativeTheme.startDark`), while
-  the toolbar takes `ChromeColors` from the live theme. The current side's ink
-  measured 1.31:1 (`#3e3e3e` on `#2c2c2c`) after dark -> light and 1.41:1 after
-  light -> dark (Windows, 150%).
+  the toolbar takes `ChromeColors` from the live theme. The icons measured
+  10.80:1 (`#3a3a3a` on `#f9f9f9`) in light menus and 9.42:1 (`#d4d4d4` on
+  `#2c2c2c`) in dark menus, at a fresh start and after each live switch
+  (Windows, 150%).
 
 ## Listed entries
 
@@ -143,8 +147,9 @@ in a group. `&` in a title is escaped.
 `CocoaMenuBehavior` connects the system application menu, and the win32 and GTK
 classes do nothing. `MainMenuBar` passes `MenuBehavior.systemCommands` to
 `MenuTable.commands`, which leaves those commands out: About, Preferences and
-Quit on cocoa when SWT supplies the system menu, none elsewhere, so the menu bar
-keeps About, Preferences and Exit.
+Quit on cocoa when SWT supplies the system menu; elsewhere Minimize and Zoom
+(`MenuTable.TITLE_BAR_COMMANDS`), so the menu bar keeps About, Preferences and
+Exit.
 
 | Event | Action |
 |---|---|
@@ -152,12 +157,13 @@ keeps About, Preferences and Exit.
 | Display `SWT.Close` (Cmd-Q, logout) | Vetoed; runs `WindowSet.quit` |
 | `SWT.OpenDocument` | The file goes to `WindowSet.openHandoff` |
 
-On cocoa `MenuBehavior.addWindowControls` puts Minimize (`Cmd+M`,
-`WindowStacking.minimize`) and Zoom (toggles `Shell.setMaximized`) at the top
-of the Window menu; SWT adds neither to an application-defined Window menu. No
-QLogg binding uses `Cmd+M`. On a tool window both act on the tool window, and
-minimizing it leaves the main window on screen ([Always on
-Top](main-window.md#always-on-top)).
+On cocoa the Window menu starts with Minimize (`CommandId.MINIMIZE`, `Cmd+M`)
+and Zoom (`CommandId.ZOOM_WINDOW`, no key, toggles `Shell.setMaximized`); SWT
+adds neither to an application-defined Window menu. Both act on the active
+shell the window owns (`ActiveWindow.ownedBy`), so on a tool window they act on
+the tool window, and minimizing it leaves the main window on screen. Minimize
+is enabled at menu sync like Always on Top
+([Minimize](main-window.md#minimize)).
 
 ## Tool window menus
 

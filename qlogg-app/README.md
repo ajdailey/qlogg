@@ -30,8 +30,9 @@ Every controller is confined to the UI thread and never blocks it.
 `ArchitectureTest` (`qlogg-launcher`) rejects `Future.get`, `Thread.join`,
 `Thread.sleep`, `OperationHandle.await` and `CountDownLatch.await` in
 `app.controller` and `app.command`.
-Controllers read no system property or environment variable; the platform comes
-from the view. Public controller methods return `LineSet`, never
+Controllers call no `System.getProperty` or `getenv` (`ArchitectureTest`); the
+platform comes from the view (`MainView.system()`), except the default keymap,
+which `Keymap.defaults()` takes from `OsTraits.current()`. Public controller methods return `LineSet`, never
 `MutableLineSet`.
 
 A blocking call in `app.controller` (file I/O, `LogDocument` open and close,

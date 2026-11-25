@@ -378,6 +378,21 @@ public final class MainWindowSlot implements MainView {
   }
 
   @Override
+  public boolean minimizeSupported() {
+    return view.minimizeSupported();
+  }
+
+  @Override
+  public void minimize() {
+    view.minimize();
+  }
+
+  @Override
+  public void zoom() {
+    view.zoom();
+  }
+
+  @Override
   public void setOnTop(boolean onTop) {
     view.setOnTop(onTop);
   }

@@ -10,8 +10,8 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * Menu bar differences, one implementation per platform from {@link PlatformTraits#menus}: item
- * icons, their ink and disabled image, and the Window menu's own controls. Confined to the UI
- * thread.
+ * icons, their ink and disabled image, tool window menus, and the commands the system supplies.
+ * Confined to the UI thread.
  */
 public interface MenuBehavior {
   /**
@@ -48,16 +48,6 @@ public interface MenuBehavior {
   Image disabledOnDark(Image plain, FadedImage faded);
 
   /**
-   * Puts Minimize ({@code Cmd+M}) and Zoom, then a separator, at the top of the Window menu on
-   * cocoa, which SWT does not add to an application-defined Window menu. Zoom toggles the maximized
-   * state.
-   *
-   * @param menu the Window menu
-   * @param shell the window they act on
-   */
-  void addWindowControls(Menu menu, Shell shell);
-
-  /**
    * Gives a tool window its owner's menus on cocoa, where the menu bar shows the key window's menus
    * and a window without a menu bar shows only the application menu. Does nothing elsewhere, where
    * a menu bar draws inside its window.
@@ -68,11 +58,11 @@ public interface MenuBehavior {
   void toolWindowMenus(Shell tool, ToolMenus menus);
 
   /**
-   * Returns the commands the system's own application menu supplies, which the menu bar leaves out.
+   * Returns the commands the system supplies outside the menu bar, which the menu bar leaves out.
    *
    * @param display the Display
-   * @return About, Preferences and Quit on cocoa when {@code Display.getSystemMenu()} is not null,
-   *     else empty; unmodifiable
+   * @return on cocoa, About, Preferences and Quit when {@code Display.getSystemMenu()} is not null,
+   *     else empty; elsewhere {@code MenuTable.TITLE_BAR_COMMANDS}; unmodifiable
    */
   Set<CommandId> systemCommands(Display display);
 
