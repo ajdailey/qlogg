@@ -27,6 +27,11 @@ Windows start ([theme.md](theme.md#dialog-colors));
 `ArchitectureTest.ownedShellsTakeDialogColors` fails an owned `Shell` created
 without `prepare`.
 
+A title taken from a menu, command or button label goes through
+`CommandId.title` or `UiText.title` (`WindowTitles.plain`), which removes the
+mnemonic marker and a trailing ellipsis: Rename Tab reads "Rename Tab", not
+"Rena&me Tab...". This covers the `FileDialog` titles of Import and Export too.
+
 Keyboard Shortcuts, without a remembered size, and Command Palette open wide
 enough for every packed column, within the monitor's client area
 (`TableFit.dialogWidth`). A cell still cut off, on a small screen or in a

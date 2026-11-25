@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.controller;
 import io.github.ajdailey.qlogg.app.config.FolderSearchSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
 import io.github.ajdailey.qlogg.app.view.FolderRequest;
 import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.NotificationService;
@@ -41,7 +42,9 @@ import java.util.regex.PatternSyntaxException;
  * When the share refuses a run, the run's thread closes the oldest unpinned other set and retries;
  * the UI thread then drops that set, with one notice per run. The toggles that apply are mode,
  * case, whole word, inverse and combining; range, in selection, context and auto-refresh do not.
- * Lines are matched with ANSI colors removed when {@code view.hideAnsi} is on.
+ * Lines are matched with ANSI colors removed when {@code view.hideAnsi} is on. The {@link
+ * ActivityIndicator} is active while a run is searching: from its start until it ends, is stopped
+ * or is dropped.
  *
  * <p>Locking: the monitor of {@link #sets} guards the list and the pins. The UI thread holds it for
  * a list read or change; a run's thread holds it in {@link #reclaim}, which closes a set's {@link
@@ -62,6 +65,7 @@ public final class FolderSearchController {
   private final FolderSearchHost host;
   private final UiDispatcher ui;
   private final NotificationService notices;
+  private final ActivityIndicator activity;
   private final List<Listener> listeners = new ArrayList<Listener>();
 
   /**
@@ -77,10 +81,15 @@ public final class FolderSearchController {
   private FileHits stepFile;
   private int stepHit = -1;
 
-  FolderSearchController(FolderSearchHost host, UiDispatcher ui, NotificationService notices) {
+  FolderSearchController(
+      FolderSearchHost host,
+      UiDispatcher ui,
+      NotificationService notices,
+      ActivityIndicator activity) {
     this.host = host;
     this.ui = ui;
     this.notices = notices;
+    this.activity = activity;
   }
 
   /**
@@ -191,7 +200,7 @@ public final class FolderSearchController {
     for (FolderResultSet old : beyond) {
       remove(old);
     }
-    running = set;
+    setRunning(set);
     show(set);
   }
 
@@ -215,6 +224,16 @@ public final class FolderSearchController {
   private void refuse(String message) {
     refused = new FolderSearchState(FolderSearchState.Phase.FAILED, FolderProgress.START, message);
     publish();
+  }
+
+  /** Records the running set; the indicator turns active with the first and idle with none. */
+  private void setRunning(FolderResultSet next) {
+    if (running == null && next != null) {
+      activity.setActive();
+    } else if (running != null && next == null) {
+      activity.setIdle();
+    }
+    running = next;
   }
 
   /** Stops the running search; its set keeps the files listed so far. */
@@ -291,7 +310,7 @@ public final class FolderSearchController {
     }
     set.results().close();
     if (set == running) {
-      running = null;
+      setRunning(null);
     }
     if (set == shown) {
       shown = null;
@@ -645,7 +664,7 @@ public final class FolderSearchController {
                 return;
               }
               if (running == set) {
-                running = null;
+                setRunning(null);
               }
               FolderProgress progress = set.state().progress();
               set.setState(

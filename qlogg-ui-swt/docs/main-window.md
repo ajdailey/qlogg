@@ -16,6 +16,10 @@ and a restored session.
   from the sized shell. It skips the position on GTK under the GDK backend
   `wayland` (`org.eclipse.swt.internal.gdk.backend`, a system property read
   that fails safe when absent).
+- `open` shows the shell and, when `setMaximized(true)` came first and the
+  shell opened restored, maximizes it again. On win32 a bounds change while the
+  shell opens restores a maximized shell (`Decorations.setBoundsInPixels`); SWT
+  sets the bounds on a DPI change (`Shell.WM_DPICHANGED`).
 - `windowBounds` and `windowMaximized` report the normal bounds kept from the
   last unmaximized move or resize, and the maximized state; both keep the
   state before [Full Screen](#full-screen).
@@ -129,7 +133,23 @@ accessible names come from the command titles with their keys and from
   Turning MRU mode on and off once rebuilds the show order.
 
 The results strip (`ResultsPane`) carries the list button alone: 11 kept
-searches of short patterns overflow it at 1100 px.
+searches of short patterns overflow it at 1100 px. Its context menu
+(`ResultTabMenu`) holds Close, Close Others and Close All over the tabs that
+show a close button, each through `ResultsPane.closeTab` (kept sets by identity
+first, then the current search's tab), and Keep Results
+(`TOGGLE_KEEP_RESULTS`), checked as the toggle is.
+
+### Tab strip height
+
+`TabStripHeight` lays the parent out again when a strip's height differs from
+`computeSize` at its width and height hint. `CTabFolder` measures its top-right
+control on a later UI turn (`updateFolder`, through `asyncExec`). Until then a
+control at least as tall as the tab height counts as a wrapped row under the
+tabs, so a strip filled and laid out in one turn (a rebuilt window, a results
+strip created with its document) takes that row as trim. Once the folder
+measures the control, the row becomes an empty client area under the tabs
+(33 px at 150 % on win32) until the parent lays out again. Under GTK 3 the
+strips keep their height without it (measured under Xvfb).
 
 The tab menu is one menu refilled on each call: Close, Close Others, Close to
 the Left, Close to the Right, Close All; Copy Full Path, Copy File Name, Open
@@ -426,4 +446,6 @@ plain arrow there (read in the SWT 3.135.0 sources, not run on a Mac). While
 busy, a Display `SWT.Show` filter sets the cursor on an owned shell that opens;
 idle removes the filter and clears each shell's cursor. A control with a
 cursor of its own keeps it (the time field's hand). Disposed shells are
-skipped, and the system cursor is not disposed.
+skipped, and the system cursor is not disposed. A running Search in Folder holds a
+count, so the busy cursor shows on the main window and the Search in Folder
+window until the search ends, is stopped or the window closes.

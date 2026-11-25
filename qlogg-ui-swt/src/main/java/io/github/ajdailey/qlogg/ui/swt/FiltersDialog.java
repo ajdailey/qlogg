@@ -357,7 +357,7 @@ final class FiltersDialog {
 
   private Path choose(int style) {
     FileDialog dialog = new FileDialog(shell, style);
-    dialog.setText(style == SWT.SAVE ? UiText.BUTTON_EXPORT.text() : UiText.BUTTON_IMPORT.text());
+    dialog.setText(style == SWT.SAVE ? UiText.BUTTON_EXPORT.title() : UiText.BUTTON_IMPORT.title());
     dialog.setOverwrite(true);
     String chosen = NativeDialogs.open(dialog);
     if (chosen == null) {

@@ -31,19 +31,20 @@ import org.eclipse.swt.widgets.Tree;
  * dark, each control under a surface takes {@link Palette#DARK}'s gutter, the tab strip's
  * background, and its text; a {@link Link} takes its link color raised to 4.5 contrast, and each
  * composite passes its background to push button corners ({@code SWT.INHERIT_DEFAULT}). A {@link
- * Text} or an editable {@link Combo} takes {@link Palette#DARK}'s background and text. While it
- * resolves to light every such color is null and composites take {@code SWT.INHERIT_NONE}. Both
- * directions apply live.
+ * Text} or an editable {@link Combo} takes {@link Palette#DARK}'s background and text, and so does
+ * a read-only {@code Combo}, whose drop-down list draws in those colors while the dark native theme
+ * draws its closed field. While it resolves to light every such color is null and composites take
+ * {@code SWT.INHERIT_NONE}. Both directions apply live.
  *
  * <p>While native controls are dark ({@link DialogColors#nativeDark}) a field holding text keeps
  * the dark colors on the light side, because the dark native field draws near-black under any light
  * colors; an empty field takes the system colors. A field is colored again when it becomes empty or
  * takes text ({@code SWT.Modify}).
  *
- * <p>Push and arrow buttons, read-only combos, lists, tables, trees, spinners, progress bars, a
- * {@link StyledText}, a {@link Browser}, a {@link CTabFolder} and a control with {@link
- * #PALETTE_COLORED} keep their colors, and the walk does not descend into them. A control created
- * later under a surface takes the colors at its {@link SWT#Skin} event.
+ * <p>Push and arrow buttons, lists, tables, trees, spinners, progress bars, a {@link StyledText}, a
+ * {@link Browser}, a {@link CTabFolder} and a control with {@link #PALETTE_COLORED} keep their
+ * colors, and the walk does not descend into them. A control created later under a surface takes
+ * the colors at its {@link SWT#Skin} event.
  *
  * <p>Each {@link #apply} colors the surfaces first and then re-inks every icon set, since the ink
  * is read from a colored tool bar. Under dark a set's disabled items show faded copies. A checked
@@ -168,6 +169,12 @@ final class Win32ChromeColors implements ChromeColors {
   }
 
   private void walk(Control control) {
+    // Read-only combo list.
+    if (control instanceof Combo && !field(control)) {
+      control.setBackground(dark ? color(FIELD) : null);
+      control.setForeground(dark ? color(FIELD_TEXT) : null);
+      return;
+    }
     if (keeps(control)) {
       return;
     }

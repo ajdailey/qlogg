@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
@@ -18,6 +20,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 
 /**
@@ -99,6 +103,45 @@ final class SlotWindows implements AutoCloseable {
     slots.add(slot);
     controllers.add(controller);
     return controller;
+  }
+
+  /**
+   * Switches the theme and waits until every window is rebuilt. Elsewhere than win32 it records the
+   * side as {@code Win32ThemeFollow} does and asks the views for the rebuild.
+   *
+   * @param controller a window's controller
+   * @param dark the side
+   * @return the longest UI turn during the wait, in ms: the turn that rebuilt the window
+   */
+  double switchTo(ApplicationController controller, boolean dark) {
+    final List<MainWindow> old = new ArrayList<MainWindow>();
+    for (MainWindowSlot each : slots) {
+      old.add(each.window());
+    }
+    controller.setTheme(dark ? ThemeMode.DARK : ThemeMode.LIGHT);
+    if (!"win32".equals(SWT.getPlatform())) {
+      display.setData(DialogColors.NATIVE_DARK, dark);
+      views.rebuild();
+    }
+    final long[] last = {System.nanoTime(), 0};
+    assertTrue(
+        await(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                long now = System.nanoTime();
+                last[1] = Math.max(last[1], now - last[0]);
+                last[0] = now;
+                for (int i = 0; i < old.size(); i++) {
+                  if (!old.get(i).shell().isDisposed() || slots.get(i).window() == old.get(i)) {
+                    return false;
+                  }
+                }
+                return true;
+              }
+            }),
+        "rebuilt to " + (dark ? "dark" : "light"));
+    return last[1] / 1e6;
   }
 
   /** Dispatches events until the condition holds or the bound passes. */

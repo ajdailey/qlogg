@@ -78,11 +78,14 @@ loop condition, never sees no window. Documents, views' positions, searches,
 marks, follow, quick find, kept results and the shown set live in the
 controllers and carry unchanged; running work (indexing, a search, Search in
 Folder, through `FolderSearchWindow.keepSearch`) continues, and the busy count
-stays in the slot.
+stays in the slot, so a running log or folder search shows the busy cursor on
+the new window and its reopened tool windows. The tab strips of the new window
+lay out again once `CTabFolder` measures their buttons on a later UI turn
+(`TabStripHeight`, see [main-window.md](main-window.md#tab-strip-height)).
 
 | Carried by `RebuildState` | How |
 |---|---|
-| Bounds, maximized, full screen, title | Placed before the tabs; full screen after open |
+| Bounds, maximized, full screen, title | Placed before the tabs; `MainWindow.open` maximizes again a window that opening restored; full screen after open |
 | Minimized | Minimized again after open, with the restore bounds kept; a minimized window rebuilds like a shown one and activates only another main window that was active |
 | Always on Top | `setOnTop` before open |
 | Focus (main view, filtered view, search row, quick find) and the active shell | Restored when the main window or one of its tool windows was active |
@@ -157,7 +160,9 @@ While `ui.theme` resolves to dark (`ThemeController.dark`, reported by
 `Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a `Link` takes the system link
 color moved toward white to 4.5:1; each composite takes `SWT.INHERIT_DEFAULT`,
 so native push buttons show no light corners. A `Text` and an editable `Combo`
-take `Palette.DARK.background` (`#1b2e44`, text 10.9:1) and `Palette.DARK.text`. Under light
+take `Palette.DARK.background` (`#1b2e44`, text 10.9:1) and `Palette.DARK.text`, and
+so does a read-only `Combo`: the dark native theme draws its closed field and
+leaves its drop-down list white unless the combo has colors. Under light
 the colors are null and composites take `SWT.INHERIT_NONE`. Both directions
 apply live. The colors follow `ui.theme`, not the `view.colors` scheme, as
 native controls do.
@@ -174,10 +179,9 @@ that empties it or gives it text.
 `MainWindow` registers the top row, the search row, the quick find bar, the
 status bar and each sash of the split. The fields are the path field (read-only),
 the pattern and range combos, the two context fields and the quick find field.
-The walk does not enter push and arrow buttons, a read-only `Combo`, `List`,
-`Table`, `Tree`, `Spinner`, `ProgressBar`, `StyledText`, `Browser`,
-`CTabFolder` or a control with `ChromeColors.PALETTE_COLORED`; the visibility
-combo stays native. `TabStripButtons` paints itself from the palette and is not
+The visibility combo is the read-only one. The walk does not enter push and
+arrow buttons, `List`, `Table`, `Tree`, `Spinner`, `ProgressBar`, `StyledText`,
+`Browser`, `CTabFolder` or a control with `ChromeColors.PALETTE_COLORED`. `TabStripButtons` paints itself from the palette and is not
 registered.
 
 `apply` colors the surfaces first, then calls `fadeDisabled` and `reink` on the

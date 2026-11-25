@@ -189,6 +189,7 @@ final class TabStripButtons {
     setPalette(palette);
     tabs.setRenderer(new ChevronlessRenderer(tabs));
     tabs.setTopRight(group, SWT.RIGHT);
+    TabStripHeight.follow(tabs);
     listen();
     update();
   }

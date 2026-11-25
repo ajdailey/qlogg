@@ -11,7 +11,7 @@ against the build host's SWT fragment.
 
 | Classes | Contents | Detail |
 |---|---|---|
-| `MainWindow`, `TabStrip`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabList`, `WindowBusyCursor` | The main window: top row, tab row, split body, search row, filtered view, status bar, busy cursor | [docs/main-window.md](docs/main-window.md) |
+| `MainWindow`, `TabStrip`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabStripHeight`, `TabList`, `WindowBusyCursor` | The main window: top row, tab row, split body, search row, filtered view, status bar, busy cursor | [docs/main-window.md](docs/main-window.md) |
 | `MainMenuBar`, `MenuIcons`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu` | Menu bar, menu item icons, listed entries, Time Sync and Color Label cascades, macOS application menu | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `PaletteColors`, `SwtKeys`, `OverviewBar` | The log view and the overview bar | [docs/log-view.md](docs/log-view.md) |
 | `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |

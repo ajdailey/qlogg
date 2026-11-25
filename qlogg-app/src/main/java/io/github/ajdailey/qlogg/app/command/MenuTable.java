@@ -201,6 +201,15 @@ public final class MenuTable {
   public static final List<CommandId> SEARCH_FIELD_MENU =
       List.of(CommandId.SAVE_AS_FILTER, CommandId.EDIT_HISTORY, CommandId.CLEAR_HISTORY);
 
+  // Results tab context menu.
+
+  /**
+   * A results tab's context menu: the close items, then a separator and {@link
+   * CommandId#TOGGLE_KEEP_RESULTS} as a check item.
+   */
+  public static final List<UiText> RESULT_TAB_MENU =
+      List.of(UiText.TAB_CLOSE, UiText.TAB_CLOSE_OTHERS, UiText.TAB_CLOSE_ALL);
+
   /**
    * Returns the cascade a log view context menu command sits in.
    *

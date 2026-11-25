@@ -257,42 +257,8 @@ class LiveThemeGuiTest {
         "search " + text);
   }
 
-  /**
-   * Switches the theme and waits until every window is rebuilt.
-   *
-   * @return the longest UI turn during the wait, in ms: the turn that rebuilt the window
-   */
   private double switchTo(boolean dark) {
-    final List<MainWindow> old = new ArrayList<MainWindow>();
-    for (MainWindowSlot each : windows.slots) {
-      old.add(each.window());
-    }
-    controller.setTheme(dark ? ThemeMode.DARK : ThemeMode.LIGHT);
-    if (!WIN32) {
-      // Records the side as Win32ThemeFollow does, so WindowViews rebuilds on GTK and cocoa too.
-      display.setData(DialogColors.NATIVE_DARK, dark);
-      windows.views.rebuild();
-    }
-    final long[] last = {System.nanoTime(), 0};
-    assertTrue(
-        windows.await(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                long now = System.nanoTime();
-                last[1] = Math.max(last[1], now - last[0]);
-                last[0] = now;
-                for (int i = 0; i < old.size(); i++) {
-                  if (!old.get(i).shell().isDisposed()
-                      || windows.slots.get(i).window() == old.get(i)) {
-                    return false;
-                  }
-                }
-                return true;
-              }
-            }),
-        "rebuilt to " + (dark ? "dark" : "light"));
-    return last[1] / 1e6;
+    return windows.switchTo(controller, dark);
   }
 
   /** The view and controller state a rebuild must keep, as text. */
@@ -314,6 +280,10 @@ class LiveThemeGuiTest {
     out.append(" max=").append(window.shell().getMaximized());
     out.append(" full=").append(window.fullScreen());
     out.append(" split=").append(window.splitPercent());
+    // cocoa never rebuilds a window; its overflowing strip there grows by 4 px after a rebuild.
+    if (!"cocoa".equals(SWT.getPlatform())) {
+      out.append(" layout=").append(RebuildLayoutGuiTest.layout(window));
+    }
     out.append(" focus=")
         .append(RebuildState.focusOf(window, window.shell().getDisplay().getFocusControl()));
     out.append(" quickfind=")
@@ -475,6 +445,7 @@ class LiveThemeGuiTest {
         "folder search ends");
     assertEquals(FolderSearchState.Phase.DONE, controller.folderSearch().state().phase());
     assertEquals(300, controller.folderSearch().files().size());
+    windows.settle();
     assertEquals(1, slot.busy().active());
     assertSame(
         display.getSystemCursor(PlatformTraits.PLATFORM.busyCursor()), next.shell().getCursor());

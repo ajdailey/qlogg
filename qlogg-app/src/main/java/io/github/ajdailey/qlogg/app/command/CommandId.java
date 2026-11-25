@@ -476,8 +476,7 @@ public enum CommandId {
    * @return for example {@code Go to Line}
    */
   public String title() {
-    String plain = label().replace("&", "");
-    return plain.endsWith("...") ? plain.substring(0, plain.length() - 3) : plain;
+    return label.title();
   }
 
   /**

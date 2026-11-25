@@ -38,6 +38,7 @@ final class ResultsPane {
   // Set while syncTabs runs: disposing the selected tab fires SWT.Selection before the remaining
   // tabs take their sets, and the model's shown set stands.
   private boolean syncing;
+  private final ResultTabMenu tabMenu;
 
   /** Rebuilds the tabs when the result sets change. */
   private final class SearchListener implements SearchViewListener {
@@ -103,6 +104,8 @@ final class ResultsPane {
             closeTab((CTabItem) event.item);
           }
         });
+    // Results tab context menu.
+    tabMenu = new ResultTabMenu(this, document, application);
     document.search().addListener(searchListener);
     pane.addListener(
         SWT.Dispose,
@@ -125,6 +128,10 @@ final class ResultsPane {
 
   CTabFolder sets() {
     return sets;
+  }
+
+  ResultTabMenu tabMenu() {
+    return tabMenu;
   }
 
   // Tab strip buttons.

@@ -36,7 +36,9 @@ Favorites, Search > Search Options, View > Folding).
   log view, tab, path field and search field context menus.
 - The context menus build from `MenuTable` tables: `LOG_VIEW_MENU` and
   `LOG_VIEW_CASCADES` (`LogCanvas`), `TAB_MENU` (`TabStrip.showTabMenu`),
-  `PATH_MENU` (`MainWindow.pathMenu`) and `SEARCH_FIELD_MENU` (`SearchBar`).
+  `PATH_MENU` (`MainWindow.pathMenu`), `SEARCH_FIELD_MENU` (`SearchBar`) and
+  `RESULT_TAB_MENU` (`ResultTabMenu`, a results tab's Close, Close Others and
+  Close All, then Keep Results as a check item).
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.
 - `syncEnablement` applies every item's enablement on each document open,

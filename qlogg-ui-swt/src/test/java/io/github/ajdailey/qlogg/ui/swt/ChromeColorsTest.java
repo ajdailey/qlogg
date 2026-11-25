@@ -81,6 +81,7 @@ class ChromeColorsTest {
   private List<ToolItem> items;
   private ToolItem toggle;
   private List<Control> fields;
+  private Combo readOnly;
 
   @BeforeEach
   void create() {
@@ -104,7 +105,6 @@ class ChromeColorsTest {
         List.of(
             new Button(surface, SWT.PUSH),
             new Button(surface, SWT.ARROW | SWT.DOWN),
-            new Combo(surface, SWT.READ_ONLY),
             new Tree(surface, SWT.NONE),
             new StyledText(surface, SWT.NONE),
             tabs,
@@ -116,6 +116,7 @@ class ChromeColorsTest {
             new Text(surface, SWT.SINGLE),
             new Text(surface, SWT.SINGLE | SWT.READ_ONLY),
             new Combo(surface, SWT.DROP_DOWN));
+    readOnly = new Combo(surface, SWT.READ_ONLY);
     icons = new ToolIcons(bar);
     items = new ArrayList<ToolItem>();
     for (String name : names()) {
@@ -258,7 +259,7 @@ class ChromeColorsTest {
   void aControlCreatedLaterUnderASurfaceTakesTheColors() {
     chrome(WIN32).apply(true);
     final Label added = new Label(surface, SWT.NONE);
-    final Label inTabs = new Label((Composite) kept.get(5), SWT.NONE);
+    final Label inTabs = new Label((Composite) kept.get(4), SWT.NONE);
     final RGB tabsLabel = inTabs.getForeground().getRGB();
     assertTrue(
         EventLoop.runUntil(
@@ -382,6 +383,19 @@ class ChromeColorsTest {
     setText(fields.get(0), "mock");
     chrome.apply(false);
     assertEquals(system, fieldColors(), "a light start keeps no field dark");
+  }
+
+  /** A read-only combo, whose list the theme leaves white, takes the field colors under dark. */
+  @Test
+  void aReadOnlyComboTakesTheFieldColorsUnderDark() {
+    RGB background = readOnly.getBackground().getRGB();
+    RGB foreground = readOnly.getForeground().getRGB();
+    ChromeColors chrome = chrome(WIN32);
+    for (boolean dark : new boolean[] {true, false}) {
+      chrome.apply(dark);
+      assertEquals(dark ? FIELD : background, readOnly.getBackground().getRGB(), "dark " + dark);
+      assertEquals(dark ? TEXT : foreground, readOnly.getForeground().getRGB(), "dark " + dark);
+    }
   }
 
   /**

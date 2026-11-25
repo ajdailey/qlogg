@@ -61,8 +61,8 @@ is ignored.
 `start` raises the indicator and starts `work` on a worker, `finished` runs on
 the UI thread, and the idle call follows `finished` on every outcome, including
 a throwing `work` or `finished`. Copy and save, quick find, mark toggles, go to
-time and Select Range run on it. Indexing and the search pair the calls by hand,
-because their tasks start in `qlogg-core`. Mark each anonymous `work` override
+time and Select Range run on it. Indexing, the search and Search in Folder pair
+the calls by hand, because their tasks start in `qlogg-core`. Mark each anonymous `work` override
 `@WorkerThread`: the worker rules read `run` of anonymous `Runnable`s only. The
 launcher's `BusyCoverageTest` lists every `Workers` call in `qlogg-app` with
 what the user sees while it runs.
@@ -216,6 +216,9 @@ defaults: `shortcut.<COMMAND>.count` and `shortcut.<COMMAND>.<n>` = `window` or
 value and `format(args)` applies it as a `String.format` pattern in
 `Locale.ROOT`. Command and menu labels come from it through `CommandId` and
 `CommandGroup`. The usage text and key names (`Ctrl+`, `PgUp`) stay in code.
+A window or dialog title made from a label uses `title()` (`UiText.title`,
+`CommandId.title`), which `WindowTitles.plain` strips of mnemonic markers and a
+trailing ellipsis.
 
 `UiTextTest` checks that constants and bundle keys match, and
 `ArchitectureTest` that every constant is read outside `UiText`.

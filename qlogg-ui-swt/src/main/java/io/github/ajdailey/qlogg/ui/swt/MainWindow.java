@@ -1090,9 +1090,17 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
   }
 
-  /** Shows the window. */
+  /**
+   * Shows the window, maximized when {@code setMaximized(true)} came first. On win32 a bounds
+   * change while the window opens, such as SWT's handling of a DPI change, restores a maximized
+   * window to its restore bounds, so the state is set again once the window shows.
+   */
   public void open() {
+    boolean maximized = shell.getMaximized();
     shell.open();
+    if (maximized && !shell.getMaximized()) {
+      shell.setMaximized(true);
+    }
   }
 
   /**
@@ -1599,7 +1607,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   public void askTabName(String current, NameListener listener) {
     new NameDialog(
             shell,
-            UiText.TAB_RENAME.text(),
+            UiText.TAB_RENAME.title(),
             UiText.TAB_NAME_PROMPT.text(),
             current,
             ApplicationController.TAB_NAME_CHARS,

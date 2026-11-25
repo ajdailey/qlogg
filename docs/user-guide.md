@@ -188,6 +188,8 @@ quote is one term.
 - Search > Clear Results, or the close button on the Results tab, stops the
   shown tab's search and empties its results; kept result tabs stay. A kept
   result tab's close button removes that tab.
+- A result tab's context menu holds Close, Close Others and Close All, which
+  act as the tabs' close buttons do, and Keep Results.
 - Each search that runs, including selected log text added with `Shift+A`,
   `Shift+E` or `Shift+R`, is saved to the search history in `qlogg.conf`.
   Search > Clear Search History removes the history.

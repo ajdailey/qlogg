@@ -1484,6 +1484,17 @@ public enum UiText {
     return Holder.MESSAGES.getString(name());
   }
 
+  // Window titles.
+
+  /**
+   * Returns the text as a window title, through {@link WindowTitles#plain}.
+   *
+   * @return the text without mnemonic markers or a trailing ellipsis
+   */
+  public String title() {
+    return WindowTitles.plain(text());
+  }
+
   /**
    * Formats the text as a pattern.
    *

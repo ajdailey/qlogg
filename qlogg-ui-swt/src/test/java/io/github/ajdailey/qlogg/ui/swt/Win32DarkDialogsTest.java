@@ -84,7 +84,7 @@ class Win32DarkDialogsTest {
   private static final double TEXT_CONTRAST = 4.5;
 
   /** Commands that open a dialog or tool window over the main window. */
-  private static final CommandId[] DIALOGS = {
+  static final CommandId[] DIALOGS = {
     CommandId.ABOUT,
     CommandId.PREFERENCES,
     CommandId.PREDEFINED_FILTERS,

@@ -14,7 +14,7 @@ without a display. `qlogg-ui-swt` implements the view contracts and
 | `app.cli` | `CommandLineParser`, `CommandLine`, `StartupRequest`, `Version` | [Views and commands](docs/views-and-commands.md) |
 | `app.view` | `UiDispatcher`, `MainView` and the services it extends, listener and state types, text formatters, `UiUpdateQueue`, `WindowGeometry` | [Views and commands](docs/views-and-commands.md) |
 | `app.command` | `CommandId`, `CommandGroup`, `Binding`, `Keymap`, `KeySequencer`, `KeyStroke`, `MenuTable`, `ShortcutOverrides` | [Views and commands](docs/views-and-commands.md) |
-| `app.i18n` | `UiText` and `messages.properties` | [Views and commands](docs/views-and-commands.md) |
+| `app.i18n` | `UiText`, `messages.properties` and `WindowTitles` | [Views and commands](docs/views-and-commands.md) |
 | `app.controller` | Windows, tabs, open, reload, close and quit | [Windows and tabs](docs/windows-and-tabs.md) |
 | `app.controller` | The main and filtered views of one document: rows, copy, save, marks, follow, folds | [Document views](docs/document-views.md) |
 | `app.controller`, `app.search` | Search, quick find, search across files, search in a folder, history and filters | [Search](docs/search.md) |

@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.app.config.FolderSearchSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
 import io.github.ajdailey.qlogg.app.view.FolderRequest;
 import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
@@ -37,8 +38,8 @@ import org.junit.jupiter.api.io.TempDir;
  * Search > Search in Folder against a fake {@link FolderSearchHost}: the request from the saved
  * settings, the result model, a listed line handed to the host's open, the failures before the
  * search thread, Stop, exclude, the kept sets with Pin, Clear and Clear All, the drop of the oldest
- * unpinned set when the share refuses a run, and the step order. {@link FolderSearchOpenTest}
- * covers the same controller through a window.
+ * unpinned set when the share refuses a run, the step order, and the activity indicator held while
+ * a run searches. {@link FolderSearchOpenTest} covers the same controller through a window.
  */
 class FolderSearchControllerTest {
   private static final SearchOptions LITERAL =
@@ -46,8 +47,9 @@ class FolderSearchControllerTest {
 
   @TempDir Path temp;
 
-  /** A window with no tab: records the settings, the opens and the notices. */
-  private static final class FakeHost implements FolderSearchHost, NotificationService {
+  /** A window with no tab: records the settings, the opens, the notices and the activity count. */
+  private static final class FakeHost
+      implements FolderSearchHost, NotificationService, ActivityIndicator {
     final MemoryBudget budget = MemoryBudget.of(1L << 28);
     final ManualUiDispatcher ui = new ManualUiDispatcher();
     final Workers workers =
@@ -64,6 +66,7 @@ class FolderSearchControllerTest {
     final List<String> notices = new ArrayList<String>();
     final List<ApplicationListener> listeners = new ArrayList<ApplicationListener>();
     Preferences preferences;
+    int active;
 
     FakeHost(Preferences preferences) {
       this.preferences = preferences;
@@ -124,8 +127,19 @@ class FolderSearchControllerTest {
       notices.add(message);
     }
 
+    @Override
+    public void setActive() {
+      active++;
+    }
+
+    @Override
+    public void setIdle() {
+      assertTrue(active > 0, "idle with nothing active");
+      active--;
+    }
+
     FolderSearchController search() {
-      return new FolderSearchController(this, ui, this);
+      return new FolderSearchController(this, ui, this, this);
     }
 
     void runUntilEnded(final FolderSearchController search) throws InterruptedException {
@@ -179,7 +193,7 @@ class FolderSearchControllerTest {
       assertEquals(FolderRequest.EMPTY, search.request());
       host.runAndWait(search, new FolderRequest(dir.toString(), "*.txt", true, "hit", LITERAL, ""));
       assertEquals(saved, host.preferences().state().folderSearch());
-      FolderRequest request = new FolderSearchController(host, host.ui, host).request();
+      FolderRequest request = new FolderSearchController(host, host.ui, host, host).request();
       assertEquals(dir.toString(), request.folder());
       assertEquals("*.txt", request.names());
       assertTrue(request.recursive());
@@ -310,6 +324,41 @@ class FolderSearchControllerTest {
     } finally {
       host.close(search);
     }
+  }
+
+  @Test
+  void theIndicatorIsActiveFromARunsStartUntilItEndsStopsOrIsDropped() throws Exception {
+    Path dir = logs();
+    Files.writeString(dir.resolve("runaway.log"), "a".repeat(60) + "\n");
+    FolderRequest runaway =
+        new FolderRequest(
+            dir.toString(), "runaway.log", false, "(.*a){25}x", SearchOptions.DEFAULTS, "");
+    FakeHost host = new FakeHost(Preferences.DEFAULTS);
+    final FolderSearchController search = host.search();
+    try {
+      search.run(hits(dir));
+      assertEquals(1, host.active);
+      host.runUntilEnded(search);
+      assertEquals(0, host.active);
+      search.run(runaway);
+      search.run(runaway);
+      assertEquals(1, host.active, "a run replacing a running one");
+      search.cancel();
+      host.runUntilEnded(search);
+      assertEquals(FolderSearchState.Phase.CANCELED, search.state().phase());
+      assertEquals(0, host.active);
+      search.run(runaway);
+      assertEquals(1, host.active);
+      search.clear();
+      assertEquals(0, host.active, "a dropped run");
+      search.run(new FolderRequest("", NamePattern.DEFAULT, false, "hit", LITERAL, ""));
+      assertEquals(0, host.active, "a refused run");
+    } finally {
+      host.close(search);
+    }
+    // The dropped run's end, posted when the workers closed.
+    host.ui.runPending();
+    assertEquals(0, host.active);
   }
 
   @Test

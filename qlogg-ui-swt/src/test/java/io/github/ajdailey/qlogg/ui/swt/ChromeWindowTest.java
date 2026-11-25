@@ -230,8 +230,10 @@ class ChromeWindowTest {
                 window.quickFindBar().field())),
         fields.toString());
     List<RGB> systemFields = colors(fields);
-    List<Control> natives =
-        List.of(window.searchBar().visibility(), window.tabStrip().buttons().control());
+    List<Control> natives = List.of(window.tabStrip().buttons().control());
+    // The read-only visibility combo, whose drop-down list takes the field colors under dark.
+    Control visibility = window.searchBar().visibility();
+    List<RGB> visibilityColors = colors(List.of(visibility));
     // Own colors, so a control that reports its parent's inherited color on GTK still shows a
     // change.
     natives.get(0).setBackground(new Color(OWN));
@@ -248,6 +250,7 @@ class ChromeWindowTest {
           assertEquals(FIELD, field.getBackground().getRGB(), "" + field);
           assertEquals(TEXT, field.getForeground().getRGB(), "" + field);
         }
+        assertEquals(List.of(FIELD, TEXT), colors(List.of(visibility)), "visibility");
         assertTrue(window.searchBar().icons().darkBackground(), "search row ink");
         for (ToolItem item : window.toolBar().getItems()) {
           assertNotNull(item.getDisabledImage(), item.getToolTipText());
@@ -255,6 +258,7 @@ class ChromeWindowTest {
       } else {
         assertEquals(system, colors(controls));
         assertEquals(systemFields, colors(fields));
+        assertEquals(visibilityColors, colors(List.of(visibility)), "visibility");
         assertFalse(window.searchBar().icons().darkBackground(), "search row ink");
       }
       assertEquals(nativeColors, colors(natives));

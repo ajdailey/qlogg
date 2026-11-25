@@ -226,7 +226,7 @@ public final class ApplicationController
     quickFind.applyPreferences(current.quickFindIncremental(), current.quickFindRegex());
     this.theme = set.theme();
     this.features =
-        new ViewFeatures(this, new FolderSearchController(this, ui, view), workers, ui, view);
+        new ViewFeatures(this, new FolderSearchController(this, ui, view, view), workers, ui, view);
     this.time = new TimeFeatures(this, set.timeSync(), workers, ui, view, config);
     this.monitor = set.monitor();
     this.opener =

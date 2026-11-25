@@ -160,6 +160,9 @@ over a folder's files without opening tabs; core detail is in
   context and auto-refresh do not. `view.hideAnsi` applies.
 - Progress and the end reach the UI thread through the `UiDispatcher`; events
   of a dropped set are ignored.
+- The window's `ActivityIndicator` (the busy cursor) is active while a run
+  searches: from `run` until the run ends, is stopped or its set is dropped. A
+  run that replaces a running one keeps one count.
 - `open(file, hit)` selects the tab whose path or real path is the file and
   goes to the line, else opens the file at that line. Another line of a file
   still opening, within 5 s, moves the new tab there instead of opening the

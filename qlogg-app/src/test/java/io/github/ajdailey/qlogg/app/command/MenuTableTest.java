@@ -188,6 +188,12 @@ class MenuTableTest {
     }
     menus.put("tab", tab);
     menus.put("tab > Time Sync", List.of(UiText.TIME_SYNC_LEAVE.text()));
+    List<String> results = new ArrayList<String>();
+    for (UiText label : MenuTable.RESULT_TAB_MENU) {
+      results.add(label.text());
+    }
+    results.add(CommandId.TOGGLE_KEEP_RESULTS.label());
+    menus.put("results tab", results);
     List<String> path = new ArrayList<String>();
     for (UiText label : MenuTable.PATH_MENU) {
       if (label != null) {
