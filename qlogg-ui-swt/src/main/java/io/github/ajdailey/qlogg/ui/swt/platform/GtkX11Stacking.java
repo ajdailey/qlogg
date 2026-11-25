@@ -36,4 +36,9 @@ final class GtkX11Stacking extends PlatformStacking {
   void apply(Shell shell, boolean onTop) throws ReflectiveOperationException {
     keepAbove.invoke(null, shellHandle.getLong(shell), onTop);
   }
+
+  @Override
+  public void minimize(Shell shell) {
+    shell.setMinimized(true);
+  }
 }

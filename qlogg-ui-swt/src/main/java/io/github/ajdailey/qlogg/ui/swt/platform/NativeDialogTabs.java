@@ -8,7 +8,8 @@ import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 
 /**
- * Dialog tabs on GTK, cocoa and win32 under the light native side: the native {@link TabFolder}.
+ * Dialog tabs on GTK and win32 under the light native side, and inside {@link CocoaDialogTabs}: the
+ * native {@link TabFolder}.
  */
 final class NativeDialogTabs implements DialogTabs {
   private final TabFolder folder;

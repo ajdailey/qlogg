@@ -58,4 +58,9 @@ final class Win32Stacking extends PlatformStacking {
       throw new IllegalStateException("SetWindowPos failed");
     }
   }
+
+  @Override
+  public void minimize(Shell shell) {
+    shell.setMinimized(true);
+  }
 }

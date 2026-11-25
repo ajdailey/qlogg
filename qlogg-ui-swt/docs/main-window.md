@@ -327,7 +327,7 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
 | Platform | Class | Call | Verified |
 |---|---|---|---|
 | win32 | `Win32Stacking` | `OS.SetWindowPos` on `Control.handle` with `HWND_TOPMOST` or `HWND_NOTOPMOST`, no move, size or activation | CI test: `WS_EX_TOPMOST` each way |
-| cocoa | `CocoaStacking` | `NSWindow.setLevel` on `Shell.window`, floating (3) or normal (0), also on the window's dialogs | CI test: the window's level and a dialog's, each way |
+| cocoa | `CocoaStacking` | `NSWindow.setLevel` on `Shell.window`, floating (3) or normal (0), also on the window's dialogs; `removeChildWindow`, `addChildWindow` and `orderFront` for Minimize | CI test: the window's level and a dialog's, each way; a tool window minimized without its owner |
 | GTK 3 on X11 | `GtkX11Stacking` | `GTK3.gtk_window_set_keep_above` on `Shell.shellHandle` | Under Xvfb: `_NET_WM_STATE_ABOVE` set and cleared as the window maps |
 | GTK 3 on Wayland, GTK 4 | `WindowStacking.WINDOW_MANAGER` | None | Item disabled |
 
@@ -349,6 +349,25 @@ reflection in these three classes and `Gtk4ToolItemSizing` only;
 - Where `WindowStacking.windowManagerMenu` is true, the disabled item's tool
   tip names the window manager's window menu. SWT keeps no menu item tool tip
   on GTK 4.
+
+### Minimize
+
+Window > Minimize on cocoa calls `WindowStacking.minimize`;
+`Shell.setMinimized` on every other platform. SWT makes a shell with a parent
+an AppKit child window of it (`Shell.updateParent`), and AppKit takes the
+parent off screen while a child window is miniaturized. `CocoaStacking.minimize`
+removes a tool window from its owner's children (`NSWindow.removeChildWindow`)
+before it miniaturizes and adds it back above the owner (`addChildWindow`) on
+`SWT.Deiconify`, unless the owner is hidden or minimized then. The title bar's
+button minimizes without `WindowStacking`: a Display `SWT.Iconify` filter in
+`CocoaStacking`, added on the Display current when the stacking is created,
+removes such a tool window from the children and brings the owner back
+(`NSWindow.orderFront`); it rejoins on restore the same way. `isVisible` stays
+true for the hidden owner; `occlusionState` shows it. `WindowStackingTest`
+checks both paths on the macOS CI runners
+(`cocoaMinimizesAToolWindowWithoutItsOwner`,
+`cocoaKeepsTheOwnerWhenTheTitleBarMinimizesAToolWindow` through
+`performMiniaturize:`).
 
 ## Full Screen
 
@@ -426,15 +445,15 @@ would choose platform code calls a seam instead.
 |---|---|---|---|---|---|
 | `ThemeFollow` (`themeFollow`) | `Win32ThemeFollow`: sets the native theme at startup in every mode; polls the system setting every 500 ms; `showOnWindows` sets a changed side and rebuilds the windows | `CocoaThemeFollow`: pins the theme at startup in every mode; polls; `showOnWindows` pins a changed side and `CocoaChrome` recolors shells | `GtkThemeFollow`: sets the theme at startup for Light and Dark and again at each switch; `showOnWindows` does nothing | as GTK 3 | `SwtThemeService` ([theme.md](theme.md#window-rebuild)) |
 | `FullScreen` (`fullScreen`) | `NativeFullScreen` | `CocoaFullScreen` | `NativeFullScreen` | `NativeFullScreen` | `MainWindow` ([Full Screen](#full-screen)) |
-| `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu; the owner's menus on tool windows | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu`, `Dialogs.shell` ([menus.md](menus.md)) |
+| `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed ink of the native side the Display started with | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu; the owner's menus on tool windows | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu`, `Dialogs.shell` ([menus.md](menus.md)) |
 | `LaunchDocuments` (`launchDocuments`) | `NativeLaunchDocuments`: no wait | `CocoaLaunchDocuments`: runs the `OpenDocument` wait | no wait | no wait | `OpenDocuments.await` |
 | `AccessibleLabels` (`accessibleLabels`) | `NativeAccessibleLabels`: nothing | `CocoaAccessibleLabels`: description and group role | nothing | nothing | `AccessibleName.attach` |
 | `WindowPlacement` (`windowPlacement`) | `Win32WindowPlacement`: places again with the measured trim, then fits the shell into its monitor's work area (`WindowGeometry.fit`), since a placement without a location keeps the position Windows chose | `NativeWindowPlacement` | `GtkWindowPlacement`: no position under Wayland | `Gtk4WindowPlacement`: as GTK 3; `afterOpen` maximizes a shell that should be maximized and opened restored | `MainWindow.place`, `MainWindow.open` |
 | `GuideDisplay` (`guideDisplay`) | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `NoticeGuideDisplay`: a notice names the guide's file, since WebKitGTK 6.0 aborts the JVM under GTK 4 | `MainWindow.showGuide` |
 | `DialogColors` (`dialogColors`) | `Win32DialogColors`: dark surfaces after a dark start, native otherwise | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
-| `DialogTabs` (`dialogTabs`) | `Win32DialogTabs` after a dark start: a `CTabFolder` in the dialog colors; else `NativeDialogTabs` | `NativeDialogTabs`: the native `TabFolder` | `NativeDialogTabs` | `NativeDialogTabs` | `Dialogs.tabs`: Preferences, Configure Highlighters ([theme.md](theme.md#dialog-colors)) |
+| `DialogTabs` (`dialogTabs`) | `Win32DialogTabs` after a dark start: a `CTabFolder` in the dialog colors; else `NativeDialogTabs` | `CocoaDialogTabs`: the native `TabFolder`, keeping keyboard focus on a control across a tab change | `NativeDialogTabs` | `NativeDialogTabs` | `Dialogs.tabs`: Preferences, Configure Highlighters ([theme.md](theme.md#dialog-colors)) |
 | `ChromeColors` (`chromeColors`) | `Win32ChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `MainWindow`: the window's rows and fields under a dark theme ([theme.md](theme.md#chrome-colors)) |
-| `WindowStacking` (`stacking`) | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform` |
+| `WindowStacking` (`stacking`) | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WINDOW_MANAGER` | `WINDOW_MANAGER` | `WindowStacking.forPlatform`; `CocoaMenuBehavior` (Minimize) |
 | `ToolItemSizing` (`toolItemSizing`) | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolItemSizing.platform` |
 
 ## Platform services

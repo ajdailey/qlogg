@@ -75,7 +75,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 |---|---|---|---|---|
 | `decorate`: icons | yes | yes | no: SWT ignores `MenuItem.setImage` | no |
 | `decorate`: blank images | no: the menu reserves the image column | yes | - | - |
-| `ink` | fixed: the native side | live | live | live |
+| `ink` | fixed: the native side the Display started with | live | live | live |
 | `disabledOnDark` | the icon | a faded copy | a faded copy | the icon |
 | `addWindowControls` | nothing | nothing | nothing | Minimize and Zoom |
 | `toolWindowMenus` | nothing | nothing | nothing | the owner's menus on a tool window |
@@ -88,10 +88,12 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 - The ink follows the main toolbar's shown background on GTK
   (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
   theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
-  `reink` on the UI turn after a palette change. win32 menus take the native side
-  (`DialogColors.nativeDark`), which a switch changes together with a window
-  rebuild, while the toolbar takes `ChromeColors` from
-  the live theme.
+  `reink` on the UI turn after a palette change. win32 pop-up menus keep the
+  native side the Display started with through every live switch and window
+  rebuild, so their icons take that side's ink (`NativeTheme.startDark`), while
+  the toolbar takes `ChromeColors` from the live theme. The current side's ink
+  measured 1.31:1 (`#3e3e3e` on `#2c2c2c`) after dark -> light and 1.41:1 after
+  light -> dark (Windows, 150%).
 
 ## Listed entries
 
@@ -150,9 +152,12 @@ keeps About, Preferences and Exit.
 | Display `SWT.Close` (Cmd-Q, logout) | Vetoed; runs `WindowSet.quit` |
 | `SWT.OpenDocument` | The file goes to `WindowSet.openHandoff` |
 
-On cocoa `MenuBehavior.addWindowControls` puts Minimize (`Cmd+M`, `Shell.setMinimized`) and Zoom (toggles
-`Shell.setMaximized`) at the top of the Window menu; SWT adds neither to an
-application-defined Window menu. No QLogg binding uses `Cmd+M`.
+On cocoa `MenuBehavior.addWindowControls` puts Minimize (`Cmd+M`,
+`WindowStacking.minimize`) and Zoom (toggles `Shell.setMaximized`) at the top
+of the Window menu; SWT adds neither to an application-defined Window menu. No
+QLogg binding uses `Cmd+M`. On a tool window both act on the tool window, and
+minimizing it leaves the main window on screen ([Always on
+Top](main-window.md#always-on-top)).
 
 ## Tool window menus
 

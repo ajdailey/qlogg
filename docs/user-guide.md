@@ -732,7 +732,9 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
 While a tool window such as Preferences, Marks or Scratchpad is in front, the
 menu bar keeps the main window's menus and shortcuts, which act on the window
-that opened it; File > Close (`Cmd+W`) closes the tool window.
+that opened it; File > Close (`Cmd+W`), Minimize and Zoom act on the tool
+window, and minimizing a tool window, from the menu or its title bar, leaves
+the main window on screen.
 
 The log view's context menu holds the copy, mark, search, selection and save
 commands, Open Path at Caret, Toggle Fold, Wrap Line, Scroll All Tabs to This
@@ -876,7 +878,8 @@ characters outside the code page.
   be renamed; with File, Use directory change notifications also off, any
   folder above it can.
 - Windows: after View > Theme changes, pop-up menus and the menus of the menu
-  bar keep the theme QLogg started with until the next start.
+  bar, with their icons, keep the theme QLogg started with until the next
+  start.
 - Windows: under the dark theme at a display scale other than 100%, such as
   150%, the selected item of a drop-down list draws white on white; the other
   items stay readable.

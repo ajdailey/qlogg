@@ -105,8 +105,8 @@ public interface PlatformTraits {
    * Creates a dialog's tab folder. On win32 this reads {@link DialogColors#nativeDark}.
    *
    * @param parent the dialog composite holding it
-   * @return {@link Win32DialogTabs} on win32 under the dark native side, else {@link
-   *     NativeDialogTabs}
+   * @return {@link Win32DialogTabs} on win32 under the dark native side, {@link CocoaDialogTabs} on
+   *     cocoa, else {@link NativeDialogTabs}
    */
   DialogTabs dialogTabs(Composite parent);
 

@@ -282,7 +282,16 @@ fails a `TabFolder` created outside `ui.swt.platform`:
 | Class | When | Folder |
 |---|---|---|
 | `Win32DialogTabs` | win32 under the dark side (`DialogColors.nativeDark`, read when the dialog is built) | A flat `CTabFolder` without a border: tab row, unselected tabs and pages `#202020`, selected tab `#2b2b2b`, tab text `#ffffff` (16.3:1 and 14.2:1) |
-| `NativeDialogTabs` | win32 under the light side, GTK, cocoa | The native `TabFolder` |
+| `NativeDialogTabs` | win32 under the light side, GTK | The native `TabFolder` |
+| `CocoaDialogTabs` | cocoa | The native `TabFolder`, keeping keyboard focus on a control across a tab change |
+
+On cocoa SWT hides the old page on a tab change, and when no ancestor of the
+focused control takes focus, AppKit's first responder becomes the window:
+`NSTabView` takes no focus with Full Keyboard Access off. The next Ctrl+PageDown
+then reaches no control. `CocoaDialogTabs` runs on each tab change: when no
+visible control has focus, the new page's first control that takes focus gets
+it, else a childless 1x1 `Canvas` below the pages, whose page traversals reach
+the folder. A page of check boxes has no control that takes focus there.
 
 `CTabFolder` draws the selected tab `#2b2b2b` only while focus is in the
 folder, and `#202020` while a dialog button holds it. It outlines the selected
@@ -356,7 +365,8 @@ same `IMAGE_DISABLE` transform on win32): enabled 9.06:1 or more, SWT's disabled
 copy 10.14:1 or more, the faded copy 2.63:1 to 2.87:1. `fadeDisabled(false)`
 returns SWT's own disabled image. A set
 created with `ToolIcons(Control, boolean)` keeps that ink; `MenuIcons` uses it
-on win32. Menu icons: [menus.md](menus.md).
+on win32 with the side the Display started with, which pop-up menus keep after
+a live switch. Menu icons: [menus.md](menus.md).
 
 A set created with a background color (`ToolIcons(Control, Color)`) is for a
 palette-painted surface, the tab strip buttons: `reink` leaves it alone, and

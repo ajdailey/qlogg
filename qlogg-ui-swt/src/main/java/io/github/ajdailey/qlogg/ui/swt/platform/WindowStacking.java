@@ -3,9 +3,10 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * Keeps a main window above other windows (View > Always on Top). SWT has no public call for it, so
- * each supported platform has a class that reaches SWT internals by reflection, and the product
- * compiles against every platform's SWT jar. Confined to the UI thread.
+ * Keeps a main window above other windows (View > Always on Top), and minimizes a tool window
+ * without its owner on cocoa ({@link #minimize}). SWT has no public call for either, so each
+ * supported platform has a class that reaches SWT internals by reflection, and the product compiles
+ * against every platform's SWT jar. Confined to the UI thread.
  *
  * <table>
  *   <caption>Implementation per platform</caption>
@@ -50,6 +51,16 @@ public interface WindowStacking {
   void setOnTop(Shell shell, boolean onTop);
 
   /**
+   * Minimizes a shell (Window &gt; Minimize). On cocoa a tool window first leaves its owner's
+   * child-window group, which AppKit otherwise takes off screen with it, and rejoins the group when
+   * restored; {@link CocoaStacking} also brings the owner back after a minimize through the title
+   * bar. Elsewhere {@code setMinimized(true)}.
+   *
+   * @param shell the shell
+   */
+  void minimize(Shell shell);
+
+  /**
    * Returns the implementation for the running SWT.
    *
    * @return {@link PlatformTraits#stacking}
@@ -72,6 +83,11 @@ public interface WindowStacking {
     @Override
     public void setOnTop(Shell shell, boolean onTop) {
       // Nothing to set.
+    }
+
+    @Override
+    public void minimize(Shell shell) {
+      shell.setMinimized(true);
     }
   }
 }
