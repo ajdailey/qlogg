@@ -86,7 +86,7 @@ lay out again once `CTabFolder` measures their buttons on a later UI turn
 
 | Carried by `RebuildState` | How |
 |---|---|
-| Bounds, maximized, full screen, title | Placed before the tabs; `MainWindow.open` maximizes again a window that opening restored; full screen after open |
+| Bounds, maximized, full screen, title | Placed before the tabs, the restore bounds before the maximize (GTK 4 maximizes again after open, `WindowPlacement.afterOpen`); full screen after open |
 | Minimized | Minimized again after open, with the restore bounds kept; a minimized window rebuilds like a shown one and activates only another main window that was active |
 | Always on Top | `setOnTop` before open |
 | Focus (main view, filtered view, search row, quick find) and the active shell | Restored when the main window or one of its tool windows was active |

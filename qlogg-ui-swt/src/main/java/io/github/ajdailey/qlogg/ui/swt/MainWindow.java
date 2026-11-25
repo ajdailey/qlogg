@@ -1096,17 +1096,11 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
   }
 
-  /**
-   * Shows the window, maximized when {@code setMaximized(true)} came first. On win32 a bounds
-   * change while the window opens, such as SWT's handling of a DPI change, restores a maximized
-   * window to its restore bounds, so the state is set again once the window shows.
-   */
+  /** Shows the window, maximized when {@code setMaximized(true)} came after the placement. */
   public void open() {
     boolean maximized = shell.getMaximized();
     shell.open();
-    if (maximized && !shell.getMaximized()) {
-      shell.setMaximized(true);
-    }
+    PlatformTraits.PLATFORM.placement().afterOpen(shell, maximized);
   }
 
   /**
@@ -1677,7 +1671,8 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showScratchpad(String text, boolean replace) {
-    if (scratchpad == null || scratchpad.isDisposed()) {
+    boolean created = scratchpad == null || scratchpad.isDisposed();
+    if (created) {
       scratchpad = new ScratchpadWindow(shell, controller);
       TabStrip.colorTabs(scratchpad.tabs(), palette);
     }
@@ -1685,6 +1680,9 @@ public final class MainWindow implements MainView, ApplicationListener {
       scratchpad.add(text, replace);
     }
     scratchpad.open();
+    if (created) {
+      remember(scratchpad.shell(), "scratchpad");
+    }
   }
 
   /**
@@ -1698,10 +1696,14 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showMultiSearch() {
-    if (multiSearch == null || multiSearch.isDisposed()) {
+    boolean created = multiSearch == null || multiSearch.isDisposed();
+    if (created) {
       multiSearch = new MultiSearchWindow(shell, controller);
     }
     multiSearch.open();
+    if (created) {
+      remember(multiSearch.shell(), "multiSearch");
+    }
   }
 
   /**
@@ -1719,10 +1721,14 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showFolderSearch() {
-    if (folderSearch == null || folderSearch.isDisposed()) {
+    boolean created = folderSearch == null || folderSearch.isDisposed();
+    if (created) {
       folderSearch = new FolderSearchWindow(shell, controller.folderSearch(), controller::keymap);
     }
     folderSearch.open();
+    if (created) {
+      remember(folderSearch.shell(), "folderSearch");
+    }
   }
 
   /**
@@ -1755,10 +1761,14 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public void showMarks() {
-    if (marks == null || marks.isDisposed()) {
+    boolean created = marks == null || marks.isDisposed();
+    if (created) {
       marks = new MarksWindow(shell, controller);
     }
     marks.open();
+    if (created) {
+      remember(marks.shell(), "marks");
+    }
   }
 
   /**
@@ -2172,16 +2182,14 @@ public final class MainWindow implements MainView, ApplicationListener {
     return Dialogs.monospaceSize();
   }
 
-  /** Gives a dialog its remembered size and remembers its size when it closes. */
+  /**
+   * Gives a dialog its remembered size, inside the work area, and remembers its size when it
+   * closes.
+   */
   private void remember(final Shell dialog, final String name) {
     UiState.Size size = controller.rememberedState().dialogSize(name);
     if (size != null) {
-      Rectangle owner = shell.getBounds();
-      dialog.setBounds(
-          owner.x + Math.max(0, (owner.width - size.width()) / 2),
-          owner.y + Math.max(0, (owner.height - size.height()) / 2),
-          size.width(),
-          size.height());
+      Dialogs.center(dialog, size.width(), size.height());
     }
     dialog.addListener(
         SWT.Dispose,

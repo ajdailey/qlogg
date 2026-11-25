@@ -167,8 +167,8 @@ public interface PlatformTraits {
   /**
    * Returns how a main window is placed.
    *
-   * @return {@link Win32WindowPlacement}, {@link NativeWindowPlacement} on cocoa, or {@link
-   *     GtkWindowPlacement}
+   * @return {@link Win32WindowPlacement}, {@link NativeWindowPlacement} on cocoa, {@link
+   *     GtkWindowPlacement} on GTK 3, or {@link Gtk4WindowPlacement}
    */
   WindowPlacement placement();
 

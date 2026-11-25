@@ -19,6 +19,11 @@ final class Gtk4Traits extends GtkTraits {
   }
 
   @Override
+  public WindowPlacement placement() {
+    return new Gtk4WindowPlacement();
+  }
+
+  @Override
   public GuideDisplay guideDisplay() {
     return new NoticeGuideDisplay();
   }

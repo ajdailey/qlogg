@@ -146,7 +146,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `searchOption.*` | The search toggles, range end and context counts a new tab starts with | regex, match case | The search toggles |
 | `view.lineNumbers`, `view.filteredLineNumbers` | Line numbers in a new tab's views | `true` | View > Line Numbers, Line Numbers in Filtered View |
 | `open.directory` | Where File > Open starts with no file shown ([saved paths](#saved-paths)) | none | File > Open |
-| `dialog.<name>.width`, `.height` | A dialog's last size | none | Closing the dialog |
+| `dialog.<name>.width`, `.height` | A dialog's or tool window's last size, clamped to the monitor's work area when it opens | none | Closing the dialog |
 | `folderSearch.folder`, `.names`, `.recursive`, `.exclude` | Search in Folder's folder ([saved paths](#saved-paths)), file name globs, Include subfolders and exclude globs (text at most 4,096 chars each) | none, `*.log*`, `false`, none | Each folder search |
 | `time.zone` | Zone id of local times in files without a zone chosen | system zone | `qlogg.conf` |
 | `time.displayZone` | Zone id times show in | system zone | `qlogg.conf` |

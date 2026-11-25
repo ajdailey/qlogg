@@ -13,13 +13,17 @@ and a restored session.
 - `place` reads every monitor's bounds and work area and applies
   `WindowGeometry.place` for the shell trim the platform's `WindowPlacement`
   supplies: the `computeTrim` trim, and on win32 again with the trim measured
-  from the sized shell. It skips the position on GTK under the GDK backend
+  from the sized shell, then inside the monitor's work area, so a window with
+  no saved position (Windows picks one, such as 114,114) or a maximized start's
+  restore bounds stays above the taskbar. It skips the position on GTK under the GDK backend
   `wayland` (`org.eclipse.swt.internal.gdk.backend`, a system property read
   that fails safe when absent).
-- `open` shows the shell and, when `setMaximized(true)` came first and the
-  shell opened restored, maximizes it again. On win32 a bounds change while the
-  shell opens restores a maximized shell (`Decorations.setBoundsInPixels`); SWT
-  sets the bounds on a DPI change (`Shell.WM_DPICHANGED`).
+- `open` shows the shell, maximized when `setMaximized(true)` came last, then
+  calls `WindowPlacement.afterOpen`: GTK 4 drops a maximize requested before
+  the shell maps, so `Gtk4WindowPlacement` maximizes again. On win32 a
+  `setBounds` or `setSize` after `setMaximized(true)` on the hidden shell
+  cancels the maximize (`Decorations.setBoundsInPixels`), so callers place the
+  shell first.
 - `windowBounds` and `windowMaximized` report the normal bounds kept from the
   last unmaximized move or resize, and the maximized state; both keep the
   state before [Full Screen](#full-screen).
@@ -29,9 +33,10 @@ and a restored session.
   given to `onCloseRequest`. The controller disposes the window when shutdown
   ends.
 - The palette listener leaves the shared theme when the shell is disposed.
-- Preferences, Keyboard Shortcuts, the highlighter, filter and history dialogs
-  and text windows open at their remembered size and report it when they
-  close.
+- Preferences, Keyboard Shortcuts, the highlighter, filter and history dialogs,
+  text windows and the tool windows (Search in Folder, Search in Open Files,
+  Marks List, Scratchpad) open at their remembered size and report it when they
+  close (`dialog.<name>` in `qlogg.conf`).
 
 ## Top row
 
@@ -424,7 +429,7 @@ would choose platform code calls a seam instead.
 | `MenuBehavior` (`menus`) | `Win32MenuBehavior`: icons, fixed startup ink | `CocoaMenuBehavior`: no icons; Minimize and Zoom; the application menu; the owner's menus on tool windows | `Gtk3MenuBehavior`: icons, blank images, live ink, faded disabled copy | `Gtk4MenuBehavior`: no icons | `MenuIcons`, `ToolIcons`, `MainMenuBar`, `AppMenu`, `Dialogs.shell` ([menus.md](menus.md)) |
 | `LaunchDocuments` (`launchDocuments`) | `NativeLaunchDocuments`: no wait | `CocoaLaunchDocuments`: runs the `OpenDocument` wait | no wait | no wait | `OpenDocuments.await` |
 | `AccessibleLabels` (`accessibleLabels`) | `NativeAccessibleLabels`: nothing | `CocoaAccessibleLabels`: description and group role | nothing | nothing | `AccessibleName.attach` |
-| `WindowPlacement` (`placement`) | `Win32WindowPlacement`: places again with the measured trim | `NativeWindowPlacement` | `GtkWindowPlacement`: no position under Wayland | as GTK 3 | `MainWindow.place` |
+| `WindowPlacement` (`placement`) | `Win32WindowPlacement`: places again with the measured trim, then fits the shell into its monitor's work area (`WindowGeometry.fit`), since a placement without a location keeps the position Windows chose | `NativeWindowPlacement` | `GtkWindowPlacement`: no position under Wayland | `Gtk4WindowPlacement`: as GTK 3; `afterOpen` maximizes a shell that should be maximized and opened restored | `MainWindow.place`, `MainWindow.open` |
 | `GuideDisplay` (`guideDisplay`) | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `BrowserGuideDisplay` | `NoticeGuideDisplay`: a notice names the guide's file, since WebKitGTK 6.0 aborts the JVM under GTK 4 | `MainWindow.showGuide` |
 | `DialogColors` (`dialogColors`) | `Win32DialogColors`: dark surfaces after a dark start, native otherwise | `NativeDialogColors` | `NativeDialogColors` | `NativeDialogColors` | `DialogColors.of` |
 | `DialogTabs` (`dialogTabs`) | `Win32DialogTabs` after a dark start: a `CTabFolder` in the dialog colors; else `NativeDialogTabs` | `NativeDialogTabs`: the native `TabFolder` | `NativeDialogTabs` | `NativeDialogTabs` | `Dialogs.tabs`: Preferences, Configure Highlighters ([theme.md](theme.md#dialog-colors)) |

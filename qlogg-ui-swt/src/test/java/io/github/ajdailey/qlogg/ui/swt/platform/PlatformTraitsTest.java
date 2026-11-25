@@ -129,7 +129,7 @@ class PlatformTraitsTest {
         Gtk4MenuBehavior.class,
         NativeLaunchDocuments.class,
         NativeAccessibleLabels.class,
-        GtkWindowPlacement.class,
+        Gtk4WindowPlacement.class,
         NoticeGuideDisplay.class);
     assertSame(WindowStacking.WINDOW_MANAGER, PlatformTraits.of("gtk", true).stacking());
   }

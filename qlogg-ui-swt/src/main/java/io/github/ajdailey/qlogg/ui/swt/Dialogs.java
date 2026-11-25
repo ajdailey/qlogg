@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
@@ -165,23 +166,64 @@ final class Dialogs {
   }
 
   /**
-   * Opens a dialog centered over its parent, its controls in the {@link DialogColors}.
+   * Opens a dialog centered over its parent and inside the parent's monitor work area, its controls
+   * in the {@link DialogColors}.
    *
    * @param shell the dialog
    * @param width preferred width, or {@code SWT.DEFAULT}
    * @param height preferred height, or {@code SWT.DEFAULT}
    */
   static void open(Shell shell, int width, int height) {
+    open(shell, width, height, shell.getParent().getMonitor().getClientArea());
+  }
+
+  /**
+   * Opens a dialog centered over its parent and inside a work area, its controls in the {@link
+   * DialogColors}.
+   *
+   * @param shell the dialog
+   * @param width preferred width, or {@code SWT.DEFAULT}
+   * @param height preferred height, or {@code SWT.DEFAULT}
+   * @param workArea the work area the dialog stays inside
+   */
+  static void open(Shell shell, int width, int height, Rectangle workArea) {
     DialogColors.of(shell.getDisplay()).apply(shell);
     shell.pack();
     Point size = shell.computeSize(width, height);
-    Rectangle owner = shell.getParent().getBounds();
-    shell.setBounds(
-        owner.x + Math.max(0, (owner.width - size.x) / 2),
-        owner.y + Math.max(0, (owner.height - size.y) / 2),
-        size.x,
-        size.y);
+    center(shell, size.x, size.y, workArea);
     shell.open();
+  }
+
+  /**
+   * Sizes a dialog and centers it over its parent, inside the work area of the parent's monitor.
+   *
+   * @param shell the dialog
+   * @param width outer width
+   * @param height outer height
+   */
+  static void center(Shell shell, int width, int height) {
+    center(shell, width, height, shell.getParent().getMonitor().getClientArea());
+  }
+
+  /**
+   * Sizes a dialog and centers it over its parent, inside a work area.
+   *
+   * @param shell the dialog
+   * @param width outer width
+   * @param height outer height
+   * @param workArea the work area the dialog stays inside
+   */
+  static void center(Shell shell, int width, int height, Rectangle workArea) {
+    Rectangle owner = shell.getParent().getBounds();
+    WindowGeometry.Rect fitted =
+        WindowGeometry.fit(
+            new WindowGeometry.Rect(
+                owner.x + Math.max(0, (owner.width - width) / 2),
+                owner.y + Math.max(0, (owner.height - height) / 2),
+                width,
+                height),
+            new WindowGeometry.Rect(workArea.x, workArea.y, workArea.width, workArea.height));
+    shell.setBounds(fitted.x(), fitted.y(), fitted.width(), fitted.height());
   }
 
   /**

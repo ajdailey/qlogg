@@ -85,11 +85,6 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
-  public final WindowPlacement placement() {
-    return new GtkWindowPlacement();
-  }
-
-  @Override
   public final Color shownBackground(Control source) {
     if (!source.isVisible()) {
       return source.getBackground();

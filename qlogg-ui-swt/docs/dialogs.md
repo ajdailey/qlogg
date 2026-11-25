@@ -33,6 +33,13 @@ A title taken from a menu, command or button label goes through
 mnemonic marker and a trailing ellipsis: Rename Tab reads "Rename Tab", not
 "Rena&me Tab...". This covers the `FileDialog` titles of Import and Export too.
 
+`Dialogs.open` centers a dialog over its owner, and `Dialogs.center` places a
+remembered size the same way; both clamp the size to the work area of the
+owner's monitor (`Monitor.getClientArea`), then move the window inside it
+(`WindowGeometry.fit`). A preferred height past the taskbar, such as Search in
+Folder's 714 points on a 1080 px screen at 150%, would otherwise put the
+buttons out of reach.
+
 Keyboard Shortcuts, without a remembered size, and Command Palette open wide
 enough for every packed column, within the monitor's client area
 (`TableFit.dialogWidth`). A cell still cut off, on a small screen or in a

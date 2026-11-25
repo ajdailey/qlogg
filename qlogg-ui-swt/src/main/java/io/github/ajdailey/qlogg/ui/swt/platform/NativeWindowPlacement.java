@@ -8,4 +8,7 @@ final class NativeWindowPlacement implements WindowPlacement {
   public void place(Shell shell, Placer placer) {
     TrimPlacement.place(shell, placer, true);
   }
+
+  @Override
+  public void afterOpen(Shell shell, boolean maximized) {}
 }
