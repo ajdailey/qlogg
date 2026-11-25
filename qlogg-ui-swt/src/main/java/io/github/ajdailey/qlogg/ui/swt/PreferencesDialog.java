@@ -420,6 +420,7 @@ final class PreferencesDialog {
     for (TableColumn column : commands.getColumns()) {
       column.pack();
     }
+    TableFit.headerMinima(commands);
   }
 
   /** Empties the key field. */

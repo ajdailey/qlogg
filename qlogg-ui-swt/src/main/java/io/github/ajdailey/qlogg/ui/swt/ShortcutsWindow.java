@@ -69,6 +69,7 @@ final class ShortcutsWindow {
     for (TableColumn column : table.getColumns()) {
       column.pack();
     }
+    TableFit.headerMinima(table);
     TableFit.cellTips(table);
   }
 

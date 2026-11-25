@@ -45,6 +45,20 @@ enough for every packed column, within the monitor's client area
 narrowed dialog, shows its full text as the table's tool tip while the pointer
 is over it (`TableFit.cellTips`).
 
+Every table creates column 0 `SWT.LEFT`: win32 draws column 0's cells left
+whatever the column's style, and a header colored under the dark theme follows
+the style ([theme.md](theme.md) win32 limits). That header also clips without an
+ellipsis, so each table calls `TableFit.headerMinima` after setting or packing
+its columns: a column narrower than its header text plus
+`TableFit.HEADER_PADDING` (16 points, SWT's 6-pixel padding each side) takes
+that width. A column narrowed by hand still clips. `TableFit.spread` keeps
+columns 1 and up spread over a table's width at each resize, each at least its
+header minimum while the width holds them all, setting narrowing columns before
+widening ones (`TableFit.order`): a total past the client area for a moment
+leaves win32's scroll bars shown. Marks List calls it; the other tables keep
+their set or packed widths, and Switch to File sizes its one headerless column
+to the table's width.
+
 ## Dialogs
 
 | Window | Contents |
@@ -167,7 +181,8 @@ main window closes.
 
 `MarksWindow` (Go > Marks List) shows a `MarksListController`'s rows in a
 virtual table of line, comment and text under a summary line, following the
-shown tab.
+shown tab. The line column keeps its width; comment and text share the rest
+through `TableFit.spread`.
 
 | Key | Action |
 |---|---|

@@ -92,7 +92,8 @@ final class FiltersDialog {
     table.setLayoutData(tableData);
     column(UiText.FILTER_COLUMN_NAME, 130);
     column(UiText.FILTER_COLUMN_PATTERN, 380);
-    column(UiText.FILTER_COLUMN_REGEX, 70).setAlignment(SWT.CENTER);
+    column(UiText.FILTER_COLUMN_REGEX, 70);
+    TableFit.headerMinima(table);
     editor = new TableEditor(table);
     editor.grabHorizontal = true;
     status = Dialogs.label(shell, "");
@@ -137,11 +138,10 @@ final class FiltersDialog {
         });
   }
 
-  private TableColumn column(UiText title, int width) {
-    TableColumn column = new TableColumn(table, SWT.NONE);
+  private void column(UiText title, int width) {
+    TableColumn column = new TableColumn(table, SWT.LEFT);
     column.setText(title.text());
     column.setWidth(width);
-    return column;
   }
 
   /** Edits a selected row's name or pattern in place, or toggles its regex flag. */

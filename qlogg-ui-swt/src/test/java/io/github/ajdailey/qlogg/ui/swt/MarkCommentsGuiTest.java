@@ -353,4 +353,99 @@ class MarkCommentsGuiTest {
             }));
     assertEquals(UiText.MARKS_SUMMARY.format("other.log", 0L), marks.summary().getText());
   }
+
+  /**
+   * Marks List narrowed until Comment drops below its header minimum, then widened back 1 to 12
+   * points: the columns fill the client area without passing it, Comment and Text hold their header
+   * minima while the table has room for both, and each scroll bar reads as it did at the opening
+   * width. Regression (QCaret's Bookmarks list on Windows 11 at 150%): widening across the switch
+   * left both scroll bars shown under columns that fit.
+   */
+  @Test
+  void theMarksListSharesItsWidthThroughNarrowingAndWidening() {
+    document().setMarkComment(3, "mock note");
+    document().setMarkComment(40, "");
+    controller.execute(CommandId.MARKS_LIST);
+    final MarksWindow marks = window.marks();
+    assertNotNull(marks);
+    final Table table = marks.table();
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return table.getItemCount() == 2 && !marks.marks().reading();
+              }
+            }));
+    Shell shell = marks.shell();
+    int[] minima = new int[table.getColumnCount()];
+    GC gc = new GC(table);
+    try {
+      for (int i = 0; i < minima.length; i++) {
+        minima[i] = gc.textExtent(table.getColumn(i).getText()).x + TableFit.HEADER_PADDING;
+      }
+    } finally {
+      gc.dispose();
+    }
+    int height = shell.getSize().y;
+    int wide = shell.getSize().x;
+    resize(shell, table, wide, null);
+    Boolean[] idle = {table.getHorizontalBar().getVisible(), table.getVerticalBar().getVisible()};
+    assertFits(table, minima, wide, idle);
+    int low = 0;
+    for (int width = wide - 4; width > 120; width -= 4) {
+      resize(shell, table, width, idle);
+      if (table.getColumn(1).getWidth() < minima[1]) {
+        low = width;
+        break;
+      }
+    }
+    assertTrue(low > 0, "Comment never went below its header minimum " + minima[1]);
+    for (int step = 1; step <= 12; step++) {
+      resize(shell, table, low, idle);
+      resize(shell, table, low + step, idle);
+      assertFits(table, minima, low + step, idle);
+    }
+    shell.setSize(wide, height);
+  }
+
+  /** Sizes the shell and dispatches until each scroll bar reads as at the opening width. */
+  private void resize(Shell shell, final Table table, int width, final Boolean[] idle) {
+    shell.setSize(width, shell.getSize().y);
+    flush();
+    EventLoop.runUntil(
+        display,
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return idle != null
+                && table.getHorizontalBar().getVisible() == idle[0].booleanValue()
+                && table.getVerticalBar().getVisible() == idle[1].booleanValue();
+          }
+        },
+        Duration.ofSeconds(1));
+  }
+
+  private static void assertFits(Table table, int[] minima, int width, Boolean[] idle) {
+    int slack = ScaleSlack.of(table);
+    int client = table.getClientArea().width;
+    int hidden = table.getVerticalBar().getVisible() ? 0 : table.getVerticalBar().getSize().x;
+    int sum = 0;
+    for (int i = 0; i < table.getColumnCount(); i++) {
+      sum += table.getColumn(i).getWidth();
+    }
+    String at = " at " + width + ": columns " + sum + " in " + client;
+    assertTrue(sum <= client + slack, "past the client area" + at);
+    int room = TableFit.room(client, hidden, TableFit.zoom(table) % 100 != 0);
+    if (room - table.getColumn(0).getWidth() >= minima[1] + minima[2]) {
+      assertTrue(sum >= room - 2 * slack, "short of the room " + room + at);
+      for (int i = 1; i < minima.length; i++) {
+        assertTrue(
+            table.getColumn(i).getWidth() >= minima[i] - slack,
+            table.getColumn(i).getText() + " below " + minima[i] + at);
+      }
+    }
+    assertEquals(idle[0].booleanValue(), table.getHorizontalBar().getVisible(), "horizontal" + at);
+    assertEquals(idle[1].booleanValue(), table.getVerticalBar().getVisible(), "vertical" + at);
+  }
 }

@@ -293,9 +293,10 @@ comment. Unmarking a line drops its comment. A comment is one line of at most
 ### Marks list
 
 Go > Marks List lists the shown tab's marks with line number, comment and
-the start of the line, and follows the tab you show. `Enter` or a double
-click goes to the line, `Delete` or `Backspace` removes the selected marks
-and `F2` edits a comment in the list. It lists the first 10,000 marks.
+the start of the line, and follows the tab you show. The comment and text
+columns share the window's width. `Enter` or a double click goes to the line,
+`Delete` or `Backspace` removes the selected marks and `F2` edits a comment in
+the list. It lists the first 10,000 marks.
 
 ### Quick find
 
@@ -900,6 +901,8 @@ characters outside the code page.
 - Windows: under the dark theme at a display scale other than 100%, such as
   150%, the selected item of a drop-down list draws white on white; the other
   items stay readable.
+- Windows: under the dark theme, a column header narrowed below its text is cut
+  off without an ellipsis.
 - Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
   language hotkey. Use `Ctrl+Shift+D` to clear color labels.
 - macOS: `Cmd+Shift+3`, `Cmd+Shift+4` and `Cmd+Shift+5` take screenshots and

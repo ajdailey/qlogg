@@ -242,6 +242,13 @@ API sets:
   colored ones and ones created while the dark theme is not preferred draw it
   the same. At 100% (`windows-2025`) and under light the row is `#0078d4` or
   `#0078d7` with white text (4.5:1).
+- A table header under dark dialog colors: once `setHeaderBackground` is set,
+  SWT 3.135.0 custom-draws the header without `DT_END_ELLIPSIS`, so a column
+  narrowed below its text cuts it off ("Na" for Name), and it aligns column 0
+  by the column's style while win32 draws column 0's cells left. Every QLogg
+  table creates column 0 `SWT.LEFT` (`TableColumn.setAlignment` ignores column
+  0 on win32) and opens each column at least as wide as its header text
+  (`TableFit.headerMinima`); a column narrowed by hand still clips.
 - Popup menus (menu bar menus, cascades, context menus) keep the native side
   of the start until QLogg restarts, after a View > Theme switch and after a
   Windows mode change under System. The popup menu theme is process-wide:
@@ -281,14 +288,18 @@ computed, not yet measured on Windows. A field's text draws white on `#2b2b2b`
 `#9a9a9a` (5.03:1) by `Win32EmptyField`, an `SWT.Paint` listener over the
 native hint, which is `#6d6d6d` read-only (SWT's `COLOR_GRAYTEXT`, 2.74:1) and
 `#575757` editable (1.96:1), measured on `windows-2025`. The field repaints on
-focus and modification. A control created after the
-dialog opens is colored at its `SWT.Skin` event.
+focus and modification. A `ToolBar` takes the body as its own color, not only
+through `INHERIT_DEFAULT`: under the dark native theme SWT fills a hot or
+checked item with a shade of the bar's own color, `#d8d8d8` from the default
+`#f0f0f0` (measured on Predefined Filters' Add, Windows 11 at 150%), and
+`#363636` from the body (computed; `Win32DarkDialogsTest` reads it below
+`#606060`). A control created after the dialog opens is colored at its
+`SWT.Skin` event.
 
 | Stays native | Drawn |
 |---|---|
 | `Table` grid lines and header dividers | Light lines between dark rows and header cells |
 | `Spinner` arrows | Light buttons beside the dark field |
-| A hovered or focused `ToolItem` | A light highlight under the light-ink icon (seen on Predefined Filters' focused Add; hover assumed the same) |
 | Disabled text | The system gray: a disabled label `#808080` on the body (4.1 contrast). `Dialogs.disabledText` (`#9a9a9a`) colors only the rows the command palette draws disabled |
 | `Table` and `Tree` selection | Native dark with white text: focused `#223e55` (table) and `#626262` (tree), unfocused `#252525` and `#333333`, 6.10:1 or more (measured, `windows-2025`) |
 | `Browser` (the user guide) | The page's own colors |

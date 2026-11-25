@@ -52,8 +52,11 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.ToolBar;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -79,6 +82,12 @@ class Win32DarkDialogsTest {
   private static final RGB DARK_BODY = new RGB(0x20, 0x20, 0x20);
 
   private static final int TOLERANCE = 8;
+
+  /** Lightest hot tool item fill under a dark start; SWT draws {@code #363636} on the body. */
+  private static final RGB HOT_LIMIT = new RGB(0x60, 0x60, 0x60);
+
+  /** WCAG contrast an icon keeps on a hot tool item. */
+  private static final double ICON_CONTRAST = 3.0;
 
   /** WCAG contrast a label's text keeps on the drawn body. */
   private static final double TEXT_CONTRAST = 4.5;
@@ -224,6 +233,87 @@ class Win32DarkDialogsTest {
     open(ThemeMode.SYSTEM);
     assertTrue(DialogColors.nativeDark(display));
     checkAll("system", true);
+  }
+
+  /**
+   * Predefined Filters' Add item under the pointer keeps a dark fill and its icon readable on it
+   * (OBERON rc1b: a {@code #d8d8d8} square, 1.04:1). The pointer move is posted; the test skips
+   * where it does not reach the tool bar. The item is read on screen, or through {@code
+   * Control.print} where a screen read does not show the dialog.
+   */
+  @Test
+  void aHotToolItemDrawsDarkUnderADarkStart() throws IOException {
+    open(ThemeMode.DARK);
+    Shell dialog =
+        openDialog(
+            new Runnable() {
+              @Override
+              public void run() {
+                controller.execute(CommandId.PREDEFINED_FILTERS);
+              }
+            });
+    assertTrue(dialog != null, "Predefined Filters opened");
+    try {
+      ToolBar bar = firstToolBar(dialog);
+      assertTrue(bar != null, "tool bar");
+      boolean screen = screenShows && shows(dialog);
+      final boolean[] moved = new boolean[1];
+      bar.addListener(
+          SWT.MouseMove,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              moved[0] = true;
+            }
+          });
+      Rectangle item = bar.getItem(0).getBounds();
+      Point center = bar.toDisplay(item.x + item.width / 2, item.y + item.height / 2);
+      Event move = new Event();
+      move.type = SWT.MouseMove;
+      move.x = center.x;
+      move.y = center.y;
+      display.post(move);
+      assumeTrue(
+          EventLoop.runUntil(
+              display,
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return moved[0];
+                }
+              },
+              Duration.ofSeconds(3)),
+          "the posted pointer move reaches the tool bar");
+      settle();
+      ImageData data = screen ? capture(screenArea(bar)) : print(bar);
+      RGB fill = mode(data, item);
+      RGB icon = strongest(data, fill);
+      report.append(
+          String.format(
+              "hot add item read=%s fill=%s icon=%s contrast=%.2f%n",
+              screen ? "screen" : "print", hex(fill), hex(icon), contrast(icon, fill)));
+      save("hot.txt", report.toString());
+      assertTrue(luminance(fill) < luminance(HOT_LIMIT), "hot fill " + hex(fill));
+      assertTrue(contrast(icon, fill) >= ICON_CONTRAST, "icon " + hex(icon) + " on " + hex(fill));
+    } finally {
+      dialog.dispose();
+      settle();
+    }
+  }
+
+  private static ToolBar firstToolBar(Composite parent) {
+    for (Control child : parent.getChildren()) {
+      if (child instanceof ToolBar bar && bar.getItemCount() > 0) {
+        return bar;
+      }
+      if (child instanceof Composite composite) {
+        ToolBar found = firstToolBar(composite);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 
   /** Opens each dialog, saves it and checks its body and label colors on screen. */

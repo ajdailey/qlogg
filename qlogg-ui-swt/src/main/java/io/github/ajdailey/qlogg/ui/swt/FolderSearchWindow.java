@@ -168,9 +168,12 @@ final class FolderSearchWindow {
     column(files, UiText.FOLDER_COLUMN_FILE, 420, SWT.LEFT);
     column(files, UiText.FOLDER_COLUMN_MATCHES, 80, SWT.RIGHT);
     column(files, UiText.FOLDER_COLUMN_STATUS, 200, SWT.LEFT);
+    TableFit.headerMinima(files);
     lines = table(200);
-    column(lines, UiText.FOLDER_COLUMN_LINE, 80, SWT.RIGHT);
+    // Left, as win32 draws a table's first column whatever its style.
+    column(lines, UiText.FOLDER_COLUMN_LINE, 80, SWT.LEFT);
     column(lines, UiText.FOLDER_COLUMN_TEXT, 620, SWT.LEFT);
+    TableFit.headerMinima(lines);
     files.addListener(
         SWT.SetData,
         new Listener() {

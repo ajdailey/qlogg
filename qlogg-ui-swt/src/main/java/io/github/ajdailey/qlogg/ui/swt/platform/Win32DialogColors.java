@@ -18,6 +18,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.Tree;
 
 /**
@@ -37,6 +38,10 @@ import org.eclipse.swt.widgets.Tree;
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
  * on {@code windows-2025}); {@link Win32EmptyField} draws it in {@link #HINT} over that.
+ *
+ * <p>A {@link ToolBar} takes {@link #BODY} as its own background, not only through inheritance:
+ * under the dark native theme SWT fills a hot or checked tool item with a shade of the bar's own
+ * background, {@code #d8d8d8} from the default {@code #f0f0f0}, which hides a light icon.
  *
  * <p>{@link #apply} colors the shell before its children exist, walks it when it shows, and colors
  * each later control at its {@code SWT.Skin} event. Only a default color is replaced: a color the
@@ -170,7 +175,8 @@ final class Win32DialogColors implements DialogColors {
       if (defaultBackground(control)) {
         control.setBackground(face(control) ? FACE : FIELD);
       }
-    } else if (same(control, control.getBackground(), SWT.COLOR_WIDGET_BACKGROUND)) {
+    } else if (same(control, control.getBackground(), SWT.COLOR_WIDGET_BACKGROUND)
+        || (control instanceof ToolBar && control.getBackground().getRGB().equals(BODY.getRGB()))) {
       control.setBackground(BODY);
     }
     if (defaultForeground(control)) {

@@ -29,6 +29,8 @@ import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.ToolBar;
+import org.eclipse.swt.widgets.ToolItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -100,6 +102,22 @@ class DialogColorsTest {
     assertEquals(Win32DialogColors.TEXT.getRGB(), readOnly.getForeground().getRGB());
     assertEquals(OWN, own.getForeground().getRGB());
     assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
+  }
+
+  /**
+   * A tool bar holds the body color as its own, not only through the shell's background mode: SWT
+   * shades a hot item from the bar's own color. {@code Win32DarkDialogsTest} reads the drawn item.
+   */
+  @Test
+  void win32GivesAToolBarTheBodyAsItsOwnColor() {
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
+    Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
+    colors.apply(shell);
+    ToolBar bar = new ToolBar(shell, SWT.FLAT);
+    new ToolItem(bar, SWT.PUSH).setText("mock");
+    shell.open();
+    shell.setBackgroundMode(SWT.INHERIT_NONE);
+    assertEquals(Win32DialogColors.BODY.getRGB(), bar.getBackground().getRGB());
   }
 
   @Test

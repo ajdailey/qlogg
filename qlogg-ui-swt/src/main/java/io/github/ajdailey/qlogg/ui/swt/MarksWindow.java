@@ -24,7 +24,8 @@ import org.eclipse.swt.widgets.Text;
  * MarksListController}, one virtual table row per mark with its line number, comment and line text.
  * {@code Enter} or a double click goes to the line, {@code Delete} or {@code Backspace} removes the
  * selected marks, and {@code F2} edits the selected row's comment in place ({@code Enter} or
- * leaving the field saves it, {@code Esc} drops the edit).
+ * leaving the field saves it, {@code Esc} drops the edit). The line column keeps its width and the
+ * comment and text columns share the rest of the table's width ({@link TableFit#spread}).
  */
 final class MarksWindow {
   /** The comment column. */
@@ -50,11 +51,21 @@ final class MarksWindow {
         });
     summary = Dialogs.label(shell, "");
     table =
-        new Table(shell, SWT.BORDER | SWT.MULTI | SWT.FULL_SELECTION | SWT.V_SCROLL | SWT.VIRTUAL);
+        new Table(
+            shell,
+            SWT.BORDER
+                | SWT.MULTI
+                | SWT.FULL_SELECTION
+                | SWT.V_SCROLL
+                | SWT.H_SCROLL
+                | SWT.VIRTUAL);
     table.setHeaderVisible(true);
-    column(UiText.MARKS_COLUMN_LINE, 80, SWT.RIGHT);
+    // Left, as win32 draws a table's first column whatever its style.
+    column(UiText.MARKS_COLUMN_LINE, 80, SWT.LEFT);
     column(UiText.MARKS_COLUMN_COMMENT, 200, SWT.LEFT);
     column(UiText.MARKS_COLUMN_TEXT, 420, SWT.LEFT);
+    TableFit.headerMinima(table);
+    TableFit.spread(table);
     GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
     data.widthHint = 720;
     data.heightHint = 280;

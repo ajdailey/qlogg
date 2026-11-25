@@ -53,6 +53,7 @@ final class SelectorsDialog {
     column(UiText.SELECTORS_COLUMN_KIND, 100);
     column(UiText.SELECTORS_COLUMN_PATTERN, 260);
     column(UiText.SELECTORS_COLUMN_SET, 140);
+    TableFit.headerMinima(table);
     table.addListener(
         SWT.Selection,
         new Listener() {
@@ -157,7 +158,7 @@ final class SelectorsDialog {
   }
 
   private void column(UiText title, int width) {
-    TableColumn column = new TableColumn(table, SWT.NONE);
+    TableColumn column = new TableColumn(table, SWT.LEFT);
     column.setText(title.text());
     column.setWidth(width);
   }

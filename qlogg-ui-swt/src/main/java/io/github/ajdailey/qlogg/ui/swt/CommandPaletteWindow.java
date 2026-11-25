@@ -89,6 +89,7 @@ final class CommandPaletteWindow {
     for (TableColumn column : table.getColumns()) {
       column.pack();
     }
+    TableFit.headerMinima(table);
     TableFit.cellTips(table);
   }
 
