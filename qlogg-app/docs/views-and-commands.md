@@ -194,7 +194,7 @@ elsewhere.
 
 | Scope | Applies | Dispatched by |
 |---|---|---|
-| `WINDOW` | Anywhere in the main window; single strokes only | The menu item's accelerator; a command's other window strokes (`Ctrl`+keypad `+`) through `windowCommand`, which the window runs from a key filter |
+| `WINDOW` | Anywhere in the main window; single strokes only; neither path while a sequence is pending | The menu item's accelerator; a command's other window strokes (`Ctrl`+keypad `+`) through `windowCommand`, which the window runs from a key filter |
 | `LOG_VIEW` | While the log view has focus | `KeySequencer`, called by the view |
 
 Single keys (`M`, `1` to `9`, `V`, `'`, `*`, `+`, `Space`) are `LOG_VIEW`
@@ -203,7 +203,10 @@ sees `J` or `Ctrl+C`.
 
 `KeySequencer` holds the pending prefix of a two-stroke sequence (`Ctrl+E
 Ctrl+T`) on the UI thread. The next stroke completes it; `Esc` or any unbound
-stroke cancels it.
+stroke cancels it. The SWT view also cancels it after 5 s and when focus leaves
+the log view, and the main window clears its menu accelerators while it is
+pending, so a second stroke that is also a window key (`Ctrl+,`) reaches the
+sequence (`qlogg-ui-swt/docs/log-view.md`).
 
 `KeymapTest` rejects a stroke bound twice, a single stroke that is also a
 sequence prefix, an accelerator on a command with no menu, and a log view

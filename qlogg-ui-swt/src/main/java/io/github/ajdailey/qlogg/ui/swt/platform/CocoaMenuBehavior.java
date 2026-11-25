@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
+import java.util.List;
 import java.util.Set;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Image;
@@ -38,6 +39,12 @@ final class CocoaMenuBehavior implements MenuBehavior {
   @Override
   public Set<CommandId> systemCommands(Display display) {
     return display.getSystemMenu() != null ? MenuTable.APP_MENU_COMMANDS : Set.of();
+  }
+
+  @Override
+  public List<MenuItem> applicationMenuItems(Display display) {
+    Menu menu = display.getSystemMenu();
+    return menu == null ? List.of() : List.of(menu.getItems());
   }
 
   @Override

@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import java.util.List;
 import java.util.Set;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Display;
@@ -10,8 +11,8 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * Menu bar differences, one implementation per platform from {@link PlatformTraits#menuBehavior}:
- * item icons, their ink and disabled image, tool window menus, and the commands the system
- * supplies. Confined to the UI thread.
+ * item icons, their ink and disabled image, tool window menus, and the commands and items the
+ * system supplies. Confined to the UI thread.
  */
 public interface MenuBehavior {
   /** The running platform's menu behavior. */
@@ -68,6 +69,15 @@ public interface MenuBehavior {
    *     else empty; elsewhere {@code MenuTable.TITLE_BAR_COMMANDS}; unmodifiable
    */
   Set<CommandId> systemCommands(Display display);
+
+  /**
+   * Returns the application menu's items, whose accelerators act in every window.
+   *
+   * @param display the Display
+   * @return on cocoa, the items of {@code Display.getSystemMenu()} when it is not null, else empty;
+   *     elsewhere empty
+   */
+  List<MenuItem> applicationMenuItems(Display display);
 
   /**
    * Connects the macOS application menu on cocoa: its About, Preferences and Quit items, the

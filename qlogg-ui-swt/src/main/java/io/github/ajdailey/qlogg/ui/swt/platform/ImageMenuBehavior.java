@@ -52,5 +52,10 @@ abstract class ImageMenuBehavior implements MenuBehavior {
   }
 
   @Override
+  public final List<MenuItem> applicationMenuItems(Display display) {
+    return List.of();
+  }
+
+  @Override
   public final void hookAppMenu(Display display, AppMenuActions actions) {}
 }

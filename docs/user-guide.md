@@ -128,6 +128,12 @@ file shows a notice in the status bar.
 | `F11` (macOS: `Ctrl+Cmd+F`) | Full screen |
 | `Cmd+M` (macOS) | Minimize the window in front, a tool window included |
 
+Two-stroke keys start with `Ctrl+E`, such as `Ctrl+E Ctrl+T` for line numbers.
+The status bar shows `Ctrl+E -` until the second key, which goes to the
+sequence even when a menu uses it: `Ctrl+E Ctrl+,` goes to the previous mark
+and does not open Preferences. `Esc`, a key with no sequence, moving the focus
+out of the log view or 5 seconds without a key cancels it.
+
 Go > Go Back and Go Forward walk each tab's last 100 jumps: Go to Line, a
 `+line:N`, Go to Time, Go to Top and Bottom, Find Next and Previous, the next or
 previous mark, a Marks List row, a quick find match, and a click or `Enter` on

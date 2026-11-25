@@ -111,8 +111,14 @@ and selection and hands focus back to the canvas.
 
 - Focus, a click, a key and the context menu make the canvas the view commands
   go to (`ApplicationController.setFocusedView`).
-- Keys pass through `SwtKeys` to `KeySequencer`. Arrow, page, Escape and Return
-  traversal is turned off so those keys reach it.
+- Keys pass through `SwtKeys` to `SequenceKeys`, which wraps `KeySequencer`.
+  Arrow, page, Escape and Return traversal is turned off so those keys reach
+  it.
+- `SequenceKeys` reports the prefix text to the window when a sequence starts
+  and empty text when it ends: completed, canceled by a key, after
+  `TIMEOUT_MILLIS` (5 s) without a second stroke, on `FocusOut` or on dispose.
+  The window clears its menu accelerators for that interval
+  ([main-window.md](main-window.md#input-and-commands)).
 - A double click selects the word (letters, digits, `_`) under the pointer
   within the decoded column window of a printable-ASCII row
   (`LineViewController.selectWordAt`).

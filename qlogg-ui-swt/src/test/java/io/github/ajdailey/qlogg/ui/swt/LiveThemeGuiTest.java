@@ -232,6 +232,16 @@ class LiveThemeGuiTest {
     }
     controller.quickFind().open(true);
     controller.quickFind().setText("payload");
+    // The incremental find selects its match on a later UI turn; the first capture must include it.
+    assertTrue(
+        windows.await(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return !controller.quickFind().state().running();
+              }
+            }),
+        "quick find");
     // GTK 4 under Xvfb drops a maximize requested before the new shell maps.
     if (tabs == 20 && !Gtk4.active()) {
       slot.window().shell().setMaximized(true);

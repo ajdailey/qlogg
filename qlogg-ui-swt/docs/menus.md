@@ -24,6 +24,10 @@ Favorites, Search > Search Options, View > Folding).
   follows the same rule.
 - Only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys such
   as `Ctrl+C` reach the log view and never a text field.
+- Every accelerator is 0 while a log view's key sequence is pending
+  (`AcceleratorHold`, [main-window.md](main-window.md#input-and-commands)).
+  The default second strokes that are also window keys: `Ctrl+,` (Preferences)
+  on every platform and `Cmd+M` (Minimize) on macOS.
 - A `check()` command is a check item, or a radio item when it is in
   `MenuTable.RADIO`: View > Theme, View > Filtered View's modes, Encoding >
   Auto and Time Spread.
@@ -80,6 +84,7 @@ view's context menu. `MenuIcons.icon` maps each command to a `ToolIcons` name:
 | `toolWindowMenus` | nothing | nothing | nothing | the owner's menus on a tool window |
 | `systemCommands` | Minimize, Zoom | Minimize, Zoom | Minimize, Zoom | About, Preferences, Quit |
 | `hookAppMenu` | nothing | nothing | nothing | connects the system application menu |
+| `applicationMenuItems` | none | none | none | the system menu's items (Preferences `Cmd+,`, Hide, Quit) |
 
 `Win32MenuBehavior` and `Gtk3MenuBehavior` extend `ImageMenuBehavior`, which
 decorates the menus and leaves the cocoa-only methods empty; each subclass

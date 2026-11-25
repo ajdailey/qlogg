@@ -77,12 +77,14 @@ import org.slf4j.LoggerFactory;
  * bar.
  */
 public final class LogCanvas {
-  /** Receives the pending key prefix for the status bar. */
+  /** Receives the pending prefix of a two-stroke key sequence. */
   public interface PrefixListener {
     /**
-     * The prefix changed.
+     * The prefix changed. Empty text follows every key press that leaves no prefix pending, so it
+     * can repeat.
      *
-     * @param text for example {@code Ctrl+E -}, or empty when none is pending
+     * @param text for example {@code Ctrl+E -} when a sequence starts, or empty when none is
+     *     pending
      */
     void prefixChanged(String text);
   }
@@ -107,9 +109,8 @@ public final class LogCanvas {
 
   private final LineViewController document;
   private final ApplicationController application;
-  private final KeySequencer keys;
+  private final SequenceKeys keys;
   private final Keymap keymapRef;
-  private final PrefixListener prefix;
   // Menu item icons.
   private final MenuIcons menuIcons;
   private Font font;
@@ -178,9 +179,7 @@ public final class LogCanvas {
       MenuIcons menuIcons) {
     this.document = document;
     this.application = application;
-    this.keys = new KeySequencer(keymap);
     this.keymapRef = keymap;
-    this.prefix = prefix;
     this.menuIcons = menuIcons;
     frame = new Composite(parent, SWT.NONE);
     GridLayout layout = new GridLayout(2, false);
@@ -202,6 +201,7 @@ public final class LogCanvas {
     colors = new PaletteColors(canvas.getDisplay(), palette);
     painter = new RowPainter(canvas.getDisplay(), font);
     timers = new SwtUiDispatcher(canvas.getDisplay());
+    keys = new SequenceKeys(keymap, timers, prefix, SequenceKeys.TIMEOUT_MILLIS);
     measure();
     canvas.setBackground(colors.background);
     listen();
@@ -611,6 +611,7 @@ public final class LogCanvas {
           @Override
           public void handleEvent(Event event) {
             endDrag();
+            keys.cancel();
           }
         });
     // The scroll bar is a separate control, so a wheel over it reaches only its own listeners.
@@ -660,6 +661,7 @@ public final class LogCanvas {
           @Override
           public void handleEvent(Event event) {
             endDrag();
+            keys.cancel();
             document.removeListener(viewListener);
             painter.dispose();
             font.dispose();
@@ -676,13 +678,9 @@ public final class LogCanvas {
     KeySequencer.Result result = keys.press(stroke);
     if (result instanceof KeySequencer.Run found) {
       event.doit = false;
-      prefix.prefixChanged("");
       run(found.command());
-    } else if (result instanceof KeySequencer.Pending pending) {
+    } else if (result instanceof KeySequencer.Pending) {
       event.doit = false;
-      prefix.prefixChanged(UiText.STATUS_KEY_PREFIX.format(pending.prefix().text(SwtKeys.mac())));
-    } else {
-      prefix.prefixChanged("");
     }
   }
 

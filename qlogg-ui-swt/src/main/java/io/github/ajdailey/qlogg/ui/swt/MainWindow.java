@@ -136,6 +136,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   static final int MIN_FILTERED_ROWS = 3;
 
   private final Shell shell;
+  // Key sequences.
+  private final AcceleratorHold acceleratorHold;
   private Keymap keymap;
   private final Composite topRow;
   private final ToolBar toolBar;
@@ -217,6 +219,12 @@ public final class MainWindow implements MainView, ApplicationListener {
         public void prefixChanged(String text) {
           if (!prefix.isDisposed()) {
             prefix.setText(text);
+          }
+          // Key sequences.
+          if (text.isEmpty()) {
+            acceleratorHold.release();
+          } else {
+            acceleratorHold.hold();
           }
         }
       };
@@ -307,6 +315,8 @@ public final class MainWindow implements MainView, ApplicationListener {
     this.palette = palette;
     this.dispatcher = new SwtUiDispatcher(display);
     shell = new Shell(display, SWT.SHELL_TRIM);
+    // Key sequences.
+    acceleratorHold = new AcceleratorHold(shell);
     fullScreen = PlatformTraits.PLATFORM.fullScreen(shell, dispatcher);
     this.chrome = chrome;
     shell.setText(UiText.WINDOW_TITLE.text());
@@ -962,6 +972,8 @@ public final class MainWindow implements MainView, ApplicationListener {
       toolMenus = new ToolMenuBars(shell, controller, menuIcons, keymap);
     }
     menuBar.build(keymap);
+    // Key sequences.
+    acceleratorHold.menuBarBuilt();
     toolMenus.rebuild(keymap);
     encodingSource.load(
         new EncodingChoices.Listener() {
@@ -2083,7 +2095,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   /**
    * Runs window bindings that are not a menu item's accelerator, such as a command's second window
-   * key, from a Display filter while this window has a key event.
+   * key, from a Display filter while this window has a key event and no key sequence is pending.
    */
   private void dispatchWindowKeys() {
     final Display display = shell.getDisplay();
@@ -2092,6 +2104,7 @@ public final class MainWindow implements MainView, ApplicationListener {
           @Override
           public void handleEvent(Event event) {
             if (controller == null
+                || acceleratorHold.held()
                 || !(event.widget instanceof Control control)
                 || control.isDisposed()
                 || control.getShell() != shell) {
