@@ -68,7 +68,7 @@ class PlatformBehaviorTest {
   }
 
   @Test
-  void aSwitchRebuildsTheWindowsOnWin32Only() {
+  void aSwitchRebuildsTheWindowsOnWin32OnlyAndRecordsTheSideOnWin32AndCocoa() {
     final int[] rebuilds = {0};
     try {
       SwtThemeService service = SwtThemeService.open(display, ThemeMode.LIGHT);
@@ -82,7 +82,7 @@ class PlatformBehaviorTest {
       service.preferDark(true);
       service.preferDark(true);
       assertEquals(WIN32 ? 1 : 0, rebuilds[0]);
-      assertEquals(WIN32, DialogColors.nativeDark(display));
+      assertEquals(WIN32 || COCOA, DialogColors.nativeDark(display));
     } finally {
       display.setDarkThemePreferred(false);
       display.setData(DialogColors.NATIVE_DARK, null);
@@ -90,12 +90,13 @@ class PlatformBehaviorTest {
   }
 
   @Test
-  void systemModeFixesNativeThemeAtStartOnWin32() {
+  void systemModeSetsNativeThemeAtStartOnWin32AndCocoa() {
     boolean system = Display.isSystemDarkTheme();
     try {
       SwtThemeService.open(display, ThemeMode.SYSTEM);
       assertEquals(
-          WIN32 ? Boolean.valueOf(system) : null, display.getData(DialogColors.NATIVE_DARK));
+          WIN32 || COCOA ? Boolean.valueOf(system) : null,
+          display.getData(DialogColors.NATIVE_DARK));
     } finally {
       display.setDarkThemePreferred(false);
       display.setData(DialogColors.NATIVE_DARK, null);
@@ -103,10 +104,10 @@ class PlatformBehaviorTest {
   }
 
   @Test
-  void darkModeSetsNativeThemeExceptOnCocoa() {
+  void darkModeSetsNativeThemeOnEveryPlatform() {
     try {
       SwtThemeService.open(display, ThemeMode.DARK);
-      assertEquals(!COCOA, DialogColors.nativeDark(display));
+      assertTrue(DialogColors.nativeDark(display));
       assertEquals(
           WIN32 ? "Win32DialogColors" : "NativeDialogColors",
           DialogColors.of(display).getClass().getSimpleName());
