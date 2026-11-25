@@ -34,7 +34,7 @@
         <!-- The version of every module. CI overrides it with -Drevision:
              the tag's version for a v* tag, this value plus "+" and the short
              commit otherwise. -->
-        <revision>0.1.1-SNAPSHOT</revision>
+        <revision>0.2.0-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.release>21</maven.compiler.release>
@@ -42,7 +42,7 @@
              qlogg.exe link time. The release commit sets it to the release
              date. ISO-8601 UTC with seconds, the form dist.xml passes to
              Ant, GNU tar and PeTimestamp. -->
-        <project.build.outputTimestamp>2026-11-19T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-11-25T00:00:00Z</project.build.outputTimestamp>
 
         <!-- ===== Plugin versions (alphabetical). Newest stable; milestones
              and 4.0.0 betas are not targets. ===== -->

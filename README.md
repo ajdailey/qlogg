@@ -157,10 +157,10 @@ than the one `continuous` holds, so a re-run of an older run never replaces a
 newer build.
 
 Every module's version is `${revision}`, set once in the parent POM
-(`<revision>0.1.1-SNAPSHOT</revision>`); flatten-maven-plugin writes the
+(`<revision>0.2.0-SNAPSHOT</revision>`); flatten-maven-plugin writes the
 resolved POM into each jar. The `package` job builds with `-Drevision`: the
 tag's version for a `v*` tag, otherwise `<revision>+<short commit>` (for
-example `0.1.1-SNAPSHOT+60d8d67`), which the archive names,
+example `0.2.0-SNAPSHOT+60d8d67`), which the archive names,
 `Implementation-Version`, `qlogg.exe`'s version text and `-v` carry. A local
 build without `-Drevision` uses `<revision>`.
 
