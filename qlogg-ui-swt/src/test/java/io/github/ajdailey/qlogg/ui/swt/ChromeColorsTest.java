@@ -23,9 +23,11 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
@@ -399,12 +401,19 @@ class ChromeColorsTest {
   }
 
   /**
-   * After a dark start a field holding text keeps the dark colors on the light side, and an empty
-   * one takes the system colors; a field turns when it empties or takes text.
+   * After a dark start a field holding text keeps the dark colors on the light side, an empty text
+   * field takes the system list colors, set explicitly, and an empty combo the system colors; a
+   * field turns when it empties or takes text. With no colors an empty text field draws the dark
+   * native field.
    */
   @Test
   void afterADarkStartAFieldHoldingTextStaysDarkOnTheLightSide() {
-    List<RGB> system = fieldColors();
+    List<RGB> system = new ArrayList<RGB>();
+    for (int i = 0; i < 2; i++) {
+      system.add(display.getSystemColor(SWT.COLOR_LIST_BACKGROUND).getRGB());
+      system.add(display.getSystemColor(SWT.COLOR_LIST_FOREGROUND).getRGB());
+    }
+    system.addAll(fieldColors().subList(4, 6));
     display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
     ChromeColors chrome = chrome(WIN32);
     setText(fields.get(0), "mock");
@@ -424,6 +433,52 @@ class ChromeColorsTest {
     chrome.apply(true);
     setText(fields.get(1), "");
     assertEquals(FIELD, fields.get(1).getBackground().getRGB(), "emptied under dark");
+  }
+
+  /**
+   * After a dark start an empty, unfocused text field on the light side is filled with its system
+   * background, which the dark native field draws {@code #212121} under any colors; a field holding
+   * text and the dark side keep the native drawing.
+   */
+  @Test
+  void afterADarkStartAnEmptyFieldOnTheLightSideIsPaintedInItsSystemBackground() {
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    Text find = (Text) fields.get(0);
+    find.setSize(200, 30);
+    ChromeColors chrome = chrome(WIN32);
+    chrome.apply(true);
+    chrome.apply(false);
+    RGB system = display.getSystemColor(SWT.COLOR_LIST_BACKGROUND).getRGB();
+    assertEquals(1, find.getListeners(SWT.Paint).length, "one fill listener");
+    assertEquals(system, paintedCorner(find));
+    chrome.apply(true);
+    assertEquals(OWN_BACKGROUND, paintedCorner(find), "dark side");
+    chrome.apply(false);
+    setText(find, "mock");
+    assertEquals(OWN_BACKGROUND, paintedCorner(find), "holding text");
+  }
+
+  /** Sends a Paint event over an image filled with {@link #OWN_BACKGROUND} and reads a corner. */
+  private RGB paintedCorner(Text text) {
+    Rectangle area = text.getClientArea();
+    Image image = new Image(display, Math.max(2, area.width), Math.max(2, area.height));
+    GC gc = new GC(image);
+    try {
+      gc.setBackground(new Color(OWN_BACKGROUND));
+      gc.fillRectangle(0, 0, area.width, area.height);
+      Event event = new Event();
+      event.gc = gc;
+      event.setBounds(new Rectangle(0, 0, area.width, area.height));
+      text.notifyListeners(SWT.Paint, event);
+    } finally {
+      gc.dispose();
+    }
+    try {
+      ImageData data = image.getImageData();
+      return data.palette.getRGB(data.getPixel(1, 1));
+    } finally {
+      image.dispose();
+    }
   }
 
   /** The start path records a dark win32 start for the chrome and dialog colors to read. */

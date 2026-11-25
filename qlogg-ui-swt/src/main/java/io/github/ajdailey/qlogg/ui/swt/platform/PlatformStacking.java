@@ -19,11 +19,6 @@ abstract class PlatformStacking implements WindowStacking {
   }
 
   @Override
-  public final boolean windowManagerMenu() {
-    return false;
-  }
-
-  @Override
   public final void setOnTop(Shell shell, boolean onTop) {
     if (!supported || shell.isDisposed()) {
       return;

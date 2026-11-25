@@ -41,8 +41,8 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public DialogColors dialogColors(Display display) {
-    return new Win32DialogColors(display);
+  public DialogColors dialogColors() {
+    return Win32DialogColors.INSTANCE;
   }
 
   @Override
@@ -78,7 +78,7 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public MenuBehavior menus() {
+  public MenuBehavior menuBehavior() {
     return new Win32MenuBehavior();
   }
 

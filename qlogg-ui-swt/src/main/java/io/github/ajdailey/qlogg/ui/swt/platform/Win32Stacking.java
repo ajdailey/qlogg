@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Method;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -58,6 +59,14 @@ final class Win32Stacking extends PlatformStacking {
       throw new IllegalStateException("SetWindowPos failed");
     }
   }
+
+  @Override
+  public boolean minimizeSupported() {
+    return true;
+  }
+
+  @Override
+  public void explainUnsupported(MenuItem item) {}
 
   @Override
   public void minimize(Shell shell) {

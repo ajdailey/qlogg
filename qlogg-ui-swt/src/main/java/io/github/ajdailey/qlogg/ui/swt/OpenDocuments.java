@@ -1,7 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.ui.swt.platform.LaunchDocuments;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongSupplier;
@@ -59,20 +58,18 @@ public final class OpenDocuments {
    * @return the file paths in arrival order, empty elsewhere or when none came
    */
   public static List<String> await() {
-    return PlatformTraits.PLATFORM
-        .launchDocuments()
-        .await(
-            new LaunchDocuments.Wait() {
-              @Override
-              public List<String> run() {
-                Display display = new Display();
-                try {
-                  return collect(new DisplaySource(display), System::nanoTime);
-                } finally {
-                  display.dispose();
-                }
-              }
-            });
+    return LaunchDocuments.PLATFORM.await(
+        new LaunchDocuments.Wait() {
+          @Override
+          public List<String> run() {
+            Display display = new Display();
+            try {
+              return collect(new DisplaySource(display), System::nanoTime);
+            } finally {
+              display.dispose();
+            }
+          }
+        });
   }
 
   /**

@@ -199,9 +199,9 @@ class CommandStatesTest {
     assertFalse(states.checked(CommandId.SHOW_MARKS_AND_MATCHES));
   }
 
-  /** Minimize follows the view's stacking, so an unsupported stacking leaves it disabled. */
+  /** Minimize follows {@link io.github.ajdailey.qlogg.app.view.MainView#minimizeSupported}. */
   @Test
-  void aStackingReportingUnsupportedLeavesMinimizeDisabled() {
+  void aViewReportingMinimizeUnsupportedLeavesItDisabled() {
     assertTrue(states.enabled(CommandId.MINIMIZE));
     application.execute(CommandId.MINIMIZE);
     assertEquals(1, view.minimizeCalls);

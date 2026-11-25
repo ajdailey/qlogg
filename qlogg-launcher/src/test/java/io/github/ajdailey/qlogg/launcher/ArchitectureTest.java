@@ -108,7 +108,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Item;
+import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -1449,7 +1452,7 @@ class ArchitectureTest {
 
   /**
    * A code unit that creates a {@code Shell} with an owning shell also calls {@code
-   * DialogColors.prepare}, as {@code Dialogs.shell} does, so a dialog built another way still takes
+   * DialogColors.apply}, as {@code Dialogs.shell} does, so a dialog built another way still takes
    * the dark dialog colors on win32. The main window is out of scope: it is created with a {@code
    * Display}. No owned shell stays native.
    */
@@ -1472,7 +1475,7 @@ class ArchitectureTest {
     return codeUnits()
         .should(
             new ArchCondition<JavaCodeUnit>(
-                "call DialogColors.prepare when creating an owned Shell") {
+                "call DialogColors.apply when creating an owned Shell") {
               @Override
               public void check(JavaCodeUnit unit, ConditionEvents events) {
                 boolean owned = false;
@@ -1488,7 +1491,7 @@ class ArchitectureTest {
                 }
                 for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
                   if (call.getTargetOwner().isAssignableTo(colors)
-                      && call.getName().equals("prepare")) {
+                      && call.getName().equals("apply")) {
                     return;
                   }
                 }
@@ -1498,6 +1501,110 @@ class ArchitectureTest {
               }
             })
         .because("win32 draws a dialog body light under a dark start unless it is colored");
+  }
+
+  // Icons.
+
+  /**
+   * Item and button icons come from {@code ToolIcons}, which picks the ink for the background they
+   * show on. The tab dots ({@code TabStrip} and {@code TabList}) and the Predefined Filters check
+   * box column ({@code FiltersDialog}, ToolIcons images on a table item) are the exemptions.
+   */
+  @Test
+  void iconsOnlyThroughToolIcons() {
+    iconsOnlyThroughToolIconsRule().check(classes);
+  }
+
+  @Test
+  void iconRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        iconsOnlyThroughToolIconsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$SetsIcon",
+        "ToolItem.setImage",
+        "Button.setImage");
+  }
+
+  private static ArchRule iconsOnlyThroughToolIconsRule() {
+    final List<String> exempt =
+        List.of(
+            ROOT + ".ui.swt.ToolIcons",
+            ROOT + ".ui.swt.TabStrip",
+            ROOT + ".ui.swt.TabList",
+            ROOT + ".ui.swt.FiltersDialog");
+    return noClasses()
+        .that(
+            new DescribedPredicate<JavaClass>("are not ToolIcons or an exemption") {
+              @Override
+              public boolean test(JavaClass type) {
+                for (String name : exempt) {
+                  if (type.getName().equals(name) || type.getName().startsWith(name + "$")) {
+                    return false;
+                  }
+                }
+                return true;
+              }
+            })
+        .should()
+        .callMethodWhere(call(Item.class, "setImage"))
+        .orShould()
+        .callMethodWhere(call(Button.class, "setImage"))
+        .because("ToolIcons inks an icon for the background it shows on");
+  }
+
+  /**
+   * A code unit that creates an owned shell calls {@code Dialogs.inheritIcons}, so every dialog and
+   * tool window carries the main window's icons. The main window creates the one top-level shell
+   * and sets the images.
+   */
+  @Test
+  void ownedShellsInheritIcons() {
+    ownedShellsInheritIconsRule().check(classes);
+  }
+
+  @Test
+  void inheritIconsRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        ownedShellsInheritIconsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$OwnsUncoloredShell",
+        "new Shell without Dialogs.inheritIcons");
+  }
+
+  private static ArchRule ownedShellsInheritIconsRule() {
+    return classes()
+        .should(
+            new ArchCondition<JavaClass>("call Dialogs.inheritIcons where they create a Shell") {
+              @Override
+              public void check(JavaClass type, ConditionEvents events) {
+                for (JavaCodeUnit unit : type.getCodeUnits()) {
+                  for (JavaConstructorCall call : unit.getConstructorCallsFromSelf()) {
+                    if (call.getTargetOwner().isAssignableTo(Shell.class)
+                        && !topLevelInMainWindow(call)
+                        && !callsInheritIcons(unit)) {
+                      events.add(
+                          SimpleConditionEvent.violated(
+                              call,
+                              "new Shell without Dialogs.inheritIcons in "
+                                  + call.getDescription()));
+                    }
+                  }
+                }
+              }
+            });
+  }
+
+  private static boolean topLevelInMainWindow(JavaConstructorCall call) {
+    return call.getOriginOwner().getName().equals(ROOT + ".ui.swt.MainWindow")
+        && call.getTarget().getRawParameterTypes().get(0).isAssignableTo(Display.class);
+  }
+
+  private static boolean callsInheritIcons(JavaCodeUnit unit) {
+    for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+      if (call.getTarget().getName().equals("inheritIcons")
+          && call.getTargetOwner().getName().equals(ROOT + ".ui.swt.Dialogs")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Dialog tabs.

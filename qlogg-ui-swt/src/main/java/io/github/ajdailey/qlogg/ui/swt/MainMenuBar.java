@@ -13,7 +13,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
 import io.github.ajdailey.qlogg.core.time.TimestampFormat;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.WindowStacking;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -152,7 +152,7 @@ final class MainMenuBar {
     this.keymap = keymap;
     Menu bar = new Menu(shell, SWT.BAR);
     boolean mac = SwtKeys.mac();
-    Set<CommandId> system = PlatformTraits.PLATFORM.menus().systemCommands(shell.getDisplay());
+    Set<CommandId> system = MenuBehavior.PLATFORM.systemCommands(shell.getDisplay());
     for (final CommandGroup group : CommandGroup.values()) {
       if (!group.menu()) {
         continue;
@@ -212,8 +212,8 @@ final class MainMenuBar {
             });
         items.put(command, item);
         // Always on Top.
-        if (command == CommandId.ALWAYS_ON_TOP && WindowStacking.PLATFORM.windowManagerMenu()) {
-          item.setToolTipText(UiText.ALWAYS_ON_TOP_UNSUPPORTED.text());
+        if (command == CommandId.ALWAYS_ON_TOP && !enabled(command)) {
+          WindowStacking.PLATFORM.explainUnsupported(item);
         }
         if (command == CommandId.CLEAN_RECENT) {
           recentMenu = target;

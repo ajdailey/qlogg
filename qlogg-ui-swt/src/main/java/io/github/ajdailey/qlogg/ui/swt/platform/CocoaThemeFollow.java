@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Link;
 
 /**
  * cocoa: {@code setDarkThemePreferred} pins the application appearance to the side {@code ui.theme}
@@ -54,4 +55,10 @@ final class CocoaThemeFollow implements ThemeFollow {
       chrome.apply(dark);
     }
   }
+
+  @Override
+  public void settingsChanged() {}
+
+  @Override
+  public void colorLink(Link link) {}
 }

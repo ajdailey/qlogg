@@ -14,13 +14,13 @@ final class TrimPlacement {
    *
    * @param shell the shell
    * @param placer computes and applies a placement
-   * @param positions true when the shell can be moved to a location
+   * @param positioned false where the window system ignores a location
    * @return the trim's width and height
    */
-  static int[] place(Shell shell, WindowPlacement.Placer placer, boolean positions) {
+  static int[] place(Shell shell, WindowPlacement.Placer placer, boolean positioned) {
     Rectangle trim = shell.computeTrim(0, 0, CLIENT, CLIENT);
     int[] size = {trim.width - CLIENT, trim.height - CLIENT};
-    placer.place(size[0], size[1], positions);
+    placer.place(size[0], size[1], positioned);
     return size;
   }
 }

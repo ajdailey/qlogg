@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import io.github.ajdailey.qlogg.app.command.CommandGroup;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.ui.swt.EventLoop;
@@ -23,13 +24,13 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.accessibility.ACC;
 import org.eclipse.swt.accessibility.AccessibleControlEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
-import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
@@ -261,8 +262,89 @@ class PlatformSeamsTest {
     assumeTrue(!stacking.supported(), "the cocoa members resolve");
     Shell tool = new Shell(shell, SWT.SHELL_TRIM);
     tool.open();
+    assertFalse(stacking.minimizeSupported());
     stacking.minimize(tool);
     assertFalse(tool.getMinimized());
+  }
+
+  /**
+   * Minimize works outside cocoa whether or not Always on Top does: the window manager's stacking
+   * on GTK 3 under Wayland and on GTK 4 leaves it enabled and minimizes the shell.
+   */
+  @Test
+  void minimizeIsSupportedOutsideCocoaWhateverTheStacking() {
+    WindowStacking[] stackings = {
+      new Win32Stacking(), new GtkX11Stacking(), new WindowManagerStacking()
+    };
+    for (WindowStacking stacking : stackings) {
+      assertTrue(stacking.minimizeSupported(), stacking.getClass().getSimpleName());
+    }
+    WindowStacking manager = new WindowManagerStacking();
+    assertFalse(manager.supported());
+    shell.open();
+    manager.minimize(shell);
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return shell.getMinimized();
+              }
+            },
+            Duration.ofSeconds(5)));
+  }
+
+  /**
+   * GTK raises a link's color to the link contrast on its background, at creation and at each
+   * {@code SWT.Settings}; win32 and cocoa leave it.
+   */
+  @Test
+  void onlyGtkRaisesALinkToTheLinkContrast() {
+    RGB ground = new RGB(53, 53, 53);
+    ThemeFollow[] follows = {
+      new Win32ThemeFollow(display), new CocoaThemeFollow(display), new GtkThemeFollow(display)
+    };
+    for (ThemeFollow follow : follows) {
+      Composite page = new Composite(shell, SWT.NONE);
+      page.setBackground(new Color(ground));
+      Link link = new Link(page, SWT.NONE);
+      link.setBackground(new Color(ground));
+      link.setLinkForeground(new Color(53, 132, 228));
+      follow.colorLink(link);
+      boolean gtk = follow instanceof GtkThemeFollow;
+      assertEquals(
+          gtk,
+          Contrast.ratio(link.getLinkForeground().getRGB(), ground) >= Contrast.LINK,
+          follow.getClass().getSimpleName());
+      link.setLinkForeground(new Color(53, 132, 228));
+      follow.settingsChanged();
+      assertEquals(
+          gtk,
+          Contrast.ratio(link.getLinkForeground().getRGB(), ground) >= Contrast.LINK,
+          "settings " + follow.getClass().getSimpleName());
+    }
+  }
+
+  /** Only GTK explains a disabled Always on Top item; win32 and cocoa leave its tool tip. */
+  @Test
+  void onlyGtkExplainsAnUnsupportedStacking() {
+    Menu bar = new Menu(shell, SWT.BAR);
+    WindowStacking[] stackings = {
+      new Win32Stacking(), new CocoaStacking(), new GtkX11Stacking(), new WindowManagerStacking()
+    };
+    for (WindowStacking stacking : stackings) {
+      MenuItem item = new MenuItem(bar, SWT.CHECK);
+      stacking.explainUnsupported(item);
+      // SWT keeps no menu item tool tip on GTK 4.
+      boolean gtk =
+          (stacking instanceof GtkX11Stacking || stacking instanceof WindowManagerStacking)
+              && !Gtk4.active();
+      assertEquals(
+          gtk ? UiText.ALWAYS_ON_TOP_UNSUPPORTED.text() : null,
+          item.getToolTipText(),
+          stacking.getClass().getSimpleName());
+    }
   }
 
   /** Records what an application menu runs. */
@@ -378,107 +460,18 @@ class PlatformSeamsTest {
   }
 
   @Test
-  void win32PlacesAgainWithTheMeasuredTrim() {
-    shell.setMenuBar(new Menu(shell, SWT.BAR));
-    final List<int[]> placed = new ArrayList<int[]>();
-    new Win32WindowPlacement()
-        .place(
-            shell,
-            new WindowPlacement.Placer() {
-              @Override
-              public void place(int trimWidth, int trimHeight, boolean positions) {
-                assertTrue(positions);
-                placed.add(new int[] {trimWidth, trimHeight});
-                shell.setSize(400 + trimWidth, 300 + trimHeight);
-              }
-            });
-    Point size = shell.getSize();
-    int[] last = placed.get(placed.size() - 1);
-    assertTrue(placed.size() <= 2, String.valueOf(placed.size()));
-    assertEquals(size.x - shell.getClientArea().width, last[0]);
-    assertEquals(size.y - shell.getClientArea().height, last[1]);
-  }
-
-  @Test
-  void win32FitsAWindowBelowTheWorkAreaInsideIt() {
-    shell.setBounds(114, 114, 600, 500);
-    Win32WindowPlacement.fit(shell, new Rectangle(0, 0, 800, 400));
-    Rectangle bounds = shell.getBounds();
-    assertEquals(600, bounds.width);
-    assertEquals(400, bounds.height);
-    if (!Gtk4.active()) {
-      assertEquals(new Rectangle(114, 0, 600, 400), bounds);
-    }
-    Win32WindowPlacement.fit(shell, new Rectangle(0, 0, 1600, 900));
-    assertEquals(bounds, shell.getBounds());
-  }
-
-  @Test
-  void gtkPositionsWindowsExceptUnderWayland() {
-    final boolean[] positions = new boolean[1];
-    new GtkWindowPlacement()
-        .place(
-            shell,
-            new WindowPlacement.Placer() {
-              @Override
-              public void place(int trimWidth, int trimHeight, boolean value) {
-                positions[0] = value;
-              }
-            });
-    String backend = System.getProperty(PlatformTraits.GDK_BACKEND);
-    assertEquals(!"wayland".equals(backend), positions[0], backend);
-  }
-
-  @Test
-  void onlyGtk4MaximizesAgainAfterOpen() {
-    Shell probe = new Shell(display);
-    probe.setSize(300, 200);
-    probe.open();
-    probe.setMaximized(true);
-    assumeTrue(maximized(probe, true), "the platform did not maximize a shell");
-    probe.dispose();
-    shell.setSize(300, 200);
-    shell.open();
-    assertTrue(maximized(shell, false));
-    WindowPlacement[] none = {
-      new Win32WindowPlacement(), new NativeWindowPlacement(), new GtkWindowPlacement()
-    };
-    for (WindowPlacement placement : none) {
-      placement.afterOpen(shell, true);
-      assertFalse(shell.getMaximized(), placement.getClass().getSimpleName());
-    }
-    Gtk4WindowPlacement gtk4 = new Gtk4WindowPlacement();
-    gtk4.afterOpen(shell, false);
-    assertFalse(shell.getMaximized());
-    gtk4.afterOpen(shell, true);
-    assertTrue(maximized(shell, true), "Gtk4WindowPlacement maximizes a restored shell");
-  }
-
-  private boolean maximized(final Shell target, final boolean state) {
-    return EventLoop.runUntil(
-        display,
-        new BooleanSupplier() {
-          @Override
-          public boolean getAsBoolean() {
-            return target.getMaximized() == state;
-          }
-        },
-        Duration.ofSeconds(5));
-  }
-
-  @Test
   void everyDialogColorsCheckIsACheckBoxOnItsParent() {
     display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Button plain = colors.check(shell);
     assertTrue((plain.getStyle() & SWT.CHECK) != 0);
     assertSame(shell, plain.getParent());
     Shell dialog = new Shell(shell, SWT.DIALOG_TRIM);
-    colors.prepare(dialog);
+    colors.apply(dialog);
     Button colored = colors.check(dialog);
     assertTrue((colored.getStyle() & SWT.CHECK) != 0);
     assertSame(dialog, colored.getShell());
-    Button nativeCheck = new NativeDialogColors().check(shell);
+    Button nativeCheck = NativeDialogColors.INSTANCE.check(shell);
     assertTrue((nativeCheck.getStyle() & SWT.CHECK) != 0);
   }
 }

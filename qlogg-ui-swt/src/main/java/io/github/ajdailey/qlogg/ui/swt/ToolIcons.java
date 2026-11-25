@@ -166,9 +166,6 @@ final class ToolIcons implements ChromeColors.Icons {
   /** Background luminance, 0-255, below which the light ink is used. */
   private static final int DARK_BACKGROUND = 128;
 
-  /** Gives each item room for its icon on GTK 4. */
-  private static final ToolItemSizing SIZING = ToolItemSizing.platform();
-
   private final Display display;
   private final Control owner;
   private final Control source;
@@ -179,7 +176,7 @@ final class ToolIcons implements ChromeColors.Icons {
   private final boolean fixedInk;
   // Menu item icons.
   private final Map<MenuItem, String> menuItems = new LinkedHashMap<MenuItem, String>();
-  private final MenuBehavior menus = PlatformTraits.PLATFORM.menus();
+  private final MenuBehavior menus = MenuBehavior.PLATFORM;
   private boolean fadedTools;
   private boolean lightChecked = true;
   private final Listener checked =
@@ -279,7 +276,7 @@ final class ToolIcons implements ChromeColors.Icons {
     if (image == null) {
       return false;
     }
-    SIZING.keepIconSize(item);
+    ToolItemSizing.PLATFORM.keepIconSize(item);
     items.put(item, name);
     show(item, name);
     if ((item.getStyle() & SWT.CHECK) != 0) {

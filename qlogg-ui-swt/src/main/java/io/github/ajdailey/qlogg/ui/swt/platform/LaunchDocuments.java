@@ -9,6 +9,9 @@ import java.util.List;
  * launch waits for them before it hands off; elsewhere every file is an argument.
  */
 public interface LaunchDocuments {
+  /** The running platform's launch documents. */
+  LaunchDocuments PLATFORM = PlatformTraits.PLATFORM.launchDocuments();
+
   /**
    * Collects the files the system sends as events.
    *

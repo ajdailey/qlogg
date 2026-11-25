@@ -36,8 +36,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * {@link Win32DialogColors} and {@link NativeDialogColors} on any platform: which controls take the
- * dark dialog colors, which keep their own, and controls added after the dialog opens. The drawn
- * result on win32 is {@code Win32DarkDialogsTest}.
+ * dark dialog colors when the dialog shows, which keep their own, and controls added after it
+ * opens. The drawn result on win32 is {@code Win32DarkDialogsTest}.
  */
 @Tag("swt")
 class DialogColorsTest {
@@ -61,10 +61,10 @@ class DialogColorsTest {
 
   @Test
   void win32ColorsSurfacesFieldsAndText() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
-    assertTrue(DialogColors.colored(shell));
+    colors.apply(shell);
+    assertTrue(colors.colored(shell));
     Composite page = new Composite(shell, SWT.NONE);
     Label label = new Label(page, SWT.NONE);
     Link link = new Link(page, SWT.NONE);
@@ -77,12 +77,15 @@ class DialogColorsTest {
     own.setForeground(new Color(OWN));
     RGB pushBackground = push.getBackground().getRGB();
     RGB pushForeground = push.getForeground().getRGB();
-    colors.apply(shell);
+    shell.open();
     assertEquals(Win32DialogColors.BODY.getRGB(), shell.getBackground().getRGB());
     assertEquals(Win32DialogColors.BODY.getRGB(), page.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), label.getForeground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), link.getForeground().getRGB());
-    assertEquals(Win32DialogColors.LINK.getRGB(), link.getLinkForeground().getRGB());
+    assertEquals(Win32DialogColors.link(display).getRGB(), link.getLinkForeground().getRGB());
+    assertTrue(
+        Contrast.ratio(link.getLinkForeground().getRGB(), Win32DialogColors.BODY.getRGB())
+            >= Contrast.LINK);
     assertEquals(Win32DialogColors.TEXT.getRGB(), check.getForeground().getRGB());
     assertEquals(Win32DialogColors.FIELD.getRGB(), text.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), text.getForeground().getRGB());
@@ -92,8 +95,8 @@ class DialogColorsTest {
     // The dark start draws push buttons dark already.
     assertEquals(pushBackground, push.getBackground().getRGB());
     assertEquals(pushForeground, push.getForeground().getRGB());
-    // A read-only combo's list draws white unless the combo has colors.
-    assertEquals(Win32DialogColors.FIELD.getRGB(), readOnly.getBackground().getRGB());
+    // A read-only combo's list draws white unless the combo has colors; it takes the button face.
+    assertEquals(Win32DialogColors.FACE.getRGB(), readOnly.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), readOnly.getForeground().getRGB());
     assertEquals(OWN, own.getForeground().getRGB());
     assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
@@ -101,9 +104,8 @@ class DialogColorsTest {
 
   @Test
   void win32ColorsAControlAddedAfterTheDialogOpens() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
     colors.apply(shell);
     shell.open();
     final Text later = new Text(shell, SWT.BORDER);
@@ -127,9 +129,9 @@ class DialogColorsTest {
    */
   @Test
   void win32ColorsEveryFieldKindIncludingAnInPlaceEditor() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
+    colors.apply(shell);
     List<Control> fields =
         List.of(
             new Text(shell, SWT.BORDER | SWT.SINGLE),
@@ -140,7 +142,6 @@ class DialogColorsTest {
     Table table = new Table(shell, SWT.BORDER);
     TableItem row = new TableItem(table, SWT.NONE);
     row.setText("mock");
-    colors.apply(shell);
     shell.open();
     for (Control field : fields) {
       assertEquals(Win32DialogColors.FIELD.getRGB(), field.getBackground().getRGB(), "" + field);
@@ -177,9 +178,9 @@ class DialogColorsTest {
    */
   @Test
   void win32DrawsAnEmptyFieldsHintReadably() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
+    colors.apply(shell);
     Text readOnly = new Text(shell, SWT.SINGLE | SWT.BORDER | SWT.READ_ONLY);
     Text editable = new Text(shell, SWT.SINGLE | SWT.BORDER);
     Text plain = new Text(shell, SWT.SINGLE | SWT.BORDER);
@@ -190,11 +191,12 @@ class DialogColorsTest {
       }
       text.setSize(200, 30);
     }
-    colors.apply(shell);
-    colors.apply(shell);
+    // Shown twice without focus: an open shell focuses its first field, which draws natively.
+    shell.notifyListeners(SWT.Show, new Event());
+    shell.notifyListeners(SWT.Show, new Event());
     RGB field = Win32DialogColors.FIELD.getRGB();
-    assertTrue(Win32ChromeColors.contrast(Win32DialogColors.HINT.getRGB(), field) >= 4.5);
-    assertTrue(Win32ChromeColors.contrast(Win32DialogColors.TEXT.getRGB(), field) >= 4.5);
+    assertTrue(Contrast.ratio(Win32DialogColors.HINT.getRGB(), field) >= 4.5);
+    assertTrue(Contrast.ratio(Win32DialogColors.TEXT.getRGB(), field) >= 4.5);
     for (Text text : List.of(readOnly, editable)) {
       assertEquals(1, text.getListeners(SWT.Paint).length, "one hint listener");
       for (int type : new int[] {SWT.FocusIn, SWT.FocusOut, SWT.Modify}) {
@@ -267,24 +269,24 @@ class DialogColorsTest {
   }
 
   @Test
-  void win32LeavesAnUnpreparedShell() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+  void win32LeavesAShellItDidNotColor() {
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Label label = new Label(owner, SWT.NONE);
     RGB before = label.getForeground().getRGB();
-    colors.apply(owner);
-    assertFalse(DialogColors.colored(owner));
+    owner.open();
+    assertFalse(colors.colored(owner));
     assertEquals(before, label.getForeground().getRGB());
   }
 
   @Test
   void win32AfterALightStartSetsNothing() {
     display.setData(DialogColors.NATIVE_DARK, null);
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
     RGB background = shell.getBackground().getRGB();
-    colors.prepare(shell);
     colors.apply(shell);
-    assertFalse(DialogColors.colored(shell));
+    shell.open();
+    assertFalse(colors.colored(shell));
     assertEquals(background, shell.getBackground().getRGB());
     assertEquals(owner.getBackground().getRGB(), colors.background(owner).getRGB());
     assertEquals(
@@ -293,26 +295,38 @@ class DialogColorsTest {
   }
 
   @Test
-  void win32BuiltBeforeADarkStartColorsAfterIt() {
+  void win32ColorsADialogCreatedAfterASwitchToDark() {
     display.setData(DialogColors.NATIVE_DARK, null);
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
+    colors.apply(new Shell(owner, SWT.DIALOG_TRIM));
     display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
-    assertTrue(DialogColors.colored(shell));
+    colors.apply(shell);
+    assertTrue(colors.colored(shell));
+    final Text later = new Text(shell, SWT.BORDER);
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return later.getBackground().getRGB().equals(Win32DialogColors.FIELD.getRGB());
+              }
+            },
+            BOUND));
     assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
   }
 
   @Test
   void nativeSetsNothing() {
-    NativeDialogColors colors = new NativeDialogColors();
+    NativeDialogColors colors = NativeDialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
     RGB background = shell.getBackground().getRGB();
-    colors.prepare(shell);
+    colors.apply(shell);
     Label label = new Label(shell, SWT.NONE);
     RGB foreground = label.getForeground().getRGB();
-    colors.apply(shell);
-    assertFalse(DialogColors.colored(shell));
+    shell.open();
+    assertFalse(colors.colored(shell));
     assertEquals(background, shell.getBackground().getRGB());
     assertEquals(foreground, label.getForeground().getRGB());
     assertEquals(owner.getBackground().getRGB(), colors.background(owner).getRGB());

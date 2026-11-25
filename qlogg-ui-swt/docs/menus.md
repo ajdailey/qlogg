@@ -158,12 +158,13 @@ Exit.
 | `SWT.OpenDocument` | The file goes to `WindowSet.openHandoff` |
 
 On cocoa the Window menu starts with Minimize (`CommandId.MINIMIZE`, `Cmd+M`)
-and Zoom (`CommandId.ZOOM_WINDOW`, no key, toggles `Shell.setMaximized`); SWT
-adds neither to an application-defined Window menu. Both act on the active
-shell the window owns (`ActiveWindow.ownedBy`), so on a tool window they act on
-the tool window, and minimizing it leaves the main window on screen. Minimize
-is enabled at menu sync like Always on Top
-([Minimize](main-window.md#minimize)).
+and Zoom (`CommandId.ZOOM_WINDOW`, no key, toggles `Shell.setMaximized`), then
+a separator (New Window's `separatorBefore`); SWT adds neither to an
+application-defined Window menu. Elsewhere the menu leaves both out and the
+command palette runs them. Both act on the active shell the window owns
+(`ActiveWindow.ownedBy`), so on a tool window they act on the tool window, and
+minimizing it leaves the main window on screen. Minimize is disabled only while
+the macOS window calls are unavailable ([Minimize](main-window.md#minimize)).
 
 ## Tool window menus
 

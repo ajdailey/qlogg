@@ -30,6 +30,7 @@ import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -835,7 +836,7 @@ class LogViewTest {
    * or doubled, when the application menu is present.
    */
   private List<String> onThisPlatform(List<String> expected) {
-    if (!PlatformTraits.PLATFORM.menus().systemCommands(display).contains(CommandId.ABOUT)) {
+    if (!MenuBehavior.PLATFORM.systemCommands(display).contains(CommandId.ABOUT)) {
       return expected;
     }
     List<String> kept = new ArrayList<String>();

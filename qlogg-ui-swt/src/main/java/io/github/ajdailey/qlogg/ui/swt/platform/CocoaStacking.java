@@ -12,6 +12,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -198,6 +199,14 @@ final class CocoaStacking extends PlatformStacking {
   List<Shell> raised() {
     return new ArrayList<Shell>(raised);
   }
+
+  @Override
+  public boolean minimizeSupported() {
+    return supported();
+  }
+
+  @Override
+  public void explainUnsupported(MenuItem item) {}
 
   @Override
   public void minimize(Shell shell) {

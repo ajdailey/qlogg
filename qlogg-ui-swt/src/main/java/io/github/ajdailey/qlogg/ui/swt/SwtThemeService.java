@@ -13,6 +13,7 @@ import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Listener;
 
 /**
@@ -74,6 +75,7 @@ public final class SwtThemeService implements ThemeService {
           @Override
           public void handleEvent(Event event) {
             refresh();
+            SwtThemeService.this.follow.settingsChanged();
           }
         });
     follow.watch(
@@ -85,6 +87,16 @@ public final class SwtThemeService implements ThemeService {
             refresh();
           }
         });
+  }
+
+  /**
+   * Gives a link the theme's link color where the platform raises it ({@link
+   * ThemeFollow#colorLink}); call when creating a link.
+   *
+   * @param link the link
+   */
+  static void colorLink(Link link) {
+    PlatformTraits.PLATFORM.themeFollow(link.getDisplay()).colorLink(link);
   }
 
   /** Reads the system setting and reports a change. */

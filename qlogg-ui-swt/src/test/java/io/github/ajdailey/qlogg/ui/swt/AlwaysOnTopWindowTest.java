@@ -145,7 +145,7 @@ class AlwaysOnTopWindowTest {
     assertEquals(supported, item.getEnabled());
     // SWT keeps no menu item tool tip on GTK 4.
     String tip =
-        WindowStacking.PLATFORM.windowManagerMenu() && !Gtk4.active()
+        !supported && !Gtk4.active() && "gtk".equals(SWT.getPlatform())
             ? UiText.ALWAYS_ON_TOP_UNSUPPORTED.text()
             : null;
     assertEquals(tip, item.getToolTipText());

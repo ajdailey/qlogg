@@ -2,7 +2,6 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Menu;
@@ -23,7 +22,7 @@ final class MenuIcons {
    * @param owner the control whose background the theme shows; the images are disposed with it
    */
   MenuIcons(Control owner) {
-    this(owner, PlatformTraits.PLATFORM.menus());
+    this(owner, MenuBehavior.PLATFORM);
   }
 
   /**

@@ -43,6 +43,15 @@ into a change event. Its `preferDark` calls `ThemeFollow.preferDark` and then
 `ThemeFollow.showOnWindows` with the `WindowRebuild` the launcher set
 (`WindowRebuild.NONE` until then) on every platform.
 
+A GTK `Link` keeps the link color of its creation through a theme change, so
+`SwtThemeService` calls `ThemeFollow.settingsChanged` at each `SWT.Settings`,
+and `GtkThemeFollow` gives every link the system link color raised to 4.5:1 on
+the link's background (`Contrast.readable`: moved toward white or black,
+whichever contrasts more with the ground). Adwaita's dark link color has 3.25:1
+on its own window background. Each new `Link`, the About link and the status
+bar's warnings link, calls `SwtThemeService.colorLink` when created; win32 and
+cocoa do nothing there. QLogg's links under Adwaita dark are not yet measured.
+
 ## Window rebuild
 
 On win32 the menu bar, title bar, scroll bars and buttons take the theme only
@@ -171,7 +180,7 @@ While `ui.theme` resolves to dark (`ThemeController.dark`, reported by
 `PaletteListener.themeChanged`), every control under a surface takes
 `Palette.DARK.gutter` (`#162638`, the tab strip's background) and
 `Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a `Link` takes the system link
-color moved toward white to 4.5:1; each composite takes `SWT.INHERIT_DEFAULT`,
+color raised to 4.5:1 (`Contrast.readable`); each composite takes `SWT.INHERIT_DEFAULT`,
 so native push buttons show no light corners. A `Text` and an editable `Combo`
 take `Palette.DARK.background` (`#1b2e44`, text 10.9:1) and `Palette.DARK.text`, and
 so does a read-only `Combo`: the dark native theme draws its closed field and
@@ -186,8 +195,12 @@ under, also while the window waits for a rebuild with a dialog open. While that
 side is dark, a field holding text keeps the dark colors under light: the
 dark native field draws near-black under any light colors. A switch rebuilds
 the window, so this holds only under a fixed `view.colors` scheme. An empty
-field takes the system colors. A field is colored again on the `SWT.Modify`
-that empties it or gives it text.
+`Text` takes the system list colors, set explicitly, because a field with no
+colors draws the dark native field; `Win32EmptyField` fills it in its system
+background while it is empty and unfocused, because the dark native field
+draws `#212121` there under any colors (measured in QCaret on Windows 11; not
+yet measured in QLogg). An empty editable `Combo` takes the system colors. A
+field is colored again on the `SWT.Modify` that empties it or gives it text.
 
 `MainWindow` registers the top row, the search row, the quick find bar, the
 status bar and each sash of the split. The fields are the path field (read-only),
@@ -229,6 +242,11 @@ API sets:
   colored ones and ones created while the dark theme is not preferred draw it
   the same. At 100% (`windows-2025`) and under light the row is `#0078d4` or
   `#0078d7` with white text (4.5:1).
+- Popup menus (menu bar menus, cascades, context menus) keep the native side
+  of the start until QLogg restarts, after a View > Theme switch and after a
+  Windows mode change under System. The popup menu theme is process-wide:
+  `setDarkThemePreferred` reaches `SetPreferredAppMode`, but SWT 3.135.0 never
+  calls `FlushMenuThemes` and no public API reaches it.
 - A bordered field's 1 px frame, set when the field is created: after a light
   start it stays `#ffffff` around the dark field under dark; after a dark start
   it is `#646464` (measured, `windows-2025`). Turning the dark preference on
@@ -237,24 +255,27 @@ API sets:
 
 ## Dialog colors
 
-`Dialogs.shell` calls `DialogColors.prepare` on every dialog and tool window
-shell, and `Dialogs.open` calls `DialogColors.apply` before the shell shows. A
-shell built another way calls both. `DialogColors.of` takes the class from
-`PlatformTraits.dialogColors`:
+`Dialogs.shell` calls `DialogColors.apply` on every dialog and tool window
+shell before its children exist; a shell built another way calls it too.
+`DialogColors.platform` returns `PlatformTraits.dialogColors` of the running
+platform:
 
 | Class | When | Colors |
 |---|---|---|
-| `Win32DialogColors` | win32; colors a dialog prepared while `DialogColors.nativeDark` holds | Body `#202020`, fields and lists `#2b2b2b`, text `#ffffff`, links `#99ebff` under the dark side; none set under the light one |
+| `Win32DialogColors` | win32; colors a dialog created while `DialogColors.nativeDark` holds | Body `#202020`, fields and lists `#2b2b2b`, read-only combos `#333333`, text `#ffffff`, links the system link color raised to 4.5:1 on the body under the dark side; none set under the light one |
 | `NativeDialogColors` | GTK, cocoa | None set |
 
 A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`
 face, white text) and read-only combos dark and every other surface light
-(measured, SWT 3.135.0, `windows-2025`). `Win32DialogColors` gives the shell the
-title bar color with `INHERIT_DEFAULT`, then sets each control's colors where
-they are still the defaults, so a color the dialog set stays. Push buttons keep
-the native dark drawing. A read-only combo takes the field colors, since the
-dark native theme draws its closed field and leaves its drop-down list white
-unless the combo has colors. A field's text draws white on `#2b2b2b`
+(measured, SWT 3.135.0, `windows-2025`). `apply` gives the shell the title bar
+color with `INHERIT_DEFAULT`; when the shell shows (`SWT.Show`) it sets each
+control's colors where they are still the defaults, so a color the dialog set
+stays. Push buttons keep the native dark drawing. A read-only combo takes the
+push button face, `#333333` with white text (12.63:1), since the dark native
+theme draws its closed field and leaves its drop-down list white unless the
+combo has colors. A link takes `Contrast.readable` of `COLOR_LINK_FOREGROUND`
+on `#202020`: `#3f8cd8` (4.62:1) when that color is `#0066cc`. Both are
+computed, not yet measured on Windows. A field's text draws white on `#2b2b2b`
 (14.16:1), read-only and multi-line included. An empty, unfocused single-line
 `Text` is filled with the field color and its hint (`setMessage`) drawn in
 `#9a9a9a` (5.03:1) by `Win32EmptyField`, an `SWT.Paint` listener over the
@@ -309,7 +330,7 @@ page, `#2b2b2b` (measured, `windows-2025`).
 The colors follow `DialogColors.NATIVE_DARK`, which a switch sets: a dialog
 opened after a switch takes the new side. A window with a modal dialog open
 waits for its rebuild until the dialog closes, and the dialog keeps the colors
-it was prepared with.
+it was created with.
 `Dialogs.background` reports a new dialog's background, from which About picks
 its logo, and `Dialogs.disabledText` the gray of a disabled table row.
 
@@ -384,7 +405,7 @@ SWT 3.135.0 on GTK 4 wraps a `ToolItem`'s GtkPicture in a box that measures 0
 high for any width under GTK 4.14, so the tool bar lays an image-only item out
 at its padding (12 px, or 4 px for a check item) and shows no icon (measured
 under Xvfb, every QLogg tool bar). `ToolIcons.apply` calls
-`ToolItemSizing.platform().keepIconSize` before `setImage`.
+`ToolItemSizing.PLATFORM.keepIconSize` before `setImage`.
 `PlatformTraits.toolItemSizing` returns `Gtk4ToolItemSizing` on GTK 4, which
 turns off the picture's shrinking through SWT internals
 (`ToolItem.imageHandle`, `GTK4.gtk_picture_set_can_shrink`), and the items
@@ -393,7 +414,9 @@ other backends. This is a listed Public SWT API exception, and ArchUnit
 `reflectionOnlyInExceptionClasses` keeps reflection to the exception classes.
 If an SWT upgrade renames either internal, the items fall back to SWT's layout and
 `TabStripButtonsTest.everyToolItemIsLargerThanItsIcon` fails in the GTK 4 lane.
-Every tool item image goes through `ToolIcons.apply`.
+Every item and button image goes through `ToolIcons`, which ArchUnit
+`iconsOnlyThroughToolIcons` enforces; the tab dots (`TabStrip`, `TabList`) and
+the Predefined Filters check box column are the exemptions.
 
 ### Icon build
 

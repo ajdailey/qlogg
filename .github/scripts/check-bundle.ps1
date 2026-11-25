@@ -1,8 +1,8 @@
 # Unpacks the $env:TARGET bundle from dist\, checks that its runtime reports
 # os.arch $env:EXPECTED_ARCH, has jdk.charsets and no keytool.exe, then starts qlogg.exe and
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
-# bundle, the image's PE machine is $env:EXPECTED_MACHINE and its log shows the
-# main window and no failure. An ARM64 image
+# bundle, the image's PE machine is $env:EXPECTED_MACHINE, its log shows the
+# main window and no failure, and a second launch hands it a file and exits 0. An ARM64 image
 # cannot run under x86 or x64 emulation, so ARM64 proves a native arm64 JVM.
 # qlogg.cmd then runs the same check; it also runs LauncherProbe in place of qlogg.jar to check
 # the Java it picks, the JVM options and the arguments it passes, unquoted names as Explorer
@@ -55,13 +55,15 @@ function Wait-LogLine([string] $Path, [string] $Text) {
 
 # Starts $Exe, qlogg.exe or qlogg.cmd, on the mock log and checks the javaw.exe child it starts
 # (for qlogg.cmd, the child of its cmd.exe): its image must be $Javaw with PE machine $env:EXPECTED_MACHINE, and its log
-# (-l; qlogg-<pid>.log under -m) must show the main window and no unhandled or
-# UI task failure. $Name names the run's settings directory.
+# (-l) must show the main window and no unhandled or UI task failure. A second launch through
+# $Javaw must hand over a file and exit 0; $Javaw rather than $Exe, because neither launcher
+# reports the child's status. $Name names the run's settings directory.
 function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   $settings = Join-Path $work "settings-$Name"
+  $jar = Join-Path (Split-Path $Exe) 'lib\qlogg.jar'
   $exeName = Split-Path -Leaf $Exe
   if ($exeName -like '*.exe') { Write-Output "$Name $exeName image: $(Get-PeMachine $Exe)" }
-  $launcher = Start-Process -FilePath $Exe -ArgumentList @('-m', '-l', '--settings', "`"$settings`"", "`"$log`"") -PassThru
+  $launcher = Start-Process -FilePath $Exe -ArgumentList @('-l', '--settings', "`"$settings`"", "`"$log`"") -PassThru
 
   $child = $null
   $deadline = (Get-Date).AddSeconds(60)
@@ -81,9 +83,17 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   Write-Output "$Name child image machine: $machine, expected $env:EXPECTED_MACHINE"
   Write-Output "$Name child command line: $($child.CommandLine)"
 
-  $logFile = Join-Path $settings "logs\qlogg-$($child.ProcessId).log"
+  $logFile = Join-Path $settings 'logs\qlogg.log'
   try {
     Wait-LogLine $logFile 'Main window open'
+
+    $second = Start-Process -FilePath $Javaw -ArgumentList @('-jar', "`"$jar`"", '--settings', "`"$settings`"", "`"$handed`"") -PassThru
+    # ExitCode reads null unless the handle was taken while the process ran.
+    $null = $second.Handle
+    # A failed handoff opens its own window and never exits, so the wait is bounded.
+    $ended = $second.WaitForExit(60000)
+    if (-not $ended) { Stop-Process -Id $second.Id -Force -ErrorAction SilentlyContinue }
+    Wait-LogLine $logFile 'Handoff of 1 files'
     $text = Read-Log $logFile
   } finally {
     Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
@@ -95,9 +105,12 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   if ($path -ine $Javaw) { throw "$Name child image is $path, expected $Javaw" }
   if ($machine -ne $env:EXPECTED_MACHINE) { throw "$Name child image machine is $machine" }
   if (-not $text.Contains('Main window open')) { throw "$Name opened no main window within 60 s" }
+  if (-not $ended) { throw "$Name second launch did not exit within 60 s" }
+  if ($second.ExitCode -ne 0) { throw "$Name second launch exited $($second.ExitCode)" }
+  if (-not $text.Contains('Handoff of 1 files taken')) { throw "$Name primary took no handoff" }
   if ($text.Contains('Unhandled failure')) { throw "$Name logged an unhandled failure" }
   if ($text.Contains('UI task failed')) { throw "$Name logged a UI task failure" }
-  Write-Output "PASS: $Name $exeName started the $machine runtime $path and opened the main window"
+  Write-Output "PASS: $Name $exeName started the $machine runtime $path, opened the main window and took a handoff"
 }
 
 # Runs cmd.exe /d /s /c "$Line" with $Line passed as given, standard input closed and each
@@ -454,6 +467,8 @@ if (Test-Path (Join-Path $bundle 'runtime\bin\keytool.exe')) { throw 'runtime ha
 
 $log = Join-Path $work 'app.log'
 Set-Content -Path $log -Value 'mock line'
+$handed = Join-Path $work 'handed.log'
+Set-Content -Path $handed -Value 'mock line'
 Test-Launcher (Join-Path $bundle 'qlogg.exe') (Join-Path $bundle 'runtime\bin\javaw.exe') 'bundle'
 Test-Launcher (Join-Path $bundle 'qlogg.cmd') (Join-Path $bundle 'runtime\bin\javaw.exe') 'bundle-cmd'
 

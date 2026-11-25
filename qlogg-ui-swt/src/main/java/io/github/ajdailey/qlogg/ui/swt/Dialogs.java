@@ -66,9 +66,9 @@ final class Dialogs {
     Shell shell = new Shell(parent, style);
     shell.setText(title);
     inheritIcons(shell, parent);
-    DialogColors.of(shell.getDisplay()).prepare(shell);
+    DialogColors.platform().apply(shell);
     if ((style & (SWT.APPLICATION_MODAL | SWT.PRIMARY_MODAL | SWT.SYSTEM_MODAL)) == 0) {
-      PlatformTraits.PLATFORM.menus().toolWindowMenus(shell, ToolMenuBars.of(parent));
+      MenuBehavior.PLATFORM.toolWindowMenus(shell, ToolMenuBars.of(parent));
     }
     GridLayout layout = new GridLayout(1, false);
     layout.marginWidth = 12;
@@ -166,8 +166,7 @@ final class Dialogs {
   }
 
   /**
-   * Opens a dialog centered over its parent and inside the parent's monitor work area, its controls
-   * in the {@link DialogColors}.
+   * Opens a dialog centered over its parent and inside the parent's monitor work area.
    *
    * @param shell the dialog
    * @param width preferred width, or {@code SWT.DEFAULT}
@@ -178,8 +177,7 @@ final class Dialogs {
   }
 
   /**
-   * Opens a dialog centered over its parent and inside a work area, its controls in the {@link
-   * DialogColors}.
+   * Opens a dialog centered over its parent and inside a work area.
    *
    * @param shell the dialog
    * @param width preferred width, or {@code SWT.DEFAULT}
@@ -187,7 +185,6 @@ final class Dialogs {
    * @param workArea the work area the dialog stays inside
    */
   static void open(Shell shell, int width, int height, Rectangle workArea) {
-    DialogColors.of(shell.getDisplay()).apply(shell);
     shell.pack();
     Point size = shell.computeSize(width, height);
     center(shell, size.x, size.y, workArea);
@@ -233,7 +230,7 @@ final class Dialogs {
    * @return the color
    */
   static Color background(Shell owner) {
-    return DialogColors.of(owner.getDisplay()).background(owner);
+    return DialogColors.platform().background(owner);
   }
 
   /**
@@ -243,7 +240,7 @@ final class Dialogs {
    * @return the color
    */
   static Color disabledText(Shell shell) {
-    return DialogColors.of(shell.getDisplay()).disabledText(shell.getDisplay());
+    return DialogColors.platform().disabledText(shell.getDisplay());
   }
 
   /**
@@ -253,7 +250,7 @@ final class Dialogs {
    * @return the check box
    */
   static Button check(Composite parent) {
-    return DialogColors.of(parent.getDisplay()).check(parent);
+    return DialogColors.platform().check(parent);
   }
 
   /**

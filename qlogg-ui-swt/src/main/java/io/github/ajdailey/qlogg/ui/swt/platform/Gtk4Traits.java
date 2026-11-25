@@ -5,7 +5,7 @@ final class Gtk4Traits extends GtkTraits {
   /** The window manager's menu offers the setting. */
   @Override
   public WindowStacking stacking() {
-    return WindowStacking.WINDOW_MANAGER;
+    return new WindowManagerStacking();
   }
 
   @Override
@@ -14,7 +14,7 @@ final class Gtk4Traits extends GtkTraits {
   }
 
   @Override
-  public MenuBehavior menus() {
+  public MenuBehavior menuBehavior() {
     return new Gtk4MenuBehavior();
   }
 

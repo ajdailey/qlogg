@@ -57,7 +57,7 @@ final class CommandPaletteWindow {
     table.setLayoutData(tableData);
     table.setHeaderVisible(true);
     for (UiText title :
-        new UiText[] {UiText.SHORTCUTS_COMMAND, UiText.PALETTE_MENU, UiText.SHORTCUTS_KEYS}) {
+        new UiText[] {UiText.SHORTCUTS_COMMAND, UiText.SHORTCUTS_GROUP, UiText.SHORTCUTS_KEYS}) {
       new TableColumn(table, SWT.LEFT).setText(title.text());
     }
     filter.addListener(

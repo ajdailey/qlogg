@@ -60,9 +60,9 @@ class DialogTabsTest {
 
   @Test
   void win32AfterADarkStartColorsAFlatCTabFolderAndEveryPage() {
-    Win32DialogColors colors = new Win32DialogColors(display);
+    Win32DialogColors colors = Win32DialogColors.INSTANCE;
     Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
-    colors.prepare(shell);
+    colors.apply(shell);
     DialogTabs tabs = new Win32Traits().dialogTabs(shell);
     assertSame(Win32DialogTabs.class, tabs.getClass());
     List<Label> labels = new ArrayList<Label>();
@@ -73,7 +73,7 @@ class DialogTabsTest {
       label.setText("mock label " + i);
       labels.add(label);
     }
-    colors.apply(shell);
+    shell.open();
     CTabFolder folder = (CTabFolder) tabs.control();
     assertTrue((folder.getStyle() & SWT.FLAT) != 0);
     assertTrue((folder.getStyle() & SWT.BORDER) == 0, "no frame around the page");
@@ -82,12 +82,9 @@ class DialogTabsTest {
     assertEquals(Win32DialogColors.FIELD.getRGB(), folder.getSelectionBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), folder.getSelectionForeground().getRGB());
     assertTrue(
-        Win32ChromeColors.contrast(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.BODY.getRGB())
-            >= 4.5);
+        Contrast.ratio(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.BODY.getRGB()) >= 4.5);
     assertTrue(
-        Win32ChromeColors.contrast(
-                Win32DialogColors.TEXT.getRGB(), Win32DialogColors.FIELD.getRGB())
-            >= 4.5);
+        Contrast.ratio(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.FIELD.getRGB()) >= 4.5);
     for (Label label : labels) {
       assertEquals(Win32DialogColors.BODY.getRGB(), label.getParent().getBackground().getRGB());
       assertEquals(Win32DialogColors.TEXT.getRGB(), label.getForeground().getRGB());

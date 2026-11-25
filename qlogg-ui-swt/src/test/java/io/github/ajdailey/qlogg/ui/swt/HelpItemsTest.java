@@ -29,7 +29,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
+import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -437,7 +437,7 @@ class HelpItemsTest {
   @Test
   void withoutTheApplicationMenuTheMenuBarKeepsAboutOptionsAndExit() {
     assumeTrue(
-        !PlatformTraits.PLATFORM.menus().systemCommands(display).contains(CommandId.ABOUT),
+        !MenuBehavior.PLATFORM.systemCommands(display).contains(CommandId.ABOUT),
         "Cocoa always has the application menu");
     assertSame(CommandId.PREFERENCES, AppMenu.command(SWT.ID_PREFERENCES));
     assertSame(CommandId.ABOUT, AppMenu.command(SWT.ID_ABOUT));

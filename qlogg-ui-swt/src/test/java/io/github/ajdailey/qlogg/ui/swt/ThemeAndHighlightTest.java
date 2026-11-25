@@ -248,7 +248,7 @@ class ThemeAndHighlightTest {
     Shell shell = new Shell(display);
     try {
       SwtThemeService.open(display, ThemeMode.DARK);
-      Button check = DialogColors.of(display).check(shell);
+      Button check = DialogColors.platform().check(shell);
       assertTrue((check.getStyle() & SWT.CHECK) != 0);
       assertTrue(check.getEnabled());
     } finally {

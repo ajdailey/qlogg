@@ -1,8 +1,10 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Method;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -35,6 +37,16 @@ final class GtkX11Stacking extends PlatformStacking {
   @Override
   void apply(Shell shell, boolean onTop) throws ReflectiveOperationException {
     keepAbove.invoke(null, shellHandle.getLong(shell), onTop);
+  }
+
+  @Override
+  public boolean minimizeSupported() {
+    return true;
+  }
+
+  @Override
+  public void explainUnsupported(MenuItem item) {
+    item.setToolTipText(UiText.ALWAYS_ON_TOP_UNSUPPORTED.text());
   }
 
   @Override

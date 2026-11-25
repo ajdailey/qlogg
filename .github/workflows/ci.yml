@@ -43,11 +43,9 @@ jobs:
       - name: Xvfb and GTK 3
         if: runner.os == 'Linux'
         run: .github/scripts/linux-display-deps.sh
-      # The host bundle's JDK goes outside ~/.m2, so the Maven cache holds
-      # no JDK archive.
       - name: Verify (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./mvnw -B verify "-Dqlogg.cache.dir=$RUNNER_TEMP/qlogg-cache"
+        run: xvfb-run -a ./mvnw -B verify
       - name: Verify (macOS)
         if: runner.os == 'macOS'
         run: ./mvnw -B verify
@@ -103,7 +101,7 @@ jobs:
           cache-read-only: true
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/qlogg
+          path: ~/.cache/qlogg-build
           key: qlogg-dist-${{ hashFiles('qlogg-dist/src/build/dist.xml') }}
       # A v* tag builds the tag's version; anything else <revision>+<short commit>.
       # sed reads <revision> from pom.xml; a Maven call would first download
@@ -123,7 +121,7 @@ jobs:
           echo "REVISION=$revision" | tee -a "$GITHUB_ENV"
       - run: >-
           ./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-          "-Dqlogg.cache.dir=$HOME/.cache/qlogg" "-Drevision=$REVISION"
+          "-Drevision=$REVISION"
       - name: SBOM runtime and launcher components
         run: .github/scripts/sbom-components.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -217,12 +215,11 @@ jobs:
           fi
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/qlogg
+          path: ~/.cache/qlogg-build
           key: qlogg-dist-${{ hashFiles('qlogg-dist/src/build/dist.xml') }}
       - name: Reproducibility
         run: >-
-          .github/scripts/check-reproducible.sh "-Dqlogg.cache.dir=$HOME/.cache/qlogg"
-          "-Drevision=${GITHUB_REF_NAME#v}"
+          .github/scripts/check-reproducible.sh "-Drevision=${GITHUB_REF_NAME#v}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: qlogg-archives

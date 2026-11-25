@@ -13,11 +13,17 @@ import org.eclipse.swt.widgets.Shell;
  * CocoaChrome} recolors cocoa shells after an appearance change.
  */
 final class NativeDialogColors implements DialogColors {
-  @Override
-  public void prepare(Shell shell) {}
+  static final NativeDialogColors INSTANCE = new NativeDialogColors();
+
+  private NativeDialogColors() {}
 
   @Override
-  public void apply(Control control) {}
+  public void apply(Shell shell) {}
+
+  @Override
+  public boolean colored(Control control) {
+    return false;
+  }
 
   @Override
   public Color background(Shell owner) {

@@ -50,8 +50,8 @@ abstract class GtkTraits implements PlatformTraits {
   }
 
   @Override
-  public final DialogColors dialogColors(Display display) {
-    return new NativeDialogColors();
+  public final DialogColors dialogColors() {
+    return NativeDialogColors.INSTANCE;
   }
 
   @Override

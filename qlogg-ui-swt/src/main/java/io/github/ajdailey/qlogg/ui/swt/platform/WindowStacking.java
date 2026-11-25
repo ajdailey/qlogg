@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -14,33 +15,29 @@ import org.eclipse.swt.widgets.Shell;
  *   <tr><td>win32</td><td>{@link Win32Stacking}</td></tr>
  *   <tr><td>cocoa</td><td>{@link CocoaStacking}</td></tr>
  *   <tr><td>GTK 3 on X11</td><td>{@link GtkX11Stacking}</td></tr>
- *   <tr><td>GTK 3 on Wayland, GTK 4</td><td>{@link #WINDOW_MANAGER}</td></tr>
+ *   <tr><td>GTK 3 on Wayland, GTK 4</td><td>{@link WindowManagerStacking}</td></tr>
  * </table>
  */
 public interface WindowStacking {
-  /** Unsupported on a Linux desktop, whose window manager's window menu offers the setting. */
-  WindowStacking WINDOW_MANAGER = new Unsupported(true);
-
   /**
-   * This platform's stacking, chosen on first use. GTK reads the backend the Display records, so
-   * the first use follows the Display's creation.
+   * This platform's stacking, chosen on first use by {@link PlatformTraits#stacking}. GTK reads the
+   * backend the Display records, so the first use follows the Display's creation.
    */
-  WindowStacking PLATFORM = forPlatform();
+  WindowStacking PLATFORM = PlatformTraits.PLATFORM.stacking();
 
   /**
-   * Reports whether {@link #setOnTop} takes effect, and on cocoa {@link #minimize}; false after a
-   * reflective call failed.
+   * Reports whether {@link #setOnTop} takes effect; false after a reflective call failed.
    *
    * @return true when supported
    */
   boolean supported();
 
   /**
-   * Reports whether the window manager's window menu offers Always on Top where this does not.
+   * Reports whether {@link #minimize} takes effect.
    *
-   * @return true on GTK 3 under Wayland and on GTK 4
+   * @return false on cocoa while its SWT internals are unavailable, else true
    */
-  boolean windowManagerMenu();
+  boolean minimizeSupported();
 
   /**
    * Keeps the shell above other windows, or returns it to normal stacking, without moving, resizing
@@ -52,6 +49,14 @@ public interface WindowStacking {
   void setOnTop(Shell shell, boolean onTop);
 
   /**
+   * Explains on the disabled Always on Top item that the platform cannot keep a window on top: on
+   * GTK, where the window manager's window menu offers the setting. Elsewhere does nothing.
+   *
+   * @param item the menu item
+   */
+  void explainUnsupported(MenuItem item);
+
+  /**
    * Minimizes a shell (Window &gt; Minimize). On cocoa a tool window first leaves its owner's
    * child-window group, which AppKit otherwise takes off screen with it, and rejoins the group when
    * restored; {@link CocoaStacking} also brings the owner back after a minimize through the title
@@ -60,35 +65,4 @@ public interface WindowStacking {
    * @param shell the shell
    */
   void minimize(Shell shell);
-
-  /**
-   * Returns the implementation for the running SWT.
-   *
-   * @return {@link PlatformTraits#stacking}
-   */
-  static WindowStacking forPlatform() {
-    return PlatformTraits.PLATFORM.stacking();
-  }
-
-  /**
-   * A stacking with no effect.
-   *
-   * @param windowManagerMenu what {@link #windowManagerMenu} reports
-   */
-  record Unsupported(boolean windowManagerMenu) implements WindowStacking {
-    @Override
-    public boolean supported() {
-      return false;
-    }
-
-    @Override
-    public void setOnTop(Shell shell, boolean onTop) {
-      // Nothing to set.
-    }
-
-    @Override
-    public void minimize(Shell shell) {
-      shell.setMinimized(true);
-    }
-  }
 }

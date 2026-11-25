@@ -21,38 +21,40 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 
 /**
- * Dialog surfaces on win32: dark for a dialog prepared while native controls are dark ({@link
+ * Dialog surfaces on win32: dark for a dialog created while native controls are dark ({@link
  * DialogColors#nativeDark}), native otherwise. The dark native theme draws the title bar, push
  * buttons and read-only combos dark and leaves every other surface light, so a dialog body takes
- * the title bar's color and fields a lighter one. Measured with SWT 3.135.0 on {@code
- * windows-2025}: the title bar draws {@code #202020} and a push button face {@code #333333}; {@code
- * setBackground} and {@code setForeground} reach composites, labels, links, check boxes, groups,
- * tab pages, tool bars, text fields, combos, spinners, lists and tables. A {@code TabFolder}'s tab
- * row, a table's grid lines and header dividers, a spinner's arrows, disabled text and a {@link
- * Browser} stay native. A read-only {@link Combo} takes the field colors too: the dark native theme
- * draws its closed field and leaves its drop-down list white unless the combo has colors.
+ * the title bar's color, fields a lighter one and read-only combos the push button face. Measured
+ * with SWT 3.135.0 on {@code windows-2025}: the title bar draws {@code #202020} and a push button
+ * face {@code #333333}; {@code setBackground} and {@code setForeground} reach composites, labels,
+ * links, check boxes, groups, tab pages, tool bars, text fields, combos, spinners, lists and
+ * tables. A {@code TabFolder}'s tab row, a table's grid lines and header dividers, a spinner's
+ * arrows, disabled text and a {@link Browser} stay native. A read-only {@link Combo} needs colors
+ * set: the dark native theme draws its closed field and leaves its drop-down list white without
+ * them. A {@link Link} takes the system link color raised to {@link Contrast#LINK} on {@link
+ * #BODY}.
  *
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
  * on {@code windows-2025}); {@link Win32EmptyField} draws it in {@link #HINT} over that.
  *
- * <p>A control is colored when {@code Dialogs.open} walks the shell and again at its {@code
- * SWT.Skin} event, so controls added after the dialog opens match. Only a default color is
- * replaced: a color the application set stays. A dialog keeps the side it was prepared under; one
- * opened after a theme switch takes the new side.
+ * <p>{@link #apply} colors the shell before its children exist, walks it when it shows, and colors
+ * each later control at its {@code SWT.Skin} event. Only a default color is replaced: a color the
+ * application set stays. A dialog keeps the side it was created under; one opened after a theme
+ * switch takes the new side.
  */
 final class Win32DialogColors implements DialogColors {
   /** Dialog background: the dark title bar. */
   static final Color BODY = new Color(0x20, 0x20, 0x20);
 
-  /** Field and list background, between the body and the {@code #333333} push button face. */
+  /** Field and list background, between the body and {@link #FACE}. */
   static final Color FIELD = new Color(0x2b, 0x2b, 0x2b);
+
+  /** Read-only combo background: the dark push button face. */
+  static final Color FACE = new Color(0x33, 0x33, 0x33);
 
   /** Text, as on the dark push buttons. */
   static final Color TEXT = new Color(0xff, 0xff, 0xff);
-
-  /** Link text: 12.2 contrast on {@link #BODY}. */
-  static final Color LINK = new Color(0x99, 0xeb, 0xff);
 
   /** Disabled table row text: 5.0 contrast on {@link #FIELD}. */
   static final Color DISABLED = new Color(0x9a, 0x9a, 0x9a);
@@ -68,32 +70,19 @@ final class Win32DialogColors implements DialogColors {
         }
       };
 
-  private final Display display;
+  static final Win32DialogColors INSTANCE = new Win32DialogColors();
 
-  /**
-   * Creates the colors and colors each new control of a prepared shell at its {@code SWT.Skin}
-   * event.
-   *
-   * @param display the Display
-   */
-  Win32DialogColors(Display display) {
-    this.display = display;
-    display.addListener(
-        SWT.Skin,
-        new Listener() {
-          @Override
-          public void handleEvent(Event event) {
-            if (event.widget instanceof Control control
-                && !control.isDisposed()
-                && DialogColors.colored(control.getShell())) {
-              color(control);
-            }
-          }
-        });
-  }
+  /** Shell data key: set on a shell whose surfaces this colors. */
+  private static final String COLORED = Win32DialogColors.class.getName() + ".colored";
+
+  /** Display data key: set once the {@code SWT.Skin} listener is installed. */
+  private static final String SKIN = Win32DialogColors.class.getName() + ".skin";
+
+  private Win32DialogColors() {}
 
   @Override
-  public void prepare(Shell shell) {
+  public void apply(final Shell shell) {
+    Display display = shell.getDisplay();
     if (!DialogColors.nativeDark(display)) {
       return;
     }
@@ -101,29 +90,58 @@ final class Win32DialogColors implements DialogColors {
     shell.setBackground(BODY);
     shell.setForeground(TEXT);
     shell.setBackgroundMode(SWT.INHERIT_DEFAULT);
+    shell.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (event.widget == shell) {
+              walk(shell);
+            }
+          }
+        });
+    if (display.getData(SKIN) == null) {
+      display.setData(SKIN, Boolean.TRUE);
+      display.addListener(
+          SWT.Skin,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              if (event.widget instanceof Control control
+                  && !control.isDisposed()
+                  && colored(control)) {
+                color(control);
+              }
+            }
+          });
+    }
   }
 
   @Override
-  public void apply(Control control) {
-    if (!DialogColors.colored(control.getShell())) {
-      return;
-    }
+  public boolean colored(Control control) {
+    return control.getShell().getData(COLORED) != null;
+  }
+
+  private static void walk(Control control) {
     color(control);
     if (control instanceof Composite composite && !(control instanceof Browser)) {
       for (Control child : composite.getChildren()) {
-        apply(child);
+        if (!(child instanceof Shell)) {
+          walk(child);
+        }
       }
     }
   }
 
   @Override
   public Color background(Shell owner) {
-    return DialogColors.nativeDark(display) ? BODY : owner.getBackground();
+    return DialogColors.nativeDark(owner.getDisplay()) ? BODY : owner.getBackground();
   }
 
   @Override
   public Button check(Composite parent) {
-    if (!DialogColors.nativeDark(display) || DialogColors.colored(parent.getShell())) {
+    Display display = parent.getDisplay();
+    if (!DialogColors.nativeDark(display) || colored(parent)) {
       return new Button(parent, SWT.CHECK);
     }
     display.setDarkThemePreferred(false);
@@ -141,25 +159,24 @@ final class Win32DialogColors implements DialogColors {
         : display.getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND);
   }
 
-  private void color(Control control) {
+  private static void color(Control control) {
     if (control instanceof Browser || control instanceof Shell) {
       return;
     }
     if (control instanceof Button && (control.getStyle() & SWT.PUSH) != 0) {
       return;
     }
-    boolean field = field(control);
-    if (field) {
-      if (defaultBackground(control.getBackground())) {
-        control.setBackground(FIELD);
+    if (field(control)) {
+      if (defaultBackground(control)) {
+        control.setBackground(face(control) ? FACE : FIELD);
       }
-    } else if (light(control.getBackground())) {
+    } else if (same(control, control.getBackground(), SWT.COLOR_WIDGET_BACKGROUND)) {
       control.setBackground(BODY);
     }
-    if (defaultForeground(control.getForeground())) {
+    if (defaultForeground(control)) {
       control.setForeground(TEXT);
       if (control instanceof Link link) {
-        link.setLinkForeground(LINK);
+        link.setLinkForeground(link(link.getDisplay()));
       }
     }
     if (control instanceof Table table) {
@@ -181,25 +198,38 @@ final class Win32DialogColors implements DialogColors {
         || control instanceof StyledText;
   }
 
-  /** True for the window color a surface reports before it is colored. */
-  private boolean light(Color color) {
-    return same(color, SWT.COLOR_WIDGET_BACKGROUND);
+  /** Reports whether a control is a read-only combo, which takes {@link #FACE}. */
+  private static boolean face(Control control) {
+    return control instanceof Combo && (control.getStyle() & SWT.READ_ONLY) != 0;
+  }
+
+  /**
+   * Returns the system link color raised to {@link Contrast#LINK} on {@link #BODY}.
+   *
+   * @param display the Display
+   * @return the color
+   */
+  static Color link(Display display) {
+    RGB theme = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND).getRGB();
+    return new Color(Contrast.readable(theme, BODY.getRGB()));
   }
 
   /** True for a field color the application did not set. */
-  private boolean defaultBackground(Color color) {
-    RGB rgb = color.getRGB();
-    return same(color, SWT.COLOR_LIST_BACKGROUND)
-        || same(color, SWT.COLOR_WIDGET_BACKGROUND)
-        || rgb.equals(BODY.getRGB());
+  private static boolean defaultBackground(Control control) {
+    Color color = control.getBackground();
+    return same(control, color, SWT.COLOR_LIST_BACKGROUND)
+        || same(control, color, SWT.COLOR_WIDGET_BACKGROUND)
+        || color.getRGB().equals(BODY.getRGB());
   }
 
   /** True for a text color the application did not set. */
-  private boolean defaultForeground(Color color) {
-    return same(color, SWT.COLOR_WIDGET_FOREGROUND) || same(color, SWT.COLOR_LIST_FOREGROUND);
+  private static boolean defaultForeground(Control control) {
+    Color color = control.getForeground();
+    return same(control, color, SWT.COLOR_WIDGET_FOREGROUND)
+        || same(control, color, SWT.COLOR_LIST_FOREGROUND);
   }
 
-  private boolean same(Color color, int system) {
-    return color.getRGB().equals(display.getSystemColor(system).getRGB());
+  private static boolean same(Control control, Color color, int system) {
+    return color.getRGB().equals(control.getDisplay().getSystemColor(system).getRGB());
   }
 }

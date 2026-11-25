@@ -9,11 +9,14 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * Menu bar differences, one implementation per platform from {@link PlatformTraits#menus}: item
- * icons, their ink and disabled image, tool window menus, and the commands the system supplies.
- * Confined to the UI thread.
+ * Menu bar differences, one implementation per platform from {@link PlatformTraits#menuBehavior}:
+ * item icons, their ink and disabled image, tool window menus, and the commands the system
+ * supplies. Confined to the UI thread.
  */
 public interface MenuBehavior {
+  /** The running platform's menu behavior. */
+  MenuBehavior PLATFORM = PlatformTraits.PLATFORM.menuBehavior();
+
   /**
    * Shows icons on a built menu's items and on its cascades' items. win32 and GTK 3 show them;
    * cocoa menus show none and GTK 4 SWT ignores {@code MenuItem.setImage}. GTK 3 reserves no image

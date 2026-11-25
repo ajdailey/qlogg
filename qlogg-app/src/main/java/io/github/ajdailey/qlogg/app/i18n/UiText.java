@@ -1357,8 +1357,6 @@ public enum UiText {
   PALETTE_TITLE,
   /** Command palette filter field hint. */
   PALETTE_FILTER,
-  /** Command palette column: the menu a command sits in. */
-  PALETTE_MENU,
 
   // View colors.
   /** Preferences label: the log views' color scheme. */

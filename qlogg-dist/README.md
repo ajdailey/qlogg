@@ -145,38 +145,34 @@ QLogg cannot recognize a look-alike, since `javaw` never receives the
 original name. Through `java -jar` the Java launcher converts without
 look-alikes, so U+FF41 arrives as `?`.
 
-### Signing and CI checks
+### Signing
 
 `rcodesign` 0.29.0 ad-hoc signs each `QLogg.app` on Linux with
 `src/macos/qlogg.entitlements` (`allow-jit`,
 `allow-unsigned-executable-memory`, `disable-library-validation`), which the
 JVM needs under the hardened runtime. rcodesign cannot sign a shell script as
 the main executable, so the macOS launcher is the jpackage binary.
-CI unzips each macOS bundle and runs `codesign --verify --deep --strict` on it.
-The bundles are not notarized. On every target, the CI `bundle` job also runs
-the universal zip's launcher (`bin/qlogg`, or `qlogg.exe` and `qlogg.cmd` on
-Windows) with setup-java's JDK as `JAVA_HOME`. On Windows `check-bundle.ps1`
-also runs copies of `qlogg.cmd` over `LauncherProbe` and a copy of the bundle's
-`runtime` from folders named `with space` and `amp & pct 100%`: the probe must
-report the copy's `runtime`, its `lib\qlogg.jar`, `-XX:MaxRAMPercentage=50
--XX:GCTimeRatio=1`, `-Dqlogg.launcher=cmd` and 11 quoted arguments holding a space, `&`, `^`, `%`, `!`,
-`(`, `)`, `'` or nothing. Through ShellExecute, as Explorer drops them, it
-passes unquoted `<folder>\a&mark`, `c^d.txt`, `e!f.txt`, `g%h%.txt` with `h`
-defined, `(p).txt`, a name holding U+00E9 and a quoted `"x y&mark.txt"`; at a
-command prompt (`cmd /d` reading standard input), `a^&mark`, `c^^d.txt`,
-`e!f.txt`, `g%q9z%.txt`, `i^|mark`, `k^>l.txt`, `"x&y.txt"`, `(p).txt` and the
-11 quoted arguments. Each name must arrive unchanged and `mark.cmd`, which
-writes `marker.txt` when run, must not run. A copy without `runtime` must take
-`JAVA_HOME` before `PATH` and exit 1 without either, and `qlogg.cmd -v` must
-print the version. A CJK name beside a decoy `zz.txt` goes through `qlogg.exe`
-and `qlogg.cmd`, unquoted and quoted, by ShellExecute and from a console batch
-file under code page 65001, with `-l -d 2`: `qlogg.cmd` must log
-`Command-line file: <the name>`, `qlogg.exe` the expansion message unquoted and
-`Not opened: <folder>\??.txt.` quoted, and no log may name `zz.txt`. With an
-instance running, an unquoted `qlogg.exe` launch must open its own window with
-the message and hand nothing over. Batch files with echo on and with echo off
-call `qlogg.cmd` with output captured through a pipe: echo must keep its state
-after the call, and the pipe must end while QLogg runs.
+The bundles are not notarized.
+
+### CI bundle check
+
+The CI `bundle` job runs each archive on its own runner through
+`.github/scripts/check-bundle.sh` (Linux, macOS) or `check-bundle.ps1`
+(Windows). For the target's bundle and then the universal zip, with
+setup-java's JDK as `JAVA_HOME`:
+
+| Check | Linux, macOS | Windows |
+|---|---|---|
+| Runtime | `os.arch`, `jdk.charsets`, no `bin/keytool`; `codesign --verify --deep --strict` on a macOS bundle | The same, with no `keytool.exe`, plus the `javaw.exe` child's image (the bundle's `runtime\bin\javaw.exe`, or the JDK's for the universal zip) and PE machine |
+| Log read | `-d 1` on stderr | `-l`, `logs\qlogg.log`: `javaw` output is not captured |
+| Started | `Main window open`, no `Unhandled failure` or `UI task failed` | The same, through `qlogg.exe` and `qlogg.cmd` |
+| Handoff | A second `bin/qlogg` or `QLogg` exits 0; the primary logs `Handoff of 1 files taken` | The same, the second launch through `javaw.exe`, because neither launcher reports the child's status |
+| `qlogg.cmd` | None | In the bundle, over `LauncherProbe`: from folders named `with space` and `amp & pct 100%`, the folder's `runtime`, its `lib\qlogg.jar`, `-XX:MaxRAMPercentage=50 -XX:GCTimeRatio=1`, `-Dqlogg.launcher=cmd` and 11 quoted arguments holding a space, `&`, `^`, `%`, `!`, `(`, `)`, `'` or nothing; through ShellExecute, as Explorer drops them, unquoted `<folder>\a&mark`, `c^d.txt`, `e!f.txt`, `g%h%.txt` with `h` defined, `(p).txt`, a name holding U+00E9 and a quoted `"x y&mark.txt"`; at a command prompt (`cmd /d` reading standard input), `a^&mark`, `c^^d.txt`, `e!f.txt`, `g%q9z%.txt`, `i^\|mark`, `k^>l.txt`, `"x&y.txt"`, `(p).txt` and the 11 quoted arguments. Each name arrives unchanged and `mark.cmd`, which writes `marker.txt` when run, never runs; without `runtime`, `JAVA_HOME` before `PATH`, and exit 1 without either; `-v` prints the version |
+| Names outside the ANSI code page | None | A CJK name beside a decoy `zz.txt` through `qlogg.exe` and `qlogg.cmd`, unquoted and quoted, by ShellExecute and from a console batch file under code page 65001, with `-l -d 2`: `qlogg.cmd` logs `Command-line file: <the name>`; `qlogg.exe` logs the expansion message unquoted and `Not opened: <folder>\??.txt.` quoted; no log names `zz.txt`. With an instance running, an unquoted `qlogg.exe` launch opens its own window with the message and hands nothing over |
+| `call qlogg.cmd` | None | Batch files with echo on and with echo off call `qlogg.cmd` with output captured through a pipe: echo keeps its state after the call, and the pipe ends while QLogg runs |
+
+A failed handoff opens its own window and does not exit, so each script bounds
+the second launch at 60 s.
 
 ## Icons
 

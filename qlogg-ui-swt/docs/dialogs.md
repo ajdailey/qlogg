@@ -20,12 +20,11 @@ Every dialog and tool window shell comes from `Dialogs.shell` (or
 `Dialogs.sizedShell`, which adds `SWT.RESIZE` to a modal dialog that remembers
 its size: Highlighters, Predefined Filters, Edit History), which gives it
 the owning window's icons (`Dialogs.inheritIcons`) and the platform's dialog
-colors, and opens through `Dialogs.open`, which colors its controls. A shell
-built another way calls `inheritIcons`, or the window manager shows its generic
-icon, and `DialogColors.prepare` and `apply`, or it stays light under a dark
-Windows start ([theme.md](theme.md#dialog-colors));
-`ArchitectureTest.ownedShellsTakeDialogColors` fails an owned `Shell` created
-without `prepare`. A modeless `Dialogs.shell` takes its main window's menus on
+colors (`DialogColors.apply`), and opens through `Dialogs.open`. A shell built
+another way calls `inheritIcons`, or the window manager shows its generic icon,
+and `DialogColors.apply`, or it stays light under a dark Windows start
+([theme.md](theme.md#dialog-colors)). `ArchitectureTest.ownedShellsInheritIcons`
+and `ownedShellsTakeDialogColors` fail an owned `Shell` created without either. A modeless `Dialogs.shell` takes its main window's menus on
 macOS ([menus.md](menus.md#tool-window-menus)).
 
 A title taken from a menu, command or button label goes through
@@ -55,7 +54,7 @@ is over it (`TableFit.cellTips`).
 | Predefined Filters | Add and Remove icons at the left, Import and Export centered, Move Up and Move Down icons at the right; a table of Name, Pattern and Regex, where a click on a selected row's name or pattern edits it in place and a click on Regex toggles it. Import appends the filters of a chosen file not in the list yet, Export writes the list, both on a worker with the result reported in the dialog. OK saves and closes, Apply saves. The table has focus at open, so no tool item starts highlighted |
 | Save as Filter, Rename Tab, Edit Mark Comment | `NameDialog`: the filter's name, prefilled with the pattern cut at 64 chars; the tab's name, empty to reset it; or the comment |
 | Switch to File | `SwitchFileDialog`: the open files by path in a one-column `Table` with `SWT.FULL_SELECTION` (a native list paints its selection in the system color under the Win32 dark dialog colors) and a filter field matching any part of the path, ignoring case; Up and Down in the field move the selection, Enter or a double click shows the tab |
-| Command Palette | `CommandPaletteWindow`, resizable and modal: a filter field over a table of command, menu path and keys from `CommandPalette.filter`, refilled on each change with the first row selected. Up, Down, Page Up and Page Down in the field move the selection; Enter or a double click closes the dialog and runs the command on the next UI turn. A disabled command's row is gray and does not run |
+| Command Palette | `CommandPaletteWindow`, resizable and modal: a filter field over a table of command, group (the menu path) and keys from `CommandPalette.filter`, refilled on each change with the first row selected. Up, Down, Page Up and Page Down in the field move the selection; Enter or a double click closes the dialog and runs the command on the next UI turn. A disabled command's row is gray and does not run |
 | Keyboard Shortcuts | Modeless table (group, command, keys) from `Keymap`, filter field, Copy as plain text |
 | Command-Line Options, Licenses | Read-only monospace text with Copy; modeless, or modal and owned by the dialog when opened over a modal one (Licenses from About), because GTK gives input only to the newest modal shell |
 | About QLogg | Logo at the top left (the icon variant for the window background's luminance, at 48 logical px), a bold name and version beside it, then tagline, project link, copyright, license and the runtime details in a smaller font; Licenses and Copy Details at the bottom left, OK at the bottom right. The link calls `ApplicationController.openProjectPage` |

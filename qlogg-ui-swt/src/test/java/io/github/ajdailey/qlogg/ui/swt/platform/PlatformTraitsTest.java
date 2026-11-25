@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.function.Executable;
  * platform's choice is checked on its own OS; win32 and cocoa run in CI.
  */
 class PlatformTraitsTest {
+  /** The boolean value traits; any other boolean method would be a behavior switch. */
+  private static final List<String> BOOLEAN_VALUES = List.of("macKeys");
+
   /** Rows in the order of {@link #answers}. */
   private static final String[] QUESTIONS = {
     "name",
@@ -45,7 +49,7 @@ class PlatformTraitsTest {
     answers.add(traits.busyCursor());
     answers.add(traits.themeFollow(null).getClass());
     answers.add(traits.fullScreen(null, null).getClass());
-    answers.add(traits.menus().getClass());
+    answers.add(traits.menuBehavior().getClass());
     answers.add(traits.launchDocuments().getClass());
     answers.add(traits.accessibleLabels().getClass());
     answers.add(traits.windowPlacement().getClass());
@@ -131,7 +135,7 @@ class PlatformTraitsTest {
         NativeAccessibleLabels.class,
         Gtk4WindowPlacement.class,
         NoticeGuideDisplay.class);
-    assertSame(WindowStacking.WINDOW_MANAGER, PlatformTraits.of("gtk", true).stacking());
+    assertTrue(PlatformTraits.of("gtk", true).stacking() instanceof WindowManagerStacking);
   }
 
   @Test
@@ -142,6 +146,19 @@ class PlatformTraitsTest {
     for (boolean gtk4 : new boolean[] {false, true}) {
       assertEquals(
           version == null ? "" : "GTK " + version, PlatformTraits.of("gtk", gtk4).toolkitVersion());
+    }
+  }
+
+  /**
+   * Behavior that differs by platform sits behind a seam: every boolean {@code PlatformTraits}
+   * method is a value trait. A new boolean that switches behavior fails here.
+   */
+  @Test
+  void noTraitSwitchesBehavior() {
+    for (Method method : PlatformTraits.class.getMethods()) {
+      if (method.getReturnType() == boolean.class) {
+        assertTrue(BOOLEAN_VALUES.contains(method.getName()), method.getName());
+      }
     }
   }
 

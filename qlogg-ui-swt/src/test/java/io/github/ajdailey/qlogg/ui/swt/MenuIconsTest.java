@@ -188,19 +188,19 @@ class MenuIconsTest {
 
   @Test
   void cocoaItemsShowNoImage() {
-    assertBare(PlatformTraits.of("cocoa", false).menus());
+    assertBare(PlatformTraits.of("cocoa", false).menuBehavior());
   }
 
   @Test
   void gtk4ItemsShowNoImage() {
-    assertBare(PlatformTraits.of("gtk", true).menus());
+    assertBare(PlatformTraits.of("gtk", true).menuBehavior());
   }
 
   @Test
   void gtk3MenusAlignTheirItemsWithTheBlankImage() {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menuBehavior());
     icons.decorate(menu);
     Image blank = icons.icons().blank();
     MenuItem[] items = menu.getItems();
@@ -217,7 +217,7 @@ class MenuIconsTest {
   void win32LeavesCheckAndPlainItemsBare() {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menus());
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menuBehavior());
     icons.decorate(menu);
     MenuItem[] items = menu.getItems();
     assertSame(icons.icons().get(ToolIcons.COPY), items[0].getImage());
@@ -230,7 +230,7 @@ class MenuIconsTest {
   @Test
   void win32InkKeepsTheStartupSetting() {
     bar.setBackground(new Color(240, 240, 240));
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menus());
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("win32", false).menuBehavior());
     assertFalse(icons.icons().darkBackground());
     bar.setBackground(new Color(30, 30, 30));
     icons.reink();
@@ -242,7 +242,7 @@ class MenuIconsTest {
     assumeFalse(Gtk4.active(), "GTK 4 SWT ignores MenuItem.setImage");
     bar.setBackground(new Color(240, 240, 240));
     Menu menu = menu();
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menuBehavior());
     icons.decorate(menu);
     Image light = menu.getItem(0).getImage();
     bar.setBackground(new Color(30, 30, 30));
@@ -275,7 +275,7 @@ class MenuIconsTest {
 
   @Test
   void theImagesAreDisposedWithTheOwner() {
-    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menus());
+    MenuIcons icons = new MenuIcons(bar, PlatformTraits.of("gtk", false).menuBehavior());
     Image copy = icons.icons().get(ToolIcons.COPY);
     Image blank = icons.icons().blank();
     bar.dispose();

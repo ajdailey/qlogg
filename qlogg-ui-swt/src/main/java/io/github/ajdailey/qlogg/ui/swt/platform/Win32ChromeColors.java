@@ -37,9 +37,12 @@ import org.eclipse.swt.widgets.Tree;
  * {@code SWT.INHERIT_NONE}. Both directions apply live.
  *
  * <p>While native controls are dark ({@link DialogColors#nativeDark}) a field holding text keeps
- * the dark colors on the light side, because the dark native field draws near-black under any light
- * colors; an empty field takes the system colors. A field is colored again when it becomes empty or
- * takes text ({@code SWT.Modify}).
+ * the dark colors on the light side until its window is rebuilt, because the dark native field
+ * draws near-black under any light colors. An empty field takes the system list colors, set
+ * explicitly, since a field with no colors draws the dark native field; {@link Win32EmptyField}
+ * paints an empty {@link Text} while unfocused, since the dark native field draws {@code #212121}
+ * there under any colors. A field is colored again when it becomes empty or takes text ({@code
+ * SWT.Modify}).
  *
  * <p>Push and arrow buttons, lists, tables, trees, spinners, progress bars, a {@link StyledText}, a
  * {@link Browser}, a {@link CTabFolder} and a control with {@link #PALETTE_COLORED} keep their
@@ -64,14 +67,8 @@ final class Win32ChromeColors implements ChromeColors {
   /** Field text under dark. */
   static final Rgb FIELD_TEXT = Palette.DARK.text();
 
-  /** Lowest contrast of link text on {@link #BACKGROUND}. */
-  static final double LINK_CONTRAST = 4.5;
-
   /** Control data key: set on a field once it follows {@code SWT.Modify}. */
   private static final String FOLLOWED = Win32ChromeColors.class.getName() + ".followed";
-
-  private static final int LINK_STEP_PERCENT = 5;
-  private static final RGB WHITE = new RGB(0xff, 0xff, 0xff);
 
   private final Display display;
   private final Listener skin =
@@ -86,6 +83,23 @@ final class Win32ChromeColors implements ChromeColors {
           }
         }
       };
+
+  /**
+   * The light side under the dark native setting: {@link Win32EmptyField} fills an empty field with
+   * its system background and draws a hint in the system gray raised to {@link Contrast#LINK}.
+   */
+  private final Win32EmptyField.Ink lightInk =
+      new Win32EmptyField.Ink() {
+        @Override
+        public Color hint(Text text) {
+          if (dark || !nativeDark()) {
+            return null;
+          }
+          RGB gray = display.getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND).getRGB();
+          return new Color(Contrast.readable(gray, text.getBackground().getRGB()));
+        }
+      };
+
   private final List<Control> surfaces = new ArrayList<Control>();
   private final List<Icons> icons = new ArrayList<Icons>();
   private boolean dark;
@@ -196,13 +210,21 @@ final class Win32ChromeColors implements ChromeColors {
   }
 
   private void colorField(final Control field) {
-    boolean darkField = dark || (nativeDark() && length(field) > 0);
-    field.setBackground(darkField ? color(FIELD) : null);
-    field.setForeground(darkField ? color(FIELD_TEXT) : null);
+    boolean nativeDark = nativeDark();
+    boolean darkField = dark || (nativeDark && length(field) > 0);
+    // An empty text field with no colors draws the dark native field under the dark setting.
+    boolean listColors = nativeDark && field instanceof Text;
+    Color light = listColors ? display.getSystemColor(SWT.COLOR_LIST_BACKGROUND) : null;
+    Color lightText = listColors ? display.getSystemColor(SWT.COLOR_LIST_FOREGROUND) : null;
+    field.setBackground(darkField ? color(FIELD) : light);
+    field.setForeground(darkField ? color(FIELD_TEXT) : lightText);
     if (field.getData(FOLLOWED) != null) {
       return;
     }
     field.setData(FOLLOWED, Boolean.TRUE);
+    if (field instanceof Text text) {
+      Win32EmptyField.draw(text, lightInk);
+    }
     field.addListener(
         SWT.Modify,
         new Listener() {
@@ -262,52 +284,14 @@ final class Win32ChromeColors implements ChromeColors {
   }
 
   /**
-   * Returns the system link color moved toward white until it reaches {@link #LINK_CONTRAST} on
-   * {@link #BACKGROUND}.
+   * Returns the system link color raised to {@link Contrast#LINK} on {@link #BACKGROUND}.
    *
    * @param display the Display
    * @return the color
    */
   static Color linkColor(Display display) {
-    RGB text = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND).getRGB();
-    RGB ground = color(BACKGROUND).getRGB();
-    RGB result = text;
-    for (int percent = LINK_STEP_PERCENT;
-        percent <= 100 && contrast(result, ground) < LINK_CONTRAST;
-        percent += LINK_STEP_PERCENT) {
-      result =
-          new RGB(
-              mix(text.red, WHITE.red, percent),
-              mix(text.green, WHITE.green, percent),
-              mix(text.blue, WHITE.blue, percent));
-    }
-    return new Color(result);
-  }
-
-  /**
-   * Returns the WCAG contrast of two colors.
-   *
-   * @param first a color
-   * @param second the other color
-   * @return 1 to 21
-   */
-  static double contrast(RGB first, RGB second) {
-    double a = luminance(first);
-    double b = luminance(second);
-    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-  }
-
-  private static double luminance(RGB rgb) {
-    return 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
-  }
-
-  private static double linear(int channel) {
-    double value = channel / 255.0;
-    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
-  }
-
-  private static int mix(int from, int to, int percent) {
-    return from + (to - from) * percent / 100;
+    RGB theme = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND).getRGB();
+    return new Color(Contrast.readable(theme, color(BACKGROUND).getRGB()));
   }
 
   private static Color color(Rgb rgb) {

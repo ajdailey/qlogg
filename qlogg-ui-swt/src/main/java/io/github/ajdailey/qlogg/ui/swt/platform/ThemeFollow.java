@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
+import org.eclipse.swt.widgets.Link;
 
 /**
  * How native controls take the light or dark theme, one implementation per platform, created per
@@ -11,7 +12,7 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
  * <p>GTK applies {@code Display.setDarkThemePreferred} to existing controls at once; win32 controls
  * read it only when created, so a switch rebuilds the windows; cocoa pins the application
  * appearance with it, and {@code CocoaChrome} recolors the shells from the side SWT cached its
- * colors under.
+ * colors under. GTK also recolors links ({@link #colorLink}).
  */
 public interface ThemeFollow {
   /** Data key on a table: true when cocoa gave its header the colors of dark. */
@@ -65,4 +66,19 @@ public interface ThemeFollow {
    * @param windows rebuilds the main windows
    */
   void showOnWindows(boolean dark, WindowRebuild windows);
+
+  /**
+   * Takes an {@code SWT.Settings} event. GTK refreshes its system colors at a theme change, but a
+   * {@link Link} keeps the color of its creation, so on GTK every link gets the new link color.
+   */
+  void settingsChanged();
+
+  /**
+   * Gives a link the theme's link color raised to readable contrast on its background, on GTK:
+   * Adwaita's dark link color has 3.25 contrast on its own window background. Call when creating a
+   * link.
+   *
+   * @param link the link
+   */
+  void colorLink(Link link);
 }

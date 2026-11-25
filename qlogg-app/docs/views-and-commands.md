@@ -161,7 +161,8 @@ Quit; elsewhere `TITLE_BAR_COMMANDS`, Minimize and Zoom, which the title bar
 supplies. So Window > Minimize (`MINIMIZE`) and Zoom (`ZOOM_WINDOW`) lead the
 Window menu on macOS only; the command palette and the shortcut editor read the
 whole table and list both on every platform. `MINIMIZE` runs
-`MainView.minimize` and is enabled while `MainView.minimizeSupported` holds;
+`MainView.minimize` and is enabled while `MainView.minimizeSupported` holds,
+false only on macOS while the window calls it needs are unavailable;
 `ZOOM_WINDOW` runs `MainView.zoom`, always enabled, and has no key. `MenuTable` also names the cascades
 filled from state (`cascadeBefore`, `cascadeAfter`), the Time Spread cascade
 (`nestedCascade`) and the radio items (`RADIO`: Theme, the filtered view

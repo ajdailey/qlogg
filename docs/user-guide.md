@@ -135,8 +135,8 @@ a filtered-view row. Scrolling and moving the current line are not jumps. A
 reload keeps the jumps; a shorter file moves those past its end to its last
 line. Go Back and Go Forward are gray when there is no jump in that direction.
 
-View > Command Palette lists every menu command with its menu and keys,
-Window > Minimize and Zoom included on every platform. Type
+View > Command Palette lists every menu command with its group (the menu
+path) and keys, Window > Minimize and Zoom included on every platform. Type
 letters of the command's name in order, such as `gtl` for Go to Line. The first
 row is selected and the arrow keys move the selection; `Enter` or a double
 click runs the command. Commands that cannot run now are gray and do not run.

@@ -6,7 +6,6 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.WindowSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
-import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -37,34 +36,32 @@ public final class AppMenu {
    * @param set the main windows
    */
   public static void hook(Display display, final WindowSet set) {
-    PlatformTraits.PLATFORM
-        .menus()
-        .hookAppMenu(
-            display,
-            new MenuBehavior.AppMenuActions() {
-              @Override
-              public void select(int id) {
-                CommandId command = command(id);
-                if (command != null) {
-                  run(set, command);
-                }
-              }
+    MenuBehavior.PLATFORM.hookAppMenu(
+        display,
+        new MenuBehavior.AppMenuActions() {
+          @Override
+          public void select(int id) {
+            CommandId command = command(id);
+            if (command != null) {
+              run(set, command);
+            }
+          }
 
-              @Override
-              public void quit() {
-                set.quit();
-              }
+          @Override
+          public void quit() {
+            set.quit();
+          }
 
-              @Override
-              public void open(String file) {
-                try {
-                  set.openHandoff(List.of(new FileRequest(Path.of(file), 0)), false);
-                } catch (InvalidPathException e) {
-                  LOG.warn(
-                      "Cannot open {}: {}", LogText.oneLine(file), LogText.oneLine(e.getMessage()));
-                }
-              }
-            });
+          @Override
+          public void open(String file) {
+            try {
+              set.openHandoff(List.of(new FileRequest(Path.of(file), 0)), false);
+            } catch (InvalidPathException e) {
+              LOG.warn(
+                  "Cannot open {}: {}", LogText.oneLine(file), LogText.oneLine(e.getMessage()));
+            }
+          }
+        });
   }
 
   /**

@@ -3,7 +3,6 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -77,17 +76,17 @@ class WindowStackingTest {
   @EnabledOnOs(OS.LINUX)
   void gtk3OnX11IsChosen() {
     assumeTrue(!Gtk4.active() && x11(), "GTK 3 on X11");
-    assertTrue(WindowStacking.forPlatform() instanceof GtkX11Stacking);
+    assertTrue(PlatformTraits.PLATFORM.stacking() instanceof GtkX11Stacking);
   }
 
   @Test
   @EnabledOnOs(OS.LINUX)
   void gtk4AndWaylandAreUnsupportedWithTheWindowManagerMenu() {
     assumeTrue(Gtk4.active() || !x11(), "GTK 4 or Wayland");
-    WindowStacking stacking = WindowStacking.forPlatform();
-    assertSame(WindowStacking.WINDOW_MANAGER, stacking);
+    WindowStacking stacking = PlatformTraits.PLATFORM.stacking();
+    assertTrue(stacking instanceof WindowManagerStacking);
     assertFalse(stacking.supported());
-    assertTrue(stacking.windowManagerMenu());
+    assertTrue(stacking.minimizeSupported());
   }
 
   /** GTK writes {@code _NET_WM_STATE_ABOVE} as it maps the window; Xvfb has no window manager. */

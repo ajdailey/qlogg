@@ -82,8 +82,9 @@ x86-64 Linux linker and `rcodesign`. On any other host `qlogg-dist` builds and
 smoke-tests `qlogg.jar` and writes no archive.
 
 The Temurin JDK archives and `rcodesign` are downloaded once into
-`~/.m2/repository/.cache/qlogg/` (`-Dqlogg.cache.dir` overrides it) and checked
-against pinned SHA-256 digests.
+`~/.cache/qlogg-build/`, outside the Maven cache and the app's own
+`~/.cache/qlogg` (`-Dqlogg.cache.dir` overrides it), and checked against pinned
+SHA-256 digests.
 
 Builds are reproducible: with the same JDK (CI's Temurin 21.0.13.1+2), two
 builds of one commit write byte-identical jars, `qlogg.exe` and archives, every
@@ -130,12 +131,12 @@ from the Ubuntu archive when the runner image lacks them.
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
 
-CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg`, cached by the
+CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg-build`, cached by the
 `package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
 Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
 `package`, `release` and `test-gtk4` restore it, since a Linux cache saved by a
@@ -239,6 +240,8 @@ To fix a bad draft, delete the draft and the tag
   opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
   (GTK 4 libraries required; without them QLogg runs on GTK 3 and logs a
   WARN). Open SWT GTK 4 defects affect scrolling and painting in the log view.
+  Under GTK 4 Help > User Guide shows no guide window; a notice names the
+  guide's file instead.
 - On Windows, `qlogg.cmd` is a second launcher beside `qlogg.exe`. It passes
   file names dropped on it or typed after it to QLogg as given, `&`, `^`, `%`
   and `!` included, and runs nothing in them. It also passes names outside the

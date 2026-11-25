@@ -86,12 +86,11 @@ public interface PlatformTraits {
   int busyCursor();
 
   /**
-   * Creates the Display's dialog colors.
+   * Returns the dialog colors.
    *
-   * @param display the Display
    * @return {@link Win32DialogColors} on win32, else {@link NativeDialogColors}
    */
-  DialogColors dialogColors(Display display);
+  DialogColors dialogColors();
 
   /**
    * Creates a window's chrome colors.
@@ -148,7 +147,7 @@ public interface PlatformTraits {
    * @return {@link Win32MenuBehavior}, {@link CocoaMenuBehavior}, {@link Gtk3MenuBehavior} or
    *     {@link Gtk4MenuBehavior}
    */
-  MenuBehavior menus();
+  MenuBehavior menuBehavior();
 
   /**
    * Returns how a launch receives its files.

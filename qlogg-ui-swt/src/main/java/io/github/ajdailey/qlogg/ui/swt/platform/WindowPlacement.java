@@ -4,9 +4,12 @@ import org.eclipse.swt.widgets.Shell;
 
 /**
  * How a main window is sized and positioned from its trim, one implementation per platform from
- * {@link PlatformTraits#placement}.
+ * {@link PlatformTraits#windowPlacement}.
  */
 public interface WindowPlacement {
+  /** The running platform's placement. */
+  WindowPlacement PLATFORM = PlatformTraits.PLATFORM.windowPlacement();
+
   /**
    * Places a shell from the trim {@code computeTrim} reports. win32 places it again with the trim
    * measured from the sized shell, since {@code computeTrim} overstates the height once a menu bar
@@ -34,8 +37,8 @@ public interface WindowPlacement {
      *
      * @param trimWidth the trim's width in points
      * @param trimHeight the trim's height in points
-     * @param positions true when the shell can be moved to a location
+     * @param positioned false where the window system ignores a location
      */
-    void place(int trimWidth, int trimHeight, boolean positions);
+    void place(int trimWidth, int trimHeight, boolean positioned);
   }
 }

@@ -19,8 +19,9 @@
         <!-- Final archives. Packaging writes into it and never deletes it. -->
         <qlogg.dist.dir>${maven.multiModuleProjectDirectory}/dist</qlogg.dist.dir>
         <!-- JDK archives and rcodesign, downloaded once and verified by SHA-256;
-             override with -Dqlogg.cache.dir. -->
-        <qlogg.cache.dir>${user.home}/.m2/repository/.cache/qlogg</qlogg.cache.dir>
+             override with -Dqlogg.cache.dir. Kept out of ~/.m2 so a CI Maven
+             cache does not carry them. -->
+        <qlogg.cache.dir>${user.home}/.cache/qlogg-build</qlogg.cache.dir>
         <qlogg.all-targets>false</qlogg.all-targets>
         <!-- qlogg.exe, the zip and the bundles need an x86-64 Linux build
              host; the archive-host profile turns them on. Other hosts build

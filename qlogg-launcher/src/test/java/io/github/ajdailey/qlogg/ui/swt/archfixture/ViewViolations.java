@@ -103,7 +103,18 @@ final class ViewViolations {
     }
   }
 
-  /** Creates an owned shell without the dialog colors. */
+  /** Sets a tool item's and a button's image outside {@code ToolIcons}. */
+  static final class SetsIcon {
+    void set(
+        org.eclipse.swt.widgets.ToolItem item,
+        org.eclipse.swt.widgets.Button button,
+        org.eclipse.swt.graphics.Image image) {
+      item.setImage(image);
+      button.setImage(image);
+    }
+  }
+
+  /** Creates an owned shell without the dialog colors or the window icons. */
   static final class OwnsUncoloredShell {
     org.eclipse.swt.widgets.Shell open(org.eclipse.swt.widgets.Shell parent) {
       return new org.eclipse.swt.widgets.Shell(parent, org.eclipse.swt.SWT.DIALOG_TRIM);

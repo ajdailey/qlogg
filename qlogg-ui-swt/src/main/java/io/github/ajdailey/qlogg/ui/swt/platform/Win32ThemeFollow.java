@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Link;
 
 /**
  * win32: controls read the theme setting only when created, so it is set before the first Shell and
@@ -39,4 +40,10 @@ final class Win32ThemeFollow implements ThemeFollow {
     NativeTheme.set(display, dark);
     windows.rebuild();
   }
+
+  @Override
+  public void settingsChanged() {}
+
+  @Override
+  public void colorLink(Link link) {}
 }

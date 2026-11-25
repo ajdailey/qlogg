@@ -8,39 +8,16 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * Colors of dialog and tool window surfaces, one implementation per platform. {@code Dialogs.shell}
- * calls {@link #prepare} on each new shell and {@code Dialogs.open} calls {@link #apply} before it
- * shows. Confined to the UI thread.
+ * Colors of dialog and tool window surfaces, one implementation per platform from {@link
+ * PlatformTraits#dialogColors}. {@code Dialogs.shell} calls {@link #apply} on each new shell.
+ * Confined to the UI thread.
  */
 public interface DialogColors {
-  /** Display data key holding the Display's instance. */
-  String KEY = DialogColors.class.getName();
-
   /**
    * Display data key: {@code Boolean.TRUE} while native controls are dark, set at startup and by a
    * theme switch on win32.
    */
   String NATIVE_DARK = DialogColors.class.getName() + ".nativeDark";
-
-  /** Shell data key: set on a shell whose surfaces {@link Win32DialogColors} colors. */
-  String COLORED = DialogColors.class.getName() + ".colored";
-
-  /**
-   * Returns the Display's instance: {@link Win32DialogColors} on win32, {@link NativeDialogColors}
-   * elsewhere.
-   *
-   * @param display the Display
-   * @return the instance, created on first use
-   */
-  static DialogColors of(Display display) {
-    Object held = display.getData(KEY);
-    if (held instanceof DialogColors colors) {
-      return colors;
-    }
-    DialogColors colors = PlatformTraits.PLATFORM.dialogColors(display);
-    display.setData(KEY, colors);
-    return colors;
-  }
 
   /**
    * Reports whether native controls are dark, as {@link #NATIVE_DARK} records.
@@ -53,28 +30,29 @@ public interface DialogColors {
   }
 
   /**
-   * Returns whether a shell's surfaces take {@link Win32DialogColors}.
+   * Returns the running platform's implementation.
    *
-   * @param shell the shell
-   * @return true for a dialog prepared under a dark win32 start
+   * @return {@link PlatformTraits#dialogColors} of {@link PlatformTraits#PLATFORM}
    */
-  static boolean colored(Shell shell) {
-    return Boolean.TRUE.equals(shell.getData(COLORED));
+  static DialogColors platform() {
+    return PlatformTraits.PLATFORM.dialogColors();
   }
 
   /**
-   * Sets a new dialog shell's colors before its controls exist.
+   * Colors a dialog shell and every control created in it. Call right after creating the shell,
+   * before its children.
    *
-   * @param shell the shell
+   * @param shell a dialog or tool window shell, never a main window
    */
-  void prepare(Shell shell);
+  void apply(Shell shell);
 
   /**
-   * Colors a control of a prepared shell and its descendants. Colors the application set keep.
+   * Reports whether a control sits in a shell {@link #apply} colored.
    *
    * @param control the control
+   * @return true for a control of a dialog created under a dark win32 start
    */
-  void apply(Control control);
+  boolean colored(Control control);
 
   /**
    * Returns the background a dialog opened over an owner shows.

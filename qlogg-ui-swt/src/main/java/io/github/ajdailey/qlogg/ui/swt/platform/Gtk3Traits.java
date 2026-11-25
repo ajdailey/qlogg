@@ -7,7 +7,7 @@ final class Gtk3Traits extends GtkTraits {
   public WindowStacking stacking() {
     return "x11".equals(System.getProperty(GDK_BACKEND))
         ? new GtkX11Stacking()
-        : WindowStacking.WINDOW_MANAGER;
+        : new WindowManagerStacking();
   }
 
   @Override
@@ -16,7 +16,7 @@ final class Gtk3Traits extends GtkTraits {
   }
 
   @Override
-  public MenuBehavior menus() {
+  public MenuBehavior menuBehavior() {
     return new Gtk3MenuBehavior();
   }
 

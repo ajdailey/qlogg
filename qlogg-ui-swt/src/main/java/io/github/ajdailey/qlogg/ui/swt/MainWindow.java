@@ -421,6 +421,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     notice = new Label(statusBar, SWT.NONE);
     notice.setLayoutData(new GridData(SWT.END, SWT.CENTER, false, false));
     warnings = new Link(statusBar, SWT.NONE);
+    SwtThemeService.colorLink(warnings);
     warnings.setText("<a>" + UiText.STATUS_WARNINGS.text() + "</a>");
     warnings.setToolTipText(UiText.STATUS_WARNINGS_TIP.text());
     GridData warningsData = new GridData(SWT.END, SWT.CENTER, false, false);
@@ -1070,20 +1071,18 @@ public final class MainWindow implements MainView, ApplicationListener {
     }
     final WindowGeometry.Screen primary = screen(display.getPrimaryMonitor());
     final List<WindowGeometry.Placement> applied = new ArrayList<WindowGeometry.Placement>();
-    PlatformTraits.PLATFORM
-        .windowPlacement()
-        .place(
-            shell,
-            new WindowPlacement.Placer() {
-              @Override
-              public void place(int trimWidth, int trimHeight, boolean positions) {
-                WindowGeometry.Placement placement =
-                    WindowGeometry.place(
-                        request, persisted, screens, primary, trimWidth, trimHeight, positions);
-                apply(placement);
-                applied.add(placement);
-              }
-            });
+    WindowPlacement.PLATFORM.place(
+        shell,
+        new WindowPlacement.Placer() {
+          @Override
+          public void place(int trimWidth, int trimHeight, boolean positioned) {
+            WindowGeometry.Placement placement =
+                WindowGeometry.place(
+                    request, persisted, screens, primary, trimWidth, trimHeight, positioned);
+            apply(placement);
+            applied.add(placement);
+          }
+        });
     return applied.get(applied.size() - 1);
   }
 
@@ -1100,7 +1099,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   public void open() {
     boolean maximized = shell.getMaximized();
     shell.open();
-    PlatformTraits.PLATFORM.windowPlacement().afterOpen(shell, maximized);
+    WindowPlacement.PLATFORM.afterOpen(shell, maximized);
   }
 
   /**
@@ -2364,7 +2363,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public boolean minimizeSupported() {
-    return WindowStacking.PLATFORM.supported();
+    return WindowStacking.PLATFORM.minimizeSupported();
   }
 
   @Override

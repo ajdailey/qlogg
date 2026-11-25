@@ -41,8 +41,8 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public DialogColors dialogColors(Display display) {
-    return new NativeDialogColors();
+  public DialogColors dialogColors() {
+    return NativeDialogColors.INSTANCE;
   }
 
   @Override
@@ -76,7 +76,7 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public MenuBehavior menus() {
+  public MenuBehavior menuBehavior() {
     return new CocoaMenuBehavior();
   }
 
