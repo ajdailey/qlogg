@@ -1071,7 +1071,7 @@ public final class MainWindow implements MainView, ApplicationListener {
     final WindowGeometry.Screen primary = screen(display.getPrimaryMonitor());
     final List<WindowGeometry.Placement> applied = new ArrayList<WindowGeometry.Placement>();
     PlatformTraits.PLATFORM
-        .placement()
+        .windowPlacement()
         .place(
             shell,
             new WindowPlacement.Placer() {
@@ -1100,7 +1100,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   public void open() {
     boolean maximized = shell.getMaximized();
     shell.open();
-    PlatformTraits.PLATFORM.placement().afterOpen(shell, maximized);
+    PlatformTraits.PLATFORM.windowPlacement().afterOpen(shell, maximized);
   }
 
   /**

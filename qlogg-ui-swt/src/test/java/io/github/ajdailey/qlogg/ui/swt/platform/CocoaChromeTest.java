@@ -3,7 +3,12 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import io.github.ajdailey.qlogg.ui.swt.EventLoop;
+import io.github.ajdailey.qlogg.ui.swt.SwtUiDispatcher;
+import java.time.Duration;
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.Color;
@@ -14,6 +19,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
@@ -28,6 +34,9 @@ import org.junit.jupiter.api.Test;
 /** {@link CocoaChrome} on any platform: the colors it sets per appearance and what it leaves. */
 @Tag("swt")
 class CocoaChromeTest {
+  private static final RGB DARK_LIST = new RGB(0x1e, 0x1e, 0x1e);
+  private static final Duration BOUND = Duration.ofSeconds(10);
+
   private Display display;
 
   @BeforeEach
@@ -52,7 +61,7 @@ class CocoaChromeTest {
     tabs.setSelectionForeground(new Color(mock));
     tabs.setSelectionBackground(new Color(mock));
     field.setBackground(new Color(mock));
-    CocoaChrome chrome = new CocoaChrome(display, false);
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
     try {
       chrome.apply(true);
       assertEquals(mock, tabs.getForeground().getRGB());
@@ -86,7 +95,7 @@ class CocoaChromeTest {
             settings[0]++;
           }
         });
-    CocoaChrome chrome = new CocoaChrome(display, false);
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
     try {
       chrome.apply(true);
       assertEquals(window, row.getBackground().getRGB());
@@ -113,7 +122,7 @@ class CocoaChromeTest {
     shell.open();
     Text before = new Text(shell, SWT.SINGLE);
     RGB cached = before.getBackground().getRGB();
-    CocoaChrome chrome = new CocoaChrome(display, false);
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
     chrome.apply(true);
     Text field = new Text(shell, SWT.SINGLE);
     RGB list = new RGB(0x1e, 0x1e, 0x1e);
@@ -134,35 +143,107 @@ class CocoaChromeTest {
   }
 
   /**
-   * A control created while a pop-up menu tracks gets no {@link SWT#Skin} until the menu closes, so
-   * one styled for the other side takes the colors at its first paint or at its {@link SWT#Show}.
-   * No event loop runs here, so no {@code Skin} event reaches the fields.
+   * Drops every {@link SWT#Skin} event, as cocoa holds Skin while a menu tracks, and opens a shell
+   * whose fields are not dark on this host.
    */
-  @Test
-  void cocoaChromeColorsAControlAtItsFirstPaintOrShow() {
+  private Shell skinlessShell() {
+    display.addFilter(
+        SWT.Skin,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            event.type = SWT.None;
+          }
+        });
     Shell shell = new Shell(display);
     shell.open();
-    CocoaChrome chrome = new CocoaChrome(display, false);
-    RGB list = new RGB(0x1e, 0x1e, 0x1e);
-    try {
-      chrome.apply(true);
-      Text painted = new Text(shell, SWT.SINGLE);
-      painted.notifyListeners(SWT.Paint, new Event());
-      assertEquals(list, painted.getBackground().getRGB());
-      Text shown = new Text(shell, SWT.SINGLE);
-      shown.setVisible(false);
-      shown.setVisible(true);
-      assertEquals(list, shown.getBackground().getRGB());
-      chrome.apply(false);
-      Text cached = new Text(shell, SWT.SINGLE);
-      RGB before = cached.getBackground().getRGB();
-      cached.notifyListeners(SWT.Paint, new Event());
-      assertEquals(before, cached.getBackground().getRGB());
-      assertNotEquals(list, before);
-    } finally {
-      chrome.apply(false);
-      shell.dispose();
+    Text probe = new Text(shell, SWT.SINGLE);
+    assumeFalse(DARK_LIST.equals(probe.getBackground().getRGB()), "the host's fields are dark");
+    probe.dispose();
+    return shell;
+  }
+
+  /** Runs the event loop past three sweep intervals. */
+  private void runPastSweeps() {
+    final boolean[] fired = new boolean[1];
+    display.timerExec(
+        3 * CocoaChrome.SWEEP_MILLIS,
+        new Runnable() {
+          @Override
+          public void run() {
+            fired[0] = true;
+          }
+        });
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return fired[0];
+              }
+            },
+            BOUND));
+  }
+
+  /**
+   * With Skin held back, a field created in a pop-up menu's {@link SWT#Show} takes the pinned side
+   * at the next sweep; one created after the menu's {@link SWT#Hide}, or after a menu bar's Show,
+   * keeps the cached side past three sweep intervals.
+   */
+  @Test
+  void aControlCreatedWhileAPopupMenuShowsTakesThePinnedSideAtTheNextSweep() {
+    final Shell shell = skinlessShell();
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
+    chrome.apply(true);
+    Menu menu = new Menu(shell, SWT.POP_UP);
+    final Text[] created = new Text[1];
+    menu.addListener(
+        SWT.Show,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            created[0] = new Text(shell, SWT.SINGLE);
+          }
+        });
+    menu.notifyListeners(SWT.Show, new Event());
+    assertNotEquals(DARK_LIST, created[0].getBackground().getRGB());
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return DARK_LIST.equals(created[0].getBackground().getRGB());
+              }
+            },
+            BOUND));
+    menu.notifyListeners(SWT.Hide, new Event());
+    Text after = new Text(shell, SWT.SINGLE);
+    runPastSweeps();
+    assertNotEquals(DARK_LIST, after.getBackground().getRGB());
+    Menu bar = new Menu(shell, SWT.BAR);
+    bar.notifyListeners(SWT.Show, new Event());
+    Text underBar = new Text(shell, SWT.SINGLE);
+    runPastSweeps();
+    assertNotEquals(DARK_LIST, underBar.getBackground().getRGB());
+  }
+
+  /** With Skin held back, a stale field takes the pinned side at its {@link SWT#Show}. */
+  @Test
+  void aStaleControlTakesThePinnedSideWhenShown() {
+    Shell shell = skinlessShell();
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
+    chrome.apply(true);
+    Text field = new Text(shell, SWT.SINGLE);
+    while (display.readAndDispatch()) {
+      // Runs queued work.
     }
+    assertNotEquals(DARK_LIST, field.getBackground().getRGB());
+    field.notifyListeners(SWT.Show, new Event());
+    assertEquals(DARK_LIST, field.getBackground().getRGB());
+    chrome.apply(false);
+    assertNotEquals(DARK_LIST, field.getBackground().getRGB());
   }
 
   /**
@@ -177,7 +258,7 @@ class CocoaChromeTest {
     new TreeColumn(tree, SWT.LEFT).setText("mock");
     Button check = new Button(shell, SWT.CHECK);
     RGB checkBefore = check.getBackground().getRGB();
-    CocoaChrome chrome = new CocoaChrome(display, false);
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
     try {
       chrome.apply(true);
       assertEquals(new RGB(0x1e, 0x1e, 0x1e), tree.getBackground().getRGB());
@@ -200,7 +281,7 @@ class CocoaChromeTest {
    */
   @Test
   void cocoaChromeGivesTableHeadersExplicitColorsOnEitherSide() {
-    CocoaChrome chrome = new CocoaChrome(display, false);
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
     Shell shell = new Shell(display);
     shell.setLayout(new FillLayout());
     try {

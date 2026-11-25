@@ -93,7 +93,7 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
-  public WindowPlacement placement() {
+  public WindowPlacement windowPlacement() {
     return new Win32WindowPlacement();
   }
 

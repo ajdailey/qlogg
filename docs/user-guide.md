@@ -875,6 +875,11 @@ characters outside the code page.
   Preferences, Advanced, Keep file closed on, the folder that holds the log can
   be renamed; with File, Use directory change notifications also off, any
   folder above it can.
+- Windows: after View > Theme changes, pop-up menus and the menus of the menu
+  bar keep the theme QLogg started with until the next start.
+- Windows: under the dark theme at a display scale other than 100%, such as
+  150%, the selected item of a drop-down list draws white on white; the other
+  items stay readable.
 - Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
   language hotkey. Use `Ctrl+Shift+D` to clear color labels.
 - macOS: `Cmd+Shift+3`, `Cmd+Shift+4` and `Cmd+Shift+5` take screenshots and

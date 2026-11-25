@@ -1,5 +1,8 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import io.github.ajdailey.qlogg.app.view.UiDispatcher;
+import java.util.HashSet;
+import java.util.Set;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
@@ -13,6 +16,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.TabFolder;
@@ -38,15 +42,20 @@ import org.eclipse.swt.widgets.Tree;
  * once.
  *
  * <p>A control created while the two differ, a new scratchpad tab's field for one, takes its colors
- * from {@link SWT#Skin}. The Display sends that event only from its event loop, which does not run
- * while a pop-up menu tracks, so a control styled for the other side is also styled at its {@link
- * SWT#Show} and, while the two differ, at its first {@link SWT#Paint}. Each control of a recolored
- * shell receives {@link SWT#Settings}, since the Display sends none for an appearance change.
- * Confined to the UI thread.
+ * from {@link SWT#Skin}. SWT sends Skin from {@code readAndDispatch} and layout, neither of which
+ * runs while a menu tracks, so a control created then keeps the cached side. A control whose side
+ * is stale therefore also takes its colors at its {@link SWT#Show} and, while a menu other than a
+ * menu bar shows, at a sweep of every shell each {@link #SWEEP_MILLIS} through the {@link
+ * UiDispatcher} timer, which runs during tracking. Each control of a recolored shell receives
+ * {@link SWT#Settings}, since the Display sends none for an appearance change. Confined to the UI
+ * thread.
  */
 final class CocoaChrome {
-  /** Control data: the side, true for dark, {@link #style} last applied. */
+  /** Control data: the side, true for dark, the control's colors were last set for. */
   static final String STYLED = CocoaChrome.class.getName() + ".styled";
+
+  /** Interval of the stale-control sweep while a menu shows. */
+  static final int SWEEP_MILLIS = 100;
 
   /** {@code COLOR_WIDGET_BACKGROUND} and {@code COLOR_LIST_BACKGROUND}, measured on macOS 15. */
   private static final Color DARK_WINDOW = new Color(0x32, 0x32, 0x32);
@@ -59,20 +68,26 @@ final class CocoaChrome {
   private static final Color CLEAR = new Color(0, 0, 0, 0);
 
   private final Display display;
+  private final UiDispatcher ui;
   private final boolean cachedDark;
   private boolean dark;
-  private boolean painting;
 
-  /** Styles a control at its first paint after the side changed. */
-  private final Listener paint =
-      new Listener() {
+  /** Menus shown and not yet hidden; the sweep runs while one is. */
+  private final Set<Menu> menusShown = new HashSet<Menu>();
+
+  /** Colors the stale controls of every shell and runs again while a menu shows. */
+  private final Runnable sweep =
+      new Runnable() {
         @Override
-        public void handleEvent(Event event) {
-          if (event.widget instanceof Control control
-              && !(control instanceof Shell)
-              && stale(control)) {
-            style(control);
+        public void run() {
+          menusShown.removeIf(Menu::isDisposed);
+          if (menusShown.isEmpty() || display.isDisposed()) {
+            return;
           }
+          for (Shell shell : display.getShells()) {
+            coverStale(shell);
+          }
+          ui.timerExec(SWEEP_MILLIS, this);
         }
       };
 
@@ -81,9 +96,11 @@ final class CocoaChrome {
    *
    * @param display the Display
    * @param cachedDark the appearance SWT read its widget colors under
+   * @param ui runs the sweep while a menu shows
    */
-  CocoaChrome(Display display, boolean cachedDark) {
+  CocoaChrome(Display display, boolean cachedDark, UiDispatcher ui) {
     this.display = display;
+    this.ui = ui;
     this.cachedDark = cachedDark;
     this.dark = cachedDark;
     display.addFilter(
@@ -95,8 +112,26 @@ final class CocoaChrome {
               if (differs()) {
                 restyle(shell);
               }
+            } else if (event.widget instanceof Menu menu) {
+              // A menu bar sends SWT.Show with its shell and no SWT.Hide.
+              if ((menu.getStyle() & SWT.BAR) == 0) {
+                if (menusShown.isEmpty()) {
+                  ui.timerExec(SWEEP_MILLIS, sweep);
+                }
+                menusShown.add(menu);
+              }
             } else if (event.widget instanceof Control control && stale(control)) {
-              style(control);
+              cover(control);
+            }
+          }
+        });
+    display.addFilter(
+        SWT.Hide,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (event.widget instanceof Menu menu) {
+              menusShown.remove(menu);
             }
           }
         });
@@ -105,12 +140,8 @@ final class CocoaChrome {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            if (event.widget instanceof Control control && !(control instanceof Shell)) {
-              if (differs()) {
-                style(control);
-              } else {
-                header(control);
-              }
+            if (event.widget instanceof Control control) {
+              cover(control);
             }
           }
         });
@@ -123,14 +154,6 @@ final class CocoaChrome {
    */
   void apply(boolean value) {
     dark = value;
-    if (differs() != painting) {
-      painting = differs();
-      if (painting) {
-        display.addFilter(SWT.Paint, paint);
-      } else {
-        display.removeFilter(SWT.Paint, paint);
-      }
-    }
     for (Shell shell : display.getShells()) {
       restyle(shell);
     }
@@ -140,9 +163,35 @@ final class CocoaChrome {
     return dark != cachedDark;
   }
 
-  /** True while the sides differ and a control was not styled for the pinned one. */
+  /** Returns true when a control's colors were not set for the pinned side. */
   private boolean stale(Control control) {
-    return differs() && !Boolean.valueOf(dark).equals(control.getData(STYLED));
+    return !(control instanceof Shell)
+        && control.getData(ChromeColors.PALETTE_COLORED) == null
+        && !Boolean.valueOf(dark).equals(control.getData(STYLED));
+  }
+
+  /** Colors each stale control of a composite and its descendants. */
+  private void coverStale(Control control) {
+    if (stale(control)) {
+      cover(control);
+    }
+    if (control instanceof Composite composite) {
+      for (Control child : composite.getChildren()) {
+        coverStale(child);
+      }
+    }
+  }
+
+  /** Colors a control created or shown after its shell was styled. */
+  private void cover(Control control) {
+    if (control instanceof Shell) {
+      return;
+    }
+    if (differs()) {
+      style(control);
+    } else {
+      header(control);
+    }
   }
 
   private void restyle(Shell shell) {
@@ -162,7 +211,6 @@ final class CocoaChrome {
   }
 
   private void style(Control control) {
-    control.setData(STYLED, dark);
     if (control.getData(ChromeColors.PALETTE_COLORED) != null) {
       return;
     }
@@ -190,6 +238,7 @@ final class CocoaChrome {
   }
 
   private void header(Control control) {
+    control.setData(STYLED, dark);
     Color background =
         differs()
             ? (dark ? DARK_LIST : LIGHT_LIST)

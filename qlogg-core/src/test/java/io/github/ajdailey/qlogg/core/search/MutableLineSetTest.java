@@ -12,6 +12,8 @@ import java.lang.management.MemoryMXBean;
 import java.lang.ref.Reference;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.NavigableSet;
+import java.util.SortedSet;
 import java.util.SplittableRandom;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
@@ -25,7 +27,7 @@ class MutableLineSetTest {
       MutableLineSet.FIRST_DIRECTORY * MutableLineSet.DIRECTORY_SLOT_BYTES;
 
   /** Checks every query against the reference at probes around each member and bucket edge. */
-  private static void assertSame(TreeSet<Long> reference, LineSet set) {
+  private static void assertSame(NavigableSet<Long> reference, LineSet set) {
     assertEquals(reference.size(), set.size());
     long index = 0;
     for (long line : reference) {
@@ -38,7 +40,7 @@ class MutableLineSetTest {
     for (long line : reference) {
       sorted[n++] = line;
     }
-    TreeSet<Long> probes = new TreeSet<Long>();
+    SortedSet<Long> probes = new TreeSet<Long>();
     probes.add(-1L);
     probes.add(0L);
     for (long line : reference) {
@@ -66,7 +68,7 @@ class MutableLineSetTest {
   void randomOperationsMatchATreeSet() {
     SplittableRandom random = new SplittableRandom(7);
     for (int round = 0; round < 40; round++) {
-      TreeSet<Long> reference = new TreeSet<Long>();
+      NavigableSet<Long> reference = new TreeSet<Long>();
       MutableLineSet set = new MutableLineSet();
       long span = round % 2 == 0 ? 4 * B : 1L << 40;
       for (int op = 0; op < 300; op++) {
@@ -98,7 +100,7 @@ class MutableLineSetTest {
   }
 
   private static long[] batch(SplittableRandom random, long from, long span) {
-    TreeSet<Long> values = new TreeSet<Long>();
+    SortedSet<Long> values = new TreeSet<Long>();
     int count = random.nextInt(1, 200);
     for (int i = 0; i < count; i++) {
       values.add(Math.min(span - 1, from + random.nextLong(3 * B)));
@@ -114,7 +116,7 @@ class MutableLineSetTest {
   @Test
   void bucketsTurnDenseAndBackToSparse() {
     MutableLineSet set = new MutableLineSet();
-    TreeSet<Long> reference = new TreeSet<Long>();
+    NavigableSet<Long> reference = new TreeSet<Long>();
     long base = 3 * B;
     for (int i = 0; i < MutableLineSet.SPARSE_MAX; i++) {
       set.add(base + 2L * i);
@@ -144,7 +146,7 @@ class MutableLineSetTest {
   @Test
   void denseBatchesAndRemoveFrom() {
     MutableLineSet set = new MutableLineSet();
-    TreeSet<Long> reference = new TreeSet<Long>();
+    NavigableSet<Long> reference = new TreeSet<Long>();
     long[] all = new long[(int) (2 * B)];
     for (int i = 0; i < all.length; i++) {
       all[i] = B + i;

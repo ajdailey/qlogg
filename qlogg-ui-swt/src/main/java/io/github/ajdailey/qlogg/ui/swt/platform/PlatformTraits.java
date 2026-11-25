@@ -170,7 +170,7 @@ public interface PlatformTraits {
    * @return {@link Win32WindowPlacement}, {@link NativeWindowPlacement} on cocoa, {@link
    *     GtkWindowPlacement} on GTK 3, or {@link Gtk4WindowPlacement}
    */
-  WindowPlacement placement();
+  WindowPlacement windowPlacement();
 
   /**
    * Returns where the user guide shows.

@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.core.util.Checks;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -30,7 +31,7 @@ public final class ReadBuffers {
   private final MemoryBudget budget;
   private final ReentrantLock lock = new ReentrantLock();
   private final Condition returned = lock.newCondition();
-  private final ArrayDeque<ByteBuffer> free = new ArrayDeque<ByteBuffer>();
+  private final Deque<ByteBuffer> free = new ArrayDeque<ByteBuffer>();
   private int allocated;
 
   /**

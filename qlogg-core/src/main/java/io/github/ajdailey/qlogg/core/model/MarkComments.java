@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.core.search.LineSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 
 /**
@@ -33,7 +34,7 @@ public final class MarkComments {
    */
   public record Comment(long line, String text) {}
 
-  private final TreeMap<Long, String> comments = new TreeMap<Long, String>();
+  private final NavigableMap<Long, String> comments = new TreeMap<Long, String>();
   private final MemoryBudget budget;
   private long charged;
   private long version;

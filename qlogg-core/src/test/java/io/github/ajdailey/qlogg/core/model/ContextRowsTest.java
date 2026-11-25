@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.SortedSet;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,7 @@ class ContextRowsTest {
   }
 
   private static List<Long> expected(LineSet matches, int before, int after, long count) {
-    TreeSet<Long> lines = new TreeSet<Long>();
+    SortedSet<Long> lines = new TreeSet<Long>();
     for (long i = 0; i < matches.size(); i++) {
       long m = matches.select(i);
       for (long line = Math.max(0, m - before); line <= m + after && line < count; line++) {

@@ -119,11 +119,14 @@ and its titles the text color; tables, trees, lists, combos, fields, spinners
 and a `CTabFolder` get list colors. A control with `PALETTE_COLORED` keeps its
 colors. A `SWT.Show` filter covers shells opened later and an `SWT.Skin`
 listener controls created later, such as a new scratchpad tab's field or the
-Marks List comment field. The Display sends `SWT.Skin` only from its event
-loop, which does not run while a pop-up menu tracks, so a control not yet
-styled for the pinned side is also styled at its `SWT.Show` and, while the
-sides differ, at its first `SWT.Paint` (a Display filter added only then).
-Each control of a recolored shell receives `SWT.Settings`, so `ToolIcons`
+Marks List comment field. SWT sends `SWT.Skin` from `readAndDispatch` and
+layout, neither of which runs while a menu tracks, so a control whose
+`CocoaChrome.STYLED` side is not the pinned one is also styled at its
+`SWT.Show` and, while a menu other than a menu bar shows, by a sweep of every
+shell each 100 ms through the `UiDispatcher` timer. Timers run during tracking;
+on macos-15-intel a new field got no `SWT.Paint` and an `asyncExec` did not run
+before the menu closed. A menu bar sends `SWT.Show` with its shell and no
+`SWT.Hide`, so it does not start the sweep. Each control of a recolored shell receives `SWT.Settings`, so `ToolIcons`
 re-inks. Back on the cached side the colors return to null, except Table and
 Tree headers: they carry explicit list colors from creation, the Display's
 list colors on the cached side, never null (null colors draw blank labels in

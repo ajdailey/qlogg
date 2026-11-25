@@ -267,8 +267,8 @@ a live instance's file: its process runs, and its writes keep it young.
 `ArchitectureTest` checks every class except the bootstrap; test classes and
 test jars are not imported. Each rule with a fixture test
 (`...FailsOnItsFixture`, `...FailOnTheirFixtures`) runs against the violating
-classes in `ui.swt.archfixture` and `app.controller.archfixture` (test
-sources), so a rule that stops matching fails:
+classes in `ui.swt.archfixture`, `app.controller.archfixture` and
+`core.archfixture` (test sources), so a rule that stops matching fails:
 
 | Rule | Why |
 |---|---|
@@ -298,6 +298,7 @@ sources), so a rule that stops matching fails:
 | `app.controller` reads no system property or environment variable | Tests choose the platform through the view |
 | Every `UiText` constant is read outside `UiText` | No unused bundle entry |
 | `java.util.logging` and `org.slf4j.jul` only in `launcher` | Everything else logs through slf4j; only the launcher sets handlers, levels or the `LogManager` |
+| Field, parameter and return types, generic arguments included, name a collection interface, never a class that implements `Collection` or `Map`; exception `Properties` (`collectionsDeclaredByInterface`) | The class appears only after `new`; locals are a review item |
 | No `java.net.http`, `URLConnection`, `Socket`, `ServerSocket`, `DatagramSocket`, `DatagramChannel`, `AsynchronousSocketChannel`, `URL.openStream` or `getContent`, or `InetAddress.getByName` or `getAllByName`; `SocketChannel` and `ServerSocketChannel` only in `app.ipc` | No outbound network |
 | No `ProcessBuilder`, any `Runtime.exec` overload, object streams, `XMLDecoder`, or `java.util.Random` and its subtypes other than `SecureRandom` | Security |
 | `System.exit`, `Runtime.exit` and `Runtime.halt` only in `launcher.Main` | `main` exits only for a nonzero status, after `Gui.run` has disposed the Display |

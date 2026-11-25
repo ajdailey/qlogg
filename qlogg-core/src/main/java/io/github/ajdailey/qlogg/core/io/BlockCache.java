@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.core.util.Checks;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,8 +43,8 @@ public final class BlockCache {
   private final int blockSize;
   private final int maxBlocks;
   private final ReentrantLock lock = new ReentrantLock();
-  private final LinkedHashMap<Key, Block> blocks;
-  private final ArrayDeque<byte[]> spares = new ArrayDeque<byte[]>();
+  private final Map<Key, Block> blocks;
+  private final Deque<byte[]> spares = new ArrayDeque<byte[]>();
 
   /**
    * Creates the cache.

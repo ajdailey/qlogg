@@ -32,7 +32,7 @@ class PlatformTraitsTest {
     "menus",
     "launchDocuments",
     "accessibleLabels",
-    "placement",
+    "windowPlacement",
     "guideDisplay"
   };
 
@@ -48,7 +48,7 @@ class PlatformTraitsTest {
     answers.add(traits.menus().getClass());
     answers.add(traits.launchDocuments().getClass());
     answers.add(traits.accessibleLabels().getClass());
-    answers.add(traits.placement().getClass());
+    answers.add(traits.windowPlacement().getClass());
     answers.add(traits.guideDisplay().getClass());
     return answers;
   }

@@ -91,7 +91,7 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
-  public WindowPlacement placement() {
+  public WindowPlacement windowPlacement() {
     return new NativeWindowPlacement();
   }
 

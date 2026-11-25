@@ -16,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -235,8 +236,8 @@ public final class SearchEngine {
     private final SearchListener listener;
     private final CancellationToken token = new CancellationToken();
     private final CountDownLatch done = new CountDownLatch(1);
-    private final ArrayDeque<Chunk> inFlight = new ArrayDeque<Chunk>();
-    private final ConcurrentLinkedQueue<Worker> idle = new ConcurrentLinkedQueue<Worker>();
+    private final Queue<Chunk> inFlight = new ArrayDeque<Chunk>();
+    private final Queue<Worker> idle = new ConcurrentLinkedQueue<Worker>();
     private final byte[] lineFeed;
     private final byte[] carriageReturn;
     private long searched;
@@ -362,7 +363,7 @@ public final class SearchEngine {
         }
         Chunk head = inFlight.peek();
         awaitChunk(head);
-        inFlight.poll();
+        inFlight.remove();
         if (!merge(head)) {
           return;
         }
@@ -489,7 +490,7 @@ public final class SearchEngine {
         recycle(chunk);
         if (worker != null) {
           worker.text().trim();
-          idle.offer(worker);
+          idle.add(worker);
         }
         chunk.done.countDown();
       }

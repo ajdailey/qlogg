@@ -19,7 +19,7 @@ final class Gtk4Traits extends GtkTraits {
   }
 
   @Override
-  public WindowPlacement placement() {
+  public WindowPlacement windowPlacement() {
     return new Gtk4WindowPlacement();
   }
 

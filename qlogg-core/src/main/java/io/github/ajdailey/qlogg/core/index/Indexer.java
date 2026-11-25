@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
@@ -138,8 +140,8 @@ public final class Indexer {
     private final LineScanner scanner;
     private final CancellationToken token = new CancellationToken();
     private final CountDownLatch done = new CountDownLatch(1);
-    private final ArrayDeque<Slot> inFlight = new ArrayDeque<Slot>();
-    private final ArrayDeque<long[]> freeBits = new ArrayDeque<long[]>();
+    private final Queue<Slot> inFlight = new ArrayDeque<Slot>();
+    private final Deque<long[]> freeBits = new ArrayDeque<long[]>();
     private long totalBytes;
 
     Operation(ByteSource source, GrowableLineIndex target, long fromByte, IndexListener listener) {
@@ -228,7 +230,7 @@ public final class Indexer {
         }
         Slot head = inFlight.peek();
         awaitScan(head);
-        inFlight.poll();
+        inFlight.remove();
         append(head);
         if (System.nanoTime() - lastPublish >= PUBLISH_INTERVAL_MILLIS * 1_000_000L) {
           LineIndex snapshot = target.publish();

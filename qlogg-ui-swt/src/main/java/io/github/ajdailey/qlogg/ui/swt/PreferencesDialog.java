@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
@@ -240,7 +241,7 @@ final class PreferencesDialog {
     fontFamily.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     fontFamily.setTextLimit(FontSettings.MAX_FAMILY_CHARS);
     fontFamily.add(UiText.PREFERENCES_FONT_DEFAULT.text());
-    TreeSet<String> families = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+    SortedSet<String> families = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
     for (FontData data : shell.getDisplay().getFontList(null, true)) {
       families.add(data.getName());
     }

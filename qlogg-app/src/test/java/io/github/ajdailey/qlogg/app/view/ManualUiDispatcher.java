@@ -7,6 +7,7 @@ import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -26,7 +27,7 @@ public final class ManualUiDispatcher implements UiDispatcher {
   /** The {@link #holdTimers} value that holds the timer tasks of every delay. */
   public static final int EVERY_DELAY = Integer.MIN_VALUE;
 
-  private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
+  private final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
   private final UiThreadCheck uiThread = new UiThreadCheck();
   private final List<Runnable> heldTimers = new ArrayList<Runnable>();
   private final List<Integer> heldDelays = new ArrayList<Integer>();

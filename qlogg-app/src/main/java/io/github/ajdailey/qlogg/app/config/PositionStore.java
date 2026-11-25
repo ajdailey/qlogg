@@ -84,8 +84,7 @@ public final class PositionStore {
   private final SettingsFile file;
   private final InstallPaths paths;
   private final ReentrantLock lock = new ReentrantLock();
-  private final LinkedHashMap<String, Entry> entries =
-      new LinkedHashMap<String, Entry>(16, 0.75f, true);
+  private final Map<String, Entry> entries = new LinkedHashMap<String, Entry>(16, 0.75f, true);
   private boolean dirty;
 
   /**
