@@ -8,19 +8,12 @@ import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.GC;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
-import org.eclipse.swt.graphics.ImageLoader;
-import org.eclipse.swt.graphics.Point;
-import org.eclipse.swt.graphics.RGB;
-import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
@@ -33,21 +26,24 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The search row's read-only visibility combo under a dark start and after a switch to dark, and a
- * dialog's read-only combo under a dark start: each drop-down list reads dark on win32 x86-64; on
- * the {@code windows-11-arm} runner a screen read does not reach the window, so the read is only
- * logged there. The closed combo and the open list are saved to {@code
- * target/diagnostics/combo-list/}.
+ * The search row's read-only visibility combo under a dark start and after a switch each way, and a
+ * dialog's read-only combo under a dark start beside one in a plain shell. On win32 x86-64 the open
+ * list's unselected row reads at 4.5:1 or more, in the combo's colors where QLogg colors it, and
+ * the selected row does under light; the selected row is logged in every case. On the {@code
+ * windows-11-arm} runner a screen read does not reach the window, so the read is only logged there.
+ * The closed field and the open list are saved to {@code target/diagnostics/combo-list/}.
  */
 @Tag("swt")
 class ComboListGuiTest {
-  private static final boolean WIN32 = "win32".equals(SWT.getPlatform());
+  private static final boolean MEASURED =
+      "win32".equals(SWT.getPlatform()) && !"aarch64".equals(System.getProperty("os.arch"));
   private static final Path DIAGNOSTICS = Path.of("target", "diagnostics", "combo-list");
 
   @TempDir Path temp;
 
   private Display display;
   private SlotWindows windows;
+  private ComboCapture capture;
 
   @AfterEach
   void close() {
@@ -65,23 +61,25 @@ class ComboListGuiTest {
   }
 
   @Test
-  void theVisibilityListIsDarkUnderADarkStart() throws IOException {
-    check(ThemeMode.DARK, "dark-start");
+  void theVisibilityListReadsUnderADarkStart() throws IOException {
+    check(ThemeMode.DARK, null, "dark-start");
   }
 
   @Test
-  void theVisibilityListIsDarkAfterASwitchToDark() throws IOException {
-    check(ThemeMode.LIGHT, "light-to-dark");
+  void theVisibilityListReadsAfterASwitchToDark() throws IOException {
+    check(ThemeMode.LIGHT, Boolean.TRUE, "light-to-dark");
   }
 
-  /**
-   * A read-only combo in a dialog under a dark start: {@code Win32DialogColors} gives it the field
-   * colors, so its list reads dark. The list of an uncolored combo in a plain shell is logged as
-   * the native drawing.
-   */
   @Test
-  void aDialogListIsDarkUnderADarkStart() throws IOException {
+  void theVisibilityListReadsAfterASwitchToLight() throws IOException {
+    check(ThemeMode.DARK, Boolean.FALSE, "dark-to-light");
+  }
+
+  /** A read-only combo in a dialog under a dark start, beside one in a plain shell. */
+  @Test
+  void aDialogListReadsUnderADarkStart() throws IOException {
     display = new Display();
+    capture = new ComboCapture(display, DIAGNOSTICS);
     windows = new SlotWindows(display, temp.resolve("config"), ThemeMode.DARK, null);
     windows.open(40, 40, 1000, 640);
     Shell owner = windows.slots.get(0).window().shell();
@@ -89,47 +87,38 @@ class ComboListGuiTest {
     Shell plain = new Shell(display, SWT.SHELL_TRIM);
     Shell dialog = Dialogs.shell(owner, "mock", true);
     try {
-      RGB uncolored = list(plain, "dialog-uncolored");
-      System.err.println("ComboListGuiTest dialog-uncolored: list " + uncolored);
+      measure(add(plain, "dialog-uncolored"), "dialog-uncolored", true, false);
       plain.dispose();
-      RGB seen = list(dialog, "dialog");
-      System.err.println("ComboListGuiTest dialog: list " + seen);
-      if (WIN32 && !"aarch64".equals(System.getProperty("os.arch"))) {
-        assertEquals(true, luminance(seen) < 0.2, "dialog: list " + seen);
-      }
+      measure(add(dialog, "dialog"), "dialog", true, true);
     } finally {
       plain.dispose();
       dialog.dispose();
     }
   }
 
-  /** Opens a shell holding one read-only combo, shows its list and returns the list's color. */
-  private RGB list(Shell shell, String name) {
+  /** Opens a shell holding one read-only combo, logs its closed field and returns the combo. */
+  private Combo add(Shell shell, String name) {
     shell.setLayout(new FillLayout());
     Combo combo = new Combo(shell, SWT.READ_ONLY | SWT.DROP_DOWN);
     combo.setItems("mock one", "mock two", "mock three", "mock four");
     combo.select(0);
     shell.setBounds(80, 80, 320, 120);
-    shell.open();
-    shell.forceActive();
+    ImageData field = capture.open(shell, combo);
     windows.settle();
-    Rectangle closed = display.map(combo.getParent(), null, combo.getBounds());
-    save(name + "-closed", capture(closed));
-    combo.setListVisible(true);
-    try {
-      windows.settle();
-      Point below = new Point(closed.x + 8, closed.y + 2 * closed.height + 4);
-      ImageData list = capture(new Rectangle(below.x, below.y, closed.width - 16, closed.height));
-      save(name + "-list", list);
-      return Pixels.mode(list);
-    } finally {
-      combo.setListVisible(false);
-      windows.settle();
+    if (field != null) {
+      capture.save(name + "-closed", field);
     }
+    System.err.println(
+        "ComboListGuiTest "
+            + name
+            + ": field "
+            + (field == null ? "not seen" : Pixels.mode(field)));
+    return combo;
   }
 
-  private void check(ThemeMode start, String name) throws IOException {
+  private void check(ThemeMode start, Boolean switchTo, String name) throws IOException {
     display = new Display();
+    capture = new ComboCapture(display, DIAGNOSTICS);
     windows = new SlotWindows(display, temp.resolve("config"), start, null);
     final ApplicationController controller = windows.open(40, 40, 1000, 640);
     final MainWindowSlot slot = windows.slots.get(0);
@@ -144,27 +133,61 @@ class ComboListGuiTest {
               }
             }),
         "document open");
-    if (start == ThemeMode.LIGHT) {
-      windows.switchTo(controller, true);
+    if (switchTo != null) {
+      windows.switchTo(controller, switchTo);
     }
     windows.settle();
     Combo combo = readOnly(slot.window().shell());
     assertNotNull(combo, "read-only combo");
     slot.window().shell().forceActive();
     windows.settle();
-    Rectangle closed = display.map(combo.getParent(), null, combo.getBounds());
-    save(name + "-closed", capture(closed));
-    combo.setListVisible(true);
+    ImageData field = capture.capture(combo, capture.field(combo));
+    capture.save(name + "-closed", field);
+    System.err.println("ComboListGuiTest " + name + ": field " + Pixels.mode(field));
+    boolean dark = switchTo == null ? start == ThemeMode.DARK : switchTo;
+    measure(combo, name, dark, dark);
+  }
+
+  /**
+   * Saves the open list and logs both rows. On win32 x86-64 the unselected row reads at {@link
+   * ComboCapture#READABLE}, on the combo's own background when {@code colored}; the selected row is
+   * asserted only under light, since under dark at a fractional scale Windows draws it white on
+   * white.
+   */
+  private void measure(Combo combo, String name, boolean dark, boolean colored) {
+    int count = combo.getItemCount();
+    int selected = Math.max(0, combo.getSelectionIndex());
+    ImageData list = capture.openList(combo, capture.below(combo, count));
     try {
-      windows.settle();
-      // Past the first row, which shows the selection.
-      Point below = new Point(closed.x + 8, closed.y + 2 * closed.height + 4);
-      ImageData list = capture(new Rectangle(below.x, below.y, closed.width - 16, closed.height));
-      save(name + "-list", list);
-      RGB seen = Pixels.mode(list);
-      System.err.println("ComboListGuiTest " + name + ": list " + seen);
-      if (WIN32 && !"aarch64".equals(System.getProperty("os.arch"))) {
-        assertEquals(true, luminance(seen) < 0.2, name + ": list " + seen);
+      if (list == null) {
+        System.err.println("ComboListGuiTest " + name + ": list not seen");
+        assertTrue(!MEASURED, name + ": list not seen");
+        return;
+      }
+      capture.save(name + "-list", list);
+      int row = combo.getItemHeight();
+      ImageData selectedRow = ComboCapture.row(list, row, selected);
+      ImageData otherRow = ComboCapture.row(list, row, (selected + 1) % count);
+      System.err.println(
+          "ComboListGuiTest "
+              + name
+              + ": selected "
+              + ComboCapture.describe(selectedRow)
+              + "; unselected "
+              + ComboCapture.describe(otherRow));
+      if (MEASURED) {
+        assertTrue(
+            ComboCapture.contrast(otherRow) >= ComboCapture.READABLE,
+            name + " unselected: " + ComboCapture.describe(otherRow));
+        if (colored) {
+          assertEquals(
+              combo.getBackground().getRGB(), Pixels.mode(otherRow), name + " list background");
+        }
+        if (!dark) {
+          assertTrue(
+              ComboCapture.contrast(selectedRow) >= ComboCapture.READABLE,
+              name + " selected: " + ComboCapture.describe(selectedRow));
+        }
       }
     } finally {
       combo.setListVisible(false);
@@ -185,32 +208,5 @@ class ComboListGuiTest {
       }
     }
     return null;
-  }
-
-  private ImageData capture(Rectangle area) {
-    Image image = new Image(display, Math.max(1, area.width), Math.max(1, area.height));
-    GC gc = new GC(display);
-    try {
-      gc.copyArea(image, area.x, area.y);
-      return image.getImageData();
-    } finally {
-      gc.dispose();
-      image.dispose();
-    }
-  }
-
-  private static void save(String name, ImageData data) {
-    ImageLoader loader = new ImageLoader();
-    loader.data = new ImageData[] {data};
-    try {
-      Files.createDirectories(DIAGNOSTICS);
-      loader.save(DIAGNOSTICS.resolve(name + ".png").toString(), SWT.IMAGE_PNG);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
-
-  private static double luminance(RGB rgb) {
-    return (0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue) / 255;
   }
 }

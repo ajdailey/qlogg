@@ -220,6 +220,12 @@ API sets:
   `CTabFolder`'s selection highlight in the same renderer.
 - The top row's separators: a `Label` with `SWT.SEPARATOR` draws an etched
   pair, 1 px `#a0a0a0` and 1 px `#ffffff`, whatever its colors.
+- The selected item of a combo's drop-down list under the dark theme at a
+  fractional display scale draws white on white (1.00:1, measured at 150% on
+  Windows 11 build 26300); the other items stay readable. Uncolored combos,
+  colored ones and ones created while the dark theme is not preferred draw it
+  the same. At 100% (`windows-2025`) and under light the row is `#0078d4` or
+  `#0078d7` with white text (4.5:1).
 - A bordered field's 1 px frame, set when the field is created: after a light
   start it stays `#ffffff` around the dark field under dark; after a dark start
   it is `#646464` (measured, `windows-2025`). Turning the dark preference on
