@@ -145,7 +145,7 @@ class StateStoresTest {
     Preferences loaded = new ConfigStore(location()).load();
     assertEquals(0, loaded.options().font().size());
     assertEquals(Options.DEFAULTS.recentCount(), loaded.options().recentCount());
-    assertEquals("ISO-8859-1", loaded.options().defaultEncoding());
+    assertEquals(Options.DEFAULT_ENCODING, loaded.options().defaultEncoding());
     assertFalse(loaded.state().window().maximized());
     assertEquals(1000, loaded.options().monitor().pollMillis());
     assertEquals(List.of(), loaded.options().shortcuts().bindings(CommandId.OPEN));

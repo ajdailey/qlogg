@@ -32,7 +32,8 @@ View classes must not block the UI thread. `ArchitectureTest`
 (`qlogg-launcher`) rejects in this module `Future.get`, `Thread.join`,
 `Thread.sleep`, `Object.wait`, `Lock.lock`, `Condition.await`,
 `Semaphore.acquire`, `BlockingQueue.put` and `take`, `CountDownLatch.await`,
-`OperationHandle.await`, `Charset.availableCharsets` and `java.nio.channels`.
+`OperationHandle.await`, `Charset.availableCharsets`, `Charsets.available` and
+`java.nio.channels`.
 
 Views read controller state only. They do not use `LogDocument`,
 `MutableLineSet`, `LineReader` or `FoldMap`, do not call the `Viewport`

@@ -1,10 +1,11 @@
 package io.github.ajdailey.qlogg.app.config;
 
 import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
+import io.github.ajdailey.qlogg.core.text.Charsets;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
-import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,19 +53,46 @@ public record Options(
   /** Longest poll interval, in milliseconds. */
   public static final int MAX_POLL_MILLIS = 60_000;
 
-  /** The settings when the file holds none. */
+  /** {@code encoding.default} when the file holds none. */
+  public static final String DEFAULT_ENCODING = "windows-1252";
+
+  /**
+   * The defaults with directory events on; {@link #defaults(OsTraits)} gives a system's defaults.
+   */
   public static final Options DEFAULTS =
       new Options(
           FontSettings.DEFAULTS,
           20,
           MonitorSettings.DEFAULTS,
-          StandardCharsets.ISO_8859_1.name(),
+          DEFAULT_ENCODING,
           true,
           ShortcutOverrides.NONE,
           List.of(),
           false,
           false,
           false);
+
+  /**
+   * Returns the settings when the file holds none: {@link #DEFAULTS} with the system's {@link
+   * MonitorSettings#defaults}.
+   *
+   * @param os the system
+   * @return the defaults
+   */
+  public static Options defaults(OsTraits os) {
+    Options d = DEFAULTS;
+    return new Options(
+        d.font,
+        d.recentCount,
+        MonitorSettings.defaults(os),
+        d.defaultEncoding,
+        d.loadLastSession,
+        d.shortcuts,
+        d.favorites,
+        d.debugLogFile,
+        d.closeWindowWithLastTab,
+        d.closeShowsLastUsed);
+  }
 
   /** Checks the components and copies the list. */
   public Options {
@@ -157,7 +185,7 @@ public record Options(
    */
   public static Charset charset(String name) {
     try {
-      Charset charset = Charset.forName(name);
+      Charset charset = Charsets.forName(name);
       return supported(charset) ? charset : null;
     } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
       return null;

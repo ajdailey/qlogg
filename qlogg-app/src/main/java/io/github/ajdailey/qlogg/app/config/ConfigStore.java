@@ -8,6 +8,7 @@ import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +72,7 @@ public final class ConfigStore {
 
   private final SettingsLocation location;
   private final InstallPaths paths;
+  private final Preferences defaults;
   private final ReentrantLock lock = new ReentrantLock();
   private boolean keepInvalid;
   private boolean saveDisabled;
@@ -83,12 +85,23 @@ public final class ConfigStore {
   private final SchemeStore schemes;
 
   /**
-   * Creates the store; nothing is read until {@link #load}.
+   * Creates the store for this system; nothing is read until {@link #load}.
    *
    * @param location the settings directory
    */
   public ConfigStore(SettingsLocation location) {
+    this(location, OsTraits.current());
+  }
+
+  /**
+   * Creates the store; nothing is read until {@link #load}.
+   *
+   * @param location the settings directory
+   * @param os the system whose {@link Preferences#defaults} a missing file or key takes
+   */
+  public ConfigStore(SettingsLocation location, OsTraits os) {
     this.location = location;
+    this.defaults = Preferences.defaults(os);
     this.paths = new InstallPaths(location);
     this.sessions = new SessionStore(location);
     this.positions = new PositionStore(location);
@@ -169,7 +182,8 @@ public final class ConfigStore {
   /**
    * Reads the settings. Blocking.
    *
-   * @return the settings; defaults when the file is missing or malformed
+   * @return the settings; the system's defaults when the file is missing or malformed, and for each
+   *     key it omits
    */
   public Preferences load() {
     lock.lock();
@@ -184,23 +198,23 @@ public final class ConfigStore {
       try {
         properties = parse(file);
       } catch (NoSuchFileException e) {
-        return Preferences.DEFAULTS;
+        return defaults;
       }
       if (properties == null) {
         malformed(file);
-        return Preferences.DEFAULTS;
+        return defaults;
       }
       Properties copy = new Properties();
       copy.putAll(properties);
       pathsStale = OptionsFile.relativize(copy, paths);
-      return read(properties, file, paths);
+      return read(properties, file, paths, defaults);
     } catch (IOException e) {
       LOG.warn(
           "Cannot read settings in {}: {}",
           LogText.oneLine(location.directory()),
           LogText.oneLine(e.getMessage()));
       keepInvalid = true;
-      return Preferences.DEFAULTS;
+      return defaults;
     } finally {
       lock.unlock();
     }
@@ -343,8 +357,9 @@ public final class ConfigStore {
     return properties;
   }
 
-  private static Preferences read(Properties properties, Path file, InstallPaths paths) {
-    Preferences preferences = Preferences.DEFAULTS;
+  private static Preferences read(
+      Properties properties, Path file, InstallPaths paths, Preferences defaults) {
+    Preferences preferences = defaults;
     String theme = properties.getProperty(THEME_KEY);
     if (theme != null) {
       ThemeMode mode = ThemeMode.parse(theme);
@@ -401,7 +416,7 @@ public final class ConfigStore {
         .withHighlights(HighlightFile.load(properties))
         .withView(ViewFile.load(properties))
         // Preferences dialog settings, favorites and remembered UI state.
-        .withOptions(OptionsFile.loadOptions(properties, file, paths))
+        .withOptions(OptionsFile.loadOptions(properties, file, paths, defaults.options()))
         .withState(OptionsFile.loadState(properties, file, paths))
         .withTime(TimeFile.load(properties));
   }

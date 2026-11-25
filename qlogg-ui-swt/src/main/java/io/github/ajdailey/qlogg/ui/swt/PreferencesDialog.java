@@ -781,6 +781,14 @@ final class PreferencesDialog {
     return keepClosed;
   }
 
+  Button watch() {
+    return watch;
+  }
+
+  Combo encoding() {
+    return encoding;
+  }
+
   Table commands() {
     return commands;
   }

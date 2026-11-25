@@ -9,7 +9,8 @@ import java.util.Arrays;
  * A charset as the line index sees it: the width of the unit LF is encoded in and where the text
  * starts after a byte order mark.
  *
- * @param charset decodes the text; never a BOM-sensing {@code UTF-16} or {@code UTF-32}
+ * @param charset decodes the text; never a BOM-sensing {@code UTF-16} or {@code UTF-32}; {@link
+ *     Windows1252} for {@code windows-1252}
  * @param unitWidth bytes in the encoded LF: 1, 2 for UTF-16, 4 for UTF-32
  * @param order byte order of a multi-byte unit; {@code BIG_ENDIAN} when the width is 1
  * @param bomLength bytes of byte order mark before the first line
@@ -25,8 +26,9 @@ public record TextEncoding(Charset charset, int unitWidth, ByteOrder order, int 
     ASCII_SAMPLE = sample.toString();
   }
 
-  /** Checks the components. */
+  /** Checks the components and takes {@link Windows1252} for any {@code windows-1252}. */
   public TextEncoding {
+    charset = Windows1252.substitute(charset);
     if (unitWidth != 1 && unitWidth != 2 && unitWidth != 4) {
       throw new IllegalArgumentException("unitWidth must be 1, 2 or 4");
     }
@@ -49,7 +51,7 @@ public record TextEncoding(Charset charset, int unitWidth, ByteOrder order, int 
     if (charset.equals(StandardCharsets.UTF_16)) {
       plain = StandardCharsets.UTF_16BE;
     } else if (charset.name().equals("UTF-32")) {
-      plain = Charset.forName("UTF-32BE");
+      plain = Charsets.forName("UTF-32BE");
     }
     if (!plain.canEncode()) {
       throw new IllegalArgumentException(plain.name() + " cannot encode");

@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.time.SpreadMode;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -33,8 +34,17 @@ class ConfigStoreTest {
 
   @TempDir Path temp;
 
+  private static final OsTraits LINUX = OsTraits.of("Linux");
+
+  private static final List<OsTraits> SYSTEMS =
+      List.of(OsTraits.of("Windows 11"), OsTraits.of("Mac OS X"), LINUX);
+
   private ConfigStore store(Path dir) {
-    return new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, dir));
+    return store(dir, LINUX);
+  }
+
+  private ConfigStore store(Path dir, OsTraits os) {
+    return new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, dir), os);
   }
 
   private Path conf() {
@@ -60,6 +70,59 @@ class ConfigStoreTest {
   void aMissingFileLoadsDefaults() {
     assertEquals(Preferences.DEFAULTS, store(temp).load());
     assertEquals(ThemeMode.LIGHT, Preferences.DEFAULTS.theme());
+  }
+
+  // Per-system defaults: each comes from the OS seam, never from a value the store holds.
+  @Test
+  void aMissingFileOrKeyTakesTheSystemDefaults() throws IOException {
+    for (OsTraits os : SYSTEMS) {
+      Preferences missing = store(temp, os).load();
+      assertSystemDefaults(os, missing);
+      assertEquals(Preferences.defaults(os), missing);
+    }
+    Files.writeString(conf(), "ui.theme=dark\n", StandardCharsets.ISO_8859_1);
+    for (OsTraits os : SYSTEMS) {
+      assertSystemDefaults(os, store(temp, os).load());
+    }
+  }
+
+  @Test
+  void anExplicitValueWinsOverTheSystemDefault() throws IOException {
+    for (OsTraits os : SYSTEMS) {
+      boolean keepClosed = !os.keepFileClosedByDefault();
+      boolean watch = !os.watchServiceByDefault();
+      Files.writeString(
+          conf(),
+          "follow.keepClosed="
+              + keepClosed
+              + "\nmonitor.watchService="
+              + watch
+              + "\nencoding.default=UTF-8\n",
+          StandardCharsets.ISO_8859_1);
+      Preferences loaded = store(temp, os).load();
+      assertEquals(keepClosed, loaded.follow().keepClosed());
+      assertEquals(watch, loaded.options().useWatchService());
+      assertEquals("UTF-8", loaded.options().defaultEncoding());
+    }
+  }
+
+  @Test
+  void theSystemDefaultsRoundTrip() throws IOException {
+    for (OsTraits os : SYSTEMS) {
+      Files.deleteIfExists(conf());
+      ConfigStore store = store(temp, os);
+      Preferences defaults = store.load();
+      assertTrue(store.save(defaults, defaults.withSplitPercent(40)));
+      Preferences loaded = store(temp, os).load();
+      assertSystemDefaults(os, loaded);
+      assertEquals(40, loaded.splitPercent());
+    }
+  }
+
+  private static void assertSystemDefaults(OsTraits os, Preferences preferences) {
+    assertEquals(os.keepFileClosedByDefault(), preferences.follow().keepClosed());
+    assertEquals(os.watchServiceByDefault(), preferences.options().useWatchService());
+    assertEquals(Options.DEFAULT_ENCODING, preferences.options().defaultEncoding());
   }
 
   @Test
@@ -221,7 +284,7 @@ class ConfigStoreTest {
   @Test
   void aPerUserDirectoryIsCreatedOwnerOnlyOnSave() throws IOException {
     Path dir = temp.resolve("config").resolve("qlogg");
-    ConfigStore store = new ConfigStore(new SettingsLocation(SettingsMode.PER_USER, dir));
+    ConfigStore store = new ConfigStore(new SettingsLocation(SettingsMode.PER_USER, dir), LINUX);
     assertEquals(Preferences.DEFAULTS, store.load());
     assertFalse(Files.exists(dir));
     assertTrue(store.save(Preferences.DEFAULTS, DARK));

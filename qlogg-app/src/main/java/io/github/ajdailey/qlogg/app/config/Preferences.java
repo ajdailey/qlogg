@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.util.List;
 
 /**
@@ -55,7 +56,10 @@ public record Preferences(
   /** Largest {@code view.splitPercent}. */
   public static final int MAX_SPLIT = 90;
 
-  /** The settings when the file is missing or malformed. */
+  /**
+   * The defaults with keep file closed off and directory events on; {@link #defaults(OsTraits)}
+   * gives a system's defaults.
+   */
   public static final Preferences DEFAULTS =
       new Preferences(
           ThemeMode.LIGHT,
@@ -69,7 +73,7 @@ public record Preferences(
           List.of(),
           HighlightSettings.DEFAULTS,
           true,
-          FollowSettings.DEFAULTS,
+          FollowSettings.BASE,
           ViewOptions.DEFAULTS,
           Options.DEFAULTS,
           UiState.DEFAULTS,
@@ -334,6 +338,18 @@ public record Preferences(
         options,
         state,
         time);
+  }
+
+  /**
+   * Returns the settings when the file is missing or malformed, and the base every key the file
+   * omits keeps: {@link #DEFAULTS} with the system's {@link FollowSettings#defaults} and {@link
+   * Options#defaults}.
+   *
+   * @param os the system
+   * @return the defaults
+   */
+  public static Preferences defaults(OsTraits os) {
+    return DEFAULTS.withFollow(FollowSettings.defaults(os)).withOptions(Options.defaults(os));
   }
 
   /**

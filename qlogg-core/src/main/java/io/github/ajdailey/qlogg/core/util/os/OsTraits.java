@@ -94,6 +94,22 @@ public interface OsTraits {
   boolean macKeymap();
 
   /**
+   * Reports whether {@code follow.keepClosed} defaults to on: true on Windows, where a file held
+   * open refuses a writer's rename over it.
+   *
+   * @return true on Windows
+   */
+  boolean keepFileClosedByDefault();
+
+  /**
+   * Reports whether {@code monitor.watchService} defaults to on: false on macOS, where the JDK's
+   * {@code WatchService} polls the directory every 2 s and adds nothing to the monitor's own poll.
+   *
+   * @return false on macOS
+   */
+  boolean watchServiceByDefault();
+
+  /**
    * Reports whether opening a file with its default application runs it: on Windows an extension in
    * {@link RunnableTypes#WINDOWS} or {@code PATHEXT}, whatever the attributes, since every readable
    * file is executable there; on macOS an extension in {@link RunnableTypes#MAC} or the execute

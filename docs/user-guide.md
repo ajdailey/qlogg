@@ -42,8 +42,12 @@ names a Windows device` for a name such as `CON` or `nul.txt`.
 
 Reload (`F5`) reopens the shown file and keeps its marks, mark comments and
 color labels.
-QLogg detects the encoding from the byte order mark and the content; the
-Encoding menu forces another one, and the choice is remembered for the file.
+QLogg detects the encoding from the byte order mark and the content. A file
+with no byte order mark that is not valid UTF-8 opens in the default encoding
+from Tools > Preferences, File: windows-1252 unless changed, which shows bytes
+0x80 to 0x9F as characters such as curly quotes and the euro sign. The
+Encoding menu forces another encoding, and the choice is remembered for the
+file.
 
 File > Open in Editor opens the shown file in the application the system uses
 for plain text (`.txt` files). When no application is set for plain text, the
@@ -375,7 +379,8 @@ Overscroll). View > Follow New Files follows every file as it opens.
 
 A file that is truncated, replaced or rotated reopens by name with its results
 cleared; a search with Auto-refresh on runs again. A deleted file keeps its
-content on screen until a file with that name appears again.
+content on screen until a file with that name appears again; with [Keep file
+closed](#keep-file-closed) on, only the lines already read stay.
 
 When the file cannot be opened at that moment, for example between a log
 rotator's rename and its create, the tab keeps its content, shows one notice
@@ -385,14 +390,20 @@ resumes when the file opens.
 
 ### Keep file closed
 
-QLogg holds a file open while its tab is open, and Windows refuses a rename
-over an open file, so a program that rotates its log that way fails. Tools >
-Preferences, Advanced, Keep file closed opens the file only for each read. It
-applies to files opened or reloaded afterwards.
+Keep file closed opens a file only for each read instead of holding it open
+while its tab is open. It is on by default on Windows, which refuses a rename
+over an open file, so a program that rotates its log by renaming can do so
+while the log is open in QLogg. It is off by default on Linux and macOS, where
+a rename over an open file succeeds.
 
-With it on, the content of a moved or deleted file cannot be read: a deleted
-file shows a notice and only lines already read stay on screen. A rename that
-lands during a read is still refused, and a retry succeeds.
+With it on, the earlier content of a rotated, moved or deleted file cannot be
+read: only lines already read stay on screen, and a deleted file shows a
+notice. A rename that lands during a read is still refused, and a retry
+succeeds.
+
+To turn it off, clear Tools > Preferences, Advanced, Keep file closed, or set
+`follow.keepClosed=false` in `qlogg.conf`. A change applies to files opened or
+reloaded afterwards.
 
 ## Timestamps
 
@@ -780,12 +791,12 @@ Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 | View | Font, Size | Platform monospace font and size | The log views' font; size 4 to 72 |
 | View | Bold, Force anti-aliasing | Off | Text drawing |
 | View | View colors | Follow theme | [View colors](#view-colors) |
-| File | Default encoding | ISO-8859-1 | Used when detection finds no other encoding |
-| File | Use directory change notifications | On | Notices file changes from system events between checks |
+| File | Default encoding | windows-1252 | Used when detection finds no other encoding |
+| File | Use directory change notifications | On (Windows, Linux), Off (macOS) | Notices file changes from system events between checks; on macOS the Java runtime only polls the folder every 2 s, which adds nothing to the check interval |
 | File | Check interval (ms) | 1000 | How often open files are checked for changes, 100 to 60,000 |
 | Shortcuts | The command list | Built-in keys | Add and Remove change the selected command's keys, Default Keys restores them and Restore All Defaults restores every command's; keys another command holds are refused |
 | Advanced | Stop a search after this many matches | 0, no limit | Takes effect at the next start |
-| Advanced | Keep file closed | Off | [Keep file closed](#keep-file-closed) |
+| Advanced | Keep file closed | On (Windows), Off (Linux, macOS) | [Keep file closed](#keep-file-closed) |
 | Folding | Entry start pattern, Continuation patterns | The rules in [Folding multi-line entries](#folding-multi-line-entries) | Restore Defaults brings the built-in rules back |
 
 ### Settings directory
@@ -890,11 +901,11 @@ characters outside the code page.
 
 ## Known issues
 
-- Windows: renaming the folder that holds an open log, or a folder above it,
-  from outside QLogg is refused while the file is open. With Tools >
-  Preferences, Advanced, Keep file closed on, the folder that holds the log can
-  be renamed; with File, Use directory change notifications also off, any
-  folder above it can.
+- Windows: with Keep file closed on, the default, the folder that holds an
+  open log can be renamed from outside QLogg, but a folder above it cannot
+  while File, Use directory change notifications is on; turn that off as well
+  to rename any folder above it. With Keep file closed off, renaming either
+  folder is refused while the file is open.
 - Windows: after View > Theme changes, pop-up menus and the menus of the menu
   bar, with their icons, keep the theme QLogg started with until the next
   start.

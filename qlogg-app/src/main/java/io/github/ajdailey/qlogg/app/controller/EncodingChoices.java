@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.config.Options;
+import io.github.ajdailey.qlogg.core.text.Charsets;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.List;
  * #commonCharsets()} looks up the common names only.
  *
  * @param common the supported entries of {@link #COMMON_NAMES}, in that order
- * @param other every other supported charset, in {@link Charset#availableCharsets()} order
+ * @param other every other supported charset, in {@link Charsets#available()} order
  */
 public record EncodingChoices(List<Charset> common, List<Charset> other) {
   /**
@@ -75,7 +76,7 @@ public record EncodingChoices(List<Charset> common, List<Charset> other) {
   public static EncodingChoices available() {
     EncodingChoices choices = loaded;
     if (choices == null) {
-      choices = of(new ArrayList<Charset>(Charset.availableCharsets().values()));
+      choices = of(new ArrayList<Charset>(Charsets.available().values()));
       loaded = choices;
     }
     return choices;

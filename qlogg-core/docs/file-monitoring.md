@@ -9,7 +9,9 @@ result is in [Documents](documents.md#watching).
 `FileMonitor.watch(path, listener)` starts a `qlogg-follow-` thread that calls
 `MonitorListener.possiblyChanged` at once, then every `pollMillis` (1,000 by
 default) and, with `useWatchService`, on a parent-directory event for the file
-name, at most once per 50 ms.
+name, at most once per 50 ms. `MonitorSettings.defaults(os)` turns directory
+events off on macOS, where the JDK 21 `WatchService` is `PollingWatchService`,
+a scan of the directory every 2 s.
 
 - The poll stays on with directory events, because a `WatchService` misses
   events on network mounts and polls on macOS.

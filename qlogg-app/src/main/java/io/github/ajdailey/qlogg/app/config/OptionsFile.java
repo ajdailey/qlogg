@@ -80,10 +80,10 @@ final class OptionsFile {
    * @param p the file's properties
    * @param file the file, for warnings
    * @param paths resolves the path keys
-   * @return the options; defaults for keys that are absent or invalid
+   * @param d the value of each key that is absent or invalid
+   * @return the options
    */
-  static Options loadOptions(Properties p, Path file, InstallPaths paths) {
-    Options d = Options.DEFAULTS;
+  static Options loadOptions(Properties p, Path file, InstallPaths paths, Options d) {
     FontSettings font = d.font();
     String family = p.getProperty(FONT_FAMILY, "").strip();
     if (family.length() > FontSettings.MAX_FAMILY_CHARS) {

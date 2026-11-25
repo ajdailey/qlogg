@@ -37,7 +37,7 @@ public final class EncodingDetector {
    *
    * @param head the first {@link #SAMPLE_BYTES} bytes, or the whole file when shorter, between
    *     position and limit; not modified
-   * @param fallback used when no rule matches; ISO-8859-1 maps every byte to a char
+   * @param fallback used when no rule matches
    * @return the encoding and the rule that chose it
    */
   public static EncodingDetection detect(ByteBuffer head, Charset fallback) {
@@ -96,10 +96,10 @@ public final class EncodingDetector {
       int third = sample.get(at + 2) & 0xff;
       int fourth = sample.get(at + 3) & 0xff;
       if (first == 0xff && second == 0xfe && third == 0 && fourth == 0) {
-        return TextEncoding.of(Charset.forName("UTF-32LE"), 4);
+        return TextEncoding.of(Charsets.forName("UTF-32LE"), 4);
       }
       if (first == 0 && second == 0 && third == 0xfe && fourth == 0xff) {
-        return TextEncoding.of(Charset.forName("UTF-32BE"), 4);
+        return TextEncoding.of(Charsets.forName("UTF-32BE"), 4);
       }
     }
     return utf16Bom(sample);

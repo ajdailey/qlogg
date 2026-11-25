@@ -7,9 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -27,6 +30,25 @@ class OsTraitsTest {
     assertSame(LinuxTraits.INSTANCE, OsTraits.of("Linux"));
     assertSame(LinuxTraits.INSTANCE, OsTraits.of("FreeBSD"));
     assertSame(LinuxTraits.INSTANCE, OsTraits.of(null));
+  }
+
+  /** Every question is abstract and each system's class answers it itself. */
+  @Test
+  void eachSystemImplementsEveryQuestion() throws NoSuchMethodException {
+    List<Class<?>> systems = List.of(WindowsTraits.class, MacTraits.class, LinuxTraits.class);
+    for (Method question : OsTraits.class.getDeclaredMethods()) {
+      if (Modifier.isStatic(question.getModifiers())) {
+        continue;
+      }
+      assertFalse(question.isDefault(), question.getName());
+      for (Class<?> system : systems) {
+        assertEquals(
+            system,
+            system
+                .getDeclaredMethod(question.getName(), question.getParameterTypes())
+                .getDeclaringClass());
+      }
+    }
   }
 
   @Test
@@ -47,6 +69,8 @@ class OsTraitsTest {
     assertTrue(os.deviceNames().opensDevice("CON"));
     assertTrue(os.confinement().embedsGuide(false));
     assertFalse(os.macKeymap());
+    assertTrue(os.keepFileClosedByDefault());
+    assertTrue(os.watchServiceByDefault());
     Path roaming = temp.resolve("Roaming");
     assertEquals(
         roaming.resolve("QLogg"), os.userSettings(Map.of("APPDATA", roaming.toString()), temp));
@@ -61,6 +85,8 @@ class OsTraitsTest {
     assertFalse(os.deviceNames().opensDevice("CON"));
     assertTrue(os.confinement().embedsGuide(false));
     assertTrue(os.macKeymap());
+    assertFalse(os.keepFileClosedByDefault());
+    assertFalse(os.watchServiceByDefault());
     assertEquals(
         temp.resolve("Library").resolve("Application Support").resolve("QLogg"),
         os.userSettings(Map.of("XDG_CONFIG_HOME", temp.toString()), temp));
@@ -73,6 +99,8 @@ class OsTraitsTest {
     assertFalse(os.confinement().embedsGuide(false));
     assertTrue(os.confinement().embedsGuide(true));
     assertFalse(os.macKeymap());
+    assertFalse(os.keepFileClosedByDefault());
+    assertTrue(os.watchServiceByDefault());
     Path xdg = temp.resolve("xdg");
     assertEquals(
         xdg.resolve("qlogg"), os.userSettings(Map.of("XDG_CONFIG_HOME", xdg.toString()), temp));

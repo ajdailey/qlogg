@@ -118,7 +118,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.colors` | `follow`, `light`, `dark`, a bundled scheme id (`sandstone`, `nightwater`, `garden-light`, `garden-dark`, `legal-pad`, `paper`, `midnight`, `phosphor`, `graphite`), or a user scheme id: the colors of the log views, gutter, overview bar and tab strips. `light` and `dark` pin `Palette.LIGHT` and `Palette.DARK`. An id that names no scheme follows the theme and stays saved | `follow` | Tools > Preferences, View |
 | `follow.onLoad` | `true`, `false`: every file opens following | `false` | View > Follow New Files; Tools > Preferences, General |
 | `follow.onOverscroll` | `true`, `false`: scrolling down past the last line engages follow | `true` | View > Follow on Overscroll; Tools > Preferences, General |
-| `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `false` | Tools > Preferences, Advanced |
+| `follow.keepClosed` | `true`, `false`: files opened or reloaded afterwards stay open only for each read | `true` on Windows, `false` elsewhere | Tools > Preferences, Advanced |
 | `highlight.set.N.*`, `highlight.active.N` | Highlighter sets and the active set ids | none | Highlighters menu and Configure Highlighters |
 | `label.N.name`, `.fore`, `.back`, `.cycle` | Color label N, 0 to 8 | 9 labels, all in the cycle | Configure Highlighters, Color Labels tab |
 | `matchHighlight.enabled`, `.color`, `.variance` | Match highlight; an empty color is the theme's | `true`, theme, 0 | Highlighters > Highlight Search Matches; Configure Highlighters |
@@ -135,8 +135,8 @@ continuation patterns and at least one pattern in all are allowed.
 | `recent.N` | Recent file paths, most recent first ([saved paths](#saved-paths)) | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
 | `closed.N` | Closed file paths, most recent first, at most 20 ([saved paths](#saved-paths)) | none | Each closed tab; File > Recently Closed > Clear Recently Closed |
 | `favorite.N` | Favorite file paths, at most 100 ([saved paths](#saved-paths)) | none | File > Favorites |
-| `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000, `true` | Tools > Preferences, File |
-| `encoding.default` | The charset detection falls back to; one that can encode | `ISO-8859-1` | Tools > Preferences, File |
+| `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000; `false` on macOS, `true` elsewhere | Tools > Preferences, File |
+| `encoding.default` | The charset detection falls back to; one that can encode | `windows-1252` | Tools > Preferences, File |
 | `session.loadLast` | `true`, `false`: a start without files restores the session | `true` | Tools > Preferences, General |
 | `tabs.closeWindowWithLastTab` | `true`, `false`: closing the last tab, or Close All, closes the window; the last window quits | `false` | Tools > Preferences, General |
 | `tabs.closeShowsLastUsed` | `true`, `false`: closing the shown tab shows the open tab shown most recently, not the one after it; with none shown, the one after it | `false` | Tools > Preferences, General |

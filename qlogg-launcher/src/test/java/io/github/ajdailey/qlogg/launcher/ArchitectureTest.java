@@ -59,6 +59,7 @@ import io.github.ajdailey.qlogg.core.model.Viewport;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.RangeFinder;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
+import io.github.ajdailey.qlogg.core.text.Charsets;
 import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimeSamples;
 import io.github.ajdailey.qlogg.core.time.TimeSearch;
@@ -252,7 +253,13 @@ class ArchitectureTest {
    * The {@code PlatformTraits} and {@code OsTraits} booleans a class outside the platform packages
    * may read: values passed on as data. Every other platform behavior is a seam method.
    */
-  private static final String[] VALUE_TRAITS = {"macKeys", "macKeymap", "runsInsteadOfOpening"};
+  private static final String[] VALUE_TRAITS = {
+    "macKeys",
+    "macKeymap",
+    "runsInsteadOfOpening",
+    "keepFileClosedByDefault",
+    "watchServiceByDefault"
+  };
 
   /** Outside the platform packages no class branches on a boolean trait other than a value one. */
   @Test
@@ -318,7 +325,11 @@ class ArchitectureTest {
           "macKeymap",
           List.of(ROOT + ".app.command.Keymap"),
           "runsInsteadOfOpening",
-          List.of(ROOT + ".app.controller.PathCommands"));
+          List.of(ROOT + ".app.controller.PathCommands"),
+          "keepFileClosedByDefault",
+          List.of(ROOT + ".app.config.FollowSettings"),
+          "watchServiceByDefault",
+          List.of(ROOT + ".core.watch.MonitorSettings"));
 
   /** Only {@code ui.swt.platform} calls a {@link #PLATFORM_QUERIES} method. */
   @Test
@@ -682,6 +693,8 @@ class ArchitectureTest {
         .orShould()
         .callMethodWhere(call(Charset.class, "availableCharsets"))
         .orShould()
+        .callMethodWhere(call(Charsets.class, "available"))
+        .orShould()
         .dependOnClassesThat()
         .resideInAPackage("java.nio.channels..")
         .because("the UI thread never waits");
@@ -1002,6 +1015,7 @@ class ArchitectureTest {
           new Blocking(FileChannel.class, ".*"),
           new Blocking(Path.class, "toRealPath"),
           new Blocking(Charset.class, "availableCharsets"),
+          new Blocking(Charsets.class, "available"),
           new Blocking(OsTraits.class, "runsInsteadOfOpening"),
           new Blocking(AtomicFiles.class, ".*"),
           new Blocking(SafePaths.class, "logPath|logFile|settingsDirectory"),
@@ -1321,6 +1335,30 @@ class ArchitectureTest {
   }
 
   // Collection declarations.
+
+  /** Only {@code Charsets} looks charsets up, so every name resolves windows-1252 the same way. */
+  @Test
+  void charsetLookupsOnlyInCharsets() {
+    charsetLookupsOnlyInCharsetsRule().check(classes);
+  }
+
+  @Test
+  void charsetRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        charsetLookupsOnlyInCharsetsRule(),
+        ROOT + ".core.archfixture.CoreViolations$LooksUpCharsets",
+        "Charset.forName",
+        "Charset.availableCharsets");
+  }
+
+  private static ArchRule charsetLookupsOnlyInCharsetsRule() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(ROOT + ".core.text.Charsets")
+        .should()
+        .callMethodWhere(call(Charset.class, "forName|availableCharsets"))
+        .because("Charsets resolves windows-1252 and its aliases to Windows1252");
+  }
 
   /**
    * Field, parameter and return types, generic arguments included, name a collection interface

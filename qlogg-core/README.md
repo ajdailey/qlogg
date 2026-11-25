@@ -128,6 +128,8 @@ system's answers from `OsTraits.of(name)`.
 | `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
 | `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` ([portable mode](../qlogg-app/docs/settings.md#settings-directory)) |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |
+| `keepFileClosedByDefault` | true | false | false | `FollowSettings.defaults`: the `follow.keepClosed` default |
+| `watchServiceByDefault` | true | false | true | `MonitorSettings.defaults`: the `monitor.watchService` default |
 | `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
 
 `PlatformSetup` calls `confineHome` and `placeBrowserData` on every system

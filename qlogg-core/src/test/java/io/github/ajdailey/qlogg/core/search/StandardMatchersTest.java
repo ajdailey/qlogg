@@ -109,6 +109,22 @@ class StandardMatchersTest {
     }
   }
 
+  /** windows-1252's undefined bytes decode as C1 code points, so both search paths find them. */
+  @Test
+  void windows1252UndefinedBytesMatchAsC1() {
+    Charset charset = Charset.forName("windows-1252");
+    char[] c1 = {'\u0081', '\u008d', '\u008f', '\u0090', '\u009d'};
+    for (char c : c1) {
+      String line = "a" + c + "b";
+      String context = Integer.toHexString(c);
+      assertTrue(matches(query("" + c, MatchMode.LITERAL, true, false), charset, line), context);
+      assertTrue(matches(query("a" + c + "b", MatchMode.LITERAL, false, false), charset, line));
+      assertTrue(
+          matches(query("a\\x{" + context + "}b", MatchMode.REGEX, true, false), charset, line));
+      assertFalse(matches(query("\ufffd", MatchMode.LITERAL, true, false), charset, line), context);
+    }
+  }
+
   private static String encodable(String chars, Charset charset) {
     StringBuilder out = new StringBuilder();
     for (int i = 0; i < chars.length(); i++) {

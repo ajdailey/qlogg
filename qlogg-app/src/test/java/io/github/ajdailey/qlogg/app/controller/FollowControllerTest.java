@@ -143,7 +143,7 @@ class FollowControllerTest {
         open(Preferences.DEFAULTS.withFollow(new FollowSettings(true, true, false)), 30);
     assertTrue(document.following());
     Path other = fixture.lines("other.log", 5);
-    fixture.application.setFollowSettings(FollowSettings.DEFAULTS);
+    fixture.application.setFollowSettings(Preferences.DEFAULTS.follow());
     fixture.application.open(List.of(new FileRequest(other, 0)), true);
     fixture.runUntil(
         new BooleanSupplier() {

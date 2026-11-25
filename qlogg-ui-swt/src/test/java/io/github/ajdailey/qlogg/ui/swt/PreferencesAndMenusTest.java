@@ -37,6 +37,7 @@ import io.github.ajdailey.qlogg.core.model.FoldRules;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -487,6 +488,25 @@ class PreferencesAndMenusTest {
     assertTrue(dialog.apply());
     assertTrue(controller.preferences().follow().keepClosed());
     dialog.shell().dispose();
+  }
+
+  @Test
+  void theDialogShowsEachSystemsDefaults() {
+    String[] systems = {"Windows 11", "Mac OS X", "Linux"};
+    for (String name : systems) {
+      OsTraits os = OsTraits.of(name);
+      Path dir = temp.resolve(name.replace(' ', '-'));
+      Preferences defaults =
+          new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, dir), os).load();
+      controller.setFollowSettings(defaults.follow());
+      controller.setOptions(defaults.options());
+      PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+      dialog.open();
+      assertEquals(os.keepFileClosedByDefault(), dialog.keepClosed().getSelection(), name);
+      assertEquals(os.watchServiceByDefault(), dialog.watch().getSelection(), name);
+      assertEquals(Options.DEFAULT_ENCODING, dialog.encoding().getText(), name);
+      dialog.shell().dispose();
+    }
   }
 
   @Test

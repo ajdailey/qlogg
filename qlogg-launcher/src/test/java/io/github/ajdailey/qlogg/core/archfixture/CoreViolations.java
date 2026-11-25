@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.core.archfixture;
 
+import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,17 @@ final class CoreViolations {
 
     ArrayDeque<String> pending() {
       return new ArrayDeque<String>();
+    }
+  }
+
+  /** Looks a charset up without {@code Charsets}. */
+  static final class LooksUpCharsets {
+    Charset named(String name) {
+      return Charset.forName(name);
+    }
+
+    int count() {
+      return Charset.availableCharsets().size();
     }
   }
 }

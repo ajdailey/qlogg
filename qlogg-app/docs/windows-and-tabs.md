@@ -230,7 +230,7 @@ reload does, indexed again with the forced charset.
 
 `EncodingChoices.available()` computes the menu's lists once: the supported
 entries of `COMMON_NAMES` in order, then every other charset of
-`Charset.availableCharsets()` that can encode (`Options.supported`). That call
+`Charsets.available()` that can encode (`Options.supported`). That call
 takes 130 to 230 ms cold, so it runs on a worker:
 `ApplicationController.loadEncodingChoices` delivers the lists on the UI
 thread, at once when computed, else from a `qlogg-lifecycle-` worker.

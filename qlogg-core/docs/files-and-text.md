@@ -86,14 +86,20 @@ that matches:
 | BOM `EF BB BF`, `FF FE 00 00`, `00 00 FE FF`, `FF FE`, `FE FF`, checked in that order | UTF-8, UTF-32LE, UTF-32BE, UTF-16LE, UTF-16BE; the first line starts after the BOM. A UTF-16LE file whose first char is U+0000 reads as UTF-32LE |
 | At least 30% zero bytes at odd offsets and under 5% at even ones (or the reverse) | UTF-16LE (or UTF-16BE) |
 | Valid UTF-8; a sequence cut off by the end of the sample counts as valid | UTF-8 |
-| None | The fallback charset; ISO-8859-1 maps every byte to a char |
+| None | The fallback charset the caller passes |
 
 `EncodingDetector.forced` applies a charset the user chose and skips that
 charset's own BOM. A BOM-sensing `UTF-16` or `UTF-32` follows the BOM's byte
 order; for a forced UTF-16 charset only the 2-byte BOMs count.
 
 `TextEncoding` derives the LF unit width (1, 2 for UTF-16, 4 for UTF-32) from
-the charset and reads `UTF-16` and `UTF-32` as big-endian.
+the charset and reads `UTF-16` and `UTF-32` as big-endian. It replaces any
+charset named `windows-1252` with `Windows1252`, as `Charsets.forName` and
+`Charsets.available`, the only charset lookups, do for that name and each of
+its aliases. `Windows1252` decodes the five bytes the JDK leaves undefined
+(0x81, 0x8D, 0x8F, 0x90, 0x9D) as the C1 code point of the same value, as the
+WHATWG Encoding Standard does, and encodes them back, so every byte decodes to
+one char and search patterns encode to the file's bytes.
 
 ## Line decoding
 

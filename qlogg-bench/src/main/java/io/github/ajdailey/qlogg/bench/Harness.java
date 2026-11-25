@@ -44,6 +44,7 @@ import io.github.ajdailey.qlogg.core.time.TimeContext;
 import io.github.ajdailey.qlogg.core.time.TimeReader;
 import io.github.ajdailey.qlogg.core.time.TimeSamples;
 import io.github.ajdailey.qlogg.core.time.TimeSearch;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
@@ -956,7 +957,7 @@ public final class Harness {
           @Override
           public void closed() {}
         });
-    FileMonitor monitor = new FileMonitor(workers, MonitorSettings.DEFAULTS);
+    FileMonitor monitor = new FileMonitor(workers, MonitorSettings.defaults(OsTraits.current()));
     try {
       document.startIndexing();
       first.await(1, TimeUnit.MINUTES);
