@@ -54,7 +54,7 @@ jobs:
         shell: cmd
         run: mvnw.cmd -B verify
 
-  # The SWT tests on the experimental GTK 4 backend. Tests that hit a known
+  # The SWT and distribution tests on the experimental GTK 4 backend. Tests that hit a known
   # GTK 4 defect skip themselves under SWT_GTK4=1 (ui-swt test class Gtk4).
   test-gtk4:
     name: test linux-x86_64 GTK 4 (experimental)
@@ -79,8 +79,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgtk-4-1
-      - name: Verify the SWT modules
-        run: xvfb-run -a ./mvnw -B verify -pl qlogg-ui-swt,qlogg-launcher -am
+      - name: Verify the SWT modules and the distribution
+        run: xvfb-run -a ./mvnw -B verify -pl qlogg-ui-swt,qlogg-launcher,qlogg-dist -am
 
   # The seven archives and the SBOM; qlogg-dist builds the archives on x86-64
   # Linux only. The JDK archives and rcodesign have their own cache, keyed on
