@@ -12,7 +12,7 @@ every indexed line), and adds the matching line numbers to a `MutableLineSet`
 in ascending order.
 
 A coordinator on a `qlogg-search-` virtual thread cuts the range into chunks
-of whole lines (10,000 lines or 4 MiB, whichever comes first; a longer line is
+of whole lines (10,000 lines or 2 MiB, whichever comes first; a longer line is
 a chunk of its own), reads each chunk in one positional read and submits it to
 the CPU pool. A worker splits its chunk at LF units, drops a trailing CR from
 each line and matches it. The coordinator merges results in chunk order, so

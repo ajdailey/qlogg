@@ -12,8 +12,8 @@ import io.github.ajdailey.qlogg.core.util.Checks;
  * @param budget read buffers reserve from its {@code IO_BUFFERS} share
  */
 public record IndexSettings(int blockBytes, int maxBlocksInFlight, MemoryBudget budget) {
-  /** Default read size: 4 MiB. */
-  public static final int DEFAULT_BLOCK_BYTES = 4 * 1024 * 1024;
+  /** Default read size: 2 MiB. */
+  public static final int DEFAULT_BLOCK_BYTES = 2 * 1024 * 1024;
 
   /** Checks the components. */
   public IndexSettings {
@@ -24,7 +24,7 @@ public record IndexSettings(int blockBytes, int maxBlocksInFlight, MemoryBudget 
   }
 
   /**
-   * Returns the defaults: 4 MiB blocks, two blocks in flight per CPU thread.
+   * Returns the defaults: 2 MiB blocks, two blocks in flight per CPU thread.
    *
    * @param cpuThreads the CPU pool size
    * @param budget the memory budget

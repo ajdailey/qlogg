@@ -101,7 +101,7 @@ public final class FolderSearch {
   private static final long PUBLISH_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
   private static final int FILL_LINES = 4096;
 
-  /** Block size of the run's own indexer, a quarter of the default to keep its pool small. */
+  /** Block size of the run's own indexer, half the default to keep its pool small. */
   public static final int INDEX_BLOCK_BYTES = 1024 * 1024;
 
   /** Block size of the run's own read cache for listed lines. */

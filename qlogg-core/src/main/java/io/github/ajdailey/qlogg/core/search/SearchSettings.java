@@ -18,8 +18,8 @@ public record SearchSettings(
   /** Default lines per chunk. */
   public static final int DEFAULT_CHUNK_LINES = 10_000;
 
-  /** Default bytes per chunk: 4 MiB. */
-  public static final int DEFAULT_CHUNK_BYTES = 4 * 1024 * 1024;
+  /** Default bytes per chunk: 2 MiB. */
+  public static final int DEFAULT_CHUNK_BYTES = 2 * 1024 * 1024;
 
   /** Checks the components. */
   public SearchSettings {
@@ -33,7 +33,7 @@ public record SearchSettings(
   }
 
   /**
-   * Returns the defaults: 10,000 lines or 4 MiB per chunk, three chunks in flight per CPU thread,
+   * Returns the defaults: 10,000 lines or 2 MiB per chunk, three chunks in flight per CPU thread,
    * no result limit.
    *
    * @param cpuThreads the CPU pool size

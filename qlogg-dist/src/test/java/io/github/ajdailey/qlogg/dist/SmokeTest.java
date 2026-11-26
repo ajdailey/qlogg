@@ -342,6 +342,7 @@ class SmokeTest {
         List.of(
             "SWT_GTK4=1",
             "arg -XX:MaxRAMPercentage=50",
+            "arg -Xms64m",
             "arg -XX:GCTimeRatio=1",
             "arg -jar",
             "arg " + home.toRealPath().resolve("lib").resolve("qlogg.jar"),

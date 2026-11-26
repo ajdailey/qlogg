@@ -203,6 +203,7 @@
                                 <requires64Bit>true</requires64Bit>
                                 <opts>
                                     <opt>-XX:MaxRAMPercentage=50</opt>
+                                    <opt>-Xms64m</opt>
                                     <opt>-XX:GCTimeRatio=1</opt>
                                 </opts>
                             </jre>
