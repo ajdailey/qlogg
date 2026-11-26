@@ -50,7 +50,7 @@ context line, then the current line, then the whole-line highlight), the span
 backgrounds, the selection, the text in the line's color, the text again
 clipped to each token's columns outside every highlight span in the token's
 `PaletteColors.token` color, to each span with a text color and to the
-selection, then the whitespace markers. A row with a whole-line highlight color
+selection, then the control boxes and the whitespace markers. A row with a whole-line highlight color
 paints no token, and a span without a text color shows `text` over a token:
 token colors meet 4.5:1 only on the palette's own grounds. A translucent color
 is blended over the color under it.
@@ -75,12 +75,36 @@ font of the run they join, so the prefix measures wider than in the row.
 - `GC.setTextAntialias` does not reach a `TextLayout` on GTK, so forced
   anti-aliasing applies to printable-ASCII rows only.
 
+### Control boxes
+
+`ControlBoxes` draws each control char (`ControlChars.boxed`: C0 except tab,
+DEL, C1) as its two uppercase hex digits (`ControlChars.label`) in a box over
+its two columns; the row text holds two spaces there and the char is in
+`LineBlock.controls`. The drawing is the same on every platform, so the
+toolkit never draws a control char: Windows and macOS draw none, with no
+width.
+
+- Outline: 1 px, from the left edge of the first column to the pixel before
+  the third column, 1 px below the row's top to 2 px above its bottom. A box
+  cut by the row's first or last shown column has no outline on that side.
+- Digits: at the first column's x on the text baseline. On a row drawn on the
+  grid, the digits of every box in the row's own color are one
+  `GC.drawString`: a call per box makes a screen of boxes paint 2.5 times as
+  long on GTK 3. A box in a span or the selection, or on a laid-out row, draws
+  its own digits, clipped to its shown columns.
+- Color: the text color of the box's first shown column (selection text, a
+  span's text color, the line's text color or the palette's) blended over that
+  column's ground at `ControlBoxes.ALPHA` (`0xA6`, 65%): 4.6:1 on the light
+  palette's background, 5.6:1 on the dark.
+- Copy, save, export and search use the char; a highlight or search span over
+  it covers both columns. With Hide ANSI Colors on, a removed ESC has no box.
+
 ### Whitespace markers
 
 With whitespace markers on, a tab's first cell shows an arrow, a trailing space
-a dot and a lone CR a left arrow, each inside its cell. After the line's last
-column an LF shows as a corner and a CRLF as a left arrow and a corner. Only
-lines whose end lies in the read window get the end marker.
+a dot and a lone CR a left arrow in the first of its two cells, with no box.
+After the line's last column an LF shows as a corner and a CRLF as a left arrow
+and a corner. Only lines whose end lies in the read window get the end marker.
 
 ### Resources
 

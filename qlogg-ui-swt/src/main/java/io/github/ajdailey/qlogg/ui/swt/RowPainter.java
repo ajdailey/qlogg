@@ -23,9 +23,10 @@ import org.eclipse.swt.graphics.TextLayout;
  * each segment of a line. A row paints its background (base or context shade, current line, then
  * the whole-line highlight), the span backgrounds and the selection, the text in the line's color,
  * then the text again clipped to each syntax-color token outside every highlight span, to each span
- * with a text color and to the selection, then the whitespace markers. A row with a whole-line
- * highlight color paints no token: token colors meet their contrast floor on the palette's own
- * grounds only. A translucent color is blended over the color under it.
+ * with a text color and to the selection, then the control boxes ({@link ControlBoxes}) and the
+ * whitespace markers. A row with a whole-line highlight color paints no token: token colors meet
+ * their contrast floor on the palette's own grounds only. A translucent color is blended over the
+ * color under it.
  *
  * <p>Column {@code c} of a printable-ASCII row sits on the {@link TextGrid}, and the row is drawn
  * with {@code GC.drawString}. Any other row is laid out in a {@link TextLayout}, which also draws
@@ -105,8 +106,8 @@ final class RowPainter {
     }
   }
 
-  /** Chars a {@code TextLayout} breaks a line at; laid out as spaces so the row stays one line. */
-  private static final String BREAKS = "\n\r\u000b\u000c\u001c\u001d\u001e\u0085  ";
+  /** Separators a {@code TextLayout} breaks at; laid out as spaces so the row stays one line. */
+  private static final String BREAKS = "\u2028\u2029";
 
   /** Marks a column table entry not yet read from the layout. */
   private static final int UNREAD = Integer.MIN_VALUE;
@@ -279,6 +280,11 @@ final class RowPainter {
         drawPart();
       }
       gc.setClipping((Rectangle) null);
+    }
+    String controls = text == null ? null : block.controls(row.line());
+    if (controls != null) {
+      ControlBoxes.paint(
+          gc, colors, grid, row, text, controls, spans, under, laid == null, this::columnX);
     }
     if (text != null) {
       paintMarkers(colors, text);

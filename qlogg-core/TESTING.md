@@ -31,6 +31,7 @@ overview: [qlogg-core](README.md).
 | `Windows1252Test` | All 256 bytes decoding to one char each with no U+FFFD, the five undefined bytes as C1 code points and the rest as the JDK charset, every byte round-tripping through the encoder; chars outside the charset not encoding; `TextEncoding` substituting it for the JDK charset; the detector's fallback decoding a line with all five bytes; `Charsets` resolving the name and every JDK alias to it and other names as the JDK does |
 | `PathAtCaretTest` | Runs stopping at spaces and punctuation, quoted paths with spaces, `:line` and `:line:column` split off (a non-number or a number past `int` kept), drives and UNC paths kept whole, a Java frame's file name and line, URLs marked |
 | `LogTextTest` | `oneLine` replacing every line break and control character, a forged log entry kept on one line, the `MAX_CHARS` cap, null written as `null` |
+| `ControlCharsTest` | `boxed` over every char: C0 except tab, DEL and C1; two-digit uppercase labels; the five undefined windows-1252 bytes decoding to boxed chars; `LineReader.advance` giving a boxed char two columns and a tab its stop |
 
 Regression cases:
 
@@ -166,6 +167,7 @@ missing.
 |---|---|
 | `FoldMapTest` | `rowOf` and `lineAt` against hand-computed rows on both sides of two entries, refusal of overlapping and one-line entries, cursor snapshots, the `FOLDS` charge up to a full share and back to 0 |
 | `ViewFeaturesReadTest` | `FoldClassifier` over a stack trace from inside an entry and with an entry-start rule, a backtracking rule ending on cancel, a continuation rule overflowing the stack on a 400,000-char line finding no match, an entry-start rule that reaches its bound or overflows starting an entry; block columns through a tab; window, copy, block and marked-row edges after a surrogate pair; whitespace markers with CRLF, a lone CR and a last line without LF; hidden ANSI colors in reads and copy; no tokens on a row with a highlighter line color |
+| `ControlBoxReadTest` | Control chars read as two spaces each with the box in `LineBlock.controls`, in `read` and `readRows`, and no cells for a row without one; a window edge inside a box keeping the shown half; copy and block copy returning the char, with columns after a box counting two; a highlight covering both columns; with Hide ANSI Colors on a removed ESC having no box and another escape keeping its; with markers a lone CR showing its marker and no box |
 | `AnsiSearchTest` | A literal search with `hideAnsi` matches across removed sequences, which a byte search would miss |
 
 ## Timestamps

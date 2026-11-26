@@ -91,6 +91,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `LineViewControllerTest` | A scroll while a read is in flight ending on a block at the new top; a block whose spans the `HIGHLIGHT` share refuses shown without them, and with them once the share has room |
 | `ExportCancelTest` | Tab close and `Esc` canceling a copy or save held at a gated row: the `COPY` and `LINE_INDEX` reservations returned, no file left; a second copy while one runs showing a notice, and copy running after `Esc` |
 | `WordSelectionTest` | `selectWordAt`: the word around a position or the one before it, and positions that select nothing |
+| `ControlBoxSelectionTest` | A selection across a control box copying the original char, the columns after it counting two, and a double click stopping at the box |
 
 ## Follow, reload and remembered state
 

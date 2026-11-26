@@ -581,6 +581,10 @@ line in place; the chevron on its first row, or `W` again, unwraps it. Each
 view wraps one line at a time. Text wrap and a reload unwrap it, and a new
 search unwraps the filtered view's.
 
+Both views show a control character (any below a space except tab, DEL, and
+0x80 to 0x9F) as its hex code in a small box, such as `1B` for escape, two
+columns wide. Copy, save and search keep the character itself.
+
 ### View colors
 
 Tools > Preferences, View, View colors picks the colors of the log views,

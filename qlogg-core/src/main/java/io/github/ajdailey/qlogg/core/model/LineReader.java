@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.text.AnsiCodes;
+import io.github.ajdailey.qlogg.core.text.ControlChars;
 import io.github.ajdailey.qlogg.core.text.LineDecoder;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import java.io.IOException;
@@ -15,8 +16,9 @@ import java.util.function.BooleanSupplier;
  * Reads and decodes lines of one document through the block cache. Only the first {@link
  * #MAX_LINE_BYTES} of a line are read, so a longer line shows and copies its first MiB. Display
  * columns count each char as one column, except a tab, which advances to the next multiple of
- * {@link #TAB_WIDTH}, and the low half of a surrogate pair, which takes none. A column window or
- * selection keeps or drops a surrogate pair whole.
+ * {@link #TAB_WIDTH}, a {@link ControlChars#boxed} char, which takes {@link ControlChars#WIDTH},
+ * and the low half of a surrogate pair, which takes none. A column window or selection keeps or
+ * drops a surrogate pair whole.
  *
  * <p>While {@code hideAnsi} reports true, ANSI SGR color sequences are removed at decode ({@link
  * AnsiCodes}), so display, copy, highlighting and columns all see the stripped text.
@@ -40,6 +42,7 @@ public final class LineReader {
   private final BooleanSupplier hideAnsi;
   private ByteBuffer bytes = ByteBuffer.allocate(INITIAL_BYTES);
   private CharBuffer chars = CharBuffer.allocate(INITIAL_BYTES);
+  private final ControlCells cells = new ControlCells();
 
   LineReader(ByteSource source, BlockCache cache, TextEncoding encoding) {
     this(
@@ -73,6 +76,9 @@ public final class LineReader {
     if (c == '\t') {
       return (column / TAB_WIDTH + 1) * TAB_WIDTH;
     }
+    if (ControlChars.boxed(c)) {
+      return column + ControlChars.WIDTH;
+    }
     return Character.isLowSurrogate(c) ? column : column + 1;
   }
 
@@ -93,12 +99,15 @@ public final class LineReader {
     int n = (int) Math.min(Math.max(0, count), available);
     String[] lines = new String[n];
     long[] widths = new long[n];
+    String[] controls = new String[n];
     StringBuilder out = new StringBuilder();
     for (int i = 0; i < n; i++) {
-      widths[i] = cut(decode(index, first + i), firstColumn, firstColumn + columns, out);
+      widths[i] = cut(decode(index, first + i), firstColumn, firstColumn + columns, out, cells);
       lines[i] = out.toString();
+      controls[i] = cells.take(out.length());
     }
-    return new LineBlock(first, firstColumn, columns, lines, widths, null, null);
+    return new LineBlock(
+        first, firstColumn, columns, lines, widths, null, null, null, null, null, controls);
   }
 
   /**
@@ -215,6 +224,7 @@ public final class LineReader {
     TokenSpans[] kinds = tokens == null ? null : new TokenSpans[n];
     String[] whitespace = markers ? new String[n] : null;
     byte[] terminators = markers ? new byte[n] : null;
+    String[] controls = new String[n];
     StringBuilder out = new StringBuilder();
     StringBuilder marks = markers ? new StringBuilder() : null;
     for (int i = 0; i < n; i++) {
@@ -228,12 +238,13 @@ public final class LineReader {
       }
       if (markers) {
         terminators[i] = (byte) terminator(index, sourceLines[i]).ordinal();
-        widths[i] = cutMarked(text, firstColumn, firstColumn + columns, out, marks);
+        widths[i] = cutMarked(text, firstColumn, firstColumn + columns, out, marks, cells);
         whitespace[i] = marks.toString();
       } else {
-        widths[i] = cut(text, firstColumn, firstColumn + columns, out);
+        widths[i] = cut(text, firstColumn, firstColumn + columns, out, cells);
       }
       lines[i] = out.toString();
+      controls[i] = cells.take(out.length());
     }
     return new LineBlock(
         firstRow,
@@ -245,7 +256,8 @@ public final class LineReader {
         spans,
         kinds,
         whitespace,
-        terminators);
+        terminators,
+        controls);
   }
 
   private static boolean lineColored(HighlightSpans spans) {
@@ -265,9 +277,14 @@ public final class LineReader {
     return decode(index, line);
   }
 
-  /** Puts the window {@code [from, to)} of a line into out; returns the line's width. */
-  private static long cut(CharBuffer text, long from, long to, StringBuilder out) {
+  /**
+   * Puts the window {@code [from, to)} of a line into out and its boxes into cells; returns the
+   * line's width.
+   */
+  private static long cut(
+      CharBuffer text, long from, long to, StringBuilder out, ControlCells cells) {
     out.setLength(0);
+    cells.reset();
     long column = 0;
     for (int k = text.position(); k < text.limit(); k++) {
       char c = text.get(k);
@@ -276,6 +293,8 @@ public final class LineReader {
         for (long s = Math.max(column, from); s < Math.min(next, to); s++) {
           out.append(' ');
         }
+      } else if (ControlChars.boxed(c)) {
+        cells.box(out, c, column, from, to);
       } else {
         long at = charColumn(text, k, column);
         if (at >= from && at < to) {
@@ -307,11 +326,20 @@ public final class LineReader {
     return decoder.droppedCarriageReturn() ? LineTerminator.CRLF : LineTerminator.LF;
   }
 
-  /** As {@link #cut}, and puts one whitespace marker per char put into out into marks. */
+  /**
+   * As {@link #cut}, and puts one whitespace marker per char put into out into marks. A lone CR
+   * shows its marker in its first column instead of a box.
+   */
   private static long cutMarked(
-      CharBuffer text, long from, long to, StringBuilder out, StringBuilder marks) {
+      CharBuffer text,
+      long from,
+      long to,
+      StringBuilder out,
+      StringBuilder marks,
+      ControlCells cells) {
     out.setLength(0);
     marks.setLength(0);
+    cells.reset();
     int trailing = text.limit();
     while (trailing > text.position()
         && (text.get(trailing - 1) == ' ' || text.get(trailing - 1) == '\t')) {
@@ -326,16 +354,21 @@ public final class LineReader {
           out.append(' ');
           marks.append(s == column ? LineBlock.TAB_MARK : ' ');
         }
+      } else if (c == '\r') {
+        for (long s = Math.max(column, from); s < Math.min(next, to); s++) {
+          out.append(' ');
+          marks.append(s == column ? LineBlock.CR_MARK : ' ');
+        }
+      } else if (ControlChars.boxed(c)) {
+        cells.box(out, c, column, from, to);
+        while (marks.length() < out.length()) {
+          marks.append(' ');
+        }
       } else {
         long at = charColumn(text, k, column);
         if (at >= from && at < to) {
-          if (c == '\r') {
-            out.append(' ');
-            marks.append(LineBlock.CR_MARK);
-          } else {
-            out.append(c);
-            marks.append(c == ' ' && k >= trailing ? LineBlock.SPACE_MARK : ' ');
-          }
+          out.append(c);
+          marks.append(c == ' ' && k >= trailing ? LineBlock.SPACE_MARK : ' ');
         }
       }
       column = next;

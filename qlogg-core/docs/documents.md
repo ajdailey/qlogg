@@ -121,15 +121,16 @@ and copies its first MiB.
 
 | Method | Returns |
 |---|---|
-| `read(index, first, count, firstColumn, columns)` | A `LineBlock`: each line cut to the display columns `[firstColumn, firstColumn + columns)`, tabs expanded to spaces, a trailing CR dropped, plus each line's full display width. Decoded text is bounded by the window, not by the line |
+| `read(index, first, count, firstColumn, columns)` | A `LineBlock`: each line cut to the display columns `[firstColumn, firstColumn + columns)`, tabs expanded to spaces, a control char as a space per column with its box in `LineBlock.controls`, a trailing CR dropped, plus each line's full display width. Decoded text is bounded by the window, not by the line |
 | `readRows(index, firstRow, lines, count, firstColumn, columns, highlights)` | Listed lines as consecutive rows; `LineBlock.sourceLine(row)` gives each row's line. With a `Highlighter.LineMatcher` it colors each row from the whole decoded line (`LineBlock.spans(row)`). The views read through it |
 | `readRows(..., highlights, tokens, markers)` | With a `LogTokens.LineMatcher` it also tokenizes each row whose highlight has no line color (`LineBlock.tokens(row)`) from the line after Hide ANSI Colors strips it; without one, or with `readRows(..., highlights, markers)`, a row has no tokens |
-| `readRows(..., highlights, markers)` | Also one whitespace marker per char (`LineBlock.whitespace`: tab start, trailing space, lone CR, which then shows as a space) and the line end (`LineBlock.terminator`: `LF`, `CRLF`, or `NONE` for a last line without LF, from `LineDecoder.droppedCarriageReturn()`) |
+| `readRows(..., highlights, markers)` | Also one whitespace marker per char (`LineBlock.whitespace`: tab start, trailing space, lone CR, which then shows as two spaces with its marker in the first and no box) and the line end (`LineBlock.terminator`: `LF`, `CRLF`, or `NONE` for a last line without LF, from `LineDecoder.droppedCarriageReturn()`) |
 | `appendText(index, line, fromColumn, toColumn, out)` | Appends the chars whose display column lies in the range, tabs kept, for copy |
 | `appendColumns(index, line, fromColumn, toColumn, out)` | The same for a block selection, but a tab partly inside the range becomes one space per covered column. Nothing is padded |
 | `decodedLine(index, line)` | The decoded line, tabs kept, valid until the next call; quick find matches on it |
 
-- Display columns: one per char, a tab advances to the next multiple of 8, and
+- Display columns: one per char, a tab advances to the next multiple of 8, a
+  control char (`ControlChars.boxed`: C0 except tab, DEL, C1) takes two, and
   the low half of a surrogate pair takes none. A window or selection edge
   keeps or drops a surrogate pair whole.
 - A lookup in a sparse index reads the file and can throw

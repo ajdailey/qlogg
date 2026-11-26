@@ -1,11 +1,14 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.text.ControlChars;
+
 /**
  * Decoded text of consecutive rows, cut to a column window, for display. Each row holds the display
- * columns {@code [firstColumn, firstColumn + columns)} with tabs expanded to spaces and a trailing
- * CR dropped, so its text is bounded by the window rather than by the line. In the main view row n
- * is line n; in the filtered view {@link #sourceLine} gives each row's document line. Immutable, so
- * a worker can build one and publish it to the UI thread.
+ * columns {@code [firstColumn, firstColumn + columns)} with tabs expanded to spaces, a {@link
+ * ControlChars#boxed} char as a space per column (its box in {@link #controls}) and a trailing CR
+ * dropped, so its text is bounded by the window rather than by the line. In the main view row n is
+ * line n; in the filtered view {@link #sourceLine} gives each row's document line. Immutable, so a
+ * worker can build one and publish it to the UI thread.
  */
 public final class LineBlock {
   /** A block of no lines. */
@@ -21,6 +24,9 @@ public final class LineBlock {
   /** Marker of a lone CR, shown as a space, in {@link #whitespace}. */
   public static final char CR_MARK = 'R';
 
+  /** Added to a boxed char in the second column of its box in {@link #controls}. */
+  public static final char SECOND_CELL = 0x100;
+
   private final long firstLine;
   private final long firstColumn;
   private final int columns;
@@ -31,6 +37,7 @@ public final class LineBlock {
   private final TokenSpans[] tokens;
   private final String[] whitespace;
   private final byte[] terminators;
+  private final String[] controls;
 
   /**
    * Creates a block; the arrays are kept, not copied.
@@ -79,6 +86,48 @@ public final class LineBlock {
       TokenSpans[] tokens,
       String[] whitespace,
       byte[] terminators) {
+    this(
+        firstLine,
+        firstColumn,
+        columns,
+        lines,
+        widths,
+        sourceLines,
+        spans,
+        tokens,
+        whitespace,
+        terminators,
+        null);
+  }
+
+  /**
+   * Creates a block with tokens, whitespace markers and control boxes; the arrays are kept, not
+   * copied.
+   *
+   * @param firstLine row of the first entry
+   * @param firstColumn first display column held
+   * @param columns width of the window
+   * @param lines the cut text of each row
+   * @param widths the full display width of each row, in columns
+   * @param sourceLines the document line of each row, or null when row n is line n
+   * @param spans the highlight of each row, or null for none
+   * @param tokens the syntax-color tokens of each row, or null for none
+   * @param whitespace per row, one marker per char of its text, or null for none
+   * @param terminators per row, a {@link LineTerminator} ordinal, or null with no markers
+   * @param controls per row, the {@link #controls} cells, or null for none
+   */
+  LineBlock(
+      long firstLine,
+      long firstColumn,
+      int columns,
+      String[] lines,
+      long[] widths,
+      long[] sourceLines,
+      HighlightSpans[] spans,
+      TokenSpans[] tokens,
+      String[] whitespace,
+      byte[] terminators,
+      String[] controls) {
     this.firstLine = firstLine;
     this.firstColumn = firstColumn;
     this.columns = columns;
@@ -89,6 +138,20 @@ public final class LineBlock {
     this.tokens = tokens;
     this.whitespace = whitespace;
     this.terminators = terminators;
+    this.controls = controls;
+  }
+
+  /**
+   * Returns a held row's control boxes: one char per char of {@link #text}, a space where the text
+   * shows its own char, the boxed char in the first column of its box and the char plus {@link
+   * #SECOND_CELL} in the second.
+   *
+   * @param line a row that {@link #contains}
+   * @return the cells, or null when the row shows no box
+   */
+  public String controls(long line) {
+    int i = index(line);
+    return controls == null ? null : controls[i];
   }
 
   /**
@@ -176,7 +239,8 @@ public final class LineBlock {
             null,
             null,
             whitespace,
-            terminators);
+            terminators,
+            controls);
   }
 
   /**

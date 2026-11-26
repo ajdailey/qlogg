@@ -222,8 +222,8 @@ class QuickFindControllerTest {
     quickFind.setText("a.b|x.y");
     quickFind.submit();
     fixture.runUntilIdle();
-    assertEquals(range(1, 0, 3), nel.selection());
+    assertEquals(range(1, 0, 4), nel.selection());
     execute(CommandId.FIND_NEXT);
-    assertEquals(range(2, 0, 3), nel.selection());
+    assertEquals(range(2, 0, 4), nel.selection());
   }
 }

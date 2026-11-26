@@ -175,7 +175,8 @@ class LogDocumentTest {
       assertEquals(4, block.count());
       assertEquals("a       b", block.text(0));
       assertEquals(9, block.width(0));
-      assertEquals("lone\rcr", block.text(1));
+      assertEquals("lone  cr", block.text(1));
+      assertEquals("    \r" + (char) ('\r' + LineBlock.SECOND_CELL) + "  ", block.controls(1));
       assertEquals("        x", block.text(2));
       assertEquals("last", block.text(3));
       assertFalse(block.contains(4));

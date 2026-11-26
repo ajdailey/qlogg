@@ -194,17 +194,20 @@ xvfb-run -a ./mvnw -pl qlogg-ui-swt -am test -Dtest=FolderWindowProbe \
 
 ## Row paint time
 
-`RowPaintProbe` in `qlogg-ui-swt` writes two 2,000-line files of about 150
-columns, one ASCII and one whose lines start with CJK, Hangul, fullwidth and
-combining characters, opens each in the main window (1100 x 700) and repaints
-the first screen 500 times. `RowPainter` draws an ASCII row as a string and
-lays out a non-ASCII row in a `TextLayout`. The non-ASCII screen is timed
-again with highlight spans and a selection (`nonAsciiSpans`), then with
+`RowPaintProbe` in `qlogg-ui-swt` writes three 2,000-line files of about 150
+columns, one ASCII, one whose lines start with CJK, Hangul, fullwidth and
+combining characters, and one with four control characters after every word
+(`controls`, drawn as boxes), opens each in the main window (1100 x 700) and
+repaints the first screen 500 times. `RowPainter` draws an ASCII row as a
+string and lays out a non-ASCII row in a `TextLayout`. The non-ASCII screen is
+timed again with highlight spans and a selection (`nonAsciiSpans`), then with
 whitespace markers as well (`nonAsciiMarked`). Each non-ASCII case is also
 timed scrolling a screen down or up per frame (`...Scroll`), so every row is
-laid out afresh; the repaint cases reuse the last paint's layouts. It prints
-the paint time per frame (p50, p90, p99, max, mean) for each case and the
-ratio of the non-ASCII to the ASCII mean. It runs only when
+laid out afresh; the repaint cases reuse the last paint's layouts. The
+control-character screen is timed still and scrolling (`controlsScroll`). It
+prints the paint time per frame (p50, p90, p99, max, mean) for each case and
+the ratios of the non-ASCII and the control-character mean to the ASCII
+mean. It runs only when
 `qlogg.bench.rowPaint` is `true`; `-Dqlogg.shots=<dir>` also writes the
 window after each case as `rows-<case>.png` (not under GTK 4, where
 `Control.print` draws nothing). A run can outlast the test hang

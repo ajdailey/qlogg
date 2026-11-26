@@ -56,7 +56,8 @@ import org.junit.jupiter.api.io.TempDir;
  * window (1100 x 700) and its first screen repainted {@value #FRAMES} times; a frame is the
  * canvas's own paint listeners alone. The non-ASCII screen is timed again with highlight spans and
  * a selection, then with whitespace markers as well; each non-ASCII case is also timed scrolling a
- * screen per frame, so no row repeats from the paint before. Prints the results on standard output.
+ * screen per frame, so no row repeats from the paint before. A screen of rows holding control chars
+ * ({@link #CONTROLS}) is timed still and scrolling. Prints the results on standard output.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.bench.rowPaint", matches = "true")
@@ -67,6 +68,9 @@ class RowPaintProbe {
 
   /** CJK ideographs, Hangul, fullwidth Latin and e/a with combining acute and diaeresis. */
   private static final String WIDE = "日本語のログ 한국어 ＡＢＣ１２ café näive ";
+
+  /** Control chars drawn as boxes: SOH, ESC, DEL and NEL, then a space. */
+  private static final String CONTROLS = "\u0001\u001b\u007f\u0085 ";
 
   /** Colored on every line of the marked screen. */
   private static final String SPANNED = "mock";
@@ -84,8 +88,9 @@ class RowPaintProbe {
 
   @Test
   void paint() throws Exception {
-    Path ascii = write("ascii.log", false);
-    Path wide = write("wide.log", true);
+    Path ascii = write("ascii.log", "", "");
+    Path wide = write("wide.log", WIDE, "");
+    Path controls = write("controls.log", "", CONTROLS);
     Display display = new Display();
     Workers workers =
         new Workers(
@@ -127,8 +132,13 @@ class RowPaintProbe {
       double wideMean = measure(display, window, controller, wide, "nonAscii", true);
       time(display, window, controller.activeDocument(), "nonAsciiScroll", true);
       measureMarked(display, window, controller);
+      double controlsMean = measure(display, window, controller, controls, "controls", false);
+      time(display, window, controller.activeDocument(), "controlsScroll", true);
       System.out.println(
           String.format(Locale.ROOT, "probe.rowPaint.ratio=%.2f", wideMean / asciiMean));
+      System.out.println(
+          String.format(
+              Locale.ROOT, "probe.rowPaint.controlsRatio=%.2f", controlsMean / asciiMean));
     } finally {
       controller.shutdown();
       final MainWindow closing = window;
@@ -146,18 +156,16 @@ class RowPaintProbe {
     }
   }
 
-  /** Lines of about 150 columns; with {@code wide}, each starts with {@link #WIDE}. */
-  private Path write(String name, boolean wide) throws IOException {
+  /** Lines of about 150 chars, each {@code lead} then words, each word followed by {@code each}. */
+  private Path write(String name, String lead, String each) throws IOException {
     Path file = temp.resolve(name);
     try (Writer out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
       for (int i = 0; i < LINES; i++) {
         StringBuilder line = new StringBuilder();
         line.append(String.format(Locale.ROOT, "2026-11-04 10:00:%02d.%03d INFO ", i % 60, i));
-        if (wide) {
-          line.append(WIDE);
-        }
+        line.append(lead);
         while (line.length() < 150) {
-          line.append("mock record ").append(i).append(' ');
+          line.append("mock record ").append(i).append(' ').append(each);
         }
         out.write(line.toString());
         out.write('\n');

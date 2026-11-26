@@ -289,8 +289,8 @@ class ViewFeaturesReadTest {
     assertEquals("a       b  ", block.text(0));
     assertEquals(" T       SS", block.whitespace(0));
     assertEquals(LineTerminator.CRLF, block.terminator(0));
-    assertEquals("x y", block.text(1));
-    assertEquals(" R ", block.whitespace(1));
+    assertEquals("x  y", block.text(1));
+    assertEquals(" R  ", block.whitespace(1));
     assertEquals(LineTerminator.LF, block.terminator(1));
     assertEquals(LineTerminator.NONE, block.terminator(2));
     LineBlock plain = reader.readRows(document.index(), 0, new long[] {0}, 1, 0, 40, null);
