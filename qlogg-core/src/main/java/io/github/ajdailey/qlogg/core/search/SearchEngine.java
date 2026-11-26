@@ -54,8 +54,9 @@ import java.util.regex.PatternSyntaxException;
  *
  * <p>A restricted search ({@link SearchQuery#restriction}) tests member lines only. A chunk starts
  * at a member and ends at the last member that keeps it within {@code chunkLines} lines and {@code
- * chunkBytes} bytes, so a gap of {@code chunkLines} lines or more is never read; the worker walks
- * the chunk's lines at LF and tests the members.
+ * chunkBytes} bytes, or before a member that starts more than {@code gapBytes} after the previous
+ * member's end; such a gap is never read. The worker walks the chunk's lines at LF and tests the
+ * members.
  *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
  * {@link PatternTooComplexException} naming that line; the pool thread survives.
@@ -273,7 +274,7 @@ public final class SearchEngine {
       this.lineFeed = encoding.lineFeed();
       this.carriageReturn = encoding.carriageReturn();
       this.open = query.rangeOpen();
-      this.tested = SearchedLines.of(query);
+      this.tested = SearchedLines.of(query, index, settings.gapBytes());
       this.last = tested.last(end);
     }
 

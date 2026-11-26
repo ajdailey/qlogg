@@ -31,11 +31,14 @@ those lines: a range opens and closes on members, and `inverse` returns the
 non-matching members. The results are a subset of the set.
 
 - A chunk starts at the next member and ends at the last member that keeps it
-  within `chunkLines` lines and `chunkBytes` bytes, so a gap of `chunkLines`
-  lines or more is not read. Bytes read are at most a full search's.
+  within `chunkLines` lines and `chunkBytes` bytes. It also ends before a
+  member whose start is more than `SearchSettings.gapBytes` (default 64 KiB)
+  after the previous member's `lineEnd`; that gap is not read. Bytes read are
+  at most a full search's.
 - The worker walks the chunk's lines at LF and matches the members only.
-- Each chunk start costs the index lookups a full search's chunk costs; on a
-  sparse index each reads from a checkpoint.
+- Cutting a chunk costs the full search's index lookups plus a `lineEnd` and a
+  `lineAt` per `gapBytes` of span; on a sparse index each lookup reads from a
+  checkpoint.
 - A change to the set below the searched end while the search runs leaves the
   result undefined.
 

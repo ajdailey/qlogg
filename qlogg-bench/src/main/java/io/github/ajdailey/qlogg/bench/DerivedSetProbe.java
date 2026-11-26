@@ -7,10 +7,14 @@ import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
+import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
+import io.github.ajdailey.qlogg.core.io.ByteSource;
+import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.model.DocumentListener;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
@@ -19,13 +23,16 @@ import io.github.ajdailey.qlogg.core.search.SearchListener;
 import io.github.ajdailey.qlogg.core.search.SearchQuery;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
+import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,8 +51,9 @@ import org.openjdk.jmh.annotations.Warmup;
  * Line sets of a derived view: {@code copy}, {@link MutableLineSet#copy} of a set of 10^7 lines
  * every {@code spacing} lines (2 fills bitmap buckets, 20 array buckets); and {@code search}, a
  * regex search of a generated {@code ascii-short} log restricted to the lines of a literal search
- * ({@code none} searches every line). Each set's size and retained bytes print once per trial. The
- * file is written once to {@code -Dqlogg.bench.dir} and reused; the cache is warm.
+ * or every 50th line ({@code none} searches every line), at a {@code gapBytes} setting. Each set's
+ * size and retained bytes, and the bytes one search reads, print once per trial. The file is
+ * written once to {@code -Dqlogg.bench.dir} and reused; the cache is warm.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -91,13 +99,22 @@ public class DerivedSetProbe {
     @Param({"1024"})
     public int fileMib;
 
-    /** Literal whose matches restrict the search, or {@code none}. */
-    @Param({"none", LogGenerator.RARE_TOKEN, LogGenerator.COMMON_TOKEN})
+    /**
+     * Literal whose matches restrict the search, {@code every50} for every 50th line, or {@code
+     * none}.
+     */
+    @Param({"none", LogGenerator.RARE_TOKEN, "every50", LogGenerator.COMMON_TOKEN})
     public String restriction;
+
+    /** {@code SearchSettings.gapBytes}. */
+    @Param({"65536"})
+    public int gapBytes;
 
     private Workers workers;
     private SearchEngine engine;
     private LogDocument document;
+    private LineSource counted;
+    private final AtomicLong bytesRead = new AtomicLong();
     private MutableLineSet members;
 
     /**
@@ -126,11 +143,18 @@ public class DerivedSetProbe {
                 }
               });
       MemoryBudget budget = MemoryBudget.fromRuntime();
+      SearchSettings defaults = SearchSettings.defaults(workers.cpuThreads(), budget);
       engine =
           new SearchEngine(
               workers,
               StandardMatchers.INSTANCE,
-              SearchSettings.defaults(workers.cpuThreads(), budget));
+              new SearchSettings(
+                  defaults.chunkLines(),
+                  defaults.chunkBytes(),
+                  gapBytes,
+                  defaults.maxChunksInFlight(),
+                  0,
+                  budget));
       DocumentServices services =
           new DocumentServices(
               workers,
@@ -165,8 +189,23 @@ public class DerivedSetProbe {
       if (!indexed.await(10, TimeUnit.MINUTES)) {
         throw new IOException("Indexing did not finish");
       }
-      if (!restriction.equals("none")) {
+      counted = counting(document, bytesRead);
+      if (restriction.equals("every50")) {
+        members = new MutableLineSet();
+        long[] batch = new long[4096];
+        int n = 0;
+        for (long line = 0; line < document.index().lineCount(); line += 50) {
+          batch[n++] = line;
+          if (n == batch.length) {
+            members.addSorted(batch, n);
+            n = 0;
+          }
+        }
+        members.addSorted(batch, n);
+      } else if (!restriction.equals("none")) {
         members = search(SearchQuery.of(restriction, MatchMode.LITERAL));
+      }
+      if (members != null) {
         System.out.println(
             "restriction.lines="
                 + document.index().lineCount()
@@ -175,6 +214,9 @@ public class DerivedSetProbe {
                 + " restriction.bytes="
                 + members.retainedBytes());
       }
+      bytesRead.set(0);
+      search(SearchQuery.of(REGEX, MatchMode.REGEX).restrictedTo(members));
+      System.out.println("search.bytesRead=" + bytesRead.get());
     }
 
     /** Closes the document and the workers. */
@@ -189,7 +231,7 @@ public class DerivedSetProbe {
       final OperationOutcome[] outcome = new OperationOutcome[1];
       OperationHandle handle =
           engine.search(
-              document,
+              counted,
               query,
               results,
               new SearchListener() {
@@ -210,6 +252,58 @@ public class DerivedSetProbe {
       }
       return results;
     }
+  }
+
+  /** Returns the document with its reads counted. */
+  private static LineSource counting(final LogDocument document, final AtomicLong read) {
+    final ByteSource bytes = document.bytes();
+    final ByteSource counting =
+        new ByteSource() {
+          @Override
+          public Path path() {
+            return bytes.path();
+          }
+
+          @Override
+          public long size() throws IOException {
+            return bytes.size();
+          }
+
+          @Override
+          public int read(long position, ByteBuffer dst) throws IOException {
+            int n = bytes.read(position, dst);
+            if (n > 0) {
+              read.addAndGet(n);
+            }
+            return n;
+          }
+
+          @Override
+          public FileIdentity identity() {
+            return bytes.identity();
+          }
+
+          @Override
+          public void close() {
+            // The document closes its source.
+          }
+        };
+    return new LineSource() {
+      @Override
+      public LineIndex index() {
+        return document.index();
+      }
+
+      @Override
+      public ByteSource bytes() {
+        return counting;
+      }
+
+      @Override
+      public TextEncoding encoding() {
+        return document.encoding();
+      }
+    };
   }
 
   /**

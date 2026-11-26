@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.core.search;
 
+import io.github.ajdailey.qlogg.core.index.LineIndex;
+
 /**
  * The lines a search tests: every line, or the members of {@link SearchQuery#restriction}. {@link
  * SearchEngine} cuts chunks, walks a chunk's lines and adds range lines through it.
@@ -9,10 +11,14 @@ abstract sealed class SearchedLines {
    * Returns the searched lines of a query.
    *
    * @param query the query
+   * @param index the snapshot searched
+   * @param gapBytes the most bytes between two members in one chunk
    * @return every line when the query has no restriction, else its members
    */
-  static SearchedLines of(SearchQuery query) {
-    return query.restriction() == null ? new All() : new Members(query.restriction());
+  static SearchedLines of(SearchQuery query, LineIndex index, int gapBytes) {
+    return query.restriction() == null
+        ? new All()
+        : new Members(query.restriction(), index, gapBytes);
   }
 
   /**
@@ -41,11 +47,13 @@ abstract sealed class SearchedLines {
   abstract long last(long end);
 
   /**
-   * Returns the end of a chunk that starts at a searched line, cut back to its last searched line.
+   * Returns the end of a chunk that starts at a searched line, cut back to its last searched line
+   * and, for members, before the first member that starts more than the gap after the previous
+   * member's end.
    *
    * @param start a searched line
    * @param stop the first line after the chunk, above {@code start}
-   * @return one past the last searched line in {@code [start, stop)}
+   * @return one past the chunk's last searched line
    */
   abstract long cut(long start, long stop);
 
@@ -91,9 +99,13 @@ abstract sealed class SearchedLines {
   /** The members of a set. */
   private static final class Members extends SearchedLines {
     private final LineSet set;
+    private final LineIndex index;
+    private final int gapBytes;
 
-    Members(LineSet set) {
+    Members(LineSet set, LineIndex index, int gapBytes) {
       this.set = set;
+      this.index = index;
+      this.gapBytes = gapBytes;
     }
 
     @Override
@@ -114,7 +126,23 @@ abstract sealed class SearchedLines {
 
     @Override
     long cut(long start, long stop) {
-      return Math.max(start, set.floor(stop - 1)) + 1;
+      long last = Math.max(start, set.floor(stop - 1));
+      long lastStart = index.lineStart(last);
+      long member = start;
+      while (member < last) {
+        long reach = index.lineEnd(member) + gapBytes;
+        if (lastStart <= reach) {
+          return last + 1;
+        }
+        // Every member from here to the last one starting by reach is within the gap of the one
+        // before it.
+        long next = set.floor(index.lineAt(reach));
+        if (next <= member) {
+          return member + 1;
+        }
+        member = next;
+      }
+      return last + 1;
     }
 
     @Override

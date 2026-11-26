@@ -40,8 +40,19 @@ import org.junit.jupiter.api.Test;
 class RestrictedSearchTest {
   private static final int LINES = 3000;
   private static final int MIB = 1 << 20;
+  private static final int GAP = SearchSettings.DEFAULT_GAP_BYTES;
+
+  /**
+   * Chunk lines, chunk bytes, chunks in flight and, when given, the gap; the last is the default.
+   */
   private static final int[][] SIZES = {
-    {1, 1, 1}, {2, 64, 2}, {3, 300, 2}, {7, 100, 3}, {50, 4096, 4}, {10_000, MIB, 3}
+    {1, 1, 1, 0},
+    {2, 64, 2},
+    {3, 300, 2, 150},
+    {7, 100, 3, 1000},
+    {50, 4096, 4, 0},
+    {10_000, MIB, 3, 1000},
+    {10_000, MIB, 3}
   };
 
   private SearchFixture fixture;
@@ -242,7 +253,8 @@ class RestrictedSearchTest {
   }
 
   private SearchEngine engine(int[] size) {
-    return fixture.engine(new SearchSettings(size[0], size[1], size[2], 0, fixture.budget));
+    int gap = size.length > 3 ? size[3] : GAP;
+    return fixture.engine(new SearchSettings(size[0], size[1], gap, size[2], 0, fixture.budget));
   }
 
   /** Restricted search equals the full search intersected with the set. */
@@ -391,6 +403,46 @@ class RestrictedSearchTest {
     source.bytes().read.set(0);
     run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL));
     assertTrue(source.bytes().read.get() > 50 * expected);
+  }
+
+  /**
+   * Members 0, 2 and 4: a 100-byte line between 0 and 2, and a filler between 2 and 4 that starts
+   * line 4 {@code gap - 1}, {@code gap} or {@code gap + 1} bytes after line 2's end. Up to the gap
+   * the chunk reads one span; past it, 0 and 2 read together and 4 alone.
+   */
+  @Test
+  void aGapOverTheLimitEndsTheChunk() throws Exception {
+    int gap = 1000;
+    SearchEngine engine =
+        fixture.engine(new SearchSettings(10_000, MIB, gap, 2, 0, fixture.budget));
+    for (int delta = -1; delta <= 1; delta++) {
+      String filler = "f".repeat(gap + delta - 2);
+      String text = "hit a\n" + "g".repeat(100) + "\nhit b\n" + filler + "\nhit c\nhit d\n";
+      Source source =
+          source(text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, fixture.budget);
+      LineIndex index = source.index();
+      assertEquals(gap + delta, index.lineStart(4) - index.lineEnd(2));
+      MutableLineSet set = toSet(List.of(0L, 2L, 4L));
+      assertEquals(
+          List.of(0L, 2L, 4L),
+          toList(run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set))));
+      long joined = index.lineEnd(4) - index.lineStart(0);
+      long split = index.lineEnd(2) - index.lineStart(0) + index.lineEnd(4) - index.lineStart(4);
+      assertEquals(delta <= 0 ? joined : split, source.bytes().read.get(), "delta " + delta);
+    }
+  }
+
+  @Test
+  void aZeroGapReadsEachMemberAlone() throws Exception {
+    String text = "hit 0\nhit 1\nmiss 2\nhit 3\n";
+    Source source =
+        source(text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, fixture.budget);
+    SearchEngine engine = fixture.engine(new SearchSettings(10_000, MIB, 0, 2, 0, fixture.budget));
+    MutableLineSet set = toSet(List.of(0L, 1L, 3L));
+    assertEquals(
+        List.of(0L, 1L, 3L),
+        toList(run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set))));
+    assertEquals(15, source.bytes().read.get());
   }
 
   @Test
