@@ -43,19 +43,21 @@ public final class Keymap {
    * @return the keymap
    */
   public static Keymap defaults() {
-    return defaults(OsTraits.current().macKeymap());
+    return defaults(OsTraits.current());
   }
 
   /**
    * Returns the default bindings. Go Back and Go Forward are {@code Alt+Left} and {@code
    * Alt+Right}, or {@code Control+Command+Left} and {@code Right} on macOS, where {@code
    * Option+Left} and {@code Right} move by word in a text field. Full Screen is {@code F11}, or
-   * {@code Control+Command+F} on macOS.
+   * {@code Control+Command+F} on macOS. Clear Color Labels is {@code Ctrl+Shift+D}, then {@code
+   * Ctrl+Shift+0} where the system does not take that key.
    *
-   * @param mac true for the macOS bindings
+   * @param os the system whose bindings to return
    * @return the keymap
    */
-  public static Keymap defaults(boolean mac) {
+  public static Keymap defaults(OsTraits os) {
+    boolean mac = os.macKeymap();
     List<Binding> b = new ArrayList<Binding>();
     window(b, CommandId.OPEN, P, 'o');
     view(b, CommandId.OPEN_CLIPBOARD, P, 'v');
@@ -152,9 +154,10 @@ public final class Keymap {
     view(b, CommandId.RELEASE_FOCUS, 0, KeyStroke.SPACE);
     view(b, CommandId.STOP, 0, KeyStroke.ESCAPE);
     view(b, CommandId.NEXT_COLOR_LABEL, P, 'd');
-    view(b, CommandId.CLEAR_COLOR_LABELS, P | S, '0');
-    // Windows can take Ctrl+Shift+0 as an input-language hotkey.
     view(b, CommandId.CLEAR_COLOR_LABELS, P, 'D');
+    if (!os.takesCtrlShiftZero()) {
+      view(b, CommandId.CLEAR_COLOR_LABELS, P | S, '0');
+    }
     for (int i = 0; i < 9; i++) {
       view(b, CommandId.values()[CommandId.COLOR_LABEL_1.ordinal() + i], P | S, (char) ('1' + i));
     }

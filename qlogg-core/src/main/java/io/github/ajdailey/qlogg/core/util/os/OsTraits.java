@@ -94,6 +94,14 @@ public interface OsTraits {
   boolean macKeymap();
 
   /**
+   * Reports whether the system can take {@code Ctrl+Shift+0} before QLogg sees it: true on Windows,
+   * where it is an input-language hotkey.
+   *
+   * @return true on Windows
+   */
+  boolean takesCtrlShiftZero();
+
+  /**
    * Reports whether {@code follow.keepClosed} defaults to on: true on Windows, where a file held
    * open refuses a writer's rename over it.
    *

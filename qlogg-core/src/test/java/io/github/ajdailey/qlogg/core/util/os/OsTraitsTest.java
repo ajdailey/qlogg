@@ -69,6 +69,7 @@ class OsTraitsTest {
     assertTrue(os.deviceNames().opensDevice("CON"));
     assertTrue(os.confinement().embedsGuide(false));
     assertFalse(os.macKeymap());
+    assertTrue(os.takesCtrlShiftZero());
     assertTrue(os.keepFileClosedByDefault());
     assertTrue(os.watchServiceByDefault());
     Path roaming = temp.resolve("Roaming");
@@ -85,6 +86,7 @@ class OsTraitsTest {
     assertFalse(os.deviceNames().opensDevice("CON"));
     assertTrue(os.confinement().embedsGuide(false));
     assertTrue(os.macKeymap());
+    assertFalse(os.takesCtrlShiftZero());
     assertFalse(os.keepFileClosedByDefault());
     assertFalse(os.watchServiceByDefault());
     assertEquals(
@@ -99,6 +101,7 @@ class OsTraitsTest {
     assertFalse(os.confinement().embedsGuide(false));
     assertTrue(os.confinement().embedsGuide(true));
     assertFalse(os.macKeymap());
+    assertFalse(os.takesCtrlShiftZero());
     assertFalse(os.keepFileClosedByDefault());
     assertTrue(os.watchServiceByDefault());
     Path xdg = temp.resolve("xdg");
