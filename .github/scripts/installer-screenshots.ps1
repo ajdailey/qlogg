@@ -291,6 +291,8 @@ function Test-Launched([string] $Dir, [string] $Name) {
     Unregister-Event -SourceIdentifier $Name
     Remove-Event -SourceIdentifier $Name -ErrorAction SilentlyContinue
     foreach ($process in $running) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+    # A stopped javaw.exe still holds its DLLs until it exits.
+    foreach ($process in $running) { Wait-Process -Id $process.ProcessId -Timeout 30 -ErrorAction SilentlyContinue }
   }
   Write-Output "PASS: explorer.exe started QLogg from $Dir with the shell's token elevation $shellElevation"
 }
