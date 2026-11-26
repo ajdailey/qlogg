@@ -445,7 +445,8 @@ class ArchitectureTest {
             ROOT + ".core.search..",
             ROOT + ".core.watch..",
             ROOT + ".core.concurrent..",
-            ROOT + ".core.time..")
+            ROOT + ".core.time..",
+            ROOT + ".core.rotate..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage(ROOT + ".core.model..")

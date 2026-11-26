@@ -22,6 +22,15 @@ overview: [qlogg-core](README.md).
 | `LargeFileTest` | A 2.2 GB sparse file, offsets past 2^31 |
 | `LineScannerTest` | The line-feed bit scan against a byte-by-byte scan over 2,000 random buffers in UTF-8, UTF-16LE and BE, UTF-32LE and IBM037; a line-feed byte inside a UTF-16 unit not counted |
 
+## Rotated sets
+
+| Class | Covers |
+|---|---|
+| `RotatedOracleTest` | 25 random sets per charset (UTF-8, UTF-16LE, UTF-16BE) of one to six members with random byte order marks, empty members, missing final LFs, CR before LF and a trailing odd byte in UTF-16 members, indexed in 64-byte blocks with some members sparse. Each set and a random prefix of it are compared with one file holding the normalized concatenation: size, every byte read whole and from 50 random positions, every `LineIndex` answer (`lineAt` at every offset), every line's bytes, and four searches at 3 lines or 64 bytes per chunk |
+| `RotatedBytesTest` | Marks left out, an LF added after a member without one in UTF-8 and UTF-16LE, a partial UTF-16 unit cut, a read stopping at each boundary, the last member growing with its index extended, an incomplete member before the last refused by `RotatedIndex`, a shrunk member failing the read with `FileChangedException` |
+| `RotatedSetTest` | The base name and match of every naming scheme and the names that are not members; tokens compared as numbers; order by modification time with ties and the base last; a set without a base file; compressed members, the 100-member cap and line feed mismatches left out; the encoding from the newest member with bytes, a forced charset |
+| `MemberIdentityTest` | A rename chain followed by file key and, with the key dropped as on Windows, by digests with growth after the rename; a changed tail and a short file not matching; equal copies ambiguous until creation time picks one |
+
 ## Text and encodings
 
 | Class | Covers |
