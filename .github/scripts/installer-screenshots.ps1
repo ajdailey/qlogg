@@ -2,11 +2,11 @@
 # installer-screenshots\: a per-machine install that ticks the desktop
 # shortcut box and leaves Run QLogg checked, its uninstaller, then a portable
 # install into a temporary folder. After each install the finish page must
-# have started qlogg.exe as a child of the shell's explorer.exe, with QLogg's
-# token elevation equal to the shell's, and the per-machine install must have
-# written the common desktop shortcut; QLogg is then stopped. A shell with
-# elevation 0 makes this the unelevated check; on a runner whose shell is
-# elevated it checks the parentage only. Pages are driven by window messages (the Next button's
+# have started qlogg.exe from an explorer.exe, with QLogg's token elevation
+# equal to the shell's, and the per-machine install must have written the
+# common desktop shortcut; QLogg is then stopped. A shell with elevation 0
+# makes this the unelevated check; on a runner whose shell is elevated it
+# checks the launch path only. Pages are driven by window messages (the Next button's
 # WM_COMMAND, BM_CLICK on a radio button or check box, WM_SETTEXT on the
 # folder box) and captured with PrintWindow, so no window needs the focus. Run
 # with Windows PowerShell from the repository root on a runner with a
@@ -187,9 +187,9 @@ if ($shellPid -eq 0) { throw 'no desktop shell window' }
 $shellElevation = [SetupUi]::TokenValue($shellPid, 20)
 Write-Host "shell $shellPid $((Get-Process -Id $shellPid).Name): elevation $shellElevation, type $([SetupUi]::TokenValue($shellPid, 18)); this PowerShell: elevation $([SetupUi]::TokenValue($PID, 20)), type $([SetupUi]::TokenValue($PID, 18))"
 
-# Records each qlogg.exe start under the source identifier $Name.
+# Records each qlogg.exe and explorer.exe start under the source identifier $Name.
 function Watch-Starts([string] $Name) {
-  Register-CimIndicationEvent -Query "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName = 'qlogg.exe'" -SourceIdentifier $Name | Out-Null
+  Register-CimIndicationEvent -Query "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName = 'qlogg.exe' OR ProcessName = 'explorer.exe'" -SourceIdentifier $Name | Out-Null
 }
 
 # Returns the dialog whose caption starts with $Title, waiting up to 60 s.
@@ -255,8 +255,8 @@ function Invoke-Walk([string] $Title, [string] $Prefix, [scriptblock] $OnPage) {
 }
 
 # Waits for the QLogg the finish page started from $Dir; throws unless the
-# shell started qlogg.exe (events under $Name) and every process running from
-# $Dir has the shell's token elevation; then stops them.
+# qlogg.exe started (events under $Name) has an explorer.exe parent and every
+# process running from $Dir has the shell's token elevation; then stops them.
 function Test-Launched([string] $Dir, [string] $Name) {
   $deadline = (Get-Date).AddSeconds(60)
   do {
@@ -270,8 +270,16 @@ function Test-Launched([string] $Dir, [string] $Name) {
   $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
   try {
     $starts = @(Get-Event -SourceIdentifier $Name -ErrorAction SilentlyContinue | ForEach-Object { $_.SourceEventArgs.NewEvent })
-    foreach ($start in $starts) { Write-Host "qlogg.exe $($start.ProcessID) started by $($start.ParentProcessID)" }
-    if (@($starts | Where-Object { [int] $_.ParentProcessID -eq $shellPid }).Count -eq 0) { throw "the shell $shellPid started no qlogg.exe" }
+    $explorers = @($shellPid)
+    foreach ($start in $starts) {
+      Write-Host "$($start.ProcessName) $($start.ProcessID) started by $($start.ParentProcessID)"
+      if ($start.ProcessName -eq 'explorer.exe') { $explorers += [int] $start.ProcessID }
+    }
+    $launches = @($starts | Where-Object { $_.ProcessName -eq 'qlogg.exe' })
+    if ($launches.Count -eq 0) { throw "no qlogg.exe start was traced" }
+    foreach ($launch in $launches) {
+      if ($explorers -notcontains [int] $launch.ParentProcessID) { throw "qlogg.exe $($launch.ProcessID) was started by $($launch.ParentProcessID), not by explorer.exe" }
+    }
     foreach ($process in $running) {
       $elevation = [SetupUi]::TokenValue($process.ProcessId, 20)
       $type = [SetupUi]::TokenValue($process.ProcessId, 18)
@@ -284,7 +292,7 @@ function Test-Launched([string] $Dir, [string] $Name) {
     Remove-Event -SourceIdentifier $Name -ErrorAction SilentlyContinue
     foreach ($process in $running) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
   }
-  Write-Output "PASS: the shell started QLogg from $Dir with its own token elevation $shellElevation"
+  Write-Output "PASS: explorer.exe started QLogg from $Dir with the shell's token elevation $shellElevation"
 }
 
 $installed = Join-Path $env:ProgramFiles 'QLogg'
