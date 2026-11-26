@@ -96,7 +96,9 @@ one as `<`, the label and `>` (`ControlChars.visible`).
 - Color: the text color of the box's first shown column (selection text, a
   span's text color, the line's text color or the palette's) blended over that
   column's ground at `ControlBoxes.ALPHA` (`0xA6`, 65%): 4.6:1 on the light
-  palette's background, 5.6:1 on the dark.
+  palette's background, 5.6:1 on the dark. Where the blend is under 3:1
+  against the ground (a highlighter, color label, selection or scheme
+  background), box and digits take the text color itself.
 - Copy, save, export and search use the char; a highlight or search span over
   it covers both columns. With Hide ANSI Colors on, a removed ESC has no box.
 

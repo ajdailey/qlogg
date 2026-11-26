@@ -3,9 +3,11 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.core.model.HighlightSpans;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.text.ControlChars;
+import io.github.ajdailey.qlogg.ui.swt.platform.Contrast;
 import java.util.Arrays;
 import java.util.function.LongToIntFunction;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 
 /**
@@ -14,8 +16,9 @@ import org.eclipse.swt.graphics.Rectangle;
  * ControlChars#label} drawn from the first column on the text baseline. A box cut by the row's
  * first or last shown column has no outline on that side. Outline and label take the color the text
  * of the box's first shown column would take (selection text, a span's text color, the line's text
- * color or the palette's) blended over that column's ground at {@link #ALPHA}. The same drawing on
- * every platform, so the toolkit never draws a control char.
+ * color or the palette's) blended over that column's ground at {@link #ALPHA}, or that text color
+ * itself where the blend is under {@link #MIN_CONTRAST} against the ground ({@link #ink}). The same
+ * drawing on every platform, so the toolkit never draws a control char.
  *
  * <p>On a row drawn on the grid, the labels of the boxes in the row's own color are drawn as one
  * string: a {@code GC.drawString} call per box makes a screen of boxes paint 2.5 times as long on
@@ -24,6 +27,9 @@ import org.eclipse.swt.graphics.Rectangle;
 final class ControlBoxes {
   /** Alpha of the box color over its ground: 4.6:1 on the light palette, 5.6:1 on the dark. */
   static final int ALPHA = 0xa6;
+
+  /** Least contrast ratio of a blended box color against its ground. */
+  static final double MIN_CONTRAST = 3.0;
 
   private ControlBoxes() {}
 
@@ -56,7 +62,7 @@ final class ControlBoxes {
     int height = grid.lineHeight();
     int top = row.y() + 1;
     int bottom = row.y() + height - 2;
-    int base = mix(rowText(colors, spans), under);
+    int base = ink(rowText(colors, spans), under);
     long first = Math.max(row.from(), block.firstColumn());
     long end = Math.min(row.to(), block.firstColumn() + text.length());
     char[] labels = null;
@@ -131,7 +137,7 @@ final class ControlBoxes {
       int base,
       long column) {
     if (row.selectionFrom() >= 0 && column >= row.selectionFrom() && column < row.selectionTo()) {
-      return mix(
+      return ink(
           PaletteColors.packed(colors.palette.selectionText()),
           PaletteColors.packed(colors.palette.selection()));
     }
@@ -149,10 +155,24 @@ final class ControlBoxes {
         }
       }
     }
-    return spanned ? mix(text, ground) : base;
+    return spanned ? ink(text, ground) : base;
   }
 
-  private static int mix(int text, int ground) {
-    return PaletteColors.blend(ALPHA << 24 | text, ground);
+  /**
+   * Returns the box color: {@code text} over {@code ground} at {@link #ALPHA}, or {@code text}
+   * itself where that blend is under {@link #MIN_CONTRAST} against the ground (a highlighter, color
+   * label or scheme background).
+   *
+   * @param text the text color as {@code 0xRRGGBB}
+   * @param ground the color under the box as {@code 0xRRGGBB}
+   * @return {@code 0xRRGGBB}
+   */
+  static int ink(int text, int ground) {
+    int blend = PaletteColors.blend(ALPHA << 24 | text, ground);
+    return Contrast.ratio(rgb(blend), rgb(ground)) >= MIN_CONTRAST ? blend : text;
+  }
+
+  private static RGB rgb(int packed) {
+    return new RGB(packed >> 16 & 0xff, packed >> 8 & 0xff, packed & 0xff);
   }
 }

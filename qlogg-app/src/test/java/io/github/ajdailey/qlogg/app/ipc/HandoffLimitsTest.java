@@ -135,6 +135,18 @@ class HandoffLimitsTest {
       }
     }
 
+    /**
+     * Reads the end of the stream. A server that closes with unread request bytes resets the
+     * connection, and Windows then discards a reply the peer has not read.
+     */
+    void assertClosedWithoutReset() throws IOException {
+      try {
+        assertEquals(-1, in.read());
+      } catch (SocketException e) {
+        throw new AssertionError("Reset after the reply", e);
+      }
+    }
+
     @Override
     public void close() throws IOException {
       socket.close();
@@ -165,12 +177,27 @@ class HandoffLimitsTest {
     Endpoint endpoint = Endpoint.read(temp);
     try (Peer peer = new Peer(endpoint.port())) {
       peer.authenticate(endpoint.token());
-      ByteArrayOutputStream request = new ByteArrayOutputStream();
-      request.write(ascii(Protocol.FOLLOW + "0\n"));
-      request.write(body);
-      request.write(ascii(Protocol.END + "\n"));
-      peer.send(request.toByteArray());
+      peer.send(followAndEnd(body));
       return peer.readLine();
+    }
+  }
+
+  private static byte[] followAndEnd(byte[] body) throws IOException {
+    ByteArrayOutputStream request = new ByteArrayOutputStream();
+    request.write(ascii(Protocol.FOLLOW + "0\n"));
+    request.write(body);
+    request.write(ascii(Protocol.END + "\n"));
+    return request.toByteArray();
+  }
+
+  /** Sends an authenticated request, reads {@code ERR} and then the end of the stream. */
+  private void assertRefusedWithoutReset(byte[] request) throws IOException {
+    Endpoint endpoint = Endpoint.read(temp);
+    try (Peer peer = new Peer(endpoint.port())) {
+      peer.authenticate(endpoint.token());
+      peer.send(request);
+      assertEquals(Protocol.ERR, peer.readLine());
+      peer.assertClosedWithoutReset();
     }
   }
 
@@ -239,10 +266,37 @@ class HandoffLimitsTest {
         most.add(new FileRequest(path, 0));
       }
     }
-    assertEquals(Protocol.ERR, request(lines(open)));
+    assertRefusedWithoutReset(followAndEnd(lines(open)));
     assertTrue(received.isEmpty());
     InstanceClient.handOff(temp, most, false);
     assertEquals(List.of(most), received);
+    assertTheNextLaunchIsServed();
+  }
+
+  /** A malformed FOLLOW line is refused after the rest of the request is read. */
+  @Test
+  void aMalformedLineIsRefusedAfterTheRestOfTheRequest() throws Exception {
+    List<String> request = new ArrayList<String>();
+    request.add(Protocol.FOLLOW + "2");
+    for (int i = 0; i < Protocol.MAX_OPEN; i++) {
+      request.add(openLine(temp.resolve("f" + i + ".log"), 0));
+    }
+    request.add(Protocol.END);
+    assertRefusedWithoutReset(lines(request));
+    assertTrue(received.isEmpty());
+    assertTheNextLaunchIsServed();
+  }
+
+  /** A peer that sends a malformed line and never END gets ERR at the exchange bound. */
+  @Test
+  void aMalformedRequestWithoutEndIsRefusedAtTheExchangeBound() throws Exception {
+    Endpoint endpoint = Endpoint.read(temp);
+    try (Peer peer = new Peer(endpoint.port())) {
+      peer.authenticate(endpoint.token());
+      peer.send(lines(List.of(Protocol.FOLLOW + "2")));
+      assertEquals(Protocol.ERR, peer.readLine());
+    }
+    assertTrue(received.isEmpty());
     assertTheNextLaunchIsServed();
   }
 

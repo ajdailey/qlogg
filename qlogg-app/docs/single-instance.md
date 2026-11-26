@@ -107,6 +107,10 @@ S: OK | ERR
   without the token. The server sends nothing after a wrong `AUTH`.
 - Lines are printable ASCII up to 16 KiB, at most 1 MiB per connection. Each
   path must be absolute.
+- A malformed request (a bad `FOLLOW` or `OPEN` line, more than 256 `OPEN`
+  lines) gets `ERR` after the server reads its remaining lines up to `END`: a
+  socket closed with unread bytes sends a reset, and on Windows the reset
+  discards the `ERR` before the client reads it.
 - Every step throws `IOException`, and the launcher then opens its own window.
 
 `LineChannel` runs the socket non-blocking under a `Selector` against one
