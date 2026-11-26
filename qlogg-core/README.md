@@ -19,6 +19,7 @@ display.
 | `core.folder` | `FolderSearch`: search in a folder without opening its files | [Search](docs/search.md#search-in-a-folder) |
 | `core.time` | Timestamp formats and parsers, format detection, lookups by time, time spread | [Timestamps](docs/timestamps.md) |
 | `core.watch` | `FileMonitor`, `ChangeDetector` | [File monitoring](docs/file-monitoring.md) |
+| `core.rotate` | Rotated sets: member discovery and order, `MemberIdentity`, `RotatedBytes`, `RotatedIndex` | [Rotated sets](docs/rotated-sets.md) |
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
 | `core.format` | `PrettyPrint` for JSON and XML, `JsonStrings` and `XmlEntities` unescape | [Formats](#formats) |
