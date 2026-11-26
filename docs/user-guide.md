@@ -42,6 +42,12 @@ your settings, and an upgrade of a portable copy keeps the settings in its
 folder. Installing QLogg does not set it as the default program for any file
 type.
 
+![Windows setup: installation type](images/guide/installer-type.png)
+
+![Windows setup: install folder](images/guide/installer-folder.png)
+
+![Windows setup: last page with Run QLogg and the desktop shortcut box](images/guide/installer-finish.png)
+
 ## Opening files
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
