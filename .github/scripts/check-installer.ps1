@@ -140,11 +140,13 @@ function Test-Scope([string] $Scope) {
   Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
   Wait-Until { -not (Test-Path $dir) } "$Scope uninstall left $dir"
   Wait-Until { -not (Test-Path "$hive\$uninstallKey") } "$Scope uninstall left the Installed apps entry"
+  # NSIS runs the uninstaller as Au_.exe from %TEMP%; the checks below need it finished.
+  Wait-Until { -not (Get-Process -Name 'Au_' -ErrorAction SilentlyContinue) } "$Scope uninstaller still running"
   Show-Extensions "after $Scope uninstall:"
-  if (Test-Path $shortcut) { throw "$Scope uninstall left $shortcut" }
-  if (Test-Path $desktop) { throw "$Scope uninstall left $desktop" }
+  Wait-Until { -not (Test-Path $shortcut) } "$Scope uninstall left $shortcut"
+  Wait-Until { -not (Test-Path $desktop) } "$Scope uninstall left $desktop"
   foreach ($key in @('QLogg.File', 'Applications\qlogg.exe')) {
-    if (Test-Path "$classes\$key") { throw "$Scope uninstall left $classes\$key" }
+    Wait-Until { -not (Test-Path "$classes\$key") } "$Scope uninstall left $classes\$key"
   }
   foreach ($ext in @('.log', '.txt')) {
     $progids = Get-ItemProperty "$classes\$ext\OpenWithProgids" -ErrorAction SilentlyContinue
