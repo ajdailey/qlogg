@@ -19,6 +19,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 
 /**
  * Shared pieces of QLogg's dialogs. Every dialog opens without a nested event loop: {@code open}
@@ -251,6 +252,15 @@ final class Dialogs {
    */
   static Button check(Composite parent) {
     return DialogColors.platform().check(parent);
+  }
+
+  /**
+   * Shows a dialog table's grid lines ({@link DialogColors#gridLines}).
+   *
+   * @param table the table
+   */
+  static void gridLines(Table table) {
+    DialogColors.platform().gridLines(table);
   }
 
   /**

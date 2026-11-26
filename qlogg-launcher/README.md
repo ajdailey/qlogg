@@ -289,6 +289,8 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture`,
 | No `setImage` on an `Item` or a `Button` outside `ToolIcons`, except `TabStrip`, `TabList` (tab dots) and `NativeCellImages` (`iconsOnlyThroughToolIcons`) | An icon takes the ink for the background it shows on |
 | `Dialog.open` (file, folder and color choosers) is called only in `ui.swt.NativeDialogs` (`nativeChoosersOnlyThroughNativeDialogs`) | A window rebuild for a theme switch waits only for a chooser `NativeDialogs` counts |
 | A native `TabFolder` is created only in `ui.swt.platform` (`tabFoldersOnlyThroughDialogTabs`) | A dialog takes its folder from `PlatformTraits.dialogTabs`, dark after a dark win32 start |
+| `Table.setLinesVisible` is called only in `ui.swt.platform` (`gridLinesOnlyThroughDialogColors`) | A table shows its lines through `Dialogs.gridLines`, drawn dark in a dark win32 dialog |
+| A string starting `org.eclipse.swt.internal.win32.Table` only in `Win32HeaderLines` (`headerLineKeyOnlyInWin32HeaderLines`) | The header divider color key is a Public SWT API exception confined to one class |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |
 | `core.{io, text, index, search, watch, concurrent}` not on `core.model`; `app.view` not on `app.{controller, config, cli, ipc}`; `ui.swt` not on `core.{io, index, concurrent}` | Layering |
 | No package cycles | Layering |

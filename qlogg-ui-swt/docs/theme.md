@@ -296,9 +296,30 @@ checked item with a shade of the bar's own color, `#d8d8d8` from the default
 `#606060`). A control created after the dialog opens is colored at its
 `SWT.Skin` event.
 
+A table with grid lines calls `Dialogs.gridLines` in place of
+`setLinesVisible(true)`. The win32 list view draws its native grid lines in
+`COLOR_3DFACE`, `#f0f0f0` under the dark side (measured, Windows 11 at 150%),
+and no public API colors them. In a dialog `Win32DialogColors` colored,
+`gridLines` turns the native lines off and `Win32GridLines`, an `SWT.Paint`
+listener, draws `#404040` rules (1.37:1 on `#2b2b2b`; light lines are 1.14:1
+on white) along the last pixel row of each row pitch, empty rows included, and
+the last pixel column of each column. Elsewhere the native lines show. A
+dialog keeps its lines when the theme switches, as it keeps its colors.
+Predefined Filters, the Preferences Shortcuts table and Keyboard Shortcuts
+show grid lines.
+
+SWT draws the header dividers of a table with header colors in `COLOR_3DFACE`
+unless the Display data key
+`org.eclipse.swt.internal.win32.Table.headerLineColor` holds a color. `apply`
+sets it through `Win32HeaderLines`: `#404040` under dark (1.37:1 on the
+`#2b2b2b` header), cleared under light once no dark dialog is open. The key is
+Display-wide, and only a dark dialog's tables have header colors. This is a
+listed Public SWT API exception; ArchUnit `headerLineKeyOnlyInWin32HeaderLines`
+keeps the key in that class. If an SWT upgrade drops the key, the dividers draw
+light and `DialogGridLinesTest` fails on win32.
+
 | Stays native | Drawn |
 |---|---|
-| `Table` grid lines and header dividers | Light lines between dark rows and header cells |
 | `Spinner` arrows | Light buttons beside the dark field |
 | Disabled text | The system gray: a disabled label `#808080` on the body (4.1 contrast). `Dialogs.disabledText` (`#9a9a9a`) colors only the rows the command palette draws disabled |
 | `Table` and `Tree` selection | Native dark with white text: focused `#223e55` (table) and `#626262` (tree), unfocused `#252525` and `#333333`, 6.10:1 or more (measured, `windows-2025`) |

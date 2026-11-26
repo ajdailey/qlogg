@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.Zoom;
 import java.util.Arrays;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
@@ -159,22 +160,13 @@ final class TableFit {
   }
 
   /**
-   * Returns the zoom SWT scales a control's points by: a numeric {@code swt.autoScale} value, else
-   * the control's monitor zoom.
+   * Returns the zoom SWT scales a control's points by.
    *
    * @param control the control
-   * @return the zoom in percent
+   * @return {@link Zoom#of}
    */
   static int zoom(Control control) {
-    String scale = System.getProperty("swt.autoScale");
-    if (scale != null) {
-      try {
-        return Integer.parseInt(scale.trim());
-      } catch (NumberFormatException named) {
-        return control.getMonitor().getZoom();
-      }
-    }
-    return control.getMonitor().getZoom();
+    return Zoom.of(control);
   }
 
   /**

@@ -88,7 +88,7 @@ final class FiltersDialog {
     tool(order, ToolIcons.DOWN, UiText.BUTTON_MOVE_DOWN, this::moveDown);
     table = new Table(shell, SWT.SINGLE | SWT.BORDER | SWT.FULL_SELECTION | SWT.V_SCROLL);
     table.setHeaderVisible(true);
-    table.setLinesVisible(true);
+    Dialogs.gridLines(table);
     GridData tableData = new GridData(SWT.FILL, SWT.FILL, true, true);
     tableData.widthHint = 600;
     tableData.heightHint = 360;

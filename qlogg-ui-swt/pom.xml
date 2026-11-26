@@ -129,7 +129,7 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <test>TableFitSurfaceTest</test>
+                            <test>TableFitSurfaceTest,CellImagePlacementTest</test>
                             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
                             <argLine>-Duser.home=${project.build.directory}/test-home ${qlogg.test.jvmArgs} -Dswt.autoScale=150 -Dswt.autoScale.updateOnRuntime=false</argLine>
                         </configuration>

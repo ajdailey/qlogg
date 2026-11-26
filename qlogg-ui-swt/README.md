@@ -18,7 +18,7 @@ against the build host's SWT fragment.
 | `SwtThemeService`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, the main window's rows under dark on win32, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `WindowViews`, `MainWindowSlot`, `RebuildState`, `NativeDialogs` | Rebuilding each main window over its controllers for a theme switch on win32; native choosers counted so a window waits for them | [docs/theme.md](docs/theme.md#window-rebuild) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |
-| Package `ui.swt.platform`: `PlatformTraits` and its classes per platform, the seam interfaces (`ThemeFollow` with `WindowRebuild`, `FullScreen`, `MenuBehavior`, `LaunchDocuments`, `AccessibleLabels`, `WindowPlacement`, `GuideDisplay`, `DialogColors`, `DialogTabs`, `CellImages`, `ChromeColors`, `WindowStacking`, `ToolItemSizing`) and theirs, `CocoaChrome`, `NativeTheme`, `NativePrograms`, `Contrast` | Every view-layer platform difference: native theme and link contrast, full screen, menus, launch files, accessible labels, placement, the user guide, dialog colors, dialog tab folders, table cell images, the main window's rows under dark on win32, cocoa shell recoloring, Always on Top, tool item sizing | [docs/main-window.md](docs/main-window.md#platform-traits) |
+| Package `ui.swt.platform`: `PlatformTraits` and its classes per platform, the seam interfaces (`ThemeFollow` with `WindowRebuild`, `FullScreen`, `MenuBehavior`, `LaunchDocuments`, `AccessibleLabels`, `WindowPlacement`, `GuideDisplay`, `DialogColors`, `DialogTabs`, `CellImages`, `ChromeColors`, `WindowStacking`, `ToolItemSizing`) and theirs, `CocoaChrome`, `NativeTheme`, `NativePrograms`, `Contrast`, `Zoom` | Every view-layer platform difference: native theme and link contrast, full screen, menus, launch files, accessible labels, placement, the user guide, dialog colors, dialog tab folders, table cell images, the main window's rows under dark on win32, cocoa shell recoloring, Always on Top, tool item sizing | [docs/main-window.md](docs/main-window.md#platform-traits) |
 
 ## UI thread
 
@@ -52,7 +52,10 @@ exceptions: `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`
 and `Gtk4ToolItemSizing` reach SWT internals by reflection, and
 `ArchitectureTest` allows reflection nowhere else
 ([main window](docs/main-window.md#always-on-top),
-[theme](docs/theme.md#gtk-4-tool-item-size)).
+[theme](docs/theme.md#gtk-4-tool-item-size)). Dark win32 dialog header
+dividers are the last exception: `Win32HeaderLines` sets the Display data key
+`org.eclipse.swt.internal.win32.Table.headerLineColor`, and `ArchitectureTest`
+allows that string in no other class ([theme](docs/theme.md#dialog-colors)).
 
 ### GTK 4
 

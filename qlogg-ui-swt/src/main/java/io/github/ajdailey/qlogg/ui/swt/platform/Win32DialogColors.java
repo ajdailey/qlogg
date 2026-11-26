@@ -29,11 +29,13 @@ import org.eclipse.swt.widgets.Tree;
  * with SWT 3.135.0 on {@code windows-2025}: the title bar draws {@code #202020} and a push button
  * face {@code #333333}; {@code setBackground} and {@code setForeground} reach composites, labels,
  * links, check boxes, groups, tab pages, tool bars, text fields, combos, spinners, lists and
- * tables. A {@code TabFolder}'s tab row, a table's grid lines and header dividers, a spinner's
- * arrows, disabled text and a {@link Browser} stay native. A read-only {@link Combo} needs colors
- * set: the dark native theme draws its closed field and leaves its drop-down list white without
- * them. A {@link Link} takes the system link color raised to {@link Contrast#LINK} on {@link
- * #BODY}.
+ * tables. A {@code TabFolder}'s tab row, a spinner's arrows, disabled text and a {@link Browser}
+ * stay native. Native grid lines and header dividers draw {@code #f0f0f0}, so {@link #gridLines}
+ * hides the lines and {@link Win32GridLines} draws {@link #GRID} rules, and {@link #apply} sets the
+ * dividers to {@link #GRID} through {@link Win32HeaderLines}. A read-only {@link Combo} needs
+ * colors set: the dark native theme draws its closed field and leaves its drop-down list white
+ * without them. A {@link Link} takes the system link color raised to {@link Contrast#LINK} on
+ * {@link #BODY}.
  *
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
@@ -64,6 +66,12 @@ final class Win32DialogColors implements DialogColors {
   /** Disabled table row text: 5.0 contrast on {@link #FIELD}. */
   static final Color DISABLED = new Color(0x9a, 0x9a, 0x9a);
 
+  /**
+   * Table grid lines and header dividers: 1.37:1 on {@link #FIELD}; native lines on a light table
+   * are 1.14:1.
+   */
+  static final Color GRID = new Color(0x40, 0x40, 0x40);
+
   /** Hint text of an empty single-line field: 5.0 contrast on {@link #FIELD}. */
   static final Color HINT = DISABLED;
 
@@ -88,6 +96,7 @@ final class Win32DialogColors implements DialogColors {
   @Override
   public void apply(final Shell shell) {
     Display display = shell.getDisplay();
+    headerLines(display);
     if (!DialogColors.nativeDark(display)) {
       return;
     }
@@ -122,6 +131,24 @@ final class Win32DialogColors implements DialogColors {
     }
   }
 
+  /**
+   * Sets the header divider color for the current side: {@link #GRID} under dark; under light, the
+   * native color once no colored dialog is open, since only a colored dialog's tables have header
+   * colors, which make SWT draw the dividers.
+   */
+  private static void headerLines(Display display) {
+    if (DialogColors.nativeDark(display)) {
+      Win32HeaderLines.set(display, GRID);
+      return;
+    }
+    for (Shell open : display.getShells()) {
+      if (!open.isDisposed() && open.getData(COLORED) != null) {
+        return;
+      }
+    }
+    Win32HeaderLines.set(display, null);
+  }
+
   @Override
   public boolean colored(Control control) {
     return control.getShell().getData(COLORED) != null;
@@ -154,6 +181,15 @@ final class Win32DialogColors implements DialogColors {
       return new Button(parent, SWT.CHECK);
     } finally {
       display.setDarkThemePreferred(true);
+    }
+  }
+
+  @Override
+  public void gridLines(Table table) {
+    if (colored(table)) {
+      Win32GridLines.draw(table, GRID);
+    } else {
+      table.setLinesVisible(true);
     }
   }
 
