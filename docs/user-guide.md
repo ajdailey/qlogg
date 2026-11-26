@@ -864,7 +864,7 @@ qlogg [options] [[+line:N] file]...
 | `-n`, `--new-session` | Start without the last session |
 | `-f`, `--follow` | Follow the files given |
 | `--window-width <px>`, `--window-height <px>` | Client-area size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
-| `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland |
+| `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland and under GTK 4 |
 | `--settings <dir>` | [Settings directory](#settings-directory) |
 | `+line:N` | Open the next file at line N |
 | `--gtk4` | Linux, `bin/qlogg` only: use the experimental GTK 4 backend (linux-x86_64); without the GTK 4 libraries QLogg runs on GTK 3 and logs a warning |

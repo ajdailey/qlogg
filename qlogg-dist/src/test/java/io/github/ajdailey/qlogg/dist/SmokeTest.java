@@ -166,8 +166,11 @@ class SmokeTest {
     assertNotNull(m, "no window line in " + run.seen);
     assertEquals("900", m.group(1));
     assertEquals("600", m.group(2));
-    assertEquals("50", m.group(3));
-    assertEquals("40", m.group(4));
+    // GTK 4 has no API to move a toplevel window; the shell reads 0,0 there.
+    if (!"1".equals(System.getenv("SWT_GTK4"))) {
+      assertEquals("50", m.group(3));
+      assertEquals("40", m.group(4));
+    }
   }
 
   @Test

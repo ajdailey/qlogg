@@ -290,7 +290,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on |
 | `-f`, `--follow` | Follow the files given |
 | `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; without them, the size at the last exit, else 1024 x 768 |
-| `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows |
+| `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows, and under GTK 4, which cannot move a window |
 | `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
 | `--gtk4` | `bin/qlogg` only: sets `SWT_GTK4=1` for the experimental GTK 4 backend and is not passed to Java, so `qlogg.jar`, `qlogg.exe` and `qlogg.cmd` reject it |
