@@ -1,0 +1,63 @@
+# nfpm configuration for the .deb and .rpm of one Linux target. dist.xml
+# replaces each @TOKEN@ and runs nfpm once per packager.
+name: qlogg
+arch: "@ARCH@"
+platform: linux
+version: "@VERSION@"
+version_schema: none
+release: "1"
+section: utils
+priority: optional
+maintainer: Adam Dailey <31244497+ajdailey@users.noreply.github.com>
+vendor: QLogg
+homepage: https://github.com/ajdailey/qlogg
+license: Apache-2.0
+description: |-
+  Viewer for large and growing log files
+  QLogg follows growing files, searches with regular expressions and shows
+  matches in a filtered view, without loading the file into memory. It makes
+  no outbound network connections.
+mtime: "@MTIME@"
+umask: 0o022
+overrides:
+  deb:
+    depends:
+      - libgtk-3-0t64 | libgtk-3-0
+  rpm:
+    depends:
+      - gtk3
+deb:
+  compression: xz
+rpm:
+  compression: xz
+  buildhost: localhost
+  group: Applications/Text
+contents:
+  - src: "@HOME@"
+    dst: /opt/qlogg
+    type: tree
+  - src: /opt/qlogg/bin/qlogg
+    dst: /usr/bin/qlogg
+    type: symlink
+  - src: "@SRC@/qlogg.desktop"
+    dst: /usr/share/applications/qlogg.desktop
+  - src: "@ICONS@/qlogg.svg"
+    dst: /usr/share/icons/hicolor/scalable/apps/qlogg.svg
+  - src: "@ART@/hicolor/16x16/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/16x16/apps/qlogg.png
+  - src: "@ART@/hicolor/22x22/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/22x22/apps/qlogg.png
+  - src: "@ART@/hicolor/24x24/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/24x24/apps/qlogg.png
+  - src: "@ART@/hicolor/32x32/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/32x32/apps/qlogg.png
+  - src: "@ART@/hicolor/48x48/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/48x48/apps/qlogg.png
+  - src: "@ART@/hicolor/64x64/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/64x64/apps/qlogg.png
+  - src: "@ART@/hicolor/128x128/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/128x128/apps/qlogg.png
+  - src: "@ART@/hicolor/256x256/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/256x256/apps/qlogg.png
+  - src: "@ART@/hicolor/512x512/apps/qlogg.png"
+    dst: /usr/share/icons/hicolor/512x512/apps/qlogg.png

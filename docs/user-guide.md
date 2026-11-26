@@ -7,6 +7,7 @@ running instance over a loopback connection. On macOS, `Ctrl` in this guide is
 platform and Tools > Preferences, Shortcuts changes them. Menus on Linux show
 modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
+- [Installing](#installing)
 - [Opening files](#opening-files)
 - [The main window](#the-main-window)
 - [Moving around](#moving-around)
@@ -26,6 +27,26 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 - [Help menu and logs](#help-menu-and-logs)
 - [Command line](#command-line)
 - [Known issues](#known-issues)
+
+## Installing
+
+| System | Download | Result |
+|---|---|---|
+| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry, and a desktop shortcut when you tick it on the last page; a portable copy registers nothing, and deleting its folder removes it. Run QLogg on the last page starts QLogg without administrator rights |
+| Debian, Ubuntu | `qlogg-<version>-linux-<arch>.deb` | `sudo apt install ./<file>.deb`: `qlogg` on the path, QLogg in the applications menu and under Open With for text files |
+| Fedora, RHEL | `qlogg-<version>-linux-<arch>.rpm` | `sudo dnf install ./<file>.rpm`, the same |
+| Any, no install | The `.zip` or `.tar.gz` for your system | Extract it and run `qlogg.exe`, `bin/qlogg` or `QLogg.app` |
+
+Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
+your settings, and an upgrade of a portable copy keeps the settings in its
+folder. Installing QLogg does not set it as the default program for any file
+type.
+
+![Windows setup: installation type](images/guide/installer-type.png)
+
+![Windows setup: install folder](images/guide/installer-folder.png)
+
+![Windows setup: last page with Run QLogg and the desktop shortcut box](images/guide/installer-finish.png)
 
 ## Opening files
 

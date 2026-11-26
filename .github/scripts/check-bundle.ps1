@@ -452,8 +452,14 @@ $work = Join-Path $PWD 'bundle-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 $archive = Get-Item "dist\qlogg-*-$env:TARGET.zip"
 $version = $archive.Name.Substring(6, $archive.Name.Length - 6 - "-$env:TARGET.zip".Length)
-Expand-Archive -Path $archive.FullName -DestinationPath $work
-$bundle = (Resolve-Path (Join-Path $work 'qlogg')).Path
+# QLOGG_HOME names an installed tree to check in place of the zip; the universal zip is then skipped.
+if ($env:QLOGG_HOME) {
+  New-Item -ItemType Directory -Path $work | Out-Null
+  $bundle = (Resolve-Path $env:QLOGG_HOME).Path
+} else {
+  Expand-Archive -Path $archive.FullName -DestinationPath $work
+  $bundle = (Resolve-Path (Join-Path $work 'qlogg')).Path
+}
 
 $arch = & (Join-Path $bundle 'runtime\bin\java.exe') -XshowSettings:properties -version 2>&1 |
   ForEach-Object { "$_" } |
@@ -494,6 +500,7 @@ Test-CmdPrompt $bundle
 Test-UnicodeNames $bundle
 Test-UnicodeHandoff $bundle
 Test-CmdCall $bundle
+if ($env:QLOGG_HOME) { return }
 
 $universal = Get-ChildItem dist -Filter 'qlogg-*.zip' |
   Where-Object { $_.Name -notmatch '-(linux|macos|windows)-' } |

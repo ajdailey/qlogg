@@ -1,12 +1,12 @@
 # qlogg-dist
 
-Builds the universal jar and zip, the six per-target bundles and the
-launchers. Packaging is `src/build/dist.xml`, run by maven-antrun-plugin at
-`package` after the dependency plugin stages the jars and launch4j builds
-`qlogg.exe`. Archives go to the top-level `dist/`, which no build step deletes.
+Builds the universal jar and zip, the six per-target bundles, the Windows
+installers, the Linux packages and the launchers. Packaging is
+`src/build/dist.xml`, run by maven-antrun-plugin at `package` after the
+dependency plugin stages the jars and launch4j builds `qlogg.exe`. Archives go to the top-level `dist/`, which no build step deletes.
 
-`qlogg.exe` and the archives need an x86-64 Linux build host; the
-`archive-host` profile (`os.name` Linux, `os.arch` amd64) turns them on. On
+`qlogg.exe`, the archives, installers and packages need an x86-64 Linux build
+host; the `archive-host` profile (`os.name` Linux, `os.arch` amd64) turns them on. On
 any other host the module builds `target/qlogg.jar` only, and `SmokeTest`
 runs against it.
 
@@ -72,6 +72,73 @@ jlink on Linux writes the `legal/<module>/` notices as symlinks into
 because Ant's `zip` stores a link as a regular file and the macOS seal must
 match what unzips.
 
+## Installers and packages
+
+Each is built from its target's bundle tree after the bundle archive, by the
+`windows-installer` and `linux-packages` macros. `InstallerArt.java`, run with
+jsvg at build time, renders the hicolor PNGs (16 to 512 px) and the NSIS
+welcome (164 x 314) and header (150 x 57) bitmaps from `src/icons/qlogg.svg`
+into `target/installer/art`; the images hold no text, so host fonts do not
+change them.
+
+| Output | Tool | Contents |
+|---|---|---|
+| `qlogg-<version>-windows-<arch>-setup.exe` | `makensis` 3.09 from Ubuntu 24.04's `nsis` and `nsis-common` packages, unpacked with `dpkg-deb`; `src/windows/qlogg.nsi` | The bundle tree, installed per machine, per user or portable |
+| `qlogg-<version>-linux-<arch>.deb`, `.rpm` | `nfpm` 2.48.0; `src/linux/nfpm.yaml` | `/opt/qlogg` (the bundle tree), `/usr/bin/qlogg` linking to `/opt/qlogg/bin/qlogg`, `/usr/share/applications/qlogg.desktop`, `/usr/share/icons/hicolor/*/apps/qlogg.png` and `scalable/apps/qlogg.svg` |
+
+### Windows setup
+
+`qlogg.nsi` builds an `amd64-unicode` installer for both Windows targets; on
+arm64 it runs under x64 emulation and installs the arm64 runtime. It runs with
+`RequestExecutionLevel highest`: an administrator gets the UAC prompt at
+start, and for anyone else the all-users choice is disabled.
+
+| Choice | Folder | Writes |
+|---|---|---|
+| All users (`/MACHINE`) | `$PROGRAMFILES64\QLogg` | `uninstall.exe`; `HKLM` Installed apps entry (`DisplayIcon` `qlogg.exe`, publisher, version, size), Start menu `QLogg.lnk` for all users, `QLogg.File` ProgID listed in `.log` and `.txt` `OpenWithProgids` and `Applications\qlogg.exe` |
+| Current user (`/USER`) | `$LOCALAPPDATA\Programs\QLogg` | The same under `HKCU` and the user's Start menu |
+| Portable (`/PORTABLE`) | `$DOCUMENTS\QLogg` by default | An empty `qlogg.conf`, unless one exists; nothing else |
+
+- The license page has a Next button and asks for no acceptance.
+- The finish page has Run QLogg, checked, and Create a desktop shortcut,
+  unchecked and hidden for portable; `/DESKTOP` selects the shortcut in a
+  silent install. The shortcut goes on the common desktop for all users and on
+  the user's desktop for the current user. Setup never removes one; the
+  uninstaller does. Run QLogg executes `explorer.exe <folder>\qlogg.exe`:
+  Explorer hands the file to the running shell, which starts it with the
+  signed-in user's unelevated token, so an all-users install started as
+  administrator does not run QLogg elevated. A silent install starts nothing.
+- An existing install sets the default folder and the default choice. A
+  regular install in another folder of the same scope is uninstalled first.
+- When `lib\qlogg.jar` exists, setup deletes `lib\` and `runtime\` before
+  copying, so an upgrade leaves no file of the older version. Settings,
+  `logs\` and `qlogg.conf` in a portable folder stay.
+- The directory page refuses a regular install into a folder holding
+  `qlogg.conf`, which would run portable, and a portable copy into a folder
+  holding `uninstall.exe`, under `$PROGRAMFILES64`, `$PROGRAMFILES32` or
+  `$WINDIR`, or one it cannot write. Silent setup exits 2 instead.
+- `NsisFiles.java` writes `files.nsh`: a `File` per bundle file and a
+  `Delete` and `RMDir` per file and folder for the uninstaller, sorted by
+  name. The uninstaller removes exactly those, `uninstall.exe`, the shortcuts
+  and the registry keys; the settings under `%APPDATA%\QLogg` stay.
+- The file properties carry the version, `QLogg` as company and the
+  copyright. The installer and uninstaller use `qlogg.ico`.
+- Signing: `qlogg.exe` is in the bundle tree before the macro runs, so a
+  signing step goes between `exe` and the bundles. `-DSIGN_UNINSTALLER=<cmd>`
+  and `-DSIGN_INSTALLER=<cmd>` turn on `!uninstfinalize` and `!finalize`,
+  which run the command on the file; dist.xml passes neither.
+
+### Linux packages
+
+The package version is the project version with `-` replaced by `~`
+(`0.2.0-rc1` as `0.2.0~rc1`, release `1`), so a release candidate sorts before
+its release. The `.deb` depends on `libgtk-3-0t64 | libgtk-3-0`, the `.rpm`
+on `gtk3`. The desktop entry sets `StartupWMClass=QLogg`, the main window's
+`WM_CLASS` under GTK 3 (measured with `xprop`, and checked by CI), so the
+GNOME dock shows the QLogg icon. Its `MimeType` lists `text/plain` and
+`text/x-log` for Open With. The package scripts are empty: the icon cache and
+desktop database update through the distributions' file triggers.
+
 ## Reproducible output
 
 Every archive entry, and every entry of `qlogg.jar`, is dated
@@ -87,6 +154,11 @@ release date):
 - `qlogg.jar` is byte-identical across build hosts under one JDK: `dist.xml`
   rewrites the native digests to LF and sorts the `index.properties` lists by
   name, case-sensitive.
+- The installers and packages store file times. Before `nfpm` and `makensis`
+  run, the `date-tree` macro dates the bundle tree and the installer bitmaps
+  `project.build.outputTimestamp`; `nfpm.yaml` sets that time and umask 022
+  for the files outside the tree. `NsisFiles` sorts the installer's file
+  list, and `nfpm` sorts its own.
 - launch4j's `ld` stamps `qlogg.exe` with the link time. `PeTimestamp.java`
   rewrites the COFF time stamp and the PE checksum to the values `ld` writes
   with `SOURCE_DATE_EPOCH` set, which cannot reach `ld` inside the Maven JVM.
@@ -110,12 +182,12 @@ before the modules build, so the goal requests their jars from Maven Central. Th
 `sbom` profile here adds the six SWT fragments as dependencies so the SBOM
 lists them; `stage-lib` excludes `org.eclipse.platform`, so the archives are
 unchanged. In CI, `.github/scripts/sbom-components.sh` adds the Temurin
-releases `dist.xml` downloads and launch4j's header.
+releases `dist.xml` downloads, launch4j's header and NSIS.
 
 The archive and SBOM names carry the version `-Drevision` sets: the tag's
 version for a `v*` tag, `<revision>+<short commit>` for any other CI build.
-A pushed `v*` tag ends in a draft GitHub Release holding the seven archives,
-`SHA256SUMS` and the SBOM, a pre-release when the tag has a suffix
+A pushed `v*` tag ends in a draft GitHub Release holding the seven archives, the
+two installers, the four packages, `SHA256SUMS` and the SBOM, a pre-release when the tag has a suffix
 (`v0.2.0-rc1`); the maintainer reviews and publishes it. A green
 push to `main` replaces the `continuous` pre-release with the same set. Steps and
 recovery are in the root `README.md` under "Continuous integration".
@@ -174,12 +246,22 @@ setup-java's JDK as `JAVA_HOME`:
 A failed handoff opens its own window and does not exit, so each script bounds
 the second launch at 60 s.
 
+The same job then checks the installers and packages on that runner:
+
+| Script | Checks |
+|---|---|
+| `check-linux-packages.sh` | Installs the `.deb` with `apt`: version, `/usr/bin/qlogg` link, no `qlogg.conf`, `desktop-file-validate`, `StartupWMClass=QLogg`, every icon. Runs `check-bundle.sh` with `QLOGG_HOME=/opt/qlogg` through `/usr/bin/qlogg`, which also requires a main window with `WM_CLASS` `"QLogg", "QLogg"`. Removes the package and checks the files are gone. Then, in `fedora:44` pinned by digest: `dnf install` of the `.rpm`, `rpm -V`, `qlogg -v`, no `qlogg.conf`, `dnf remove` |
+| `installer-screenshots.ps1` | Walks the setup's pages by window message (all-users install with the desktop shortcut ticked, its uninstaller, a portable install) and saves each with `PrintWindow` to `installer-screenshots\`, uploaded as `installer-screenshots-<target>`. After each install an `explorer.exe` must have started `qlogg.exe`, and QLogg must have the shell's token elevation (0 for an unelevated shell; the hosted runners' shell is elevated); the all-users walk must write the common desktop shortcut and its uninstaller remove it, and the portable walk writes none |
+| `check-installer.ps1` | For `/MACHINE` and then `/USER`: the Installed apps entry, the shortcut target, no desktop shortcut, `QLogg.File` in both `OpenWithProgids` with the default handler unchanged, no `qlogg.conf`, no QLogg process from the folder 5 s after setup exits; `check-bundle.ps1` with `QLOGG_HOME` set to the installed folder; an install over it with `/DESKTOP` removes a stale runtime file, adds no `qlogg.conf`, and writes the shortcut to that scope's desktop only; a silent uninstall removes the folder, shortcuts and keys and keeps `%APPDATA%\QLogg`. Then `/PORTABLE /DESKTOP`: an empty `qlogg.conf`, no registry entry, no Start menu or desktop shortcut, no QLogg started, QLogg writes its `-l` log in the folder, and an install over it keeps `qlogg.conf` and `logs\`. Exit 2 for `/USER` into the portable folder and `/PORTABLE` under Program Files |
+
 ## Icons
 
 `src/icons/qlogg.svg` is the OS-facing icon (window, taskbar, Dock, `.exe`,
 `.icns`); `qlogg-light.svg` is for in-app use with the light palette.
 `tools/icons.sh` renders `qlogg.ico`, `QLogg.icns` and the PNGs in
-`qlogg-ui-swt` from them; the build uses the committed outputs.
+`qlogg-ui-swt` from them; the build uses the committed outputs. The package
+icons and installer bitmaps are rendered at build time
+([Installers and packages](#installers-and-packages)).
 
 ## Testing
 
