@@ -52,6 +52,11 @@ import java.util.regex.PatternSyntaxException;
  * least two lines unless it is cut by the end of the scope. A skipped line inside an open range is
  * part of it. Partitioning cannot change the result: the state passes from chunk to chunk.
  *
+ * <p>A restricted search ({@link SearchQuery#restriction}) tests member lines only. A chunk starts
+ * at a member and ends at the last member that keeps it within {@code chunkLines} lines and {@code
+ * chunkBytes} bytes, so a gap of {@code chunkLines} lines or more is never read; the worker walks
+ * the chunk's lines at LF and tests the members.
+ *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
  * {@link PatternTooComplexException} naming that line; the pool thread survives.
  *
@@ -234,6 +239,8 @@ public final class SearchEngine {
     private final long end;
     private final MutableLineSet results;
     private final SearchListener listener;
+    private final SearchedLines tested;
+    private final long last;
     private final CancellationToken token = new CancellationToken();
     private final CountDownLatch done = new CountDownLatch(1);
     private final Queue<Chunk> inFlight = new ArrayDeque<Chunk>();
@@ -266,6 +273,8 @@ public final class SearchEngine {
       this.lineFeed = encoding.lineFeed();
       this.carriageReturn = encoding.carriageReturn();
       this.open = query.rangeOpen();
+      this.tested = SearchedLines.of(query);
+      this.last = tested.last(end);
     }
 
     @Override
@@ -340,7 +349,7 @@ public final class SearchEngine {
     }
 
     private void searchAll() throws IOException, InterruptedException, WorkerFailure {
-      long next = first;
+      long next = tested.first(first, end);
       long lastPublish = System.nanoTime();
       while (next < end || !inFlight.isEmpty()) {
         token.check();
@@ -348,7 +357,7 @@ public final class SearchEngine {
           Chunk chunk = read(next);
           if (chunk != null) {
             submit(chunk);
-            next += chunk.lines;
+            next = tested.first(next + chunk.lines, end);
             continue;
           }
           if (inFlight.isEmpty()) {
@@ -356,7 +365,7 @@ public final class SearchEngine {
             if (query.range() && !skippedInRange(next)) {
               return;
             }
-            next++;
+            next = tested.first(next + 1, end);
             searched = next - first;
             continue;
           }
@@ -372,6 +381,7 @@ public final class SearchEngine {
           lastPublish = System.nanoTime();
         }
       }
+      searched = end - first;
     }
 
     /**
@@ -383,10 +393,11 @@ public final class SearchEngine {
     private Chunk read(long line) throws IOException, InterruptedException {
       int chunkBytes = settings.chunkBytes();
       long start = index.lineStart(line);
-      long stop = Math.min(end, line + settings.chunkLines());
+      long stop = tested.cut(line, Math.min(end, line + settings.chunkLines()));
       long finish = index.lineEnd(stop - 1);
       if (finish - start > chunkBytes) {
         stop = Math.max(line + 1, Math.min(stop, index.lineAt(start + chunkBytes)));
+        stop = tested.cut(line, stop);
         finish = index.lineEnd(stop - 1);
       }
       long span = finish - start;
@@ -516,6 +527,7 @@ public final class SearchEngine {
       long[] ends = closer == null ? null : new long[16];
       int endCount = 0;
       int position = 0;
+      long member = chunk.firstLine;
       for (int i = 0; i < chunk.lines; i++) {
         if (i % CHECK_LINES == 0) {
           token.check();
@@ -529,6 +541,11 @@ public final class SearchEngine {
           }
           next = lineEnd + unit;
         }
+        if (chunk.firstLine + i != member) {
+          position = next;
+          continue;
+        }
+        member = tested.next(member);
         int textEnd = lineEnd;
         if (lineEnd - position >= unit && unitAt(bytes, lineEnd - unit, carriageReturn)) {
           textEnd = lineEnd - unit;
@@ -617,7 +634,6 @@ public final class SearchEngine {
       long[] starts = found.hits();
       long[] ends = found.ends();
       boolean inverse = query.inverse();
-      long last = end - 1;
       long stop = chunk.firstLine + chunk.lines;
       long[] lines = new long[chunk.lines];
       int n = 0;
@@ -635,7 +651,7 @@ public final class SearchEngine {
             openBeforeLast = true;
           }
           if (!inverse) {
-            n = addLines(lines, n, line, close + 1);
+            n = tested.add(lines, n, line, close + 1);
           }
           line = close + 1;
           open = !closes;
@@ -648,7 +664,7 @@ public final class SearchEngine {
             openBeforeLast = false;
           }
           if (inverse) {
-            n = addLines(lines, n, line, opening);
+            n = tested.add(lines, n, line, opening);
           } else if (opening < stop) {
             lines[n++] = opening;
           }
@@ -666,7 +682,7 @@ public final class SearchEngine {
      * @return false when a limit stops the search
      */
     private boolean skippedInRange(long line) {
-      if (line == end - 1) {
+      if (line == last) {
         openBeforeLast = open;
       }
       if (open == query.inverse()) {
@@ -708,17 +724,6 @@ public final class SearchEngine {
         Thread.currentThread().interrupt();
       }
     }
-  }
-
-  /**
-   * Puts the lines {@code [from, to)} into {@code out} at {@code n}; returns the next free slot.
-   */
-  private static int addLines(long[] out, int n, long from, long to) {
-    int at = n;
-    for (long line = from; line < to; line++) {
-      out[at++] = line;
-    }
-    return at;
   }
 
   /** Returns the offset of the first unit equal to {@code unit} at an aligned offset, or -1. */
