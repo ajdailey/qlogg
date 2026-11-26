@@ -1545,8 +1545,8 @@ class ArchitectureTest {
 
   /**
    * Item and button icons come from {@code ToolIcons}, which picks the ink for the background they
-   * show on. The tab dots ({@code TabStrip} and {@code TabList}) and the Predefined Filters check
-   * box column ({@code FiltersDialog}, ToolIcons images on a table item) are the exemptions.
+   * show on. The tab dots ({@code TabStrip} and {@code TabList}) and {@code NativeCellImages},
+   * which sets the ToolIcons images a table column takes on a table item, are the exemptions.
    */
   @Test
   void iconsOnlyThroughToolIcons() {
@@ -1568,7 +1568,7 @@ class ArchitectureTest {
             ROOT + ".ui.swt.ToolIcons",
             ROOT + ".ui.swt.TabStrip",
             ROOT + ".ui.swt.TabList",
-            ROOT + ".ui.swt.FiltersDialog");
+            ROOT + ".ui.swt.platform.NativeCellImages");
     return noClasses()
         .that(
             new DescribedPredicate<JavaClass>("are not ToolIcons or an exemption") {

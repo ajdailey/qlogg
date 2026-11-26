@@ -11,6 +11,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 
 /** The answers of {@link PlatformTraits} that GTK 3 and GTK 4 share. */
 abstract class GtkTraits implements PlatformTraits {
@@ -62,6 +63,11 @@ abstract class GtkTraits implements PlatformTraits {
   @Override
   public final DialogTabs dialogTabs(Composite parent) {
     return new NativeDialogTabs(parent);
+  }
+
+  @Override
+  public final CellImages cellImages(Table table, int column) {
+    return new NativeCellImages(column);
   }
 
   @Override

@@ -7,6 +7,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 
 /** The win32 answers of {@link PlatformTraits}. */
 final class Win32Traits implements PlatformTraits {
@@ -55,6 +56,11 @@ final class Win32Traits implements PlatformTraits {
     return DialogColors.nativeDark(parent.getDisplay())
         ? new Win32DialogTabs(parent)
         : new NativeDialogTabs(parent);
+  }
+
+  @Override
+  public CellImages cellImages(Table table, int column) {
+    return new Win32CellImages(table, column);
   }
 
   @Override

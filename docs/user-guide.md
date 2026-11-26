@@ -197,7 +197,9 @@ quote is one term.
 - The filtered view lists matches, marks or both (`1`, `2`, `3`; `v` and `V`
   cycle).
 - The history drop-down recalls earlier patterns. Tools > Predefined Filters
-  stores named patterns, with import and export.
+  stores named patterns, with import and export; a click on a filter's Regex
+  box, or `Space` on the selected filter, switches it between regex and
+  literal text.
 - `Shift+A`, `Shift+E` and `Shift+R` add the selected text to the search,
   exclude it, or replace the search with it.
 - Search > Clear Results, or the close button on the Results tab, stops the

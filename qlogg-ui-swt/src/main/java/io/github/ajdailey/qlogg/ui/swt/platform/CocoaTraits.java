@@ -7,6 +7,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 
 /** The cocoa answers of {@link PlatformTraits}. */
 final class CocoaTraits implements PlatformTraits {
@@ -53,6 +54,11 @@ final class CocoaTraits implements PlatformTraits {
   @Override
   public DialogTabs dialogTabs(Composite parent) {
     return new CocoaDialogTabs(parent);
+  }
+
+  @Override
+  public CellImages cellImages(Table table, int column) {
+    return new NativeCellImages(column);
   }
 
   @Override

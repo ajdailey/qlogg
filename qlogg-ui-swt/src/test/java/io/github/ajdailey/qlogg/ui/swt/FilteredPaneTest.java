@@ -63,6 +63,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
@@ -74,6 +75,8 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Sash;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
@@ -839,6 +842,88 @@ class FilteredPaneTest {
     assertEquals(dialog.working(), controller.preferences().filters());
     dialog.remove();
     assertEquals(0, table.getItemCount());
+    dialog.shell().dispose();
+  }
+
+  @Test
+  void predefinedFiltersNameTextStartsWhereAnImagelessTableStartsIt() {
+    FiltersDialog dialog = new FiltersDialog(window.shell(), controller);
+    dialog.open();
+    Table table = dialog.table();
+    dialog.add();
+    dialog.add();
+    dialog.toggleRegex(0);
+    dialog.apply();
+    Shell plain = new Shell(display);
+    try {
+      plain.setLayout(new FillLayout());
+      Table reference = new Table(plain, table.getStyle());
+      reference.setFont(table.getFont());
+      for (int i = 0; i < table.getColumnCount(); i++) {
+        new TableColumn(reference, SWT.LEFT).setWidth(table.getColumn(i).getWidth());
+      }
+      new TableItem(reference, SWT.NONE).setText(FiltersDialog.NAME, "Errors");
+      plain.setSize(table.getSize().x + 40, 200);
+      plain.open();
+      final TableItem expected = reference.getItem(0);
+      final TableItem regex = table.getItem(1);
+      // GTK reads a cell's bounds as empty until the tree view is allocated.
+      runUntil(
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return expected.getTextBounds(FiltersDialog.NAME).width > 0
+                  && regex.getTextBounds(FiltersDialog.NAME).width > 0;
+            }
+          });
+      int inset = expected.getTextBounds(0).x - expected.getBounds(0).x;
+      for (TableItem item : table.getItems()) {
+        int at = item.getTextBounds(0).x - item.getBounds(0).x;
+        assertTrue(
+            Math.abs(at - inset) <= ScaleSlack.of(table),
+            "Name text inset " + at + ", in a table without images " + inset);
+      }
+      Image literalBox = dialog.regexCells().image(table.getItem(0));
+      Image regexBox = dialog.regexCells().image(regex);
+      assertNotNull(literalBox);
+      assertNotNull(regexBox);
+      assertFalse(literalBox == regexBox, "checked and unchecked differ");
+    } finally {
+      plain.dispose();
+      dialog.shell().dispose();
+    }
+  }
+
+  @Test
+  void predefinedFiltersRegexTogglesByClickAndSpace() {
+    FiltersDialog dialog = new FiltersDialog(window.shell(), controller);
+    dialog.open();
+    Table table = dialog.table();
+    dialog.add();
+    dialog.apply();
+    assertEquals(MatchMode.REGEX, dialog.working().get(0).mode());
+    final TableItem row = table.getItem(0);
+    runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return row.getBounds(FiltersDialog.REGEX).width > 0;
+          }
+        });
+    Rectangle cell = row.getBounds(FiltersDialog.REGEX);
+    Event click = new Event();
+    click.x = cell.x + cell.width / 2;
+    click.y = cell.y + cell.height / 2;
+    click.button = 1;
+    table.notifyListeners(SWT.MouseDown, click);
+    assertEquals(MatchMode.LITERAL, dialog.working().get(0).mode(), "click");
+    table.setSelection(0);
+    Event space = new Event();
+    space.character = ' ';
+    space.keyCode = ' ';
+    table.notifyListeners(SWT.KeyDown, space);
+    assertEquals(MatchMode.REGEX, dialog.working().get(0).mode(), "Space");
+    assertFalse(space.doit, "Space consumed");
     dialog.shell().dispose();
   }
 

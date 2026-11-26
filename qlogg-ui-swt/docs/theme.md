@@ -427,7 +427,8 @@ If an SWT upgrade renames either internal, the items fall back to SWT's layout a
 `TabStripButtonsTest.everyToolItemIsLargerThanItsIcon` fails in the GTK 4 lane.
 Every item and button image goes through `ToolIcons`, which ArchUnit
 `iconsOnlyThroughToolIcons` enforces; the tab dots (`TabStrip`, `TabList`) and
-the Predefined Filters check box column are the exemptions.
+`NativeCellImages`, which sets the Predefined Filters check box images, are the
+exemptions.
 
 ### Icon build
 

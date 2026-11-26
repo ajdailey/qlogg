@@ -7,6 +7,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
 
 /**
  * The view layer's platform differences: {@link Win32Traits}, {@link CocoaTraits}, {@link
@@ -108,6 +109,15 @@ public interface PlatformTraits {
    *     cocoa, else {@link NativeDialogTabs}
    */
   DialogTabs dialogTabs(Composite parent);
+
+  /**
+   * Creates the images of a table column other than the first.
+   *
+   * @param table the table
+   * @param column the column's index
+   * @return {@link Win32CellImages} on win32, else {@link NativeCellImages}
+   */
+  CellImages cellImages(Table table, int column);
 
   /**
    * Creates the stacking for View > Always on Top. On GTK this reads the backend the Display

@@ -286,7 +286,7 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture`,
 | `ui.swt.TextGrid` does not depend on SWT | Column geometry and hit testing test without a display |
 | A code unit that creates a `Shell` with an owning `Shell` calls `DialogColors.apply` (`ownedShellsTakeDialogColors`) | A dialog built without `Dialogs.shell` still takes the dark win32 dialog colors |
 | A code unit that creates a `Shell` other than the main window's calls `Dialogs.inheritIcons` (`ownedShellsInheritIcons`) | Every dialog and tool window carries the main window's icons |
-| No `setImage` on an `Item` or a `Button` outside `ToolIcons`, except `TabStrip`, `TabList` (tab dots) and `FiltersDialog` (`iconsOnlyThroughToolIcons`) | An icon takes the ink for the background it shows on |
+| No `setImage` on an `Item` or a `Button` outside `ToolIcons`, except `TabStrip`, `TabList` (tab dots) and `NativeCellImages` (`iconsOnlyThroughToolIcons`) | An icon takes the ink for the background it shows on |
 | `Dialog.open` (file, folder and color choosers) is called only in `ui.swt.NativeDialogs` (`nativeChoosersOnlyThroughNativeDialogs`) | A window rebuild for a theme switch waits only for a chooser `NativeDialogs` counts |
 | A native `TabFolder` is created only in `ui.swt.platform` (`tabFoldersOnlyThroughDialogTabs`) | A dialog takes its folder from `PlatformTraits.dialogTabs`, dark after a dark win32 start |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |

@@ -360,20 +360,12 @@ class KeySequenceGuiTest {
       boolean first = true;
       for (final char key : collisions()) {
         reached.clear();
-        postPrimary('e');
-        BooleanSupplier pending =
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return reached.contains((int) 'e');
-              }
-            };
+        boolean pending = postUntilReached('e', reached, selected);
         if (first) {
-          assumeTrue(
-              EventLoop.runUntil(display, pending, POSTED_BOUND), "posted keys reach the log view");
+          assumeTrue(pending, "posted keys reach the log view");
           first = false;
         } else {
-          assertTrue(windows.await(pending), "Ctrl+E before " + key);
+          assertTrue(pending, "Ctrl+E before " + key);
         }
         postPrimary(key);
         windows.await(
@@ -405,6 +397,50 @@ class KeySequenceGuiTest {
         }
       }
     }
+  }
+
+  /**
+   * Posts a key with the primary modifier held until the log view receives it, at most three times,
+   * with the main window activated and the log view focused before each post. A posted key
+   * occasionally never arrives on the macOS runners; a key a menu item took ends the attempts.
+   *
+   * @return true once the log view received the key
+   */
+  private boolean postUntilReached(
+      final char key, final List<Integer> reached, List<Character> selected) {
+    final Canvas canvas = canvas();
+    BooleanSupplier arrived =
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return reached.contains((int) key);
+          }
+        };
+    BooleanSupplier focused =
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return display.getActiveShell() == window().shell()
+                && display.getFocusControl() == canvas;
+          }
+        };
+    for (int attempt = 0; attempt < 3; attempt++) {
+      window().shell().forceActive();
+      canvas.setFocus();
+      EventLoop.runUntil(display, focused, POSTED_BOUND);
+      postPrimary(key);
+      if (EventLoop.runUntil(display, arrived, POSTED_BOUND)) {
+        return true;
+      }
+      windows.settle();
+      if (arrived.getAsBoolean()) {
+        return true;
+      }
+      if (!selected.isEmpty()) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

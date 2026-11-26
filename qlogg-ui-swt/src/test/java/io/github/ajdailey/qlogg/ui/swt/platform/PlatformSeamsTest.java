@@ -25,15 +25,21 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.accessibility.ACC;
 import org.eclipse.swt.accessibility.AccessibleControlEvent;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -473,5 +479,58 @@ class PlatformSeamsTest {
     assertSame(dialog, colored.getShell());
     Button nativeCheck = NativeDialogColors.INSTANCE.check(shell);
     assertTrue((nativeCheck.getStyle() & SWT.CHECK) != 0);
+  }
+
+  @Test
+  void onlyWin32DrawsCellImagesInsteadOfSettingThem() {
+    Table table = new Table(shell, SWT.FULL_SELECTION);
+    for (int i = 0; i < 3; i++) {
+      new TableColumn(table, SWT.LEFT).setWidth(60);
+    }
+    assertSame(
+        Win32CellImages.class, PlatformTraits.of("win32", false).cellImages(table, 2).getClass());
+    for (PlatformTraits traits :
+        List.of(
+            PlatformTraits.of("cocoa", false),
+            PlatformTraits.of("gtk", false),
+            PlatformTraits.of("gtk", true))) {
+      assertSame(NativeCellImages.class, traits.cellImages(table, 2).getClass(), traits.name());
+    }
+    Image red = new Image(display, 16, 16);
+    Image canvas = new Image(display, 40, 30);
+    GC fill = new GC(red);
+    GC gc = new GC(canvas);
+    try {
+      fill.setBackground(display.getSystemColor(SWT.COLOR_RED));
+      fill.fillRectangle(0, 0, 16, 16);
+      TableItem drawn = new TableItem(table, SWT.NONE);
+      Win32CellImages win32 = new Win32CellImages(table, 2);
+      win32.show(drawn, red);
+      assertSame(red, win32.image(drawn));
+      assertNull(drawn.getImage(2), "no item image, so no column 0 slot");
+      gc.setBackground(display.getSystemColor(SWT.COLOR_WHITE));
+      gc.fillRectangle(0, 0, 40, 30);
+      Event paint = new Event();
+      paint.gc = gc;
+      paint.item = drawn;
+      paint.index = 2;
+      paint.height = 30;
+      table.notifyListeners(SWT.PaintItem, paint);
+      ImageData pixels = canvas.getImageData();
+      RGB inside = pixels.palette.getRGB(pixels.getPixel(Win32CellImages.INSET + 8, 15));
+      RGB before = pixels.palette.getRGB(pixels.getPixel(0, 15));
+      assertEquals(new RGB(255, 0, 0), inside);
+      assertEquals(new RGB(255, 255, 255), before);
+      TableItem set = new TableItem(table, SWT.NONE);
+      CellImages plain = new NativeCellImages(2);
+      plain.show(set, red);
+      assertSame(red, set.getImage(2));
+      assertSame(red, plain.image(set));
+    } finally {
+      gc.dispose();
+      fill.dispose();
+      canvas.dispose();
+      red.dispose();
+    }
   }
 }

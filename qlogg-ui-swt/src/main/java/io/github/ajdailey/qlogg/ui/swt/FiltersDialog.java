@@ -7,6 +7,8 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.app.search.PredefinedFilter;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.ui.swt.platform.CellImages;
+import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,10 +35,10 @@ import org.eclipse.swt.widgets.ToolItem;
 /**
  * Tools > Predefined Filters: Add and Remove at the top left, Import and Export centered, Move Up
  * and Move Down at the right; a table of Name, Pattern and Regex; then OK, Cancel and Apply. A
- * click on a selected row's name or pattern edits it in place, and a click in the Regex column
- * toggles it; an empty name or pattern is not stored. Import appends the file's filters that are
- * not in the list yet. The file is read and written on a worker by the application controller. OK
- * and Apply save the list; OK also closes.
+ * click on a selected row's name or pattern edits it in place, and a click in the Regex column or
+ * Space toggles the row's regex flag; an empty name or pattern is not stored. Import appends the
+ * file's filters that are not in the list yet. The file is read and written on a worker by the
+ * application controller. OK and Apply save the list; OK also closes.
  */
 final class FiltersDialog {
   /** Column of the name. */
@@ -52,6 +54,7 @@ final class FiltersDialog {
   private final Table table;
   private final TableEditor editor;
   private final ToolIcons icons;
+  private final CellImages regexCells;
   private final Label status;
   private final ApplicationController application;
   private final List<PredefinedFilter> working;
@@ -94,6 +97,7 @@ final class FiltersDialog {
     column(UiText.FILTER_COLUMN_PATTERN, 380);
     column(UiText.FILTER_COLUMN_REGEX, 70);
     TableFit.headerMinima(table);
+    regexCells = PlatformTraits.PLATFORM.cellImages(table, REGEX);
     editor = new TableEditor(table);
     editor.grabHorizontal = true;
     status = Dialogs.label(shell, "");
@@ -117,6 +121,18 @@ final class FiltersDialog {
           @Override
           public void handleEvent(Event event) {
             clicked(new Point(event.x, event.y));
+          }
+        });
+    table.addListener(
+        SWT.KeyDown,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            int row = table.getSelectionIndex();
+            if (event.character == ' ' && event.stateMask == 0 && row >= 0) {
+              event.doit = false;
+              toggleRegex(row);
+            }
           }
         });
     refill(working.isEmpty() ? -1 : 0);
@@ -387,12 +403,8 @@ final class FiltersDialog {
     item.setText(PATTERN, filter.pattern());
     boolean regex = filter.mode() == MatchMode.REGEX;
     Image box = icons.get(regex ? ToolIcons.CHECKED : ToolIcons.UNCHECKED);
-    if (box != null) {
-      item.setImage(REGEX, box);
-      item.setText(REGEX, "");
-    } else {
-      item.setText(REGEX, regex ? UiText.FILTER_COLUMN_REGEX.text() : "");
-    }
+    regexCells.show(item, box);
+    item.setText(REGEX, box == null && regex ? UiText.FILTER_COLUMN_REGEX.text() : "");
   }
 
   /** Opens the dialog with the table focused, so no tool item starts highlighted. */
@@ -411,6 +423,10 @@ final class FiltersDialog {
 
   Table table() {
     return table;
+  }
+
+  CellImages regexCells() {
+    return regexCells;
   }
 
   String statusText() {
