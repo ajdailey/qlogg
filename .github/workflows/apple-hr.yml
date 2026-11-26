@@ -52,3 +52,4 @@ jobs:
           path: variants
       - run: sw_vers
       - run: .github/scripts/apple-hr-run.sh
+      - run: .github/scripts/apple-hr-controls.sh
