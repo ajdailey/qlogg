@@ -1,5 +1,5 @@
-# Unpacks the $env:TARGET bundle from dist\, checks that its runtime reports
-# os.arch $env:EXPECTED_ARCH, has jdk.charsets and no keytool.exe, then starts qlogg.exe and
+# Unpacks the $env:TARGET bundle from dist\, checks that it holds portable.txt and no qlogg.conf
+# and that its runtime reports os.arch $env:EXPECTED_ARCH, has jdk.charsets and no keytool.exe, then starts qlogg.exe and
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
 # bundle, the image's PE machine is $env:EXPECTED_MACHINE, its log shows the
 # main window and no failure, and a second launch hands it a file and exits 0. An ARM64 image
@@ -450,8 +450,8 @@ function Test-CmdCall([string] $Bundle) {
 
 $work = Join-Path $PWD 'bundle-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
-$archive = Get-Item "dist\qlogg-*-$env:TARGET.zip"
-$version = $archive.Name.Substring(6, $archive.Name.Length - 6 - "-$env:TARGET.zip".Length)
+$archive = Get-Item "dist\qlogg-*-$env:TARGET-portable.zip"
+$version = $archive.Name.Substring(6, $archive.Name.Length - 6 - "-$env:TARGET-portable.zip".Length)
 # QLOGG_HOME names an installed tree to check in place of the zip; the universal zip is then skipped.
 if ($env:QLOGG_HOME) {
   New-Item -ItemType Directory -Path $work | Out-Null
@@ -459,6 +459,8 @@ if ($env:QLOGG_HOME) {
 } else {
   Expand-Archive -Path $archive.FullName -DestinationPath $work
   $bundle = (Resolve-Path (Join-Path $work 'qlogg')).Path
+  if (-not (Test-Path -PathType Leaf (Join-Path $bundle 'portable.txt'))) { throw 'the zip lacks portable.txt' }
+  if (Test-Path (Join-Path $bundle 'qlogg.conf')) { throw 'the zip holds qlogg.conf' }
 }
 
 $arch = & (Join-Path $bundle 'runtime\bin\java.exe') -XshowSettings:properties -version 2>&1 |

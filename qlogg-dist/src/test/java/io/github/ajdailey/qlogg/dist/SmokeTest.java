@@ -259,7 +259,8 @@ class SmokeTest {
     assumeTrue("linux-x86_64".equals(target), "the host bundle is " + target);
     Path archive =
         Path.of(System.getProperty("qlogg.dist.dir"))
-            .resolve("qlogg-" + System.getProperty("qlogg.version") + "-linux-x86_64.tar.gz");
+            .resolve(
+                "qlogg-" + System.getProperty("qlogg.version") + "-linux-x86_64-portable.tar.gz");
     assertTrue(Files.isRegularFile(archive), archive.toString());
     Path unpacked = Files.createDirectory(temp.resolve("unpacked"));
     Process tar =
@@ -269,6 +270,13 @@ class SmokeTest {
     assertTrue(tar.waitFor(BOUND_SECONDS, TimeUnit.SECONDS));
     assertEquals(0, tar.exitValue());
     return unpacked.resolve("qlogg");
+  }
+
+  @Test
+  void linuxBundleCarriesThePortableMarker() throws Exception {
+    Path home = unpackLinuxBundle();
+    assertEquals(1, Files.readAllLines(home.resolve("portable.txt")).size());
+    assertFalse(Files.exists(home.resolve("qlogg.conf")), "the archive holds qlogg.conf");
   }
 
   @Test

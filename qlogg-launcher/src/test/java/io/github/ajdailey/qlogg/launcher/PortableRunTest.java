@@ -60,7 +60,7 @@ class PortableRunTest {
 
   /** Runs twice with the marker in {@code settings} and checks every write landed there. */
   private void assertRunsWriteOnlyIn(Path bundle, Path settings) throws Exception {
-    Files.createFile(settings.resolve(SettingsLocation.MARKER));
+    Files.createFile(settings.resolve(SettingsLocation.SETTINGS_FILE));
     Path home = Files.createDirectories(temp.resolve("home"));
     Path log = Files.createDirectories(temp.resolve("logs")).resolve("app.log");
     Files.writeString(log, "one\ntwo\nthree\n");
@@ -95,7 +95,8 @@ class PortableRunTest {
     assertTrue(Files.isRegularFile(settings.resolve(SessionStore.FILE)));
     assertTrue(Files.isRegularFile(settings.resolve(PositionStore.FILE)));
     assertTrue(
-        Files.readString(settings.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
+        Files.readString(
+                settings.resolve(SettingsLocation.SETTINGS_FILE), StandardCharsets.ISO_8859_1)
             .contains("favorite.0="));
   }
 

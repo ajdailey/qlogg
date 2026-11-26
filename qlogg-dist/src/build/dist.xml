@@ -318,6 +318,8 @@ natives.macos-aarch64=${natives.macos-aarch64}
       <copy file="${basedir}/src/bin/qlogg" todir="${home}/bin"/>
       <copy todir="${home}"><fileset refid="notices"/></copy>
       <copy file="${basedir}/src/dist/THIRD-PARTY.txt" todir="${home}"/>
+      <!-- The marker goes in the archive only, not in the packages. -->
+      <copy file="${basedir}/src/dist/portable.txt" todir="${home}"/>
       <mkdir dir="${out}"/>
       <!-- Ant's tar has no modificationtime and dates each entry from its
            file, so GNU tar writes the archive: entries sorted by name, one
@@ -342,7 +344,8 @@ natives.macos-aarch64=${natives.macos-aarch64}
         <arg file="${build}/bundles/@{target}"/>
         <arg value="qlogg"/>
       </exec>
-      <gzip src="${build}/bundles/@{target}.tar" destfile="${out}/qlogg-${project.version}-@{target}.tar.gz"/>
+      <gzip src="${build}/bundles/@{target}.tar" destfile="${out}/qlogg-${project.version}-@{target}-portable.tar.gz"/>
+      <delete file="${home}/portable.txt"/>
       <linux-packages target="@{target}"/>
     </sequential>
   </macrodef>
@@ -366,8 +369,14 @@ natives.macos-aarch64=${natives.macos-aarch64}
       <copy todir="${home}"><fileset refid="notices"/></copy>
       <copy file="${basedir}/src/dist/THIRD-PARTY.txt" todir="${home}"/>
       <mkdir dir="${out}"/>
-      <zip destfile="${out}/qlogg-${project.version}-@{target}.zip" modificationtime="${archive.time}">
+      <!-- The marker sits outside the bundle tree, which the installer lists
+           whole; the zip adds it and the portable choice writes it. -->
+      <copy file="${basedir}/src/dist/portable.txt" todir="${build}/windows" overwrite="true">
+        <filterchain><fixcrlf eol="crlf"/></filterchain>
+      </copy>
+      <zip destfile="${out}/qlogg-${project.version}-@{target}-portable.zip" modificationtime="${archive.time}">
         <zipfileset dir="${build}/bundles/@{target}"/>
+        <zipfileset file="${build}/windows/portable.txt" prefix="qlogg"/>
       </zip>
       <windows-installer target="@{target}"/>
     </sequential>
@@ -496,8 +505,9 @@ natives.macos-aarch64=${natives.macos-aarch64}
       <copy file="${qlogg.root}/LICENSE" tofile="${work}/LICENSE.txt">
         <filterchain><fixcrlf eol="crlf"/></filterchain>
       </copy>
-      <!-- MUI2 stores the bitmaps with File too. -->
+      <!-- MUI2 stores the bitmaps with File too, and setup the marker. -->
       <date-tree dir="${build}/installer"/>
+      <date-tree dir="${build}/windows"/>
       <date-tree dir="${build}/bundles/@{target}/qlogg"/>
       <exec executable="${java.home}/bin/java" failonerror="true">
         <arg file="${basedir}/src/build/NsisFiles.java"/>
@@ -517,6 +527,7 @@ natives.macos-aarch64=${natives.macos-aarch64}
         <arg value="-DART=${build}/installer/art/nsis"/>
         <arg value="-DICON=${basedir}/src/icons/qlogg.ico"/>
         <arg value="-DLICENSE=${work}/LICENSE.txt"/>
+        <arg value="-DPORTABLE=${build}/windows/portable.txt"/>
         <arg value="-DOUTFILE=${out}/qlogg-${project.version}-@{target}-setup.exe"/>
         <arg file="${basedir}/src/windows/qlogg.nsi"/>
       </exec>

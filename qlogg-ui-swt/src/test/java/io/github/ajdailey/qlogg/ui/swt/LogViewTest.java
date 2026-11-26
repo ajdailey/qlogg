@@ -656,6 +656,7 @@ class LogViewTest {
                 "Open Settings Folder",
                 "-",
                 "Report an Issue",
+                "Check for Updates",
                 "-",
                 "About QLogg")),
         labels(bar.getItem(9).getMenu()));

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Unpacks the $TARGET bundle from dist/, verifies a macOS bundle's signature,
+# Unpacks the $TARGET bundle from dist/, checks that a Linux archive holds
+# portable.txt and no qlogg.conf, verifies a macOS bundle's signature,
 # checks that its runtime reports os.arch $EXPECTED_ARCH, has jdk.charsets and
 # no keytool, and starts the bundle's launcher until the main window opens. A
 # second launch then hands a file to the running bundle and exits 0. The same
@@ -21,7 +22,9 @@ case "${QLOGG_HOME:+installed-}$TARGET" in
     runtime="$QLOGG_HOME/runtime"
     ;;
   linux-*)
-    tar -xzf dist/qlogg-*-"$TARGET".tar.gz -C "$work"
+    tar -xzf dist/qlogg-*-"$TARGET"-portable.tar.gz -C "$work"
+    [ -f "$work/qlogg/portable.txt" ] && [ ! -e "$work/qlogg/qlogg.conf" ] \
+      || { echo "FAIL: the archive lacks portable.txt or holds qlogg.conf" >&2; exit 1; }
     launcher="$work/qlogg/bin/qlogg"
     runtime="$work/qlogg/runtime"
     ;;

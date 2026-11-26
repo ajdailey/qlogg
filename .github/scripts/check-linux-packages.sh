@@ -23,8 +23,9 @@ dpkg-query -W -f '${Version}\n' qlogg | grep -qxF "${version//-/\~}-1" \
   || { echo "FAIL: package version is not ${version//-/\~}-1" >&2; exit 1; }
 [ "$(readlink /usr/bin/qlogg)" = /opt/qlogg/bin/qlogg ] \
   || { echo "FAIL: /usr/bin/qlogg does not link to /opt/qlogg/bin/qlogg" >&2; exit 1; }
-[ ! -e /opt/qlogg/qlogg.conf ] && [ ! -e /opt/qlogg/bin/qlogg.conf ] \
-  || { echo "FAIL: the package holds qlogg.conf" >&2; exit 1; }
+for marker in qlogg.conf bin/qlogg.conf portable.txt bin/portable.txt; do
+  [ ! -e "/opt/qlogg/$marker" ] || { echo "FAIL: the package holds $marker" >&2; exit 1; }
+done
 desktop-file-validate /usr/share/applications/qlogg.desktop
 grep -qx 'StartupWMClass=QLogg' /usr/share/applications/qlogg.desktop \
   || { echo "FAIL: the desktop entry lacks StartupWMClass=QLogg" >&2; exit 1; }
@@ -51,7 +52,7 @@ docker run --rm -v "$PWD/dist:/dist:ro" -e RPM="/$rpm" "$fedora" sh -euc '
   dnf install -y -q "$RPM"
   rpm -V qlogg
   /usr/bin/qlogg -v
-  [ ! -e /opt/qlogg/qlogg.conf ]
+  [ ! -e /opt/qlogg/qlogg.conf ] && [ ! -e /opt/qlogg/portable.txt ]
   dnf remove -y -q qlogg
   [ ! -e /opt/qlogg ] && [ ! -e /usr/bin/qlogg ]
 '

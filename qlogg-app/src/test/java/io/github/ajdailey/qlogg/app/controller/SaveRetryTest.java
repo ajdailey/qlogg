@@ -69,7 +69,7 @@ class SaveRetryTest {
   @AfterEach
   void tearDown() throws IOException, InterruptedException {
     unblock(SessionStore.FILE);
-    unblock(SettingsLocation.MARKER);
+    unblock(SettingsLocation.SETTINGS_FILE);
     if (!set.isQuitting()) {
       quit();
     }
@@ -137,11 +137,11 @@ class SaveRetryTest {
 
   @Test
   void aFailedSettingsSaveReachesTheFileWithoutAChange() throws Exception {
-    block(SettingsLocation.MARKER);
+    block(SettingsLocation.SETTINGS_FILE);
     set.setPreferences(Preferences.DEFAULTS.withSplitPercent(42));
     assertEquals(List.of(ApplicationController.SAVE_DELAY_MILLIS), step());
     assertEquals(List.of(2000), step());
-    unblock(SettingsLocation.MARKER);
+    unblock(SettingsLocation.SETTINGS_FILE);
     assertEquals(List.of(), step());
     assertEquals(42, config.load().splitPercent());
   }

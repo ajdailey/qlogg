@@ -39,9 +39,9 @@ plugins.
 | Viewing | Line numbers, go to line and `+line:N`, Go Back and Go Forward over jumps, block selection, copy with line numbers, save of a selection or the filtered view, text wrap, whitespace and line-end markers, control characters as boxed hex codes, hidden ANSI colors, folding of multi-line entries, font zoom, light, dark and system themes, view color schemes apart from the theme (Light, Dark, nine bundled and user scheme files) | [Moving around](docs/user-guide.md#moving-around), [Selecting](docs/user-guide.md#selecting-copying-and-saving), [Folding](docs/user-guide.md#folding-multi-line-entries), [View options](docs/user-guide.md#view-options), [View colors](docs/user-guide.md#view-colors) |
 | Multiple files and windows | Movable, renamable tabs with a dot for new lines or matches, a tab menu, Open, tab list (with the hidden count) and Close buttons beside the tabs, Switch to File, options to close the window with its last tab and to show the last used tab after a close; several main windows, tabs moved between them as they are, Always on Top and Full Screen per window | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
 | Sessions and settings | Session restore of tabs, marks, offsets and sync groups; remembered position, encoding and time format per file; remembered window state; Tools > Preferences with a shortcut editor | [Sessions](docs/user-guide.md#sessions-recent-files-and-favorites), [Preferences](docs/user-guide.md#preferences) |
-| Portable settings | Settings beside the installation, or on Linux beside `bin/qlogg`, when `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
+| Portable settings | Settings beside the installation, or on Linux beside `bin/qlogg`, when `portable.txt` or `qlogg.conf` is there, or in `--settings <dir>` | [Settings directory](#settings-directory) |
 | Single instance | A second launch hands its files to the running QLogg over an authenticated loopback connection; any failure opens a window of its own. Ending the process saves settings and the session | [Windows](docs/user-guide.md#windows-and-the-running-instance) |
-| Tools and Help | Command palette; scratchpad transforms; path commands, Open in Editor and Open Path at Caret; Keyboard Shortcuts, Show Log with a warning marker, debug log file, Report an Issue, and the user guide in its own browser window (on Linux in portable and `--settings` mode, the system browser); macOS application menu | [Command palette](docs/user-guide.md#moving-around), [Scratchpad](docs/user-guide.md#scratchpad), [Help](docs/user-guide.md#help-menu-and-logs) |
+| Tools and Help | Command palette; scratchpad transforms; path commands, Open in Editor and Open Path at Caret; Keyboard Shortcuts, Show Log with a warning marker, debug log file, Report an Issue, Check for Updates (opens the releases page), and the user guide in its own browser window (on Linux in portable and `--settings` mode, the system browser); macOS application menu | [Command palette](docs/user-guide.md#moving-around), [Scratchpad](docs/user-guide.md#scratchpad), [Help](docs/user-guide.md#help-menu-and-logs) |
 
 The guide's [Menus](docs/user-guide.md#menus) section lists every menu item,
 and Help > Keyboard Shortcuts every key binding.
@@ -133,7 +133,7 @@ from the Ubuntu archive when the runner image lacks them.
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives, two Windows installers, four Linux packages and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message. Linux runners then install the `.deb` with `apt`, check its files, desktop entry and icons, run the same launch against `/opt/qlogg` through `/usr/bin/qlogg` with the main window's `WM_CLASS` checked against `StartupWMClass`, remove it, and install, verify (`rpm -V`), run `qlogg -v` and remove the `.rpm` in a Fedora 44 container. Windows runners walk the setup's pages and upload each as a PNG (`installer-screenshots-<target>`), check that the finish page starts QLogg through Explorer, then install silently for all users and for the current user, check the Installed apps entry, shortcut and Open With, run the same launch checks against the installed folder, install over it, uninstall and check removal; then a portable install, an install over it, and two refused folders |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, checks that a Linux or Windows archive holds `portable.txt` and no `qlogg.conf`, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message. Linux runners then install the `.deb` with `apt`, check its files, desktop entry and icons, run the same launch against `/opt/qlogg` through `/usr/bin/qlogg` with the main window's `WM_CLASS` checked against `StartupWMClass`, remove it, and install, verify (`rpm -V`), run `qlogg -v` and remove the `.rpm` in a Fedora 44 container. Windows runners walk the setup's pages and upload each as a PNG (`installer-screenshots-<target>`), check that the finish page starts QLogg through Explorer, then install silently for all users and for the current user, check the Installed apps entry, shortcut and Open With, run the same launch checks against the installed folder, install over it, uninstall and check removal; then a portable install, an install over it, and three refused folders |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' and `qlogg-dist`'s tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's 13 archives, installers and packages, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
@@ -232,10 +232,10 @@ To fix a bad draft, delete the draft and the tag
 
 | Target | SWT fragment | Bundle | Installer or package |
 |---|---|---|---|
-| linux-x86_64 | `gtk.linux.x86_64` | `qlogg-<version>-linux-x86_64.tar.gz` | `qlogg-<version>-linux-x86_64.deb`, `.rpm` |
-| linux-aarch64 | `gtk.linux.aarch64` | `qlogg-<version>-linux-aarch64.tar.gz` | `qlogg-<version>-linux-aarch64.deb`, `.rpm` |
-| windows-x86_64 | `win32.win32.x86_64` | `qlogg-<version>-windows-x86_64.zip` | `qlogg-<version>-windows-x86_64-setup.exe` |
-| windows-aarch64 | `win32.win32.aarch64` | `qlogg-<version>-windows-aarch64.zip` | `qlogg-<version>-windows-aarch64-setup.exe` |
+| linux-x86_64 | `gtk.linux.x86_64` | `qlogg-<version>-linux-x86_64-portable.tar.gz` | `qlogg-<version>-linux-x86_64.deb`, `.rpm` |
+| linux-aarch64 | `gtk.linux.aarch64` | `qlogg-<version>-linux-aarch64-portable.tar.gz` | `qlogg-<version>-linux-aarch64.deb`, `.rpm` |
+| windows-x86_64 | `win32.win32.x86_64` | `qlogg-<version>-windows-x86_64-portable.zip` | `qlogg-<version>-windows-x86_64-setup.exe` |
+| windows-aarch64 | `win32.win32.aarch64` | `qlogg-<version>-windows-aarch64-portable.zip` | `qlogg-<version>-windows-aarch64-setup.exe` |
 | macos-x86_64 | `cocoa.macosx.x86_64` | `qlogg-<version>-macos-x86_64.zip` (`QLogg.app`) | None |
 | macos-aarch64 | `cocoa.macosx.aarch64` | `qlogg-<version>-macos-aarch64.zip` (`QLogg.app`) | None |
 
@@ -243,7 +243,9 @@ To fix a bad draft, delete the draft and the tag
   six targets under an installed Java 21, with `bin/qlogg`, `qlogg.exe` and
   `qlogg.cmd`.
 - Each bundle adds a Java runtime for its target, so it needs no installed
-  Java.
+  Java. The Linux and Windows bundles hold `portable.txt` and run in
+  [portable mode](#settings-directory); the universal zip and the macOS
+  bundles hold no marker.
 - Linux targets need the system GTK 3 libraries. GTK 4 is an experimental
   opt-in on linux-x86_64: start QLogg with `bin/qlogg --gtk4` or `SWT_GTK4=1`
   (GTK 4 libraries required; without them QLogg runs on GTK 3 and logs a
@@ -268,14 +270,15 @@ The installers and packages hold the same tree as the target's bundle.
 | `.deb` (Debian, Ubuntu), `.rpm` (Fedora, RHEL) | `/opt/qlogg`, `/usr/bin/qlogg`, a desktop entry with the icon at every size, and Open With for text and log files. Needs GTK 3: `libgtk-3-0t64` or `libgtk-3-0`, or `gtk3`. Removing the package removes them and keeps the settings in `~/.config/qlogg` |
 | `-setup.exe`, for all users | `C:\Program Files\QLogg`, with administrator rights |
 | `-setup.exe`, for me only | `%LOCALAPPDATA%\Programs\QLogg` |
-| `-setup.exe`, portable | A folder you choose and can write to, outside Program Files and Windows, with an empty `qlogg.conf`, so the settings stay in that folder. Nothing is registered with Windows; delete the folder to remove it |
+| `-setup.exe`, portable | A folder you choose and can write to, outside Program Files and Windows, with `portable.txt`, so the settings stay in that folder. Nothing is registered with Windows; delete the folder to remove it |
 
 The all-users and current-user installs add a Start menu shortcut, Open With
 for `.log` and `.txt` (never the default program) and an Installed apps entry,
 and a desktop shortcut when chosen on the finish page. Uninstalling removes
 them and keeps the settings in `%APPDATA%\QLogg`. Running setup again upgrades
 in place, release candidates included; over a portable folder it keeps
-`qlogg.conf` and the settings. The finish page starts QLogg as the signed-in
+`portable.txt` and the settings. A regular install refuses a folder holding
+`portable.txt` or `qlogg.conf`. The finish page starts QLogg as the signed-in
 user, without administrator rights. The pages are shown in the
 [user guide](docs/user-guide.md#installing).
 
@@ -352,13 +355,15 @@ QLogg keeps its files in the first directory that applies:
 | Mode | When | Directory |
 |---|---|---|
 | Explicit | `--settings <dir>` | `<dir>` |
-| Portable | `qlogg.conf` exists in the installation directory, the parent of `lib/` | The installation directory |
-| Portable (Linux) | `qlogg.conf` exists beside the `bin/qlogg` script and not in the installation directory | `bin/` |
+| Portable | `portable.txt` or `qlogg.conf` exists in the installation directory, the parent of `lib/` | The installation directory |
+| Portable (Linux) | `portable.txt` or `qlogg.conf` exists beside the `bin/qlogg` script, and neither in the installation directory | `bin/` |
 | Per-user | Otherwise | Linux `$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`, macOS `~/Library/Application Support/QLogg` |
 
-An empty `qlogg.conf` in either place selects portable mode. In a macOS
-bundle the installation directory is `QLogg.app/Contents/app`, inside the
-signed bundle; portable use there goes through `--settings`.
+Either file selects portable mode whatever it holds, so an empty `qlogg.conf`
+does too. QLogg writes `qlogg.conf` at its first save; an archive never holds
+one, so unpacking a newer archive over a portable folder keeps the settings.
+In a macOS bundle the installation directory is `QLogg.app/Contents/app`,
+inside the signed bundle; portable use there goes through `--settings`.
 
 | File | Contents |
 |---|---|

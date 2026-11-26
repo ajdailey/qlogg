@@ -22,6 +22,7 @@ link through `openProjectPage`.
 | Debug Log File | Attaches or detaches `LogFiles` on a `qlogg-lifecycle-` worker and saves `log.file`. Its check mark reads `debugLogFile()`, so it stays clear when the file did not open |
 | Open Log Folder, Open Settings Folder | Create the folder owner-only on a worker, then launch it |
 | Report an Issue | Collects the About details on a worker, puts them on the clipboard and opens `AboutInfo.ISSUES_URL` through `MainView.launchUrl` |
+| Check for Updates | Opens `AboutInfo.RELEASES_URL` through `MainView.launchUrl`; QLogg makes no connection itself |
 | User Guide | Writes the guide's copy, then shows it ([User guide](#user-guide)) |
 | About | About facts and the license notices are read on a `qlogg-lifecycle-` worker, then shown |
 | Keyboard Shortcuts | `ApplicationController` calls `MainView.showKeyboardShortcuts` |

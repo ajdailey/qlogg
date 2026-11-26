@@ -181,7 +181,7 @@ class RememberedStateTest {
   void aRunThatChangesNothingRewritesAnAbsolutePathUnderTheBaseOnce() throws Exception {
     Path settings = Files.createDirectories(temp.resolve("settings"));
     Path log = Files.writeString(settings.resolve("a.log"), "a");
-    Path conf = settings.resolve(SettingsLocation.MARKER);
+    Path conf = settings.resolve(SettingsLocation.SETTINGS_FILE);
     // The first run saves the window state, so the next run starts with nothing to change.
     try (Run run = new Run()) {
       assertFalse(run.config.pathsStale());

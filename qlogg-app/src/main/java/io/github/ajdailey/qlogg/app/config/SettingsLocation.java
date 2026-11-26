@@ -8,18 +8,22 @@ import java.util.Map;
 
 /**
  * The settings directory and how it was chosen. In order of precedence: {@code --settings <dir>};
- * {@code <qlogg.home>} when {@code <qlogg.home>/qlogg.conf} exists (portable); on Linux, {@code
- * <qlogg.home>/bin} when {@code qlogg.conf} exists beside the {@code bin/qlogg} script (portable);
- * the per-user directory: {@code $XDG_CONFIG_HOME/qlogg} (default {@code ~/.config/qlogg}) on
- * Linux, {@code %APPDATA%\QLogg} on Windows, {@code ~/Library/Application Support/QLogg} on macOS.
+ * {@code <qlogg.home>} when it holds {@code portable.txt} or {@code qlogg.conf} (portable); on
+ * Linux, {@code <qlogg.home>/bin} when either file sits beside the {@code bin/qlogg} script
+ * (portable); the per-user directory: {@code $XDG_CONFIG_HOME/qlogg} (default {@code
+ * ~/.config/qlogg}) on Linux, {@code %APPDATA%\QLogg} on Windows, {@code ~/Library/Application
+ * Support/QLogg} on macOS.
  *
  * @param mode how the directory was chosen
  * @param directory the directory; a per-user directory may not exist yet
  * @param home the installation directory, {@code qlogg.home}; null outside a packaged run
  */
 public record SettingsLocation(SettingsMode mode, Path directory, Path home) {
-  /** The portable-mode marker, which is also the settings file. */
-  public static final String MARKER = "qlogg.conf";
+  /** The settings file, which also selects portable mode. */
+  public static final String SETTINGS_FILE = "qlogg.conf";
+
+  /** The portable-mode marker the portable archives and the portable install carry. */
+  public static final String PORTABLE_MARKER = "portable.txt";
 
   /**
    * Creates a location outside a packaged run.
@@ -63,15 +67,21 @@ public record SettingsLocation(SettingsMode mode, Path directory, Path home) {
       return new SettingsLocation(SettingsMode.EXPLICIT, explicit, installed);
     }
     if (installed != null) {
-      if (Files.isRegularFile(installed.resolve(MARKER))) {
+      if (marks(installed)) {
         return new SettingsLocation(SettingsMode.PORTABLE, installed, installed);
       }
       Path launcher = os.launcherDirectory(installed);
-      if (launcher != null && Files.isRegularFile(launcher.resolve(MARKER))) {
+      if (launcher != null && marks(launcher)) {
         return new SettingsLocation(SettingsMode.PORTABLE, launcher, installed);
       }
     }
     return new SettingsLocation(
         SettingsMode.PER_USER, os.userSettings(env, Path.of(userHome)), installed);
+  }
+
+  /** Reports whether {@code dir} holds either portable-mode marker as a regular file. */
+  private static boolean marks(Path dir) {
+    return Files.isRegularFile(dir.resolve(PORTABLE_MARKER))
+        || Files.isRegularFile(dir.resolve(SETTINGS_FILE));
   }
 }

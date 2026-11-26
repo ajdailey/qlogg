@@ -90,7 +90,8 @@ itself (its own extraction runs `chmod` through `Runtime.exec`).
 | Windows | `%LOCALAPPDATA%\QLogg\cache\swt\<swt version>-<target>\` | Verify; extract |
 | macOS | `~/Library/Caches/io.github.ajdailey.qlogg/swt/<swt version>-<target>/` | Verify; extract |
 
-The portable marker rule is in [Settings
+`NativesLocation` treats `portable.txt` and `qlogg.conf` alike; the portable
+marker rule is in [Settings
 directory](../qlogg-app/docs/settings.md#settings-directory).
 
 Every start checks the SHA-256 of every library against the jar's digest.
@@ -129,7 +130,7 @@ inherited.
 | Class | Covers |
 |---|---|
 | `MainTest` | Java 21 and later accepted, the message naming the running Java, `Main` compiled as Java 8 bytecode; `java8PrintsMessageAndExits2` runs `Main` under the Java 8 binary named by `-Dqlogg.test.java8=<path to java>` and is skipped without it |
-| `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
+| `BootTest` | `--settings` found before `--`, `qlogg.home` as the parent of `lib/`, the settings directory created owner-only, an existing one keeping its mode or being a symbolic link, the natives location precedence with either portable marker, a relative `XDG_CACHE_HOME` ignored, the relaunch decision and each argument kept as one |
 | `CmdArgumentsTest` | Microsoft's examples of the C runtime rules, empty quoted arguments, wildcards and CJK passed unchanged, the variable read only under `qlogg.cmd` with no arguments |
 | `RelaunchTest` | A relaunch parent killed with `Process.destroy` (SIGTERM; the child gone when the parent has exited) and `destroyForcibly` (SIGKILL; the child gone within a bound). On macOS the parent runs the real relaunch with `-XstartOnFirstThread` over a generated jar; elsewhere it runs the child through `MacRelaunch.run`. On Windows both kills end the parent without hooks, so both take the standard input path |
 | `TargetTest` | Supported `os.name` and `os.arch` pairs, other pairs refused with a message naming both, `current` matching this JVM |

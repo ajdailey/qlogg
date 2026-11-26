@@ -264,7 +264,7 @@ class WindowSetTest {
     // A non-empty folder where the save moves its file makes the move fail on every OS. Held
     // timers keep the retry's save from racing the folder's removal.
     ui.holdTimers(ManualUiDispatcher.EVERY_DELAY);
-    Path blocker = Files.createDirectories(temp.resolve(SettingsLocation.MARKER));
+    Path blocker = Files.createDirectories(temp.resolve(SettingsLocation.SETTINGS_FILE));
     Files.writeString(blocker.resolve("keep.txt"), "mock\n");
     set.preferencesChanged(Preferences.DEFAULTS.withSplitPercent(42));
     set.flushSettings();
@@ -604,6 +604,13 @@ class WindowSetTest {
     assertNotNull(firstView.clipboard);
     assertTrue(firstView.clipboard.contains("Fake toolkit"), firstView.clipboard);
     assertEquals(UiText.NOTICE_ISSUE_DETAILS.text(), firstView.lastNotice());
+  }
+
+  @Test
+  void checkForUpdatesOpensTheLatestReleasePage() {
+    first.execute(CommandId.CHECK_FOR_UPDATES);
+    assertEquals(List.of(AboutInfo.RELEASES_URL), firstView.urls);
+    assertTrue(firstView.notices.isEmpty());
   }
 
   // User guide.

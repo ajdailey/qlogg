@@ -11,8 +11,8 @@ import java.util.Map;
  * <ol>
  *   <li>a bundle's {@code <qlogg.home>/lib/swt}, verified and never written;
  *   <li>{@code <settings>/cache/swt/<swt version>-<target>} for {@code --settings <dir>}, or with
- *       the portable settings directory: {@code <qlogg.home>} when {@code <qlogg.home>/qlogg.conf}
- *       exists, else on Linux {@code <qlogg.home>/bin} when {@code qlogg.conf} exists there;
+ *       the portable settings directory: {@code <qlogg.home>} when it holds {@code portable.txt} or
+ *       {@code qlogg.conf}, else on Linux {@code <qlogg.home>/bin} when that holds either;
  *   <li>the per-user cache: {@code ${XDG_CACHE_HOME:-~/.cache}/qlogg/swt} on Linux, {@code
  *       %LOCALAPPDATA%\QLogg\cache\swt} on Windows, {@code
  *       ~/Library/Caches/io.github.ajdailey.qlogg/swt} on macOS, each with a {@code <swt
@@ -57,20 +57,25 @@ record NativesLocation(Path dir, boolean writable) {
   }
 
   /**
-   * Returns the portable settings directory: {@code <home>} when it holds {@code qlogg.conf}, else
-   * on Linux {@code <home>/bin} when that holds one.
+   * Returns the portable settings directory: {@code <home>} when it holds {@code portable.txt} or
+   * {@code qlogg.conf}, else on Linux {@code <home>/bin} when that holds either.
    */
   private static Path portable(Path home, Target target) {
-    if (Files.isRegularFile(home.resolve("qlogg.conf"))) {
+    if (marks(home)) {
       return home;
     }
     if (!target.isWindows() && !target.isMac()) {
       Path bin = home.resolve("bin");
-      if (Files.isRegularFile(bin.resolve("qlogg.conf"))) {
+      if (marks(bin)) {
         return bin;
       }
     }
     return null;
+  }
+
+  private static boolean marks(Path dir) {
+    return Files.isRegularFile(dir.resolve("portable.txt"))
+        || Files.isRegularFile(dir.resolve("qlogg.conf"));
   }
 
   private static Path userCache(Target target, Map<String, String> env, String userHome) {

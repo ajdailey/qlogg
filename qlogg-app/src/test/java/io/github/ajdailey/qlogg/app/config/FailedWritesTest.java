@@ -112,14 +112,14 @@ class FailedWritesTest {
   void aFailedSettingsWriteWarnsOncePerRunOfFailures() throws Exception {
     ConfigStore store = new ConfigStore(location());
     Preferences changed = Preferences.DEFAULTS.withSplitPercent(42);
-    block(SettingsLocation.MARKER);
+    block(SettingsLocation.SETTINGS_FILE);
     assertEquals(SaveResult.FAILED, store.write(Preferences.DEFAULTS, changed));
     assertEquals(SaveResult.FAILED, store.write(Preferences.DEFAULTS, changed));
     assertEquals(1, failedWrites().size(), warnings.toString());
-    unblock(SettingsLocation.MARKER);
+    unblock(SettingsLocation.SETTINGS_FILE);
     assertEquals(SaveResult.WRITTEN, store.write(Preferences.DEFAULTS, changed));
-    Files.delete(temp.resolve(SettingsLocation.MARKER));
-    block(SettingsLocation.MARKER);
+    Files.delete(temp.resolve(SettingsLocation.SETTINGS_FILE));
+    block(SettingsLocation.SETTINGS_FILE);
     assertEquals(SaveResult.FAILED, store.write(Preferences.DEFAULTS, changed));
     assertEquals(2, failedWrites().size(), warnings.toString());
   }

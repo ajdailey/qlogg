@@ -97,6 +97,11 @@ class BootTest {
             "/u", "Library", "Caches", "io.github.ajdailey.qlogg", "swt", "3.135.0-macos-aarch64"),
         NativesLocation.resolve(home, null, Target.MACOS_AARCH64, "3.135.0", env, "/u").dir());
 
+    Files.createFile(home.resolve("portable.txt"));
+    assertEquals(
+        home.resolve("cache").resolve("swt").resolve("3.135.0-windows-x86_64"),
+        NativesLocation.resolve(home, null, Target.WINDOWS_X86_64, "3.135.0", env, "/u").dir());
+    Files.delete(home.resolve("portable.txt"));
     Files.createFile(home.resolve("qlogg.conf"));
     assertEquals(
         home.resolve("cache").resolve("swt").resolve("3.135.0-linux-x86_64"),
