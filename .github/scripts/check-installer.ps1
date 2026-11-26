@@ -23,9 +23,25 @@ function Invoke-Setup([string[]] $Arguments) {
   $process.ExitCode
 }
 
-# The default value of HKEY_CLASSES_ROOT\$Extension, the extension's default handler.
+# The default value of HKEY_CLASSES_ROOT\$Extension, the extension's default handler; $null
+# when the key is absent.
 function Get-Handler([string] $Extension) {
-  (Get-Item "Registry::HKEY_CLASSES_ROOT\$Extension" -ErrorAction SilentlyContinue).GetValue('')
+  $key = Get-Item "Registry::HKEY_CLASSES_ROOT\$Extension" -ErrorAction SilentlyContinue
+  if ($key) { $key.GetValue('') } else { $null }
+}
+
+# Prints the values and subkeys of .log and .txt under each hive's Software\Classes.
+function Show-Extensions([string] $When) {
+  foreach ($hive in @('HKLM:', 'HKCU:')) {
+    foreach ($ext in @('.log', '.txt')) {
+      $key = Get-Item "$hive\Software\Classes\$ext" -ErrorAction SilentlyContinue
+      if ($key) {
+        Write-Output "$When $hive $ext values: $($key.GetValueNames() -join ', ') subkeys: $($key.GetSubKeyNames() -join ', ')"
+      } else {
+        Write-Output "$When $hive $ext absent"
+      }
+    }
+  }
 }
 
 function Get-ShortcutTarget([string] $Path) {
@@ -55,6 +71,7 @@ function Test-Scope([string] $Scope) {
   }
   $classes = "$hive\Software\Classes"
   $handlers = @{ '.log' = (Get-Handler '.log'); '.txt' = (Get-Handler '.txt') }
+  Show-Extensions "before $Scope install:"
 
   $code = Invoke-Setup @('/S', $switch)
   if ($code -ne 0) { throw "$Scope setup exited $code" }
@@ -97,6 +114,7 @@ function Test-Scope([string] $Scope) {
   Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
   Wait-Until { -not (Test-Path $dir) } "$Scope uninstall left $dir"
   Wait-Until { -not (Test-Path "$hive\$uninstallKey") } "$Scope uninstall left the Installed apps entry"
+  Show-Extensions "after $Scope uninstall:"
   if (Test-Path $shortcut) { throw "$Scope uninstall left $shortcut" }
   foreach ($key in @('QLogg.File', 'Applications\qlogg.exe')) {
     if (Test-Path "$classes\$key") { throw "$Scope uninstall left $classes\$key" }

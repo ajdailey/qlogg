@@ -1,12 +1,12 @@
 # qlogg-dist
 
 Builds the universal jar and zip, the six per-target bundles, the Windows
-installers, the Linux packages and the launchers. Packaging is `src/build/dist.xml`, run by maven-antrun-plugin at
-`package` after the dependency plugin stages the jars and launch4j builds
-`qlogg.exe`. Archives go to the top-level `dist/`, which no build step deletes.
+installers, the Linux packages and the launchers. Packaging is
+`src/build/dist.xml`, run by maven-antrun-plugin at `package` after the
+dependency plugin stages the jars and launch4j builds `qlogg.exe`. Archives go to the top-level `dist/`, which no build step deletes.
 
-`qlogg.exe`, the archives, installers and packages need an x86-64 Linux build host; the
-`archive-host` profile (`os.name` Linux, `os.arch` amd64) turns them on. On
+`qlogg.exe`, the archives, installers and packages need an x86-64 Linux build
+host; the `archive-host` profile (`os.name` Linux, `os.arch` amd64) turns them on. On
 any other host the module builds `target/qlogg.jar` only, and `SmokeTest`
 runs against it.
 
@@ -145,11 +145,11 @@ release date):
 - `qlogg.jar` is byte-identical across build hosts under one JDK: `dist.xml`
   rewrites the native digests to LF and sorts the `index.properties` lists by
   name, case-sensitive.
-- The installers and packages store file times: the `date-tree` macro dates
-  every file of the bundle tree, and the bitmaps MUI2 stores with `File`,
-  `project.build.outputTimestamp` before `nfpm` and `makensis` run, and `nfpm.yaml` sets that time and umask 022
-  for the rest. `NsisFiles` sorts the installer's file list, and `nfpm`
-  sorts its own.
+- The installers and packages store file times. Before `nfpm` and `makensis`
+  run, the `date-tree` macro dates the bundle tree and the installer bitmaps
+  `project.build.outputTimestamp`; `nfpm.yaml` sets that time and umask 022
+  for the files outside the tree. `NsisFiles` sorts the installer's file
+  list, and `nfpm` sorts its own.
 - launch4j's `ld` stamps `qlogg.exe` with the link time. `PeTimestamp.java`
   rewrites the COFF time stamp and the PE checksum to the values `ld` writes
   with `SOURCE_DATE_EPOCH` set, which cannot reach `ld` inside the Maven JVM.
@@ -178,8 +178,7 @@ releases `dist.xml` downloads, launch4j's header and NSIS.
 The archive and SBOM names carry the version `-Drevision` sets: the tag's
 version for a `v*` tag, `<revision>+<short commit>` for any other CI build.
 A pushed `v*` tag ends in a draft GitHub Release holding the seven archives, the
-two installers, the four packages,
-`SHA256SUMS` and the SBOM, a pre-release when the tag has a suffix
+two installers, the four packages, `SHA256SUMS` and the SBOM, a pre-release when the tag has a suffix
 (`v0.2.0-rc1`); the maintainer reviews and publishes it. A green
 push to `main` replaces the `continuous` pre-release with the same set. Steps and
 recovery are in the root `README.md` under "Continuous integration".

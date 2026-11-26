@@ -82,15 +82,16 @@ deletes. They are built on Linux x86_64 only, because packaging runs `tar`,
 `makensis` unpacked from Ubuntu's `nsis` packages with `dpkg-deb`. On any other
 host `qlogg-dist` builds and smoke-tests `qlogg.jar` and writes no archive.
 
-The Temurin JDK archives, `rcodesign`, `nfpm` and the `nsis` packages are downloaded once into
-`~/.cache/qlogg-build/`, outside the Maven cache and the app's own
-`~/.cache/qlogg` (`-Dqlogg.cache.dir` overrides it), and checked against pinned
-SHA-256 digests.
+The Temurin JDK archives, `rcodesign`, `nfpm` and the `nsis` packages are
+downloaded once into `~/.cache/qlogg-build/`, outside the Maven cache and the
+app's own `~/.cache/qlogg` (`-Dqlogg.cache.dir` overrides it), and checked
+against pinned SHA-256 digests.
 
 Builds are reproducible: with the same JDK (CI's Temurin 21.0.13.1+2), two
 builds of one commit write byte-identical jars, `qlogg.exe`, archives,
-installers and packages, every entry dated `project.build.outputTimestamp` from the parent POM.
-`.github/scripts/check-reproducible.sh` builds twice and compares SHA-256.
+installers and packages, every entry dated `project.build.outputTimestamp`
+from the parent POM. `.github/scripts/check-reproducible.sh` builds twice and
+compares SHA-256.
 
 ### Container build
 
@@ -137,17 +138,17 @@ from the Ubuntu archive when the runner image lacks them.
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's 13 archives, installers and packages, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
 
-CI keeps the JDK archives, `rcodesign`, `nfpm` and NSIS in `~/.cache/qlogg-build`, cached by the
-`package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
-Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
+CI keeps the JDK archives, `rcodesign`, `nfpm` and NSIS in
+`~/.cache/qlogg-build`, cached by the `package` and `release` jobs and keyed
+on `qlogg-dist/src/build/dist.xml`; the Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
 `package`, `release` and `test-gtk4` restore it, since a Linux cache saved by a
 job that skips `verify` or builds part of the reactor would lack plugins and
 send every later job to Maven Central for them.
 
 #### Releases
 
-The draft Release carries the archives, installers and packages the `bundle` jobs ran,
-`SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
+The draft Release carries the archives, installers and packages the `bundle`
+jobs ran, `SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
 release notes. A tag with a suffix (`v0.2.0-rc1`) drafts a pre-release, which
 never becomes the repository's latest release. Only the `release` and
 `continuous` jobs have `contents: write`.
@@ -285,8 +286,8 @@ before `0.2.0`.
 
 ### First launch of an unsigned build
 
-`qlogg.exe` and the setup carry no Authenticode signature, and `QLogg.app` is ad-hoc signed
-and not notarized. A downloaded copy therefore needs one approval:
+`qlogg.exe` and the setup carry no Authenticode signature, and `QLogg.app` is
+ad-hoc signed and not notarized. A downloaded copy therefore needs one approval:
 
 | Platform | First launch |
 |---|---|
