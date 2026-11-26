@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -131,6 +132,9 @@ class ShortcutOverridesTest {
     assertEquals(
         Binding.Scope.WINDOW,
         ShortcutOverrides.scopeFor(
-            CommandId.RELOAD, KeyStroke.parse("Control+R"), null, Keymap.defaults(true)));
+            CommandId.RELOAD,
+            KeyStroke.parse("Control+R"),
+            null,
+            Keymap.defaults(OsTraits.of("Mac OS X"))));
   }
 }

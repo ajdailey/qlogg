@@ -6,14 +6,21 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 class KeymapTest {
   private final Keymap keymap = Keymap.defaults();
+
+  /** Returns the macOS or the Linux defaults. */
+  private static Keymap defaults(boolean mac) {
+    return Keymap.defaults(OsTraits.of(mac ? "Mac OS X" : "Linux"));
+  }
 
   @Test
   void noStrokeOrSequenceIsBoundTwice() {
@@ -64,15 +71,42 @@ class KeymapTest {
   }
 
   @Test
-  void clearColorLabelsHasASecondKey() {
-    int primaryShift = KeyStroke.PRIMARY | KeyStroke.SHIFT;
-    List<Binding> bindings = keymap.bindingsFor(CommandId.CLEAR_COLOR_LABELS);
-    assertEquals(2, bindings.size());
-    assertEquals(new KeyStroke(primaryShift, '0'), bindings.get(0).first());
-    assertEquals(new KeyStroke(primaryShift, 'd'), bindings.get(1).first());
-    assertEquals(List.of(), keymap.conflicts(bindings.get(1)));
+  void clearColorLabelsShowsCtrlShiftDFirstAndKeepsCtrlShiftZeroOutsideWindows() {
+    KeyStroke d = new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'd');
+    KeyStroke zero = new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, '0');
+    for (String os : List.of("Linux", "Mac OS X", "Windows 11")) {
+      Keymap map = Keymap.defaults(OsTraits.of(os));
+      boolean mac = os.startsWith("Mac");
+      List<Binding> bindings = map.bindingsFor(CommandId.CLEAR_COLOR_LABELS);
+      assertEquals(d, bindings.get(0).first(), os);
+      assertEquals(d.text(mac), map.menuKeyText(CommandId.CLEAR_COLOR_LABELS, mac), os);
+      if (os.startsWith("Windows")) {
+        assertEquals(1, bindings.size());
+      } else {
+        assertEquals(2, bindings.size(), os);
+        assertEquals(zero, bindings.get(1).first(), os);
+      }
+      for (Binding binding : bindings) {
+        assertEquals(List.of(), map.conflicts(binding), os + " " + binding.text(mac));
+      }
+    }
     assertEquals(
-        "Ctrl+Shift+0, Ctrl+Shift+D", keymap.keysText(CommandId.CLEAR_COLOR_LABELS, false));
+        "Ctrl+Shift+D, Ctrl+Shift+0",
+        defaults(false).keysText(CommandId.CLEAR_COLOR_LABELS, false));
+    assertEquals(
+        "Ctrl+Shift+D",
+        Keymap.defaults(OsTraits.of("Windows 11")).keysText(CommandId.CLEAR_COLOR_LABELS, false));
+  }
+
+  @Test
+  void aSavedCtrlShiftZeroOverrideStillLoadsOnWindows() {
+    Properties saved = new Properties();
+    saved.setProperty("shortcut.CLEAR_COLOR_LABELS.count", "2");
+    saved.setProperty("shortcut.CLEAR_COLOR_LABELS.0", "view Ctrl+Shift+0");
+    saved.setProperty("shortcut.CLEAR_COLOR_LABELS.1", "view Ctrl+Shift+D");
+    Keymap map =
+        Keymap.defaults(OsTraits.of("Windows 11")).withOverrides(ShortcutOverrides.load(saved));
+    assertEquals("Ctrl+Shift+0, Ctrl+Shift+D", map.keysText(CommandId.CLEAR_COLOR_LABELS, false));
   }
 
   @Test
@@ -88,7 +122,7 @@ class KeymapTest {
 
   @Test
   void aMenuShowsTheFirstSingleStroke() {
-    assertEquals("F3", Keymap.defaults(false).menuKeyText(CommandId.FIND_NEXT, false));
+    assertEquals("F3", defaults(false).menuKeyText(CommandId.FIND_NEXT, false));
     assertEquals("Ctrl+End", keymap.menuKeyText(CommandId.GO_TO_BOTTOM, false));
     assertEquals("M", keymap.menuKeyText(CommandId.TOGGLE_MARK, false));
     assertEquals("", keymap.menuKeyText(CommandId.TOGGLE_LINE_NUMBERS, false));
@@ -97,7 +131,7 @@ class KeymapTest {
 
   @Test
   void searchKeysFollowKlogg() {
-    Keymap keymap = Keymap.defaults(false);
+    Keymap keymap = defaults(false);
     assertEquals("F3, N, Ctrl+G", keymap.keysText(CommandId.FIND_NEXT, false));
     assertEquals(
         "Shift+F3, Shift+N, Ctrl+Shift+G", keymap.keysText(CommandId.FIND_PREVIOUS, false));
@@ -111,7 +145,7 @@ class KeymapTest {
 
   @Test
   void macosFindNextAndPreviousTakeCmdGInEveryControl() {
-    Keymap mac = Keymap.defaults(true);
+    Keymap mac = defaults(true);
     assertEquals("Cmd+G", mac.menuKeyText(CommandId.FIND_NEXT, true));
     assertEquals("Cmd+Shift+G", mac.menuKeyText(CommandId.FIND_PREVIOUS, true));
     assertEquals("Cmd+G, F3, N", mac.keysText(CommandId.FIND_NEXT, true));
@@ -125,26 +159,26 @@ class KeymapTest {
 
   @Test
   void minimizeTakesCmdMOnMacosOnly() {
-    Keymap mac = Keymap.defaults(true);
+    Keymap mac = defaults(true);
     assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'm'), mac.accelerator(CommandId.MINIMIZE));
     assertEquals("Cmd+M", mac.keysText(CommandId.MINIMIZE, true));
     for (Binding binding : mac.bindingsFor(CommandId.MINIMIZE)) {
       assertEquals(List.of(), mac.conflicts(binding), binding.text(true));
     }
-    assertEquals(List.of(), Keymap.defaults(false).bindingsFor(CommandId.MINIMIZE));
+    assertEquals(List.of(), defaults(false).bindingsFor(CommandId.MINIMIZE));
   }
 
   @Test
   void zoomWindowHasNoKey() {
     for (boolean mac : new boolean[] {false, true}) {
-      assertEquals(List.of(), Keymap.defaults(mac).bindingsFor(CommandId.ZOOM_WINDOW));
+      assertEquals(List.of(), defaults(mac).bindingsFor(CommandId.ZOOM_WINDOW));
     }
   }
 
   @Test
   void closeAllAndPreferencesHaveKeysOnEveryPlatform() {
     for (boolean mac : new boolean[] {false, true}) {
-      Keymap map = Keymap.defaults(mac);
+      Keymap map = defaults(mac);
       assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'W'), map.accelerator(CommandId.CLOSE_ALL));
       assertEquals(KeyStroke.of(KeyStroke.PRIMARY, ','), map.accelerator(CommandId.PREFERENCES));
       for (CommandId command : List.of(CommandId.CLOSE_ALL, CommandId.PREFERENCES)) {
@@ -153,8 +187,8 @@ class KeymapTest {
         }
       }
     }
-    assertEquals("Ctrl+Shift+W", Keymap.defaults(false).menuKeyText(CommandId.CLOSE_ALL, false));
-    assertEquals("Cmd+,", Keymap.defaults(true).keysText(CommandId.PREFERENCES, true));
+    assertEquals("Ctrl+Shift+W", defaults(false).menuKeyText(CommandId.CLOSE_ALL, false));
+    assertEquals("Cmd+,", defaults(true).keysText(CommandId.PREFERENCES, true));
   }
 
   @Test
@@ -255,20 +289,21 @@ class KeymapTest {
 
   @Test
   void theDefaultsFollowThisJvm() {
-    boolean mac = System.getProperty("os.name", "").startsWith("Mac");
-    assertEquals(Keymap.defaults(mac).bindings(), Keymap.defaults().bindings());
+    assertEquals(
+        Keymap.defaults(OsTraits.of(System.getProperty("os.name"))).bindings(),
+        Keymap.defaults().bindings());
   }
 
   // Navigation history and command palette.
 
   @Test
   void goBackAndForwardTakeAltArrowsOrControlCommandArrows() {
-    Keymap others = Keymap.defaults(false);
+    Keymap others = defaults(false);
     assertEquals(
         new KeyStroke(KeyStroke.ALT, KeyStroke.LEFT), others.accelerator(CommandId.GO_BACK));
     assertEquals(
         new KeyStroke(KeyStroke.ALT, KeyStroke.RIGHT), others.accelerator(CommandId.GO_FORWARD));
-    Keymap mac = Keymap.defaults(true);
+    Keymap mac = defaults(true);
     int controlCommand = KeyStroke.CONTROL | KeyStroke.PRIMARY;
     assertEquals(new KeyStroke(controlCommand, KeyStroke.LEFT), mac.accelerator(CommandId.GO_BACK));
     assertEquals(
@@ -300,7 +335,7 @@ class KeymapTest {
   void noStrokeIsBoundTwiceOnEitherPlatform() {
     for (boolean mac : new boolean[] {false, true}) {
       Set<String> seen = new HashSet<String>();
-      for (Binding binding : Keymap.defaults(mac).bindings()) {
+      for (Binding binding : defaults(mac).bindings()) {
         assertTrue(seen.add(binding.text(mac)), "bound twice: " + binding.text(mac));
       }
     }
@@ -336,11 +371,9 @@ class KeymapTest {
     assertEquals("Ctrl+Option+R", mac.bindings().get(1).text(true));
     ShortcutOverrides overrides = ShortcutOverrides.NONE.with(CommandId.RELOAD, List.of(control));
     assertEquals(
-        primary.first(),
-        Keymap.defaults(false).withOverrides(overrides).accelerator(CommandId.RELOAD));
+        primary.first(), defaults(false).withOverrides(overrides).accelerator(CommandId.RELOAD));
     assertEquals(
-        control.first(),
-        Keymap.defaults(true).withOverrides(overrides).accelerator(CommandId.RELOAD));
+        control.first(), defaults(true).withOverrides(overrides).accelerator(CommandId.RELOAD));
   }
 
   // Reopen Closed Tab.
@@ -348,14 +381,14 @@ class KeymapTest {
   @Test
   void reopenClosedTabTakesCtrlShiftTOnEveryPlatform() {
     for (boolean mac : new boolean[] {false, true}) {
-      Keymap map = Keymap.defaults(mac);
+      Keymap map = defaults(mac);
       assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'T'), map.accelerator(CommandId.REOPEN_CLOSED));
       for (Binding binding : map.bindingsFor(CommandId.REOPEN_CLOSED)) {
         assertEquals(List.of(), map.conflicts(binding), binding.text(mac));
       }
     }
-    assertEquals("Cmd+Shift+T", Keymap.defaults(true).keysText(CommandId.REOPEN_CLOSED, true));
-    assertEquals("Ctrl+Shift+T", Keymap.defaults(false).keysText(CommandId.REOPEN_CLOSED, false));
+    assertEquals("Cmd+Shift+T", defaults(true).keysText(CommandId.REOPEN_CLOSED, true));
+    assertEquals("Ctrl+Shift+T", defaults(false).keysText(CommandId.REOPEN_CLOSED, false));
   }
 
   // Search in Folder keys.
@@ -363,7 +396,7 @@ class KeymapTest {
   @Test
   void searchInFolderAndItsStepKeysAreFreeOnEveryPlatform() {
     for (boolean mac : new boolean[] {false, true}) {
-      Keymap map = Keymap.defaults(mac);
+      Keymap map = defaults(mac);
       assertEquals(
           new KeyStroke(KeyStroke.PRIMARY | KeyStroke.SHIFT, 'f'),
           map.accelerator(CommandId.SEARCH_FOLDER));
@@ -382,21 +415,20 @@ class KeymapTest {
       }
     }
     assertEquals(
-        "Cmd+Shift+F, Cmd+E Cmd+D", Keymap.defaults(true).keysText(CommandId.SEARCH_FOLDER, true));
+        "Cmd+Shift+F, Cmd+E Cmd+D", defaults(true).keysText(CommandId.SEARCH_FOLDER, true));
     assertEquals(
-        "Ctrl+Shift+F, Ctrl+E Ctrl+D",
-        Keymap.defaults(false).keysText(CommandId.SEARCH_FOLDER, false));
-    assertEquals("Shift+F4", Keymap.defaults(true).keysText(CommandId.PREVIOUS_FOLDER_MATCH, true));
+        "Ctrl+Shift+F, Ctrl+E Ctrl+D", defaults(false).keysText(CommandId.SEARCH_FOLDER, false));
+    assertEquals("Shift+F4", defaults(true).keysText(CommandId.PREVIOUS_FOLDER_MATCH, true));
   }
 
   // Full Screen.
 
   @Test
   void fullScreenTakesF11OrControlCommandFAndCollidesWithNothing() {
-    Keymap others = Keymap.defaults(false);
+    Keymap others = defaults(false);
     assertEquals(new KeyStroke(0, KeyStroke.F11), others.accelerator(CommandId.FULL_SCREEN));
     assertEquals("F11", others.keysText(CommandId.FULL_SCREEN, false));
-    Keymap mac = Keymap.defaults(true);
+    Keymap mac = defaults(true);
     assertEquals(
         new KeyStroke(KeyStroke.CONTROL | KeyStroke.PRIMARY, 'f'),
         mac.accelerator(CommandId.FULL_SCREEN));

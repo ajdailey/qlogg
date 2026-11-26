@@ -40,6 +40,11 @@ final class LinuxTraits implements OsTraits {
   }
 
   @Override
+  public boolean takesCtrlShiftZero() {
+    return false;
+  }
+
+  @Override
   public boolean keepFileClosedByDefault() {
     return false;
   }

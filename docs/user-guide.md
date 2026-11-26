@@ -346,10 +346,10 @@ Highlighters picks a set when a file opens, by file name or first line. Sets
 import and export from the Configure Highlighters dialog.
 
 Color labels color every occurrence of the selected text: `Ctrl+D` takes the
-next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+0` or
-`Ctrl+Shift+D` clears them; Highlighters > Color Label and the log view
-context menu list the labels by name. Highlighters > Highlight Search Matches
-colors the last search's matches.
+next color, `Ctrl+Shift+1` to `Ctrl+Shift+9` a given one, `Ctrl+Shift+D`
+clears them (also `Ctrl+Shift+0` on Linux and macOS); Highlighters > Color
+Label and the log view context menu list the labels by name. Highlighters >
+Highlight Search Matches colors the last search's matches.
 
 ### Syntax colors
 
@@ -944,8 +944,6 @@ characters outside the code page.
   items stay readable.
 - Windows: under the dark theme, a column header narrowed below its text is cut
   off without an ellipsis.
-- Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
-  language hotkey. Use `Ctrl+Shift+D` to clear color labels.
 - Windows: Open with QLogg from Explorer opens the file as a tab in the running
   window but flashes its taskbar button instead of bringing the window to the
   front.

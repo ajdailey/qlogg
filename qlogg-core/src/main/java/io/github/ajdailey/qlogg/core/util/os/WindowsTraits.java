@@ -39,6 +39,11 @@ final class WindowsTraits implements OsTraits {
   }
 
   @Override
+  public boolean takesCtrlShiftZero() {
+    return true;
+  }
+
+  @Override
   public boolean keepFileClosedByDefault() {
     return true;
   }

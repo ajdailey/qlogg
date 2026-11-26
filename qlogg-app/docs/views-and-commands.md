@@ -132,8 +132,7 @@ constructor folds it into `PRIMARY` (`KeyStroke.forPlatform`) and drops a
 binding the fold repeats, so a macOS binding read from `qlogg.conf` becomes the
 `Ctrl` binding.
 
-`Keymap.defaults()` takes `OsTraits.current().macKeymap()`. `defaults(mac)`
-differs for:
+`Keymap.defaults()` takes `OsTraits.current()`. `defaults(os)` differs for:
 
 - Go Back and Go Forward: `Alt+Left` and `Alt+Right`, or `Control+Command+Left`
   and `Right` on macOS, where `Option`+arrow moves by word in a text field.
@@ -143,6 +142,8 @@ differs for:
 - Full Screen: `F11`, or `Control+Command+F` on macOS, since `Control+F` folds
   into Find's `Ctrl+F` elsewhere.
 - Minimize: `Cmd+M` on macOS, none elsewhere.
+- Clear Color Labels: `Ctrl+Shift+D`, then `Ctrl+Shift+0` except on Windows
+  (`takesCtrlShiftZero`), where the input-language hotkey can take that key.
 
 ### Commands and menus
 

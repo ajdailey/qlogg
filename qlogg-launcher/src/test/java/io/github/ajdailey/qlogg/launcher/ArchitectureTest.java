@@ -256,6 +256,7 @@ class ArchitectureTest {
   private static final String[] VALUE_TRAITS = {
     "macKeys",
     "macKeymap",
+    "takesCtrlShiftZero",
     "runsInsteadOfOpening",
     "keepFileClosedByDefault",
     "watchServiceByDefault"
@@ -323,6 +324,8 @@ class ArchitectureTest {
           "macKeys",
           List.of(ROOT + ".ui.swt.SwtKeys"),
           "macKeymap",
+          List.of(ROOT + ".app.command.Keymap"),
+          "takesCtrlShiftZero",
           List.of(ROOT + ".app.command.Keymap"),
           "runsInsteadOfOpening",
           List.of(ROOT + ".app.controller.PathCommands"),
