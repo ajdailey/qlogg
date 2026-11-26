@@ -39,7 +39,8 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
 Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
 your settings, and an upgrade of a portable copy keeps the settings in its
-folder. QLogg never becomes the default program for a file type.
+folder. Installing QLogg does not set it as the default program for any file
+type.
 
 ## Opening files
 
