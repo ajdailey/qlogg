@@ -23,6 +23,22 @@ not merged.
 `SearchListener.progressed` runs at most every 100 ms and once at the end,
 before `finished`; both run on the coordinator thread.
 
+### Restricted search
+
+`SearchQuery.restriction` (a `LineSet`, null for every line; `restrictedTo`
+sets it) limits the search to its members, read as if the text held only
+those lines: a range opens and closes on members, and `inverse` returns the
+non-matching members. The results are a subset of the set.
+
+- A chunk starts at the next member and ends at the last member that keeps it
+  within `chunkLines` lines and `chunkBytes` bytes, so a gap of `chunkLines`
+  lines or more is not read. Bytes read are at most a full search's.
+- The worker walks the chunk's lines at LF and matches the members only.
+- Each chunk start costs the index lookups a full search's chunk costs; on a
+  sparse index each reads from a checkpoint.
+- A change to the set below the searched end while the search runs leaves the
+  result undefined.
+
 ### Outcomes
 
 | End | Outcome | Limit |
@@ -179,6 +195,10 @@ before each bucket make `rank` and `select` a binary search over buckets.
   chunk merge.
 - `version()` counts changes, so a reader detects a toggle that left the size
   unchanged.
+- `copy(budget)` copies the set under one read lock, with each array bucket
+  and the directory cut to their entry counts, so the copy costs at most the
+  source's `retainedBytes()`. It reserves the copy's whole cost from
+  `RESULTS` first and returns null when the share refuses.
 
 ## Search in a folder
 

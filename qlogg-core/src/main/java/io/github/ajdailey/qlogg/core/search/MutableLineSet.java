@@ -487,6 +487,56 @@ public final class MutableLineSet implements LineSet {
   }
 
   /**
+   * Copies the set under one read lock. Array buckets and the directory are copied at their entry
+   * counts (an array at least 4), so the copy costs no more than this set.
+   *
+   * @param target charged for the copy's storage from {@link MemoryShare#RESULTS}, or null
+   * @return the copy, or null when the share cannot hold it
+   */
+  public MutableLineSet copy(MemoryBudget target) {
+    lock.readLock().lock();
+    try {
+      long cost = DIRECTORY_SLOT_BYTES * bucketCount;
+      for (int i = 0; i < bucketCount; i++) {
+        Bucket bucket = buckets[i];
+        cost +=
+            BUCKET_OVERHEAD
+                + (bucket.bits != null
+                    ? 8L * BITMAP_WORDS
+                    : arrayBytes(Math.max(MIN_CAPACITY, bucket.count)));
+      }
+      if (target != null && bucketCount > 0 && !target.reserve(MemoryShare.RESULTS, cost)) {
+        return null;
+      }
+      MutableLineSet copy = new MutableLineSet(target);
+      if (bucketCount == 0) {
+        return copy;
+      }
+      copy.keys = Arrays.copyOf(keys, bucketCount);
+      copy.before = Arrays.copyOf(before, bucketCount);
+      copy.buckets = new Bucket[bucketCount];
+      for (int i = 0; i < bucketCount; i++) {
+        Bucket from = buckets[i];
+        Bucket to = new Bucket();
+        if (from.bits != null) {
+          to.bits = from.bits.clone();
+        } else {
+          to.values = Arrays.copyOf(from.values, Math.max(MIN_CAPACITY, from.count));
+        }
+        to.count = from.count;
+        copy.buckets[i] = to;
+      }
+      copy.bucketCount = bucketCount;
+      copy.size = size;
+      copy.retained = cost;
+      copy.reserved = target != null ? cost : 0;
+      return copy;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  /**
    * Adds a line, charging its storage without the limit check.
    *
    * @param line at least 0

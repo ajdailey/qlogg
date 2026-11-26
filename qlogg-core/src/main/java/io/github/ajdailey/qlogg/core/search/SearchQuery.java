@@ -16,6 +16,10 @@ package io.github.ajdailey.qlogg.core.search;
  *     range and the first later line matching this closes it, and the results are every line from
  *     the opening line through the closing line ({@code inverse}: every other line)
  * @param rangeOpen for a range search, whether a range is open before the scope's first line
+ * @param restriction the lines tested, or null for every line: the search reads the text as if it
+ *     held only these lines, so a range opens and closes on members and {@code inverse} returns
+ *     non-matching members. A change to the set below the searched end while the search runs leaves
+ *     the result undefined
  */
 public record SearchQuery(
     SearchExpression expression,
@@ -25,12 +29,37 @@ public record SearchQuery(
     LineRange scope,
     boolean hideAnsi,
     SearchExpression rangeEnd,
-    boolean rangeOpen) {
+    boolean rangeOpen,
+    LineSet restriction) {
   /** Checks the components. */
   public SearchQuery {
     if (expression == null) {
       throw new IllegalArgumentException("expression is required");
     }
+  }
+
+  /**
+   * Creates a query over every line.
+   *
+   * @param expression the pattern or combined patterns
+   * @param caseSensitive see the record
+   * @param wholeWord see the record
+   * @param inverse see the record
+   * @param scope see the record
+   * @param hideAnsi see the record
+   * @param rangeEnd see the record
+   * @param rangeOpen see the record
+   */
+  public SearchQuery(
+      SearchExpression expression,
+      boolean caseSensitive,
+      boolean wholeWord,
+      boolean inverse,
+      LineRange scope,
+      boolean hideAnsi,
+      SearchExpression rangeEnd,
+      boolean rangeOpen) {
+    this(expression, caseSensitive, wholeWord, inverse, scope, hideAnsi, rangeEnd, rangeOpen, null);
   }
 
   /**
@@ -78,6 +107,17 @@ public record SearchQuery(
    */
   public boolean range() {
     return rangeEnd != null;
+  }
+
+  /**
+   * Returns this query restricted to a set of lines.
+   *
+   * @param lines the lines tested, or null for every line
+   * @return the copy
+   */
+  public SearchQuery restrictedTo(LineSet lines) {
+    return new SearchQuery(
+        expression, caseSensitive, wholeWord, inverse, scope, hideAnsi, rangeEnd, rangeOpen, lines);
   }
 
   /**

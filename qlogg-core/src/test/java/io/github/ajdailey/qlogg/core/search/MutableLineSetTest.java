@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -207,6 +208,73 @@ class MutableLineSetTest {
     assertEquals(set.retainedBytes(), budget.reserved(MemoryShare.RESULTS));
     set.clear();
     assertEquals(0, budget.reserved(MemoryShare.RESULTS));
+  }
+
+  @Test
+  void copyHoldsTheSameLinesAndStaysIndependent() {
+    SplittableRandom random = new SplittableRandom(41);
+    TreeSet<Long> reference = new TreeSet<Long>();
+    MutableLineSet set = new MutableLineSet();
+    for (int i = 0; i < 6000; i++) {
+      long line = random.nextLong(2 * B);
+      reference.add(line);
+      set.add(line);
+    }
+    for (long line = 5 * B; line < 5 * B + 3000; line++) {
+      reference.add(line);
+      set.add(line);
+    }
+    set.add(9 * B + 7);
+    reference.add(9 * B + 7);
+    MutableLineSet copy = set.copy(null);
+    assertSame(reference, copy);
+    assertTrue(copy.retainedBytes() <= set.retainedBytes());
+    set.removeFrom(B);
+    set.toggle(0);
+    assertSame(reference, copy);
+    copy.add(20 * B);
+    copy.removeFrom(5 * B + 10);
+    assertSame(reference.headSet(5 * B + 10, false), copy);
+    assertEquals(0, new MutableLineSet().copy(null).size());
+  }
+
+  @Test
+  void copyChargesItsBudgetAndReleasesOnClear() {
+    MemoryBudget budget = MemoryBudget.of(10_000_000);
+    MutableLineSet set = new MutableLineSet(budget);
+    long[] lines = new long[MutableLineSet.SPARSE_MAX + 101];
+    for (int i = 0; i <= MutableLineSet.SPARSE_MAX; i++) {
+      lines[i] = 7L * i;
+    }
+    for (int i = 0; i < 100; i++) {
+      lines[MutableLineSet.SPARSE_MAX + 1 + i] = B + 3L * i;
+    }
+    assertTrue(set.addSorted(lines, lines.length));
+    long held = set.retainedBytes();
+    MutableLineSet copy = set.copy(budget);
+    long bitmap = MutableLineSet.BUCKET_OVERHEAD + 8L * MutableLineSet.BITMAP_WORDS;
+    long array = MutableLineSet.BUCKET_OVERHEAD + 2L * 100;
+    assertEquals(2 * MutableLineSet.DIRECTORY_SLOT_BYTES + bitmap + array, copy.retainedBytes());
+    assertEquals(held + copy.retainedBytes(), budget.reserved(MemoryShare.RESULTS));
+    assertTrue(copy.addSorted(new long[] {B + 301, 3 * B, 4 * B, 5 * B}, 4));
+    assertEquals(held + copy.retainedBytes(), budget.reserved(MemoryShare.RESULTS));
+    copy.clear();
+    assertEquals(held, budget.reserved(MemoryShare.RESULTS));
+    MutableLineSet empty = new MutableLineSet().copy(budget);
+    assertEquals(0, empty.size());
+    assertEquals(held, budget.reserved(MemoryShare.RESULTS));
+  }
+
+  @Test
+  void copyTheShareRefusesIsNull() {
+    MutableLineSet set = new MutableLineSet();
+    for (long bucket = 0; bucket < 20; bucket++) {
+      set.add(bucket * B);
+    }
+    MemoryBudget small = MemoryBudget.of(2000);
+    assertTrue(set.retainedBytes() > small.limit(MemoryShare.RESULTS));
+    assertNull(set.copy(small));
+    assertEquals(0, small.reserved(MemoryShare.RESULTS));
   }
 
   @Test
