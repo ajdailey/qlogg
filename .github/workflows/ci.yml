@@ -77,7 +77,7 @@ jobs:
         run: .github/scripts/linux-display-deps.sh
       - name: GTK 4
         run: |
-          sudo apt-get update
+          .github/scripts/apt-update.sh
           sudo apt-get install -y --no-install-recommends libgtk-4-1
       - name: Verify the SWT modules and the distribution
         run: xvfb-run -a ./mvnw -B verify -pl qlogg-ui-swt,qlogg-launcher,qlogg-dist -am

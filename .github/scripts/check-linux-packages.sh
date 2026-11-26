@@ -16,7 +16,7 @@ version=${version%-"$TARGET".deb}
 
 echo "--- $deb"
 dpkg-deb --info "$deb"
-sudo apt-get update
+.github/scripts/apt-update.sh
 sudo apt-get install -y --no-install-recommends x11-utils desktop-file-utils "./$deb"
 
 dpkg-query -W -f '${Version}\n' qlogg | grep -qxF "${version//-/\~}-1" \

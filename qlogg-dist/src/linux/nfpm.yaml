@@ -15,8 +15,7 @@ license: Apache-2.0
 description: |-
   Viewer for large and growing log files
   QLogg follows growing files, searches with regular expressions and shows
-  matches in a filtered view, without loading the file into memory. It makes
-  no outbound network connections.
+  matches in a filtered view, without loading the file into memory.
 mtime: "@MTIME@"
 umask: 0o022
 overrides:
