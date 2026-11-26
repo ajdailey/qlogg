@@ -918,6 +918,12 @@ characters outside the code page.
   off without an ellipsis.
 - Windows: `Ctrl+Shift+0` does not reach QLogg; Windows takes it for the input
   language hotkey. Use `Ctrl+Shift+D` to clear color labels.
+- Windows: Open with QLogg from Explorer opens the file as a tab in the running
+  window but flashes its taskbar button instead of bringing the window to the
+  front.
+- macOS: menus and the menu bar follow the macOS appearance setting, not the
+  QLogg theme.
+- Linux: GTK 4 is an experimental opt-in on linux-x86_64 (`bin/qlogg --gtk4`).
 - macOS: `Cmd+Shift+3`, `Cmd+Shift+4` and `Cmd+Shift+5` take screenshots and
   do not reach QLogg; set those color labels from Highlighters > Color Label.
 - macOS: dragging only folders over the window shows the copy cursor; the drop
