@@ -1,7 +1,8 @@
 # qlogg-ui-swt tests
 
-Every test class is tagged `swt` and drives real SWT widgets over real
-documents. Module overview: [README.md](README.md).
+Test classes tagged `swt` drive real SWT widgets over real documents and need
+a display; the untagged classes run without one. Module overview:
+[README.md](README.md).
 
 ## Running
 
