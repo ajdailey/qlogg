@@ -66,6 +66,29 @@ public final class LineReader {
   }
 
   /**
+   * Counts the chars of a line that cover any display column in a range: a tab, a {@link
+   * ControlChars#boxed} char and a surrogate pair count once.
+   *
+   * @param text the line
+   * @param from the first column
+   * @param to the column after the last
+   * @return the count
+   */
+  public static long chars(CharSequence text, long from, long to) {
+    long count = 0;
+    long column = 0;
+    for (int i = 0; i < text.length() && column < to; i++) {
+      char c = text.charAt(i);
+      long next = advance(column, c);
+      if (next > column && next > from) {
+        count++;
+      }
+      column = next;
+    }
+    return count;
+  }
+
+  /**
    * Returns the column after a char.
    *
    * @param column the char's column

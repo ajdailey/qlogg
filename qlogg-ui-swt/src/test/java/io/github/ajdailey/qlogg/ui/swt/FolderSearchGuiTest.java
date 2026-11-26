@@ -176,7 +176,8 @@ class FolderSearchGuiTest {
   @Test
   void excludeKeptSetsAndTheStepKeyWorkInTheWindow() throws Exception {
     Path logs = Files.createDirectory(temp.resolve("logs"));
-    Files.writeString(logs.resolve("app.log"), "hit 0\nline\nhit 2\n", StandardCharsets.US_ASCII);
+    Files.writeString(
+        logs.resolve("app.log"), "hit 0\nline\nhit\u001b 2\n", StandardCharsets.US_ASCII);
     Files.writeString(logs.resolve("debug.log"), "hit\n", StandardCharsets.US_ASCII);
     controller.execute(CommandId.SEARCH_FOLDER);
     final FolderSearchWindow search = window.folderSearch();
@@ -210,6 +211,8 @@ class FolderSearchGuiTest {
     search.files().notifyListeners(SWT.KeyDown, f4);
     assertEquals(1, controller.folderSearch().stepHit());
     assertEquals(1, search.lines().getSelectionIndex());
+    assertEquals(
+        "hit<1B> 2", search.lines().getItem(1).getText(1), "a control char shows its code");
     assertTrue(
         runUntil(
             new BooleanSupplier() {

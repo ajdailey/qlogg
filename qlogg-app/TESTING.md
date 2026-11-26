@@ -91,7 +91,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `LineViewControllerTest` | A scroll while a read is in flight ending on a block at the new top; a block whose spans the `HIGHLIGHT` share refuses shown without them, and with them once the share has room |
 | `ExportCancelTest` | Tab close and `Esc` canceling a copy or save held at a gated row: the `COPY` and `LINE_INDEX` reservations returned, no file left; a second copy while one runs showing a notice, and copy running after `Esc` |
 | `WordSelectionTest` | `selectWordAt`: the word around a position or the one before it, and positions that select nothing |
-| `ControlBoxSelectionTest` | A selection across a control box copying the original char, the columns after it counting two, and a double click stopping at the box |
+| `ControlBoxSelectionTest` | A selection across a control box copying the original char, the columns after it counting two, a double click stopping at the box, and `selectedChars` counting a box and a tab as one char each |
 
 ## Follow, reload and remembered state
 
@@ -168,7 +168,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `BusyCounterTest` | Overlapping operations keeping the indicator until the last ends; an idle with nothing active ignored; calls from a worker applied on the UI thread |
 | `UiUpdateQueueTest` | Posts before a flush sharing one; a flush inside the interval waiting on one timer; `close` stopping a scheduled check and a scheduled timer |
 | `ManualUiDispatcherTest` | Submissions run in order and dropped after dispose; `timerExec` off the UI thread refused and failing the next drain; `runUntil` seeing a condition set off the UI thread |
-| `PositionTextTest` | The caret and the selection size; the time difference of a selection over lines |
+| `PositionTextTest` | The caret and the selection size, with no char count before it is read; the time difference of a selection over lines |
 | `StatusTextTest` | The top row's size, modification tip and encoding; the notes that apply; sizes in the largest unit under 1024 |
 
 ## Single instance

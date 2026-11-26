@@ -261,7 +261,8 @@ cursor shows on the main window and the Search in Folder window while the
 search runs.
 
 The upper table lists each file with its matches; selecting a file lists its
-matching lines below. Double-click a line, or press Enter, to open the file at
+matching lines below, with a control character shown as its code, such as
+`<1B>` for ESC. Double-click a line, or press Enter, to open the file at
 that line, or to go there in the tab that already shows it. Compressed or
 binary files show Not text, and files that cannot be read show why, such as
 Access denied for a folder or file your account cannot read. When
@@ -426,7 +427,9 @@ leaves it empty and disables the timestamp commands.
 
 ### Selection difference
 
-With several lines selected, the position field adds the time from the first
+Within one line the position field counts the selected characters, a tab or
+a control character being one, for example `Sel 3 chars`. With several lines
+selected, it adds the time from the first
 to the last selected line, for example `Sel 4 lines  +00:01:23.456`, or
 `+2d 03:00:00.000` past a day. A negative time means the lines are out of
 order. In the filtered view the lines are the selected rows' lines.

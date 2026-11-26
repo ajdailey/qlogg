@@ -88,7 +88,7 @@ format.
 | Class | Formats |
 |---|---|
 | `StatusText` | The top row's size and encoding, the size's tooltip (`Last modified` and the time), the status bar's notes |
-| `PositionText` | `Ln 12/200  Col 5`, plus `Sel 6 chars` within one line or `Sel 4 lines`. The four-argument form takes the size from another selection and appends its time difference |
+| `PositionText` | `Ln 12/200  Col 5`, plus `Sel 6 chars` within one line or `Sel 4 lines`. The size comes from another selection, with its time difference appended. The char count is `LineViewController.selectedChars`: `SelectedChars` reads the line on a `qlogg-read-` worker and counts `LineReader.chars`, a tab or a boxed control char being one char; `Sel` is left out until the read returns |
 | `TimeText` | Caret time (`yyyy-MM-dd HH:mm:ss`, at least 3 fraction digits, more when the line has them); a selection's difference (`+00:01:23.456`, `+2d 03:00:00.000`, negative when the last line is earlier, with the larger fraction-digit count of the two lines); the offset (`[+-][d.]HH:mm:ss[.fff]`). Parses an offset and a Go to Time target (`yyyy-MM-dd HH:mm:ss[.f]`, or `HH:mm:ss[.f]` on a given date); a refused text parses as `INVALID` |
 
 ### Update coalescing

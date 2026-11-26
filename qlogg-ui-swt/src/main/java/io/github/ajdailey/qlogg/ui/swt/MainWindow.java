@@ -1406,6 +1406,7 @@ public final class MainWindow implements MainView, ApplicationListener {
                 document.selection(),
                 document.viewport().lineCount(),
                 selected.selection(),
+                selected.selectedChars(),
                 TimeText.difference(selected.timeStatus())));
     GridData data = (GridData) position.getLayoutData();
     int width = Math.max(POSITION_WIDTH, position.computeSize(SWT.DEFAULT, SWT.DEFAULT).x);

@@ -302,8 +302,12 @@ A table with grid lines calls `Dialogs.gridLines` in place of
 and no public API colors them. In a dialog `Win32DialogColors` colored,
 `gridLines` turns the native lines off and `Win32GridLines`, an `SWT.Paint`
 listener, draws `#404040` rules (1.37:1 on `#2b2b2b`; light lines are 1.14:1
-on white) along the last pixel row of each row pitch, empty rows included, and
-the last pixel column of each column. Elsewhere the native lines show. A
+on white) one point above each shown item's top after the first, from
+`TableItem.getBounds`, and the last pixel column of each column. Below the last
+item the rules step by the difference of the last two tops. A multiple of
+`getItemHeight` drifts: at 150% a 29 px row is 19.33 pt, rounded to 19, so the
+rules fall half a pixel behind per row and cross the text by row 12 (measured,
+Windows 11). Elsewhere the native lines show. A
 dialog keeps its lines when the theme switches, as it keeps its colors.
 Predefined Filters, the Preferences Shortcuts table and Keyboard Shortcuts
 show grid lines.

@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Selection across a control box: the columns after it, copy returning the original char, and a
- * double click that stops at the box.
+ * Selection across a control box: the columns after it, copy returning the original char, a double
+ * click that stops at the box, and the selected char count over a box and a tab.
  */
 class ControlBoxSelectionTest {
   @TempDir Path temp;
@@ -70,5 +70,33 @@ class ControlBoxSelectionTest {
       document.selectWordAt(new TextPosition(0, 5));
       assertEquals(before, document.selection());
     }
+  }
+
+  @Test
+  void theSelectedCharCountTakesABoxAndATabAsOneChar() throws Exception {
+    try (ControllerFixture fixture = new ControllerFixture(temp, Preferences.DEFAULTS)) {
+      Path file = temp.resolve("controls.log");
+      Files.writeString(file, "C\u0007[0m\tend\n", StandardCharsets.UTF_8);
+      final DocumentController document = fixture.open(file);
+      assertEquals(-1, document.selectedChars(), "no selection");
+      document.select(on(0, 0, 4));
+      counted(document, fixture, 3);
+      document.select(on(0, 4, 8));
+      counted(document, fixture, 3);
+    }
+  }
+
+  /** Waits for the count; C, BEL and [ span four columns, 0, m and the tab four. */
+  private static void counted(
+      final DocumentController document, ControllerFixture fixture, final long expected)
+      throws InterruptedException {
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return document.selectedChars() >= 0;
+          }
+        });
+    assertEquals(expected, document.selectedChars(), document.selection().toString());
   }
 }

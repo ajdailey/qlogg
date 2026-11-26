@@ -444,7 +444,16 @@ class FilteredPaneTest {
     window.canvas().document().selectWordAt(new TextPosition(9, 8));
     assertEquals(
         new Selection(new TextPosition(9, 6), new TextPosition(9, 11)), document.selection());
-    assertTrue(window.positionText().endsWith("Sel 5 chars"), window.positionText());
+    // The char count is read on a worker.
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return window.positionText().endsWith("Sel 5 chars");
+              }
+            }),
+        window.positionText());
     key(mainCanvas(), 0, '*', '*');
     assertTrue(
         runUntil(

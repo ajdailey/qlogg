@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.core.text;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.core.model.LineReader;
@@ -8,7 +9,10 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import org.junit.jupiter.api.Test;
 
-/** The boxed ranges, TAB left out, the five undefined windows-1252 bytes and the box width. */
+/**
+ * The boxed ranges, TAB left out, the cell text of boxed chars, selected-char counts, the five
+ * undefined windows-1252 bytes and the box width.
+ */
 class ControlCharsTest {
   @Test
   void c0ExceptTabDelAndC1AreBoxed() {
@@ -24,6 +28,23 @@ class ControlCharsTest {
     assertEquals("1B", ControlChars.label('\u001b'));
     assertEquals("7F", ControlChars.label('\u007f'));
     assertEquals("9D", ControlChars.label('\u009d'));
+  }
+
+  @Test
+  void visibleTextShowsEachBoxedCharAsItsCode() {
+    String plain = "tab\tand text";
+    assertSame(plain, ControlChars.visible(plain));
+    assertEquals("<1B>[0m<00>x<7F><9D>", ControlChars.visible("\u001b[0m\u0000x\u007f\u009d"));
+    assertEquals("a<07>", ControlChars.visible("a\u0007"));
+  }
+
+  @Test
+  void aSelectionCountsABoxedCharATabAndASurrogatePairOnce() {
+    assertEquals(3, LineReader.chars("C\u001b[x", 0, 4), "C, ESC and [ over four columns");
+    assertEquals(3, LineReader.chars("a\tb", 0, 9), "a, the tab and b over nine columns");
+    assertEquals(1, LineReader.chars("a\tb", 3, 5), "inside the tab");
+    assertEquals(2, LineReader.chars("\ud83d\ude00z", 0, 2));
+    assertEquals(0, LineReader.chars("ab", 5, 9));
   }
 
   @Test

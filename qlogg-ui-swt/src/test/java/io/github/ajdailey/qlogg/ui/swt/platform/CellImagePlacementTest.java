@@ -7,12 +7,14 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import io.github.ajdailey.qlogg.ui.swt.ScaleSlack;
 import java.time.Duration;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.PaletteData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
@@ -80,15 +82,94 @@ class CellImagePlacementTest {
   }
 
   @Test
+  void aGridLineCountsTowardThePitch() {
+    assertEquals(18, Win32CellImages.pitch(16, true, 150), "24 px cell under a line: 25 px pitch");
+    assertEquals(18, Win32CellImages.pitch(17, false, 150));
+    assertEquals(20, Win32CellImages.pitch(19, true, 150), "28 px cell under a line: 29 px pitch");
+    assertEquals(20, Win32CellImages.pitch(19, false, 150));
+    assertEquals(19, Win32CellImages.pitch(18, true, 100));
+    assertEquals(19, Win32CellImages.pitch(19, false, 100));
+  }
+
+  /**
+   * A light table shows grid lines and a dark one draws its own, so both themes must give the same
+   * whole-pixel pitch. A larger font makes the native row taller than the image, so the pitch comes
+   * from {@link Win32CellImages#pitch}.
+   */
+  @Test
+  void theRowPitchIsTheSameWithAndWithoutGridLines() {
+    assumeTrue("win32".equals(SWT.getPlatform()), "only win32 draws the images in MeasureItem");
+    Shell shell = new Shell(display);
+    shell.setLayout(new FillLayout());
+    Font font = null;
+    Image box = new Image(display, box());
+    try {
+      int[] pitches = new int[2];
+      for (int pass = 0; pass < 2; pass++) {
+        Table table = new Table(shell, SWT.BORDER | SWT.FULL_SELECTION);
+        if (font == null) {
+          font = new Font(display, table.getFont().getFontData()[0].getName(), 12, SWT.NORMAL);
+        }
+        table.setFont(font);
+        table.setHeaderVisible(true);
+        table.setLinesVisible(pass == 0);
+        new TableColumn(table, SWT.LEFT).setWidth(90);
+        new TableColumn(table, SWT.LEFT).setWidth(90);
+        Win32CellImages cells = new Win32CellImages(table, 1);
+        for (int i = 0; i < 7; i++) {
+          TableItem item = new TableItem(table, SWT.NONE);
+          item.setText(new String[] {"mock " + i, ""});
+          cells.show(item, box);
+        }
+      }
+      shell.setSize(400, 600);
+      shell.open();
+      ScreenPixels.read(shell, BOUND);
+      Control[] tables = shell.getChildren();
+      for (int pass = 0; pass < 2; pass++) {
+        Table table = (Table) tables[pass];
+        pitches[pass] = table.getItem(6).getBounds().y - table.getItem(0).getBounds().y;
+        int zoom = Zoom.of(table);
+        assertEquals(0, pitches[pass] * zoom % 600, "six rows span whole pixels at " + zoom);
+      }
+      assertEquals(pitches[0], pitches[1], "six rows with and without grid lines");
+    } finally {
+      box.dispose();
+      if (font != null) {
+        font.dispose();
+      }
+    }
+  }
+
+  @Test
   void theBoxSitsInsetPointsIntoEveryCellAndCentered() {
     assumeTrue(
         "win32".equals(SWT.getPlatform()) || System.getProperty("swt.autoScale") == null,
         "only win32 scales widgets by a numeric swt.autoScale");
+    placeBoxes(false, 0);
+    placeBoxes(false, 12);
+    // Elsewhere the measured row holds the grid line, so the pitch would grow at each measure.
+    if ("win32".equals(SWT.getPlatform())) {
+      placeBoxes(true, 0);
+      placeBoxes(true, 12);
+    }
+  }
+
+  /**
+   * Checks the box in each of five rows; without grid lines the cell's last pixel row is left out,
+   * as {@link Win32GridLines} draws its rule there. A 12 pt font makes the row taller than the box.
+   */
+  private void placeBoxes(boolean lines, int points) {
     Shell shell = new Shell(display);
     shell.setLayout(new FillLayout());
     Table table = new Table(shell, SWT.BORDER | SWT.FULL_SELECTION);
     table.setHeaderVisible(true);
-    table.setLinesVisible(true);
+    table.setLinesVisible(lines);
+    Font font = null;
+    if (points > 0) {
+      font = new Font(display, table.getFont().getFontData()[0].getName(), points, SWT.NORMAL);
+      table.setFont(font);
+    }
     for (int i = 0; i < 3; i++) {
       new TableColumn(table, SWT.LEFT).setWidth(90);
     }
@@ -110,24 +191,29 @@ class CellImagePlacementTest {
         Rectangle cell = table.getItem(i).getBounds(2);
         int left = pixels.pixels(cell.x);
         int top = pixels.pixels(cell.y);
-        int bottom = pixels.pixels(cell.y + cell.height);
+        int bottom = pixels.pixels(cell.y + cell.height) - (lines ? 0 : 1);
         int[] drawn = boxBounds(pixels, left, top, pixels.pixels(cell.x + cell.width), bottom);
         assumeTrue(drawn != null || i > 0, "a screen read shows the table");
-        assertTrue(drawn != null, "row " + i + " shows no box");
+        String row = (lines ? "lines, " : "no lines, ") + points + " pt, row " + i;
+        assertTrue(drawn != null, row + " shows no box");
         int x = drawn[0] - left;
-        assertTrue(Math.abs(x - inset) <= slack, "row " + i + ": box " + x + " px into the cell");
+        assertTrue(Math.abs(x - inset) <= slack, row + ": box " + x + " px into the cell");
         int above = drawn[1] - top;
         int under = bottom - drawn[2] - 1;
         assertTrue(
             Math.abs(above - under) <= 1 + slack,
-            "row " + i + ": " + above + " px above the box, " + under + " below");
+            row + ": " + above + " px above the box, " + under + " below");
         if (firstTop < 0) {
           firstTop = above;
         }
-        assertEquals(firstTop, above, "row " + i + " offset matches row 0");
+        assertEquals(firstTop, above, row + " offset matches row 0");
       }
     } finally {
       box.dispose();
+      shell.dispose();
+      if (font != null) {
+        font.dispose();
+      }
     }
   }
 

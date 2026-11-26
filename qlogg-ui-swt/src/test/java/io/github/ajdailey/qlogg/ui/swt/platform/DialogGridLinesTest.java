@@ -2,12 +2,14 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.ui.swt.ScaleSlack;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.RGB;
@@ -121,7 +123,9 @@ class DialogGridLinesTest {
         "a screen read shows the table; read " + pixels.at(middleX, middleY));
     int slack = pixels.pixels(ScaleSlack.of(table)) + 1;
     RGB grid = Win32DialogColors.GRID.getRGB();
-    int rowEdge = pixels.pixels(cell.y + table.getItemHeight()) - 1;
+    // From item tops, not the item height: at 150% the height is a rounded fraction of a row.
+    int next = table.getItem(2).getBounds().y;
+    int rowEdge = pixels.pixels(next) - 1;
     assertTrue(
         found(pixels, middleX, rowEdge, 0, slack, grid),
         "row rule near y " + rowEdge + ": " + pixels.at(middleX, rowEdge));
@@ -129,7 +133,7 @@ class DialogGridLinesTest {
     assertTrue(
         found(pixels, columnEdge, middleY, slack, 0, grid),
         "column rule near x " + columnEdge + ": " + pixels.at(columnEdge, middleY));
-    int below = pixels.pixels(table.getItem(2).getBounds().y + 2 * table.getItemHeight()) - 1;
+    int below = pixels.pixels(next + (next - cell.y)) - 1;
     assertTrue(
         found(pixels, middleX, below, 0, slack, grid),
         "rule under the last row near y " + below + ": " + pixels.at(middleX, below));
@@ -138,6 +142,79 @@ class DialogGridLinesTest {
     assertTrue(
         found(pixels, divider, header, slack, 0, grid),
         "header divider near x " + divider + ": " + pixels.at(divider, header));
+  }
+
+  /**
+   * Item tops as win32 reports them at 150 % for 29 px rows: 19.33 pt each, rounded, so the
+   * multiplied item height (19 pt) falls 5 pt behind by row 15.
+   */
+  @Test
+  void rowRulesFollowFractionalItemTopsWithoutDrift() {
+    int header = 25;
+    int itemHeight = 19;
+    List<Integer> tops = new ArrayList<Integer>();
+    for (int row = 0; row < 20; row++) {
+      tops.add(header + Math.round(row * 29 / 1.5f));
+    }
+    List<Integer> rules = Win32GridLines.rules(tops, itemHeight, header, 600);
+    for (int row = 1; row < 20; row++) {
+      assertEquals(tops.get(row) - 1, rules.get(row - 1), "rule above row " + row);
+    }
+    assertNotEquals(header + 15 * itemHeight - 1, rules.get(14), "a multiplied height drifts");
+    int pitch = tops.get(19) - tops.get(18);
+    assertEquals(tops.get(19) + pitch - 1, rules.get(19), "first empty row");
+    assertEquals(tops.get(19) + 2 * pitch - 1, rules.get(20), "second empty row");
+    for (int rule : rules) {
+      assertTrue(rule < 600, "rule " + rule + " inside the client area");
+    }
+    assertEquals(
+        List.of(header + itemHeight - 1, header + 2 * itemHeight - 1),
+        Win32GridLines.rules(new ArrayList<Integer>(), itemHeight, header, header + 2 * itemHeight),
+        "an empty table");
+    assertEquals(
+        List.of(header + itemHeight - 1),
+        Win32GridLines.rules(List.of(header), itemHeight, header, header + itemHeight + 1),
+        "one item steps by the item height");
+  }
+
+  /**
+   * {@link Win32GridLines#rowRules} on a shown table of 20 items: each rule is the pixel row above
+   * the next item's top as {@link TableItem#getBounds()} reports it. GTK and a win32 run at a whole
+   * zoom give whole-point rows; the fractional case is {@link
+   * #rowRulesFollowFractionalItemTopsWithoutDrift}.
+   */
+  @Test
+  void rowRulesMatchItemBoundsOverFifteenRows() {
+    Shell dialog = new Shell(owner, SWT.DIALOG_TRIM);
+    dialog.setLayout(null);
+    Table table = new Table(dialog, SWT.BORDER | SWT.FULL_SELECTION);
+    table.setHeaderVisible(true);
+    new TableColumn(table, SWT.LEFT).setWidth(120);
+    for (int i = 0; i < 20; i++) {
+      new TableItem(table, SWT.NONE).setText("mock row " + i);
+    }
+    table.setBounds(0, 0, 200, table.getHeaderHeight() + 30 * table.getItemHeight());
+    dialog.setSize(260, table.getSize().y + 80);
+    dialog.open();
+    long deadline = System.nanoTime() + BOUND.toNanos();
+    while (System.nanoTime() < deadline
+        && !(table.getItem(19).getBounds().y > table.getItem(18).getBounds().y
+            && table.getClientArea().height > table.getItem(19).getBounds().y)) {
+      if (!display.readAndDispatch()) {
+        display.update();
+      }
+    }
+    assertTrue(
+        table.getClientArea().height > table.getItem(19).getBounds().y,
+        "all 20 rows shown: " + table.getClientArea() + ", last " + table.getItem(19).getBounds());
+    List<Integer> rules = Win32GridLines.rowRules(table);
+    for (int row = 1; row < 20; row++) {
+      assertEquals(
+          table.getItem(row).getBounds().y - 1, rules.get(row - 1), "rule above row " + row);
+    }
+    int last = table.getItem(19).getBounds().y;
+    int pitch = last - table.getItem(18).getBounds().y;
+    assertEquals(last + pitch - 1, rules.get(19), "first empty row");
   }
 
   @Test

@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.app.view.FolderSearchState;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.folder.FileHits;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.text.ControlChars;
 import java.util.List;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
@@ -462,7 +463,9 @@ final class FolderSearchWindow {
       return;
     }
     item.setText(
-        new String[] {String.valueOf(shown.line(i) + 1), shown.text(i).replace('\t', ' ')});
+        new String[] {
+          String.valueOf(shown.line(i) + 1), ControlChars.visible(shown.text(i).replace('\t', ' '))
+        });
   }
 
   /** Shows a listed line of the chosen file in a tab. */

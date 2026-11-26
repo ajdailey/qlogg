@@ -31,7 +31,7 @@ overview: [qlogg-core](README.md).
 | `Windows1252Test` | All 256 bytes decoding to one char each with no U+FFFD, the five undefined bytes as C1 code points and the rest as the JDK charset, every byte round-tripping through the encoder; chars outside the charset not encoding; `TextEncoding` substituting it for the JDK charset; the detector's fallback decoding a line with all five bytes; `Charsets` resolving the name and every JDK alias to it and other names as the JDK does |
 | `PathAtCaretTest` | Runs stopping at spaces and punctuation, quoted paths with spaces, `:line` and `:line:column` split off (a non-number or a number past `int` kept), drives and UNC paths kept whole, a Java frame's file name and line, URLs marked |
 | `LogTextTest` | `oneLine` replacing every line break and control character, a forged log entry kept on one line, the `MAX_CHARS` cap, null written as `null` |
-| `ControlCharsTest` | `boxed` over every char: C0 except tab, DEL and C1; two-digit uppercase labels; the five undefined windows-1252 bytes decoding to boxed chars; `LineReader.advance` giving a boxed char two columns and a tab its stop |
+| `ControlCharsTest` | `boxed` over every char: C0 except tab, DEL and C1; two-digit uppercase labels; `visible` writing each as `<1B>`; `LineReader.chars` counting a boxed char, a tab and a surrogate pair once; the five undefined windows-1252 bytes decoding to boxed chars; `LineReader.advance` giving a boxed char two columns and a tab its stop |
 
 Regression cases:
 

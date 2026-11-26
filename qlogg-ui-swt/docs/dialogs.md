@@ -168,8 +168,9 @@ a `DirectoryDialog`), the file name globs, Include subfolders, the exclude
 globs, the search text and the toggles, then a summary, a progress bar, the
 kept sets (a read-only `Combo` with Pin, Clear and Clear All) and two virtual
 tables: the shown set's files with their match count and status, and the
-selected file's matching lines. Enter or a double click on a line opens it in
-a tab. Stop cancels the run. `FolderSearchController` (`qlogg-app`) runs the
+selected file's matching lines. A native table draws no control char, so a
+line's cell shows each one as `<1B>` (`ControlChars.visible`). Enter or a
+double click on a line opens it in a tab. Stop cancels the run. `FolderSearchController` (`qlogg-app`) runs the
 search on workers, keeps the sets and calls the window's listener on the UI
 thread. A `Display` key filter limited to the window's shell runs the
 single-stroke keys of Next and Previous Folder Match (`F4`, `Shift+F4`), and

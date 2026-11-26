@@ -39,4 +39,28 @@ public final class ControlChars {
   public static String label(char c) {
     return LABELS[c];
   }
+
+  /**
+   * Returns text for a native table cell, which draws no control char: each {@link #boxed} char as
+   * {@code <}, its {@link #label} and {@code >}.
+   *
+   * @param text the text
+   * @return the text, the same instance when it holds no boxed char
+   */
+  public static String visible(String text) {
+    StringBuilder shown = null;
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (boxed(c)) {
+        if (shown == null) {
+          shown = new StringBuilder(text.length() + 8);
+          shown.append(text, 0, i);
+        }
+        shown.append('<').append(LABELS[c]).append('>');
+      } else if (shown != null) {
+        shown.append(c);
+      }
+    }
+    return shown == null ? text : shown.toString();
+  }
 }

@@ -118,6 +118,7 @@ public abstract class LineViewController {
   private LineBlock wrappedLines = LineBlock.EMPTY;
   // Caret time and selection difference.
   private final CaretTimes caretTimes;
+  private final SelectedChars selectedChars;
 
   /**
    * Creates the view controller.
@@ -147,6 +148,7 @@ public abstract class LineViewController {
     this.budget = budget;
     this.reader = document.newReader();
     this.caretTimes = new CaretTimes(this, workers, ui);
+    this.selectedChars = new SelectedChars(this, workers, ui);
   }
 
   /**
@@ -1154,6 +1156,7 @@ public abstract class LineViewController {
   void changed() {
     requestLines();
     caretTimes.request();
+    selectedChars.request();
     fireContent();
   }
 
@@ -1218,7 +1221,17 @@ public abstract class LineViewController {
     fireTime();
   }
 
-  /** Tells the views the times changed. */
+  /**
+   * Returns the char count of a selection inside one line, as last read; {@code timeChanged} tells
+   * the views when it changes.
+   *
+   * @return the count, or -1 for none yet
+   */
+  public long selectedChars() {
+    return selectedChars.count();
+  }
+
+  /** Tells the views the times or the selected char count changed. */
   void fireTime() {
     for (DocumentViewListener listener : new ArrayList<DocumentViewListener>(listeners)) {
       listener.timeChanged();

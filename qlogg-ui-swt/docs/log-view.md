@@ -82,7 +82,8 @@ DEL, C1) as its two uppercase hex digits (`ControlChars.label`) in a box over
 its two columns; the row text holds two spaces there and the char is in
 `LineBlock.controls`. The drawing is the same on every platform, so the
 toolkit never draws a control char: Windows and macOS draw none, with no
-width.
+width. Search in Folder's line table is a native table, so its cells show each
+one as `<`, the label and `>` (`ControlChars.visible`).
 
 - Outline: 1 px, from the left edge of the first column to the pixel before
   the third column, 1 px below the row's top to 2 px above its bottom. A box

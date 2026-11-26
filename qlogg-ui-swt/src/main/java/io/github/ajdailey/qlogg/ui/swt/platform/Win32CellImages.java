@@ -17,10 +17,10 @@ import org.eclipse.swt.widgets.TableItem;
  * row. {@link TableItem#setImage(int, Image)} on any column attaches an image list to the list
  * view, which then reserves an empty image slot at the start of column 0 in every row.
  *
- * <p>{@code SWT.MeasureItem} rounds the row height up to a whole number of pixels ({@link
- * Zoom#whole}). SWT rounds each row's top from pixels to points on its own, so at a fractional zoom
- * a row pitch of a fractional pixel count puts the image one pixel higher in some rows than in
- * others.
+ * <p>{@code SWT.MeasureItem} rounds the row pitch up to a whole number of points that spans whole
+ * pixels ({@link #pitch}). SWT rounds each row's top from pixels to points on its own, so at a
+ * fractional zoom a pitch of a fractional point count puts the image one pixel higher in some rows
+ * than in others.
  */
 final class Win32CellImages implements CellImages {
   /** Points between the cell's left edge and the image's first opaque column. */
@@ -78,14 +78,51 @@ final class Win32CellImages implements CellImages {
     Rectangle size = image.getBounds();
     if (event.type == SWT.MeasureItem) {
       event.width = Math.max(event.width, INSET + size.width);
-      event.height = Zoom.whole(Math.max(event.height, size.height), Zoom.of(table));
+      int zoom = Zoom.of(table);
+      event.height =
+          Zoom.whole(
+              Math.max(pitch(event.height, table.getLinesVisible(), zoom), size.height), zoom);
     } else {
       Rectangle cell = item.getBounds(column);
-      event.gc.drawImage(
-          image,
-          cell.x + INSET - margin(image),
-          cell.y + Math.max(0, (cell.height - size.height) / 2));
+      event.gc.drawImage(image, cell.x + INSET - margin(image), cell.y + top(cell, size));
     }
+  }
+
+  /**
+   * Returns the row pitch to request from a {@code SWT.MeasureItem} height: the smallest {@link
+   * Zoom#whole} pitch that holds the row. With grid lines showing, the measured height leaves out
+   * the line's pixel while SWT grows the row only past the pitch that includes it, so the pixel is
+   * added back; without it a light table keeps its native, fractional pitch while a dark one, with
+   * its lines off, takes a whole one (measured on {@code windows-2025} at 150%: 25 px against 27).
+   *
+   * @param points the measured height
+   * @param lines whether the table shows grid lines
+   * @param zoom the zoom in percent
+   * @return the pitch in points
+   */
+  static int pitch(int points, boolean lines, int zoom) {
+    int hundredths = points * zoom + (lines ? 100 : 0);
+    return Zoom.whole((hundredths + zoom - 1) / zoom, zoom);
+  }
+
+  /**
+   * Returns the image's offset below the cell's top, in points, centering it in the cell's pixel
+   * rows: the cell without the native grid line when lines show, or without its last pixel row,
+   * where {@link Win32GridLines} draws its rule, when they do not. Half the free pixels round to
+   * the nearest point, so at 150% the two gaps can differ by 2 px: a point is 1.5 px.
+   */
+  private int top(Rectangle cell, Rectangle size) {
+    int zoom = Zoom.of(table);
+    int rows = Math.round(cell.height * zoom / 100f);
+    if (!table.getLinesVisible()) {
+      rows--;
+    }
+    int free = rows - Math.round(size.height * zoom / 100f);
+    if (free <= 0) {
+      return 0;
+    }
+    int half = free / 2;
+    return (half * 200 + zoom) / (2 * zoom);
   }
 
   /**
