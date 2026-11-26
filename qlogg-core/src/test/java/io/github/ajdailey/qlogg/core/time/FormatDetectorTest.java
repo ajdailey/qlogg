@@ -61,6 +61,22 @@ class FormatDetectorTest {
   }
 
   @Test
+  void clefAndLog4jXmlHeadsDetect() {
+    StringBuilder clef = new StringBuilder();
+    StringBuilder log4j = new StringBuilder();
+    for (int i = 0; i < 10; i++) {
+      clef.append("{\"@t\":\"2026-03-01T05:00:0").append(i).append("Z\",\"@mt\":\"mock\"}\n");
+      log4j
+          .append("<log4j:event logger=\"mock\" timestamp=\"177234120000")
+          .append(i)
+          .append("\" level=\"INFO\" thread=\"main\">\n")
+          .append("<log4j:message><![CDATA[mock]]></log4j:message>\n</log4j:event>\n\n");
+    }
+    assertEquals(BuiltInFormat.CLEF, detect(clef.toString()));
+    assertEquals(BuiltInFormat.LOG4J_XML, detect(log4j.toString()));
+  }
+
+  @Test
   void tiesGoToTableOrder() {
     StringBuilder head = new StringBuilder();
     for (int i = 0; i < 10; i++) {

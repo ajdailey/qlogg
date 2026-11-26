@@ -2,9 +2,9 @@ package io.github.ajdailey.qlogg.core.time;
 
 /**
  * The hand-written scanners, in detection tie-break order. Each is tried at the line's first char
- * and after one leading {@code [}; {@link #CLF} is searched in the line's first {@link
- * TimeReader#PREFIX_CHARS} chars. Month names are English, any letter case. A fraction is 1-9
- * digits after {@code .} or {@code ,}.
+ * and after one leading {@code [}; {@link #CLF}, {@link #CLEF} and {@link #LOG4J_XML} are searched
+ * for in the line's first {@link TimeReader#PREFIX_CHARS} chars. Month names are English, any
+ * letter case. A fraction is 1-9 digits after {@code .} or {@code ,}.
  */
 public enum BuiltInFormat implements TimestampFormat {
   /** {@code yyyy-MM-dd} then space or {@code T}, time, optional fraction and offset. */
@@ -31,7 +31,14 @@ public enum BuiltInFormat implements TimestampFormat {
   /** {@code MMM dd, yyyy h:mm:ss a}, the {@code java.util.logging.SimpleFormatter} default. */
   JUL("jul"),
   /** 10 digits of seconds or 13 of milliseconds since 1970 UTC, optional fraction, a non-digit. */
-  EPOCH("epoch");
+  EPOCH("epoch"),
+  /** {@code "@t":"} in the line's first chars, then the {@link #ISO} layout (Serilog CLEF). */
+  CLEF("clef"),
+  /**
+   * {@code timestamp="} in the line's first chars, then 13 digits of milliseconds since 1970 UTC
+   * and {@code "} (log4j XML event).
+   */
+  LOG4J_XML("log4j-xml");
 
   private final String id;
 

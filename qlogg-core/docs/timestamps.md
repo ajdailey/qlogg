@@ -18,6 +18,8 @@ worker. Module overview: [qlogg-core](../README.md).
 | `clf` | `[dd/MMM/yyyy:HH:mm:ss +hhmm]` anywhere in the first 256 chars | The offset |
 | `jul` | `MMM dd, yyyy h:mm:ss a` | Document zone |
 | `epoch` | 10 digits of seconds or 13 of milliseconds, optional fraction, then a non-digit | UTC |
+| `clef` | `"@t":"` anywhere in the first 256 chars, then the `iso` layout (Serilog CLEF) | As `iso` |
+| `log4j-xml` | `timestamp="` anywhere in the first 256 chars, then 13 digits of milliseconds and `"` (log4j XML event) | UTC |
 
 `BuiltInFormat` scanners run at the line's first char and after one leading
 `[`, and allocate nothing per line. They accept a fraction of 1-9 digits after
@@ -27,8 +29,9 @@ worker. Module overview: [qlogg-core](../README.md).
 ## Parsing
 
 `TimestampParser.parse` returns epoch nanoseconds in a `long` (1677-09-21 to
-2262-04-11) or `NONE`, and `fractionDigits()` for display. Use one parser per
-thread.
+2262-04-11) or `NONE`, `fractionDigits()` for display, and `end()`, the index
+after the stamp (after `]` for `clf`, after a user format's `ts` group). Use one
+parser per thread.
 
 ### Year and zone resolution
 

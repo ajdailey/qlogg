@@ -1,7 +1,6 @@
 package io.github.ajdailey.qlogg.core.format;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
 
 /**
  * XML entity unescape. It replaces the five predefined XML entities, the 252 named entities of HTML
@@ -348,7 +347,11 @@ public final class XmlEntities {
     9830
   };
 
-  private static final Map<String, Integer> NAMED = named();
+  /** The names of {@link #LATIN1} and {@link #OTHERS}, sorted. */
+  private static final String[] NAMES = sortedNames();
+
+  /** The code point of each of {@link #NAMES}. */
+  private static final int[] POINTS = points();
 
   private XmlEntities() {}
 
@@ -359,13 +362,12 @@ public final class XmlEntities {
    * @return the code point, or -1 for an unknown name
    */
   static int named(String name) {
-    Integer cp = NAMED.get(name);
-    return cp == null ? -1 : cp;
+    return named(name, 0, name.length());
   }
 
   /** Returns the number of names known: the HTML 4.01 entities and {@code apos}. */
   static int nameCount() {
-    return NAMED.size();
+    return NAMES.length;
   }
 
   /**
@@ -376,10 +378,24 @@ public final class XmlEntities {
    */
   public static String unescape(String text) {
     StringBuilder out = new StringBuilder(text.length());
-    int i = 0;
-    while (i < text.length()) {
+    unescape(text, 0, text.length(), out);
+    return out.toString();
+  }
+
+  /**
+   * Appends chars with each known reference replaced, as {@link #unescape(String)} does. Grows only
+   * {@code out}.
+   *
+   * @param text the chars
+   * @param from the first index
+   * @param to the index after the last
+   * @param out receives at most {@code to - from} chars
+   */
+  public static void unescape(CharSequence text, int from, int to, StringBuilder out) {
+    int i = from;
+    while (i < to) {
       char c = text.charAt(i);
-      int end = c == '&' ? semicolon(text, i + 1) : -1;
+      int end = c == '&' ? semicolon(text, i + 1, to) : -1;
       int cp = end < 0 ? -1 : reference(text, i + 1, end);
       if (cp < 0) {
         out.append(c);
@@ -389,12 +405,11 @@ public final class XmlEntities {
         i = end + 1;
       }
     }
-    return out.toString();
   }
 
   /** Returns the offset of the {@code ;} closing a reference body starting at {@code from}. */
-  private static int semicolon(String text, int from) {
-    int limit = Math.min(text.length(), from + MAX_BODY + 1);
+  private static int semicolon(CharSequence text, int from, int to) {
+    int limit = Math.min(to, from + MAX_BODY + 1);
     for (int i = from; i < limit; i++) {
       char c = text.charAt(i);
       if (c == ';') {
@@ -408,9 +423,9 @@ public final class XmlEntities {
   }
 
   /** Returns the code point of a reference body, or -1 when it names none. */
-  private static int reference(String text, int from, int end) {
+  private static int reference(CharSequence text, int from, int end) {
     if (text.charAt(from) != '#') {
-      return named(text.substring(from, end));
+      return named(text, from, end);
     }
     int radix = 10;
     int at = from + 1;
@@ -437,14 +452,65 @@ public final class XmlEntities {
     return value == 0 || surrogate ? -1 : value;
   }
 
-  private static Map<String, Integer> named() {
-    Map<String, Integer> map = new HashMap<String, Integer>();
+  /** Binary search of {@link #NAMES} for the chars {@code [from, end)}. */
+  private static int named(CharSequence text, int from, int end) {
+    int low = 0;
+    int high = NAMES.length - 1;
+    while (low <= high) {
+      int mid = (low + high) >>> 1;
+      int order = compare(NAMES[mid], text, from, end);
+      if (order == 0) {
+        return POINTS[mid];
+      }
+      if (order < 0) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return -1;
+  }
+
+  /** Compares a name with the chars {@code [from, end)} in {@link String#compareTo} order. */
+  private static int compare(String name, CharSequence text, int from, int end) {
+    int length = end - from;
+    int common = Math.min(name.length(), length);
+    for (int i = 0; i < common; i++) {
+      int diff = name.charAt(i) - text.charAt(from + i);
+      if (diff != 0) {
+        return diff;
+      }
+    }
+    return name.length() - length;
+  }
+
+  private static String[] sortedNames() {
+    String[] names = new String[LATIN1.length + OTHERS.length / 2];
     for (int i = 0; i < LATIN1.length; i++) {
-      map.put(LATIN1[i], 0xa0 + i);
+      names[i] = LATIN1[i];
     }
     for (int i = 0; i < OTHERS.length; i += 2) {
-      map.put((String) OTHERS[i], (Integer) OTHERS[i + 1]);
+      names[LATIN1.length + i / 2] = (String) OTHERS[i];
     }
-    return map;
+    Arrays.sort(names);
+    return names;
+  }
+
+  private static int[] points() {
+    int[] points = new int[NAMES.length];
+    for (int n = 0; n < NAMES.length; n++) {
+      points[n] = -1;
+      for (int i = 0; i < LATIN1.length && points[n] < 0; i++) {
+        if (LATIN1[i].equals(NAMES[n])) {
+          points[n] = 0xa0 + i;
+        }
+      }
+      for (int i = 0; i < OTHERS.length && points[n] < 0; i += 2) {
+        if (OTHERS[i].equals(NAMES[n])) {
+          points[n] = (Integer) OTHERS[i + 1];
+        }
+      }
+    }
+    return points;
   }
 }

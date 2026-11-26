@@ -53,7 +53,7 @@ with all whitespace removed.
 |---|---|
 | `JsonFormatTest` | One member per line and empty containers, idempotence; numbers, escapes and edge whitespace kept; each extension and grammar error at its offset; truncated text at its line and column with CR, LF and CRLF lines; comments kept in place and a line comment followed by a break; a 100,000-level truncated text failing at its end, and a well-formed one stopping at `TOO_LONG`, without recursion |
 | `XmlFormatTest` | One element per line; attribute spacing, text-only content, mixed content, `xml:space` preserve and default, the prolog, DOCTYPE, comments, PIs and CDATA kept; entity references kept with nothing read; several top-level items; mismatched and unopened end tags at the name; each unterminated construct and an element open at the end at its line and column; a supplementary char counting two columns; 100,000 levels under preserve unchanged, open at the end and past the limit |
-| `UnescapeTest` | XML entities and references, every unknown or invalid reference left as written, the 253 names; every JSON escape and an escaped surrogate pair; each malformed and lone surrogate escape refused at its backslash's column |
+| `UnescapeTest` | XML entities and references, every unknown or invalid reference left as written, the 253 names; every JSON escape and an escaped surrogate pair; each malformed and lone surrogate escape refused at its backslash's column; the range overloads appending only their range and copying a malformed JSON escape as written |
 
 ## Search
 
@@ -174,9 +174,9 @@ missing.
 
 | Class | Covers |
 |---|---|
-| `BuiltInFormatTest` | Each built-in layout, 0 to 9 fraction digits with dot or comma, each offset form, invalid fields, a leading bracket and CLF inside the line, epoch seconds and milliseconds, DST overlap and gap, two-digit years, the syslog year from the modification month, id round trip |
-| `FormatDetectorTest` | Detection with 80% stack-trace lines, none below 20% or three lines, day-first only with a first field over 12, ties in table order, only the first 200 non-empty lines counted, a UTF-16LE head after its BOM left unconsumed |
-| `UserFormatTest` | A user pattern's group located and parsed; an offset in the text; month and day taking the file year, a time alone giving no stamp; the bound and a `StackOverflowError` giving no stamp; invalid definitions refused; two-digit years; fraction digits from the pattern |
+| `BuiltInFormatTest` | Each built-in layout, 0 to 9 fraction digits with dot or comma, each offset form, invalid fields, a leading bracket and CLF inside the line, epoch seconds and milliseconds, the CLEF and log4j XML keys within the first 256 chars and 13 digits exactly, `end()` for each layout and kept after a failed parse, DST overlap and gap, two-digit years, the syslog year from the modification month, id round trip |
+| `FormatDetectorTest` | Detection with 80% stack-trace lines, none below 20% or three lines, day-first only with a first field over 12, CLEF and log4j XML heads, ties in table order, only the first 200 non-empty lines counted, a UTF-16LE head after its BOM left unconsumed |
+| `UserFormatTest` | A user pattern's group located and parsed, `end()` after the group; an offset in the text; month and day taking the file year, a time alone giving no stamp; the bound and a `StackOverflowError` giving no stamp; invalid definitions refused; two-digit years; fraction digits from the pattern |
 | `TimeReaderTest` | `at` walking back through a stack trace, stopping after 10,000 lines or 1 MiB; `next` from a mid-line offset, a final line without LF, stopping after 10,000 lines; lines spanning several buffers; CRLF and UTF-16; a canceled token |
 | `TimeSamplesTest` | Evenly spaced samples over a full index, given lines with one past the end reading the last, an empty snapshot, samples snapped to sparse-index checkpoints, `retainedBytes` and `bytesFor` |
 | `TimeSearchTest` | `locate` and `locateLinear` against an in-memory oracle for every millisecond target across generated files with equal stamps and continuation lines, from before the first stamp to after the last; `bisectionOverThreeGigabytes` over `GeneratedSource`; descents and jitter; bracket cases; from a worker, `locateLinear` in steps over a 12 MiB file matches the oracle and a cancel from the first progress call ends it |
@@ -196,6 +196,21 @@ missing.
 - A `StackOverflowError` in a user format is provoked by a `CharSequence`
   whose `charAt` throws it: the 256-char prefix is too short to overflow the
   regex stack on every platform.
+
+## Columns
+
+Generators write each record from its values, so expected values never come
+from a parser.
+
+| Class | Covers |
+|---|---|
+| `DelimitedParserTest` | 2,000 generated records over `,` `;` `\|` and tab with quoted delimiters, `""`, quoted CR and LF, empty, extra and missing fields; a quote inside an unquoted field kept; an unclosed quote running to the end; the BOM; fields past 1,024 joined into the last column |
+| `ClfParserTest` | 1,000 generated common and combined lines with `-` fields, escaped quotes and offsets, the instant against `java.time`; trailing text and every malformed field unparsed |
+| `ClefParserTest` | 1,000 generated events in shuffled member order: escapes, surrogate pairs, numbers, nested values, `@@` names, missing `@l`, `@m` or `@mt` with `{Name}`, `{@Name}`, `{$Name}`, format and alignment tokens, `{{ }}` and unknown tokens; nesting at 64 and past it; malformed objects; malformed escapes kept |
+| `Log4jXmlParserTest` | 1,000 generated events with shuffled attributes, CDATA and entity-escaped text, NDC, throwable, location, `log4j:data` pairs and unknown elements; split CDATA; unknown and DTD entities left as text; declarations unparsed; a cut record and an out-of-range timestamp |
+| `StampParserTest` | Time and Text for a built-in and a user format, a leading bracket, a stack trace line unparsed; schema checks and id round trip |
+| `ColumnDetectorTest` | Each rule and threshold; synthetic and syslog text logs and JSON without `@t` detecting as none, under `.csv` and `.tsv` too; the delimiter and header guess; a quoted line feed in the header; UTF-16LE and BE heads; a cut head's last line left out; a chosen format's schema |
+| `FieldParserFuzzTest` | Random, Latin-1 and mutated records and 20,000-char runs of syntax chars into every parser: no exception, at most `16 * length + 8,192` char reads, and under 64 KiB allocated over a full pass once the buffers have grown (`ThreadMXBean`) |
 
 ## Threads, memory and file access
 

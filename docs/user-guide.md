@@ -436,8 +436,9 @@ reloaded afterwards.
 QLogg finds the timestamp at the start of each line when a file opens: ISO
 8601 (`2026-03-01 05:00:00.002`, with `T`, a comma or a zone offset), dates
 with slashes or dots, `01 Mar 2026`, syslog (`Mar  1 05:00:00`), Common Log
-Format, Java logging (`Mar 01, 2026 5:00:00 AM`) and epoch seconds or
-milliseconds. A line without a timestamp, such as a stack trace line, takes
+Format, Java logging (`Mar 01, 2026 5:00:00 AM`), epoch seconds or
+milliseconds, Serilog compact JSON (`"@t"`) and log4j XML events
+(`timestamp="..."`). A line without a timestamp, such as a stack trace line, takes
 the time of the line above it.
 
 ### Time field

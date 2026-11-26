@@ -19,4 +19,12 @@ public interface TimestampParser {
    * @return 0-9
    */
   int fractionDigits();
+
+  /**
+   * Returns the index after the last char of the stamp the last successful {@link #parse} read:
+   * past a closing {@code ]} for {@link BuiltInFormat#CLF}, past the offset when the stamp has one.
+   *
+   * @return a char index in the parsed line
+   */
+  int end();
 }

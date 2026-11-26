@@ -73,7 +73,27 @@ class UnescapeTest {
     assertRefused("\\" + "uD83D", Reason.LONE_SURROGATE_ESCAPE, 1);
     assertRefused("\\" + "uDE00", Reason.LONE_SURROGATE_ESCAPE, 1);
     assertRefused("\\" + "uD83D\\" + "u0041", Reason.LONE_SURROGATE_ESCAPE, 1);
+    assertRefused("\\" + "uD83D\\" + "u12", Reason.INVALID_ESCAPE, 7);
     assertRefused("x\n\\" + "uD83D\uDE00", Reason.LONE_SURROGATE_ESCAPE, 1);
+  }
+
+  @Test
+  void rangeOverloadsAppendAndKeepMalformedEscapes() {
+    StringBuilder out = new StringBuilder(">");
+    String json = "\\" + "u00e9\\n\\" + "uD83D\\" + "ude00";
+    JsonStrings.unescape(new StringBuilder("[" + json + "]"), 1, json.length() + 1, out);
+    assertEquals(">" + JsonStrings.unescape(json), out.toString());
+    out.setLength(0);
+    String malformed = "a\\x \\" + "uD83D b\\" + "uD83D\\" + "u12 c\\";
+    JsonStrings.unescape(malformed, 0, malformed.length(), out);
+    assertEquals(malformed, out.toString());
+    out.setLength(0);
+    String xml = "&lt;&euro;&bogus;&#65;";
+    XmlEntities.unescape(new StringBuilder("&amp;" + xml + "&amp;"), 5, xml.length() + 5, out);
+    assertEquals(XmlEntities.unescape(xml), out.toString());
+    out.setLength(0);
+    XmlEntities.unescape("&amp;", 0, 4, out);
+    assertEquals("&amp", out.toString(), "a reference cut by the range stays");
   }
 
   private static void assertRefused(final String text, Reason reason, int column) {

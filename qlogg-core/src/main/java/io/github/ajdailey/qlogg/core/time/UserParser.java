@@ -29,6 +29,7 @@ final class UserParser implements TimestampParser {
   private final LocalClock clock;
   private final BoundedChars bounded = new BoundedChars();
   private final boolean twoDigitYear;
+  private int end;
 
   UserParser(
       Pattern locate,
@@ -51,27 +52,39 @@ final class UserParser implements TimestampParser {
             ? line.subSequence(0, TimeReader.PREFIX_CHARS)
             : line;
     String text;
+    int textEnd;
     try {
       if (!bounded.find(matcher, prefix)) {
         return NONE;
       }
       text = matcher.group("ts");
+      textEnd = matcher.end("ts");
     } finally {
       matcher.reset("");
     }
     if (text == null) {
       return NONE;
     }
+    long result;
     try {
-      return resolve(formatter.parse(text));
+      result = resolve(formatter.parse(text));
     } catch (DateTimeException e) {
       return NONE;
     }
+    if (result != NONE) {
+      end = textEnd;
+    }
+    return result;
   }
 
   @Override
   public int fractionDigits() {
     return digits;
+  }
+
+  @Override
+  public int end() {
+    return end;
   }
 
   private long resolve(TemporalAccessor parsed) {

@@ -4,6 +4,8 @@ package io.github.ajdailey.qlogg.core.time;
 final class BuiltInParser implements TimestampParser {
   private static final int NO_OFFSET = Integer.MIN_VALUE;
   private static final String MONTHS = "janfebmaraprmayjunjulaugsepoctnovdec";
+  private static final String CLEF_KEY = "\"@t\":\"";
+  private static final String LOG4J_ATTRIBUTE = "timestamp=\"";
   private static final int[] SCALE = {
     1_000_000_000, 100_000_000, 10_000_000, 1_000_000, 100_000, 10_000, 1_000, 100, 10, 1
   };
@@ -24,6 +26,7 @@ final class BuiltInParser implements TimestampParser {
   private int digits;
   private int offset;
   private int lastDigits;
+  private int lastEnd;
 
   BuiltInParser(BuiltInFormat format, TimeContext context) {
     this.format = format;
@@ -42,6 +45,12 @@ final class BuiltInParser implements TimestampParser {
           result = at(i + 1);
         }
       }
+    } else if (format == BuiltInFormat.CLEF || format == BuiltInFormat.LOG4J_XML) {
+      String marker = format == BuiltInFormat.CLEF ? CLEF_KEY : LOG4J_ATTRIBUTE;
+      int found = find(marker);
+      if (found >= 0) {
+        result = at(found + marker.length());
+      }
     } else {
       result = at(0);
       if (result == NONE && length > 0 && text.charAt(0) == '[') {
@@ -51,6 +60,7 @@ final class BuiltInParser implements TimestampParser {
     text = null;
     if (result != NONE) {
       lastDigits = digits;
+      lastEnd = pos;
     }
     return result;
   }
@@ -58,6 +68,26 @@ final class BuiltInParser implements TimestampParser {
   @Override
   public int fractionDigits() {
     return lastDigits;
+  }
+
+  @Override
+  public int end() {
+    return lastEnd;
+  }
+
+  /** Returns the index of the first {@code marker} in the line's first chars, or -1. */
+  private int find(String marker) {
+    int last = length - marker.length();
+    for (int i = 0; i <= last; i++) {
+      int k = 0;
+      while (k < marker.length() && text.charAt(i + k) == marker.charAt(k)) {
+        k++;
+      }
+      if (k == marker.length()) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private long at(int start) {
@@ -68,9 +98,12 @@ final class BuiltInParser implements TimestampParser {
     if (format == BuiltInFormat.EPOCH) {
       return epoch();
     }
+    if (format == BuiltInFormat.LOG4J_XML) {
+      return log4jMillis();
+    }
     boolean parsed =
         switch (format) {
-          case ISO -> iso();
+          case ISO, CLEF -> iso();
           case YMD_SLASH -> ymd('/');
           case YMD_DOT -> ymd('.');
           case DMY_DOT -> dmyDot();
@@ -80,7 +113,7 @@ final class BuiltInParser implements TimestampParser {
           case SYSLOG -> syslog();
           case CLF -> clf();
           case JUL -> jul();
-          case EPOCH -> false;
+          case EPOCH, LOG4J_XML -> false;
         };
     if (!parsed) {
       return NONE;
@@ -272,6 +305,23 @@ final class BuiltInParser implements TimestampParser {
       digits += 3;
     }
     return LocalClock.nanos(seconds, nanos);
+  }
+
+  /** Reads 13 digits of epoch milliseconds and the closing quote, which the stamp leaves out. */
+  private long log4jMillis() {
+    long value = 0;
+    for (int i = 0; i < 13; i++) {
+      if (pos >= length || !digit(text.charAt(pos))) {
+        return NONE;
+      }
+      value = value * 10 + text.charAt(pos) - '0';
+      pos++;
+    }
+    if (pos >= length || text.charAt(pos) != '"') {
+      return NONE;
+    }
+    digits = 3;
+    return LocalClock.nanos(value / 1000, value % 1000 * 1_000_000L);
   }
 
   /** Reads {@code HH:mm:ss}. */

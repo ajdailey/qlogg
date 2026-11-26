@@ -225,6 +225,8 @@ public final class TimeText {
       case CLF -> UiText.TIME_FORMAT_CLF;
       case JUL -> UiText.TIME_FORMAT_JUL;
       case EPOCH -> UiText.TIME_FORMAT_EPOCH;
+      case CLEF -> UiText.TIME_FORMAT_CLEF;
+      case LOG4J_XML -> UiText.TIME_FORMAT_LOG4J_XML;
     };
   }
 
