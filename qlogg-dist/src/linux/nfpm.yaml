@@ -8,7 +8,7 @@ version_schema: none
 release: "1"
 section: utils
 priority: optional
-maintainer: Adam Dailey <ajdailey@gmail.com>
+maintainer: Adam Dailey <31244497+ajdailey@users.noreply.github.com>
 vendor: QLogg
 homepage: https://github.com/ajdailey/qlogg
 license: Apache-2.0
