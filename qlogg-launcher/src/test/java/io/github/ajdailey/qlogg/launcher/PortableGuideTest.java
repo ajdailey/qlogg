@@ -40,7 +40,7 @@ class PortableGuideTest {
         "1".equals(System.getenv("SWT_GTK4")),
         "GTK 4's renderer writes .cache/mesa_shader_cache under HOME in every run");
     Path bundle = Files.createDirectories(temp.resolve("bundle"));
-    Files.createFile(bundle.resolve(SettingsLocation.MARKER));
+    Files.createFile(bundle.resolve(SettingsLocation.SETTINGS_FILE));
     Path home = Files.createDirectories(temp.resolve("home"));
     // The system data folders without their applications folder: no application handles HTML,
     // so the guide's fallback is the notice, not a launched browser.

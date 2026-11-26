@@ -12,7 +12,7 @@ tabs](windows-and-tabs.md#settings-saves).
 | Mode | When |
 |---|---|
 | `EXPLICIT` | `--settings` is given |
-| `PORTABLE` | `<qlogg.home>/qlogg.conf` exists; else, on Linux, `<qlogg.home>/bin/qlogg.conf` (beside the `bin/qlogg` script), and the directory is `<qlogg.home>/bin` (`OsTraits.launcherDirectory`) |
+| `PORTABLE` | `<qlogg.home>` holds `portable.txt` (`SettingsLocation.PORTABLE_MARKER`) or `qlogg.conf` (`SETTINGS_FILE`) as a regular file; else, on Linux, `<qlogg.home>/bin` (beside the `bin/qlogg` script, `OsTraits.launcherDirectory`) holds either, and the directory is `<qlogg.home>/bin` |
 | `PER_USER` | Otherwise; the directory is `OsTraits.userSettings` |
 
 An environment value that is not an absolute path is ignored.

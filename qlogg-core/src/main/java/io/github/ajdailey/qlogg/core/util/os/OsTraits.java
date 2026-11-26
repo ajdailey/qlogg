@@ -77,8 +77,8 @@ public interface OsTraits {
   Path userSettings(Map<String, String> env, Path userHome);
 
   /**
-   * Returns the launcher's directory, whose {@code qlogg.conf} also selects portable mode when the
-   * installation directory has none.
+   * Returns the launcher's directory, whose {@code portable.txt} or {@code qlogg.conf} also selects
+   * portable mode when the installation directory has neither.
    *
    * @param home the installation directory, the parent of {@code lib/}
    * @return {@code <home>/bin}, beside the {@code bin/qlogg} script, on Linux; null elsewhere,

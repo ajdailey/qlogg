@@ -35,7 +35,8 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 | Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry, and a desktop shortcut when you tick it on the last page; a portable copy registers nothing, and deleting its folder removes it. Run QLogg on the last page starts QLogg without administrator rights |
 | Debian, Ubuntu | `qlogg-<version>-linux-<arch>.deb` | `sudo apt install ./<file>.deb`: `qlogg` on the path, QLogg in the applications menu and under Open With for text files |
 | Fedora, RHEL | `qlogg-<version>-linux-<arch>.rpm` | `sudo dnf install ./<file>.rpm`, the same |
-| Any, no install | The `.zip` or `.tar.gz` for your system | Extract it and run `qlogg.exe`, `bin/qlogg` or `QLogg.app` |
+| Windows, Linux, no install | `qlogg-<version>-windows-<arch>-portable.zip`, `qlogg-<version>-linux-<arch>-portable.tar.gz` | Extract it and run `qlogg.exe` or `bin/qlogg`. The folder holds `portable.txt`, so QLogg keeps its settings, logs and cache there; extracting a newer version over it keeps the settings |
+| macOS | `qlogg-<version>-macos-<arch>.zip` | Extract it and run `QLogg.app`; settings are per user |
 
 Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
 your settings, and an upgrade of a portable copy keeps the settings in its
@@ -785,7 +786,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
 | Window | (macOS: Minimize `Cmd+M`, Zoom;) New Window; Move to New Window; Next Tab, Previous Tab, Switch to File, Opened Files |
-| Help | User Guide, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue; About QLogg |
+| Help | User Guide, Keyboard Shortcuts, Command-Line Options; Show Log, Debug Log File, Open Log Folder, Open Settings Folder; Report an Issue, Check for Updates; About QLogg |
 
 On macOS, About QLogg, Preferences and Exit (as Quit) are in the QLogg menu.
 While a tool window such as Preferences, Marks or Scratchpad is in front, the
@@ -832,13 +833,14 @@ Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 
 ### Settings directory
 
-Settings are in `qlogg.conf`, in the first of these that applies:
+Settings are in `qlogg.conf`, in the first of these that applies;
+`portable.txt` and `qlogg.conf` select portable mode whatever they hold:
 
 | Mode | When | Directory |
 |---|---|---|
 | Explicit | `--settings <dir>` | `<dir>` |
-| Portable | `qlogg.conf` exists in the installation directory | The installation directory |
-| Portable (Linux) | `qlogg.conf` exists in `bin/`, beside the `qlogg` script, and not in the installation directory | `bin/` |
+| Portable | `portable.txt` or `qlogg.conf` exists in the installation directory | The installation directory |
+| Portable (Linux) | `portable.txt` or `qlogg.conf` exists in `bin/`, beside the `qlogg` script, and neither in the installation directory | `bin/` |
 | Per-user | Otherwise | Linux `$XDG_CONFIG_HOME/qlogg` (default `~/.config/qlogg`), Windows `%APPDATA%\QLogg`, macOS `~/Library/Application Support/QLogg` |
 
 In explicit and portable mode, QLogg saves a file or folder path inside the
@@ -865,6 +867,7 @@ driver writes its shader cache to `~/.cache/mesa_shader_cache` on every run.
 | Debug Log File | Writes the log at DEBUG to `qlogg.log` in the settings directory's `logs` folder; a QLogg started with `-m`, or one that could not reach the running instance, writes `qlogg-<pid>.log` there, and the running instance deletes those older than 7 days when it starts with this on |
 | Open Log Folder, Open Settings Folder | The folder in the file manager |
 | Report an Issue | Copies the runtime details, then opens the project's issue page in the browser |
+| Check for Updates | Opens the project's latest release page in the browser; QLogg itself connects to nothing |
 | About QLogg | Version, license and runtime details; on macOS in the QLogg menu |
 
 ![Keyboard Shortcuts](images/guide/shortcuts.png)

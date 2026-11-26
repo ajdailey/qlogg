@@ -26,7 +26,7 @@ class SavedPathsTest {
   @BeforeEach
   void layout() throws IOException {
     install = Files.createDirectories(temp.resolve("install"));
-    Files.writeString(install.resolve(SettingsLocation.MARKER), "");
+    Files.writeString(install.resolve(SettingsLocation.SETTINGS_FILE), "");
     log = Files.writeString(Files.createDirectories(install.resolve("logs")).resolve("a.log"), "a");
     outside = Files.writeString(temp.resolve("outside.log"), "o");
   }
@@ -68,7 +68,7 @@ class SavedPathsTest {
     config.positions().put(log, 3, 4, 5);
     assertTrue(config.positions().save());
 
-    Properties conf = read(install.resolve(SettingsLocation.MARKER));
+    Properties conf = read(install.resolve(SettingsLocation.SETTINGS_FILE));
     assertEquals("logs/a.log", conf.getProperty("favorite.0"));
     assertEquals(outside.toString(), conf.getProperty("favorite.1"));
     assertEquals("logs/a.log", conf.getProperty("recent.0"));
@@ -104,7 +104,8 @@ class SavedPathsTest {
     assertTrue(perUser.save(Preferences.DEFAULTS, preferences(absolute, absolute)));
     perUser.positions().put(log, 1, 1, 0);
     assertTrue(perUser.positions().save());
-    assertEquals(absolute, read(install.resolve(SettingsLocation.MARKER)).getProperty("recent.0"));
+    assertEquals(
+        absolute, read(install.resolve(SettingsLocation.SETTINGS_FILE)).getProperty("recent.0"));
 
     ConfigStore config = new ConfigStore(portable(install));
     Preferences loaded = config.load();
@@ -113,7 +114,7 @@ class SavedPathsTest {
     assertTrue(config.positions().save());
     assertTrue(config.save(loaded, loaded));
     assertFalse(config.pathsStale());
-    Properties conf = read(install.resolve(SettingsLocation.MARKER));
+    Properties conf = read(install.resolve(SettingsLocation.SETTINGS_FILE));
     assertEquals("logs/a.log", conf.getProperty("recent.0"));
     assertEquals("logs/a.log", conf.getProperty("favorite.1"));
     assertEquals("logs/a.log", read(install.resolve(PositionStore.FILE)).getProperty("pos.0.path"));
@@ -135,7 +136,8 @@ class SavedPathsTest {
     config.positions().put(log, 1, 1, 0);
     assertTrue(config.positions().save());
     assertEquals(
-        log.toString(), read(settings.resolve(SettingsLocation.MARKER)).getProperty("recent.0"));
+        log.toString(),
+        read(settings.resolve(SettingsLocation.SETTINGS_FILE)).getProperty("recent.0"));
     assertEquals(
         log.toString(),
         read(settings.resolve(SessionStore.FILE)).getProperty("window.0.tab.0.path"));

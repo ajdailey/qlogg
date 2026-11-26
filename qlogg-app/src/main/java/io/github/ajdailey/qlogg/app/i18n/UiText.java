@@ -1094,6 +1094,8 @@ public enum UiText {
   COMMAND_OPEN_SETTINGS_FOLDER,
   /** Command label. */
   COMMAND_REPORT_ISSUE,
+  /** Command label. */
+  COMMAND_CHECK_FOR_UPDATES,
   /** Show Log window title. */
   SHOW_LOG_TITLE,
   /** Show Log text with no line yet. */

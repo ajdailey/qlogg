@@ -325,7 +325,7 @@ Invoke-Walk 'QLogg Setup' 'portable' {
   if ([SetupUi]::SetText($hwnd, 1019, $portable)) { return $true }
   $false
 }
-if (-not (Test-Path (Join-Path $portable 'qlogg.conf'))) { throw "the portable install wrote no qlogg.conf in $portable" }
+if (-not (Test-Path (Join-Path $portable 'portable.txt'))) { throw "the portable install wrote no portable.txt in $portable" }
 Test-Launched $portable 'portable-start'
 foreach ($path in @($desktop, (Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'))) {
   if (Test-Path $path) { throw "the portable install wrote $path" }

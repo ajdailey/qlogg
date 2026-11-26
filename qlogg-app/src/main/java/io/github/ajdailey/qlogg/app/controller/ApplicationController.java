@@ -1474,6 +1474,7 @@ public final class ApplicationController
       case OPEN_LOG_FOLDER -> help.openFolder(set.logFiles().directory());
       case OPEN_SETTINGS_FOLDER -> help.openFolder(config.location().directory());
       case REPORT_ISSUE -> help.reportIssue();
+      case CHECK_FOR_UPDATES -> help.openReleasesPage();
       // Mark comments and marks list.
       case MARKS_LIST -> view.showMarks();
       case EDIT_MARK_COMMENT -> editMarkComment();

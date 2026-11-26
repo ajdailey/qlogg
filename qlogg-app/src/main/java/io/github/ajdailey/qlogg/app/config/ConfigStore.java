@@ -77,7 +77,7 @@ public final class ConfigStore {
   private boolean keepInvalid;
   private boolean saveDisabled;
   private boolean pathsStale;
-  private final FailedWrites failures = new FailedWrites(LOG, SettingsLocation.MARKER);
+  private final FailedWrites failures = new FailedWrites(LOG, SettingsLocation.SETTINGS_FILE);
   // Session and remembered positions.
   private final SessionStore sessions;
   private final PositionStore positions;
@@ -193,7 +193,7 @@ public final class ConfigStore {
       if (Files.isDirectory(dir) && !Files.isWritable(dir)) {
         disableSaving();
       }
-      Path file = SafePaths.child(dir, SettingsLocation.MARKER);
+      Path file = SafePaths.child(dir, SettingsLocation.SETTINGS_FILE);
       Properties properties;
       try {
         properties = parse(file);
@@ -251,7 +251,7 @@ public final class ConfigStore {
       if (location.mode() == SettingsMode.PER_USER && !Files.isDirectory(dir)) {
         SafePaths.settingsDirectory(dir);
       }
-      Path file = SafePaths.child(dir, SettingsLocation.MARKER);
+      Path file = SafePaths.child(dir, SettingsLocation.SETTINGS_FILE);
       Map<String, String> changed = changes(before, after);
       Properties properties = reread(file);
       if (properties == null) {
@@ -271,7 +271,7 @@ public final class ConfigStore {
       }
       properties.setProperty(VERSION_KEY, VERSION);
       if (keepInvalid && Files.exists(file)) {
-        Path invalid = SafePaths.child(dir, SettingsLocation.MARKER + INVALID_SUFFIX);
+        Path invalid = SafePaths.child(dir, SettingsLocation.SETTINGS_FILE + INVALID_SUFFIX);
         Files.copy(file, invalid, StandardCopyOption.REPLACE_EXISTING);
       }
       keepInvalid = false;
@@ -511,7 +511,7 @@ public final class ConfigStore {
     LOG.warn(
         "Malformed settings file {}; defaults apply and it is kept as {} before the next save",
         LogText.oneLine(file),
-        SettingsLocation.MARKER + INVALID_SUFFIX);
+        SettingsLocation.SETTINGS_FILE + INVALID_SUFFIX);
   }
 
   private void disableSaving() {

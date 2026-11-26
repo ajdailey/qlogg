@@ -33,7 +33,7 @@ class RangeContextOptionsTest {
   @Test
   void aFileWithoutTheKeysLoadsTheEarlierToggles() throws Exception {
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "searchOption.regex=false\nsearchOption.inverse=true\n",
         StandardCharsets.ISO_8859_1);
     assertEquals(
@@ -44,7 +44,7 @@ class RangeContextOptionsTest {
   @Test
   void malformedValuesFallBackToDefaults() throws Exception {
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "searchOption.range=yes\nsearchOption.contextBefore=-1\nsearchOption.contextAfter=1001\n"
             + "searchOption.rangeEnd="
             + "x".repeat(SearchHistory.MAX_ENTRY_CHARS + 1)

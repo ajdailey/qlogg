@@ -360,6 +360,8 @@ public enum CommandId {
   OPEN_SETTINGS_FOLDER(CommandGroup.HELP, UiText.COMMAND_OPEN_SETTINGS_FOLDER, false, false),
   /** Copy the runtime details and open the project's issue page. */
   REPORT_ISSUE(CommandGroup.HELP, UiText.COMMAND_REPORT_ISSUE, true, false),
+  /** Open the project's latest release page. */
+  CHECK_FOR_UPDATES(CommandGroup.HELP, UiText.COMMAND_CHECK_FOR_UPDATES, false, false),
   /** Show the About dialog. */
   ABOUT(CommandGroup.HELP, UiText.COMMAND_ABOUT, true, false),
   // Log view keys.

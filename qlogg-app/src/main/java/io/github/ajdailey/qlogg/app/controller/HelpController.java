@@ -21,9 +21,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * One window's Help and support commands: About, the license notices, Show Log, Debug Log File, the
- * log and settings folders, Report an Issue and the user guide. Confined to the UI thread; each
- * file or jar read runs on a {@code qlogg-lifecycle-} worker, and its result is shown only while
- * the window is open. None touches the tabs.
+ * log and settings folders, Report an Issue, Check for Updates and the user guide. Confined to the
+ * UI thread; each file or jar read runs on a {@code qlogg-lifecycle-} worker, and its result is
+ * shown only while the window is open. None touches the tabs.
  */
 final class HelpController {
   private static final Logger LOG = LoggerFactory.getLogger(HelpController.class);
@@ -191,6 +191,17 @@ final class HelpController {
   void openProjectPage() {
     if (!LaunchCursor.launchUrl(view, ui, AboutInfo.PROJECT_URL)) {
       LOG.warn("No application opened the project page");
+      view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
+    }
+  }
+
+  /**
+   * Opens the latest release's page in the OS browser; a failure shows a notice. QLogg makes no
+   * connection itself.
+   */
+  void openReleasesPage() {
+    if (!LaunchCursor.launchUrl(view, ui, AboutInfo.RELEASES_URL)) {
+      LOG.warn("No application opened the releases page");
       view.showNotice(UiText.NOTICE_LAUNCH_FAILED.text());
     }
   }

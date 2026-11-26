@@ -79,14 +79,14 @@ class StateStoresTest {
     assertFalse(Options.DEFAULTS.closeWindowWithLastTab());
     assertFalse(new ConfigStore(location()).load().options().closeWindowWithLastTab());
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "tabs.closeWindowWithLastTab=true\n",
         StandardCharsets.ISO_8859_1);
     Preferences loaded = new ConfigStore(location()).load();
     assertTrue(loaded.options().closeWindowWithLastTab());
     assertTrue(new ConfigStore(location()).save(loaded, loaded.withOptions(Options.DEFAULTS)));
     assertTrue(
-        Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
+        Files.readString(temp.resolve(SettingsLocation.SETTINGS_FILE), StandardCharsets.ISO_8859_1)
             .contains("tabs.closeWindowWithLastTab=false"));
     assertFalse(new ConfigStore(location()).load().options().closeWindowWithLastTab());
   }
@@ -98,14 +98,14 @@ class StateStoresTest {
     assertFalse(Options.DEFAULTS.closeShowsLastUsed());
     assertFalse(new ConfigStore(location()).load().options().closeShowsLastUsed());
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "tabs.closeShowsLastUsed=true\n",
         StandardCharsets.ISO_8859_1);
     Preferences loaded = new ConfigStore(location()).load();
     assertTrue(loaded.options().closeShowsLastUsed());
     assertTrue(new ConfigStore(location()).save(loaded, loaded.withOptions(Options.DEFAULTS)));
     assertTrue(
-        Files.readString(temp.resolve(SettingsLocation.MARKER), StandardCharsets.ISO_8859_1)
+        Files.readString(temp.resolve(SettingsLocation.SETTINGS_FILE), StandardCharsets.ISO_8859_1)
             .contains("tabs.closeShowsLastUsed=false"));
     assertFalse(new ConfigStore(location()).load().options().closeShowsLastUsed());
   }
@@ -123,7 +123,7 @@ class StateStoresTest {
             Preferences.DEFAULTS.withState(UiState.DEFAULTS.withFolderSearch(folder))));
     assertEquals(folder, new ConfigStore(location()).load().state().folderSearch());
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "folderSearch.folder="
             + "x".repeat(FolderSearchSettings.MAX_CHARS + 1)
             + "\nfolderSearch.names=*.out\nfolderSearch.recursive=maybe\nfolderSearch.exclude="
@@ -138,7 +138,7 @@ class StateStoresTest {
   @Test
   void invalidValuesFallBackToDefaults() throws Exception {
     Files.writeString(
-        temp.resolve(SettingsLocation.MARKER),
+        temp.resolve(SettingsLocation.SETTINGS_FILE),
         "font.size=900\nrecent.count=x\nencoding.default=no-such-charset\nwindow.maximized=yes\n"
             + "monitor.pollMillis=5\nshortcut.OPEN.count=1\nshortcut.OPEN.0=nowhere F2\n",
         StandardCharsets.ISO_8859_1);
