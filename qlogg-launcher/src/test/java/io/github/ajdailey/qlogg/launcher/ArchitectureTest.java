@@ -446,10 +446,18 @@ class ArchitectureTest {
             ROOT + ".core.watch..",
             ROOT + ".core.concurrent..",
             ROOT + ".core.time..",
-            ROOT + ".core.rotate..")
+            ROOT + ".core.rotate..",
+            ROOT + ".core.columns..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage(ROOT + ".core.model..")
+        .check(classes);
+    noClasses()
+        .that()
+        .resideInAPackage(ROOT + ".core.columns..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage(ROOT + ".core.search..")
         .check(classes);
     noClasses()
         .that()

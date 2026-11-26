@@ -1251,6 +1251,10 @@ public enum UiText {
   TIME_FORMAT_JUL,
   /** Built-in format name. */
   TIME_FORMAT_EPOCH,
+  /** Built-in format name. */
+  TIME_FORMAT_CLEF,
+  /** Built-in format name. */
+  TIME_FORMAT_LOG4J_XML,
   /** Time field tooltip: the format, the zone and the offset. */
   TIME_FIELD_TIP,
   /** Go to Time prompt: the display zone. */

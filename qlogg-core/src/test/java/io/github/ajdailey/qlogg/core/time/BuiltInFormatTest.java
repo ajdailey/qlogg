@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.core.time;
 import static io.github.ajdailey.qlogg.core.time.TimeFixture.UTC;
 import static io.github.ajdailey.qlogg.core.time.TimeFixture.nanos;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
@@ -107,6 +108,41 @@ class BuiltInFormatTest {
   }
 
   @Test
+  void clefAndLog4jXmlFindTheirKeyInTheFirstChars() {
+    check(BuiltInFormat.CLEF, "{\"@t\":\"2026-03-01T05:00:00.002Z\",\"@mt\":\"m\"}", MAR_1_002, 3);
+    check(BuiltInFormat.CLEF, "{\"@mt\":\"m\",\"@t\":\"2026-03-01 05:00:00\"}", MAR_1, 0);
+    none(BuiltInFormat.CLEF, "{\"@t\": \"2026-03-01T05:00:00Z\"}");
+    none(BuiltInFormat.CLEF, "{\"t\":\"2026-03-01T05:00:00Z\"}");
+    none(BuiltInFormat.CLEF, "{\"x\":\"" + "x".repeat(250) + "\",\"@t\":\"2026-03-01T05:00:00Z\"}");
+    long millis = Instant.parse("2026-03-01T05:00:00.002Z").toEpochMilli();
+    String event = "<log4j:event logger=\"mock\" timestamp=\"" + millis + "\" level=\"INFO\">";
+    check(BuiltInFormat.LOG4J_XML, event, MAR_1_002, 3);
+    check(BuiltInFormat.LOG4J_XML, "  " + event, MAR_1_002, 3);
+    none(BuiltInFormat.LOG4J_XML, "<log4j:event timestamp=\"" + millis / 10 + "\">");
+    none(BuiltInFormat.LOG4J_XML, "<log4j:event timestamp=\"" + millis + "0\">");
+    none(BuiltInFormat.LOG4J_XML, "<log4j:message>timestamp=</log4j:message>");
+    none(BuiltInFormat.ISO, event);
+    none(BuiltInFormat.EPOCH, event);
+  }
+
+  @Test
+  void endIsTheIndexAfterTheStamp() {
+    assertEnd(BuiltInFormat.ISO, "2026-03-01 05:00:00.002 mock", 23);
+    assertEnd(BuiltInFormat.ISO, "2026-03-01T05:00:00+01:00 mock", 25);
+    assertEnd(BuiltInFormat.ISO, "[2026-03-01 05:00:00] mock", 20);
+    assertEnd(BuiltInFormat.CLF, "h - - [01/Mar/2026:05:00:00 +0000] \"GET /\" 200 1", 34);
+    assertEnd(BuiltInFormat.SYSLOG, "Mar  1 05:00:00 host-a mock", 15);
+    assertEnd(BuiltInFormat.JUL, "Mar 01, 2026 5:00:00 AM mock", 23);
+    assertEnd(BuiltInFormat.EPOCH, "1772341200002 mock", 13);
+    assertEnd(BuiltInFormat.CLEF, "{\"@t\":\"2026-03-01T05:00:00Z\"}", 27);
+    assertEnd(BuiltInFormat.LOG4J_XML, "<log4j:event timestamp=\"1772341200002\">", 37);
+    TimestampParser parser = BuiltInFormat.ISO.parser(UTC);
+    parser.parse("2026-03-01 05:00:00 mock");
+    parser.parse("mock");
+    assertEquals(19, parser.end(), "a failed parse keeps the last end");
+  }
+
+  @Test
   void dstOverlapMapsOntoTheFirstOccurrenceAndAGapTakesTheOffsetBefore() {
     TimestampParser parser =
         BuiltInFormat.ISO.parser(new TimeContext(ZoneId.of("America/New_York"), 2025, 11));
@@ -161,6 +197,12 @@ class BuiltInFormatTest {
     TimestampParser parser = format.parser(UTC);
     assertEquals(expected, parser.parse(line), line);
     assertEquals(digits, parser.fractionDigits(), line);
+  }
+
+  private static void assertEnd(BuiltInFormat format, String line, int end) {
+    TimestampParser parser = format.parser(UTC);
+    assertNotEquals(TimestampParser.NONE, parser.parse(line), line);
+    assertEquals(end, parser.end(), line);
   }
 
   private static void none(BuiltInFormat format, String line) {

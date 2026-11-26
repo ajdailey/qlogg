@@ -21,6 +21,7 @@ class UserFormatTest {
     assertEquals(
         nanos("2026-03-01T05:00:00.002Z"), parser.parse("id=7 at 2026-03-01 05:00:00.002 entry"));
     assertEquals(3, parser.fractionDigits());
+    assertEquals(31, parser.end());
     assertEquals(TimestampParser.NONE, parser.parse("\tat mock.Frame.run"));
     assertEquals(TimestampParser.NONE, parser.parse("id=8 at 2026-13-01 05:00:00.002 entry"));
   }
