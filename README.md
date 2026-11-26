@@ -133,7 +133,7 @@ from the Ubuntu archive when the runner image lacks them.
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
 | `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives, two Windows installers, four Linux packages and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message. Linux runners then install the `.deb` with `apt`, check its files, desktop entry and icons, run the same launch against `/opt/qlogg` through `/usr/bin/qlogg` with the main window's `WM_CLASS` checked against `StartupWMClass`, remove it, and install, verify (`rpm -V`), run `qlogg -v` and remove the `.rpm` in a Fedora 44 container. Windows runners walk the setup's pages and upload each as a PNG (`installer-screenshots-<target>`), then install silently for all users and for the current user, check the Installed apps entry, shortcut and Open With, run the same launch checks against the installed folder, install over it, uninstall and check removal; then a portable install, an install over it, and two refused folders |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message. Linux runners then install the `.deb` with `apt`, check its files, desktop entry and icons, run the same launch against `/opt/qlogg` through `/usr/bin/qlogg` with the main window's `WM_CLASS` checked against `StartupWMClass`, remove it, and install, verify (`rpm -V`), run `qlogg -v` and remove the `.rpm` in a Fedora 44 container. Windows runners walk the setup's pages and upload each as a PNG (`installer-screenshots-<target>`), check that the finish page starts QLogg unelevated, then install silently for all users and for the current user, check the Installed apps entry, shortcut and Open With, run the same launch checks against the installed folder, install over it, uninstall and check removal; then a portable install, an install over it, and two refused folders |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' and `qlogg-dist`'s tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
 | `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's 13 archives, installers and packages, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
@@ -271,13 +271,17 @@ The installers and packages hold the same tree as the target's bundle.
 | `-setup.exe`, portable | A folder you choose and can write to, outside Program Files and Windows, with an empty `qlogg.conf`, so the settings stay in that folder. Nothing is registered with Windows; delete the folder to remove it |
 
 The all-users and current-user installs add a Start menu shortcut, Open With
-for `.log` and `.txt` (never the default program) and an Installed apps entry.
-Uninstalling removes them and keeps the settings in `%APPDATA%\QLogg`. Running
-setup again upgrades in place, release candidates included; over a portable
-folder it keeps `qlogg.conf` and the settings.
+for `.log` and `.txt` (never the default program) and an Installed apps entry,
+and a desktop shortcut when chosen on the finish page. Uninstalling removes
+them and keeps the settings in `%APPDATA%\QLogg`. Running setup again upgrades
+in place, release candidates included; over a portable folder it keeps
+`qlogg.conf` and the settings. The finish page starts QLogg as the signed-in
+user, without administrator rights. The pages are shown in the
+[user guide](docs/user-guide.md#installing).
 
-Silent setup takes `/S` with `/MACHINE`, `/USER` or `/PORTABLE`, and
-`/D=<folder>` last and unquoted; `/S` alone installs for the current user. It
+Silent setup takes `/S` with `/MACHINE`, `/USER` or `/PORTABLE`, `/DESKTOP`
+for the desktop shortcut (ignored for portable), and `/D=<folder>` last and
+unquoted; `/S` alone installs for the current user. It never starts QLogg. It
 exits 2 when the folder is refused and 5 for `/MACHINE` without administrator
 rights. `"<folder>\uninstall.exe" /S` uninstalls silently.
 
@@ -390,7 +394,7 @@ signed bundle; portable use there goes through `--settings`.
 | `.github/` | CI and dependency-check workflows, the scripts their steps run, Dependabot configuration |
 | `tools/icons.sh` | Renders the application icon from `qlogg-dist/src/icons/*.svg` |
 | `docs/user-guide.md`, `docs/images/guide/` | The user guide Help > User Guide shows, and its screenshots |
-| `tools/screenshots.sh`, `docs/images/` | Writes the light and dark screenshots and the user guide's images under Xvfb from generated mock logs (Linux) |
+| `tools/screenshots.sh`, `docs/images/` | Writes the light and dark screenshots and the user guide's images under Xvfb from generated mock logs (Linux). `tools/screenshots.sh installer [<run-id>]` runs separately: it needs `gh` and network, and copies the user guide's Windows setup pages from the `installer-screenshots-windows-x86_64` artifact of a CI run, by default the latest successful one on `main` |
 
 ## Documents
 

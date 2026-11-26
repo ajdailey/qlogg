@@ -99,6 +99,15 @@ start, and for anyone else the all-users choice is disabled.
 | Current user (`/USER`) | `$LOCALAPPDATA\Programs\QLogg` | The same under `HKCU` and the user's Start menu |
 | Portable (`/PORTABLE`) | `$DOCUMENTS\QLogg` by default | An empty `qlogg.conf`, unless one exists; nothing else |
 
+- The license page has a Next button and asks for no acceptance.
+- The finish page has Run QLogg, checked, and Create a desktop shortcut,
+  unchecked and hidden for portable; `/DESKTOP` selects the shortcut in a
+  silent install. The shortcut goes on the common desktop for all users and on
+  the user's desktop for the current user. Setup never removes one; the
+  uninstaller does. Run QLogg executes `explorer.exe <folder>\qlogg.exe`:
+  Explorer hands the file to the running shell, which starts it with the
+  signed-in user's unelevated token, so an all-users install started as
+  administrator does not run QLogg elevated. A silent install starts nothing.
 - An existing install sets the default folder and the default choice. A
   regular install in another folder of the same scope is uninstalled first.
 - When `lib\qlogg.jar` exists, setup deletes `lib\` and `runtime\` before
@@ -110,7 +119,7 @@ start, and for anyone else the all-users choice is disabled.
   `$WINDIR`, or one it cannot write. Silent setup exits 2 instead.
 - `NsisFiles.java` writes `files.nsh`: a `File` per bundle file and a
   `Delete` and `RMDir` per file and folder for the uninstaller, sorted by
-  name. The uninstaller removes exactly those, `uninstall.exe`, the shortcut
+  name. The uninstaller removes exactly those, `uninstall.exe`, the shortcuts
   and the registry keys; the settings under `%APPDATA%\QLogg` stay.
 - The file properties carry the version, `QLogg` as company and the
   copyright. The installer and uninstaller use `qlogg.ico`.
@@ -242,8 +251,8 @@ The same job then checks the installers and packages on that runner:
 | Script | Checks |
 |---|---|
 | `check-linux-packages.sh` | Installs the `.deb` with `apt`: version, `/usr/bin/qlogg` link, no `qlogg.conf`, `desktop-file-validate`, `StartupWMClass=QLogg`, every icon. Runs `check-bundle.sh` with `QLOGG_HOME=/opt/qlogg` through `/usr/bin/qlogg`, which also requires a main window with `WM_CLASS` `"QLogg", "QLogg"`. Removes the package and checks the files are gone. Then, in `fedora:44` pinned by digest: `dnf install` of the `.rpm`, `rpm -V`, `qlogg -v`, no `qlogg.conf`, `dnf remove` |
-| `installer-screenshots.ps1` | Walks the setup's pages by window message (all-users install, its uninstaller, a portable install) and saves each with `PrintWindow` to `installer-screenshots\`, uploaded as `installer-screenshots-<target>` |
-| `check-installer.ps1` | For `/MACHINE` and then `/USER`: the Installed apps entry, the shortcut target, `QLogg.File` in both `OpenWithProgids` with the default handler unchanged, no `qlogg.conf`; `check-bundle.ps1` with `QLOGG_HOME` set to the installed folder; an install over it removes a stale runtime file and adds no `qlogg.conf`; a silent uninstall removes the folder, shortcut and keys and keeps `%APPDATA%\QLogg`. Then `/PORTABLE`: an empty `qlogg.conf`, no registry entry or shortcut, QLogg writes its `-l` log in the folder, and an install over it keeps `qlogg.conf` and `logs\`. Exit 2 for `/USER` into the portable folder and `/PORTABLE` under Program Files |
+| `installer-screenshots.ps1` | Walks the setup's pages by window message (all-users install with the desktop shortcut ticked, its uninstaller, a portable install) and saves each with `PrintWindow` to `installer-screenshots\`, uploaded as `installer-screenshots-<target>`. After each install the QLogg the finish page started must have token elevation 0; the all-users walk must write the common desktop shortcut and its uninstaller remove it, and the portable walk writes none |
+| `check-installer.ps1` | For `/MACHINE` and then `/USER`: the Installed apps entry, the shortcut target, no desktop shortcut, `QLogg.File` in both `OpenWithProgids` with the default handler unchanged, no `qlogg.conf`, no QLogg process from the folder 5 s after setup exits; `check-bundle.ps1` with `QLOGG_HOME` set to the installed folder; an install over it with `/DESKTOP` removes a stale runtime file, adds no `qlogg.conf`, and writes the shortcut to that scope's desktop only; a silent uninstall removes the folder, shortcuts and keys and keeps `%APPDATA%\QLogg`. Then `/PORTABLE /DESKTOP`: an empty `qlogg.conf`, no registry entry, no Start menu or desktop shortcut, no QLogg started, QLogg writes its `-l` log in the folder, and an install over it keeps `qlogg.conf` and `logs\`. Exit 2 for `/USER` into the portable folder and `/PORTABLE` under Program Files |
 
 ## Icons
 

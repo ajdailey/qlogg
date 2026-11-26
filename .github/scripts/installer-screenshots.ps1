@@ -1,10 +1,14 @@
 # Walks the $env:TARGET setup interactively and saves each page as a PNG in
-# installer-screenshots\: a per-machine install, its uninstaller, then a
-# portable install into a temporary folder. Pages are driven by window
-# messages (the Next button's WM_COMMAND, BM_CLICK on a radio button,
-# WM_SETTEXT on the folder box) and captured with PrintWindow, so no window
-# needs the focus. Run with Windows PowerShell from the repository root on a
-# runner with a desktop, with no QLogg installed.
+# installer-screenshots\: a per-machine install that ticks the desktop
+# shortcut box and leaves Run QLogg checked, its uninstaller, then a portable
+# install into a temporary folder. After each install the QLogg that the
+# finish page started must run unelevated (token elevation 0), and the
+# per-machine install must have written the common desktop shortcut; then it
+# is stopped. Pages are driven by window messages (the Next button's
+# WM_COMMAND, BM_CLICK on a radio button or check box, WM_SETTEXT on the
+# folder box) and captured with PrintWindow, so no window needs the focus. Run
+# with Windows PowerShell from the repository root on a runner with a
+# desktop, with no QLogg installed.
 $ErrorActionPreference = 'Stop'
 
 Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
@@ -36,6 +40,32 @@ public static class SetupUi {
 
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+
+  [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+  [DllImport("advapi32.dll")] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+  [DllImport("advapi32.dll")]
+  static extern bool GetTokenInformation(IntPtr token, int infoClass, out int info, int length, out int returned);
+
+  // A DWORD from process pid's token: class 20 TokenElevation (1 elevated, 0 not)
+  // or 18 TokenElevationType (1 default, 2 full, 3 limited); -1 when unreadable.
+  public static int TokenValue(int pid, int infoClass) {
+    IntPtr process = OpenProcess(0x1000, false, pid);
+    if (process == IntPtr.Zero) { return -1; }
+    try {
+      IntPtr token;
+      if (!OpenProcessToken(process, 0x0008, out token)) { return -1; }
+      try {
+        int value;
+        int returned;
+        return GetTokenInformation(token, infoClass, out value, 4, out returned) ? value : -1;
+      } finally {
+        CloseHandle(token);
+      }
+    } finally {
+      CloseHandle(process);
+    }
+  }
 
   // The visible dialog whose caption starts with prefix: a page may append
   // to the caption.
@@ -139,6 +169,10 @@ if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Path $out | Out-Null
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
 $script:n = 0
+foreach ($shell in @(Get-CimInstance Win32_Process -Filter "Name = 'explorer.exe'")) {
+  Write-Host "explorer.exe $($shell.ProcessId): elevation $([SetupUi]::TokenValue($shell.ProcessId, 20)), type $([SetupUi]::TokenValue($shell.ProcessId, 18))"
+}
+Write-Host "this shell: elevation $([SetupUi]::TokenValue($PID, 20)), type $([SetupUi]::TokenValue($PID, 18))"
 
 # Returns the dialog whose caption starts with $Title, waiting up to 60 s.
 function Wait-Window([string] $Title) {
@@ -202,13 +236,48 @@ function Invoke-Walk([string] $Title, [string] $Prefix, [scriptblock] $OnPage) {
   throw "$Title still open after 12 pages"
 }
 
+# Waits for the QLogg the finish page started from $Dir, throws unless every
+# process running from $Dir has token elevation 0, then stops them.
+function Test-Launched([string] $Dir) {
+  $deadline = (Get-Date).AddSeconds(60)
+  do {
+    $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
+    if ($running.Count -gt 0) { break }
+    Start-Sleep -Milliseconds 500
+  } while ((Get-Date) -lt $deadline)
+  if ($running.Count -eq 0) { throw "the finish page started no QLogg from $Dir within 60 s" }
+  # qlogg.exe hands over to javaw.exe; give the child time to appear.
+  Start-Sleep -Seconds 3
+  $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
+  try {
+    foreach ($process in $running) {
+      $elevation = [SetupUi]::TokenValue($process.ProcessId, 20)
+      $type = [SetupUi]::TokenValue($process.ProcessId, 18)
+      $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwner
+      Write-Host "$($process.ExecutablePath) $($process.ProcessId) parent $($process.ParentProcessId) owner $($owner.Domain)\$($owner.User): elevation $elevation, type $type"
+      if ($elevation -ne 0) { throw "$($process.ExecutablePath) runs with token elevation $elevation" }
+    }
+  } finally {
+    foreach ($process in $running) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+  }
+  Write-Output "PASS: the finish page started QLogg from $Dir unelevated"
+}
+
+$installed = Join-Path $env:ProgramFiles 'QLogg'
 Write-Host "starting $setup"
 Start-Process -FilePath $setup | Out-Null
-Invoke-Walk 'QLogg Setup' 'setup' $null
+Invoke-Walk 'QLogg Setup' 'setup' {
+  param($hwnd)
+  [SetupUi]::Click($hwnd, 'Create a &desktop shortcut')
+}
+Test-Launched $installed
+$desktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
+if ((New-Object -ComObject WScript.Shell).CreateShortcut($desktop).TargetPath -ne "$installed\qlogg.exe") { throw "the desktop shortcut box wrote no $desktop for $installed\qlogg.exe" }
 
 # The uninstaller runs from a copy in %TEMP%; its window is found by title.
 Start-Process -FilePath (Join-Path $env:ProgramFiles 'QLogg\uninstall.exe') | Out-Null
 Invoke-Walk 'QLogg Uninstall' 'uninstall' $null
+if (Test-Path $desktop) { throw "the uninstaller left $desktop" }
 
 # The portable walk picks Portable on the type page and a temporary folder on
 # the folder page (control 1019).
@@ -222,5 +291,9 @@ Invoke-Walk 'QLogg Setup' 'portable' {
   $false
 }
 if (-not (Test-Path (Join-Path $portable 'qlogg.conf'))) { throw "the portable install wrote no qlogg.conf in $portable" }
+Test-Launched $portable
+foreach ($path in @($desktop, (Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'))) {
+  if (Test-Path $path) { throw "the portable install wrote $path" }
+}
 Remove-Item -Recurse -Force $portable
 Write-Output "PASS: saved $script:n installer pages in $out"

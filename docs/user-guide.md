@@ -32,7 +32,7 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
 | System | Download | Result |
 |---|---|---|
-| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry; a portable copy registers nothing, and deleting its folder removes it |
+| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry, and a desktop shortcut when you tick it on the last page; a portable copy registers nothing, and deleting its folder removes it. Run QLogg on the last page starts QLogg without administrator rights |
 | Debian, Ubuntu | `qlogg-<version>-linux-<arch>.deb` | `sudo apt install ./<file>.deb`: `qlogg` on the path, QLogg in the applications menu and under Open With for text files |
 | Fedora, RHEL | `qlogg-<version>-linux-<arch>.rpm` | `sudo dnf install ./<file>.rpm`, the same |
 | Any, no install | The `.zip` or `.tar.gz` for your system | Extract it and run `qlogg.exe`, `bin/qlogg` or `QLogg.app` |

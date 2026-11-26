@@ -1,17 +1,21 @@
 # Installs the $env:TARGET setup from dist\ silently for all users and then for the current
-# user. Each time it checks the Installed apps entry, the Start menu shortcut, Open With for
-# .log and .txt with their default handlers unchanged, and that the folder holds no qlogg.conf;
-# runs check-bundle.ps1 against the installed folder; installs again over a stale runtime file,
-# which the upgrade removes; then uninstalls silently and checks that every file, shortcut and
-# registry entry is gone and the per-user settings stay. A portable install then gets an empty
-# qlogg.conf, no registry entry and no shortcut, starts with its settings in the folder, and an
-# install over it keeps qlogg.conf. Setup refuses a portable folder under Program Files and a
-# regular install into a portable folder. Run from the repository root with no QLogg installed.
+# user. Each time it checks the Installed apps entry, the Start menu shortcut, no desktop
+# shortcut, Open With for .log and .txt with their default handlers unchanged, that the folder
+# holds no qlogg.conf and that no QLogg process starts; runs check-bundle.ps1 against the
+# installed folder; installs again with /DESKTOP over a stale runtime file, which the upgrade
+# removes, and checks the desktop shortcut on that scope's desktop only; then uninstalls
+# silently and checks that every file, shortcut and registry entry is gone and the per-user
+# settings stay. A portable install with /DESKTOP then gets an empty qlogg.conf, no registry
+# entry and no shortcut, starts with its settings in the folder, and an install over it keeps
+# qlogg.conf. Setup refuses a portable folder under Program Files and a regular install into a
+# portable folder. Run from the repository root with no QLogg installed.
 $ErrorActionPreference = 'Stop'
 
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
 $version = (Split-Path -Leaf $setup) -replace '^qlogg-', '' -replace "-$env:TARGET-setup\.exe$", ''
 $uninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
+$commonDesktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
+$userDesktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'
 $work = Join-Path $env:RUNNER_TEMP 'installer-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 New-Item -ItemType Directory -Path $work | Out-Null
@@ -44,6 +48,14 @@ function Show-Extensions([string] $When) {
   }
 }
 
+# Throws when a process runs an executable under $Dir. Setup has exited, so a launch it
+# started shows within the 5 s wait.
+function Assert-NotRunning([string] $Dir, [string] $What) {
+  Start-Sleep -Seconds 5
+  $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
+  if ($running.Count -gt 0) { throw "$What started $($running[0].ExecutablePath)" }
+}
+
 function Get-ShortcutTarget([string] $Path) {
   (New-Object -ComObject WScript.Shell).CreateShortcut($Path).TargetPath
 }
@@ -63,11 +75,15 @@ function Test-Scope([string] $Scope) {
     $dir = Join-Path $env:ProgramFiles 'QLogg'
     $shortcut = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'
     $switch = '/MACHINE'
+    $desktop = $commonDesktop
+    $otherDesktop = $userDesktop
   } else {
     $hive = 'HKCU:'
     $dir = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
     $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'
     $switch = '/USER'
+    $desktop = $userDesktop
+    $otherDesktop = $commonDesktop
   }
   $classes = "$hive\Software\Classes"
   $handlers = @{ '.log' = (Get-Handler '.log'); '.txt' = (Get-Handler '.txt') }
@@ -75,6 +91,7 @@ function Test-Scope([string] $Scope) {
 
   $code = Invoke-Setup @('/S', $switch)
   if ($code -ne 0) { throw "$Scope setup exited $code" }
+  Assert-NotRunning $dir "silent $Scope setup"
   $entry = Get-ItemProperty "$hive\$uninstallKey"
   if ($entry.InstallLocation -ne $dir) { throw "$Scope InstallLocation is $($entry.InstallLocation), expected $dir" }
   if ($entry.DisplayVersion -ne $version) { throw "$Scope DisplayVersion is $($entry.DisplayVersion), expected $version" }
@@ -85,6 +102,9 @@ function Test-Scope([string] $Scope) {
   }
   if (Test-Path (Join-Path $dir 'qlogg.conf')) { throw "$Scope install holds qlogg.conf" }
   if ((Get-ShortcutTarget $shortcut) -ne "$dir\qlogg.exe") { throw "$Scope shortcut $shortcut does not start $dir\qlogg.exe" }
+  foreach ($path in @($commonDesktop, $userDesktop)) {
+    if (Test-Path $path) { throw "$Scope install without /DESKTOP wrote $path" }
+  }
   foreach ($ext in @('.log', '.txt')) {
     $progids = Get-ItemProperty "$classes\$ext\OpenWithProgids"
     if ($null -eq $progids.'QLogg.File') { throw "$Scope $ext has no QLogg.File in OpenWithProgids" }
@@ -92,19 +112,23 @@ function Test-Scope([string] $Scope) {
   }
   $command = (Get-Item "$classes\QLogg.File\shell\open\command").GetValue('')
   if ($command -ne "`"$dir\qlogg.exe`" `"%1`"") { throw "$Scope QLogg.File opens with $command" }
-  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut and Open With"
+  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut and Open With, no desktop shortcut, and no QLogg started"
 
   $env:QLOGG_HOME = $dir
   try { & .github\scripts\check-bundle.ps1 } finally { Remove-Item Env:QLOGG_HOME }
 
-  # An install over the last one replaces the runtime whole and adds no qlogg.conf.
+  # An install over the last one replaces the runtime whole and adds no qlogg.conf; /DESKTOP
+  # adds the shortcut to this scope's desktop only.
   $stale = Join-Path $dir 'runtime\bin\stale.dll'
   Set-Content -LiteralPath $stale -Value 'mock'
-  $code = Invoke-Setup @('/S', $switch)
+  $code = Invoke-Setup @('/S', $switch, '/DESKTOP')
   if ($code -ne 0) { throw "$Scope setup over the install exited $code" }
   if (Test-Path $stale) { throw "$Scope upgrade left $stale" }
   if (Test-Path (Join-Path $dir 'qlogg.conf')) { throw "$Scope upgrade added qlogg.conf" }
-  Write-Output "PASS: $Scope install over the last one removed the stale runtime file and added no qlogg.conf"
+  if ((Get-ShortcutTarget $desktop) -ne "$dir\qlogg.exe") { throw "$Scope /DESKTOP shortcut $desktop does not start $dir\qlogg.exe" }
+  if (Test-Path $otherDesktop) { throw "$Scope /DESKTOP wrote $otherDesktop" }
+  Assert-NotRunning $dir "silent $Scope setup over the install"
+  Write-Output "PASS: $Scope install over the last one removed the stale runtime file, added no qlogg.conf, and /DESKTOP wrote $desktop"
 
   $settings = Join-Path $env:APPDATA 'QLogg'
   New-Item -ItemType Directory -Path $settings -Force | Out-Null
@@ -116,6 +140,7 @@ function Test-Scope([string] $Scope) {
   Wait-Until { -not (Test-Path "$hive\$uninstallKey") } "$Scope uninstall left the Installed apps entry"
   Show-Extensions "after $Scope uninstall:"
   if (Test-Path $shortcut) { throw "$Scope uninstall left $shortcut" }
+  if (Test-Path $desktop) { throw "$Scope uninstall left $desktop" }
   foreach ($key in @('QLogg.File', 'Applications\qlogg.exe')) {
     if (Test-Path "$classes\$key") { throw "$Scope uninstall left $classes\$key" }
   }
@@ -134,8 +159,9 @@ Test-Scope 'user'
 
 # Portable: an empty qlogg.conf, nothing registered, settings in the folder.
 $portable = Join-Path $work 'QLogg Portable'
-$code = Invoke-Setup @('/S', '/PORTABLE', "/D=$portable")
+$code = Invoke-Setup @('/S', '/PORTABLE', '/DESKTOP', "/D=$portable")
 if ($code -ne 0) { throw "portable setup exited $code" }
+Assert-NotRunning $portable 'silent portable setup'
 $conf = Join-Path $portable 'qlogg.conf'
 if (-not (Test-Path $conf)) { throw 'portable install wrote no qlogg.conf' }
 if ((Get-Item $conf).Length -ne 0) { throw 'portable qlogg.conf is not empty' }
@@ -144,7 +170,7 @@ foreach ($hive in @('HKLM:', 'HKCU:')) {
   if (Test-Path "$hive\$uninstallKey") { throw "portable install wrote $hive\$uninstallKey" }
   if (Test-Path "$hive\Software\Classes\QLogg.File") { throw "portable install wrote $hive\Software\Classes\QLogg.File" }
 }
-foreach ($shortcut in @((Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'))) {
+foreach ($shortcut in @((Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'), $commonDesktop, $userDesktop)) {
   if (Test-Path $shortcut) { throw "portable install wrote $shortcut" }
 }
 
@@ -158,7 +184,7 @@ try {
     Where-Object { $before -notcontains [int] $_.ProcessId } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
-Write-Output "PASS: portable install wrote an empty qlogg.conf, registered nothing, and QLogg kept its log in $portable"
+Write-Output "PASS: portable install with /DESKTOP wrote an empty qlogg.conf, registered nothing, wrote no shortcut, and QLogg kept its log in $portable"
 
 Set-Content -LiteralPath $conf -Value 'ui.theme=dark'
 $stale = Join-Path $portable 'runtime\bin\stale.dll'

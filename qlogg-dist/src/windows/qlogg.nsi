@@ -6,10 +6,12 @@
 ; Optional SIGN_INSTALLER and SIGN_UNINSTALLER name a command makensis runs
 ; on the build host with the file as its argument.
 ;
-; Silent use: /S plus /MACHINE, /USER or /PORTABLE, and optionally /D=<folder>
-; as the last argument. /S alone installs for the current user. A per-machine
-; or per-user install never holds qlogg.conf, whose presence selects portable
-; mode; only /PORTABLE writes it, empty, and keeps an existing one.
+; Silent use: /S plus /MACHINE, /USER or /PORTABLE, optionally /DESKTOP, and
+; optionally /D=<folder> as the last argument. /S alone installs for the
+; current user. /DESKTOP adds the desktop shortcut to a regular install. A
+; silent install never starts QLogg. A per-machine or per-user install never
+; holds qlogg.conf, whose presence selects portable mode; only /PORTABLE writes
+; it, empty, and keeps an existing one.
 
 Unicode true
 Target amd64-unicode
@@ -62,6 +64,17 @@ VIAddVersionKey "OriginalFilename" "qlogg-setup.exe"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
+; Apache-2.0 asks nothing of the user, so the license page asks for no
+; acceptance.
+!define MUI_LICENSEPAGE_BUTTON "$(^NextBtn)"
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "QLogg is distributed under the Apache License 2.0. Click Next to continue."
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_TEXT "&Run QLogg"
+!define MUI_FINISHPAGE_RUN_FUNCTION RunQLogg
+!define MUI_FINISHPAGE_SHOWREADME ""
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Create a &desktop shortcut"
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateDesktopShortcut
 
 Var Mode ; machine, user or portable
 Var DirGiven
@@ -69,13 +82,17 @@ Var IsAdmin
 Var ScopeMachine
 Var ScopeUser
 Var ScopePortable
+Var DesktopSwitch ; 1 when /DESKTOP was given
 
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_HEADER_TEXT "License"
+!define MUI_PAGE_HEADER_SUBTEXT "The terms under which QLogg is distributed."
 !insertmacro MUI_PAGE_LICENSE "${LICENSE}"
 Page custom ScopePage ScopePageLeave
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW FinishShow
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -198,6 +215,12 @@ Function .onInit
   ${IfNot} ${Errors}
     StrCpy $Mode portable
   ${EndIf}
+  StrCpy $DesktopSwitch 0
+  ClearErrors
+  ${GetOptions} $R0 "/DESKTOP" $R1
+  ${IfNot} ${Errors}
+    StrCpy $DesktopSwitch 1
+  ${EndIf}
 
   ${If} $Mode == ""
     ReadRegStr $0 HKLM "${UNINSTKEY}" "InstallLocation"
@@ -279,6 +302,25 @@ Function ScopePageLeave
   Call ApplyModeDir
 FunctionEnd
 
+; A portable copy gets no desktop shortcut.
+Function FinishShow
+  ${If} $Mode == portable
+    ShowWindow $mui.FinishPage.ShowReadme ${SW_HIDE}
+  ${EndIf}
+FunctionEnd
+
+; Explorer starts the file through the running shell, so QLogg runs as the
+; signed-in user without elevation even when setup is elevated.
+Function RunQLogg
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\qlogg.exe"'
+FunctionEnd
+
+; $DESKTOP is the common desktop for an all-users install (SetShellVarContext
+; all) and the user's desktop otherwise.
+Function CreateDesktopShortcut
+  CreateShortcut "$DESKTOP\QLogg.lnk" "$INSTDIR\qlogg.exe" "" "$INSTDIR\qlogg.exe" 0
+FunctionEnd
+
 Function DirectoryLeave
   Call CheckDir
   ${If} $R9 != ""
@@ -326,6 +368,9 @@ Section "QLogg"
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   CreateShortcut "$SMPROGRAMS\QLogg.lnk" "$INSTDIR\qlogg.exe" "" "$INSTDIR\qlogg.exe" 0
+  ${If} $DesktopSwitch == 1
+    Call CreateDesktopShortcut
+  ${EndIf}
 
   ; Open With for .log and .txt; the extensions' default handler is untouched.
   WriteRegStr SHCTX "Software\Classes\${PROGID}" "" "Log file"
@@ -378,6 +423,7 @@ Section "Uninstall"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\QLogg.lnk"
+  Delete "$DESKTOP\QLogg.lnk"
 
   DeleteRegKey SHCTX "Software\Classes\${PROGID}"
   DeleteRegKey SHCTX "${APPKEY}"
