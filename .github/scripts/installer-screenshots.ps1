@@ -1,10 +1,12 @@
 # Walks the $env:TARGET setup interactively and saves each page as a PNG in
 # installer-screenshots\: a per-machine install that ticks the desktop
 # shortcut box and leaves Run QLogg checked, its uninstaller, then a portable
-# install into a temporary folder. After each install the QLogg that the
-# finish page started must run unelevated (token elevation 0), and the
-# per-machine install must have written the common desktop shortcut; then it
-# is stopped. Pages are driven by window messages (the Next button's
+# install into a temporary folder. After each install the finish page must
+# have started qlogg.exe as a child of the shell's explorer.exe, with QLogg's
+# token elevation equal to the shell's, and the per-machine install must have
+# written the common desktop shortcut; QLogg is then stopped. A shell with
+# elevation 0 makes this the unelevated check; on a runner whose shell is
+# elevated it checks the parentage only. Pages are driven by window messages (the Next button's
 # WM_COMMAND, BM_CLICK on a radio button or check box, WM_SETTEXT on the
 # folder box) and captured with PrintWindow, so no window needs the focus. Run
 # with Windows PowerShell from the repository root on a runner with a
@@ -40,6 +42,17 @@ public static class SetupUi {
 
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+
+  [DllImport("user32.dll")] static extern IntPtr GetShellWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out int pid);
+
+  // The process id of the desktop shell, 0 without one.
+  public static int ShellPid() {
+    int pid = 0;
+    IntPtr shell = GetShellWindow();
+    if (shell != IntPtr.Zero) { GetWindowThreadProcessId(shell, out pid); }
+    return pid;
+  }
 
   [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
@@ -169,10 +182,15 @@ if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Path $out | Out-Null
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
 $script:n = 0
-foreach ($shell in @(Get-CimInstance Win32_Process -Filter "Name = 'explorer.exe'")) {
-  Write-Host "explorer.exe $($shell.ProcessId): elevation $([SetupUi]::TokenValue($shell.ProcessId, 20)), type $([SetupUi]::TokenValue($shell.ProcessId, 18))"
+$shellPid = [SetupUi]::ShellPid()
+if ($shellPid -eq 0) { throw 'no desktop shell window' }
+$shellElevation = [SetupUi]::TokenValue($shellPid, 20)
+Write-Host "shell $shellPid $((Get-Process -Id $shellPid).Name): elevation $shellElevation, type $([SetupUi]::TokenValue($shellPid, 18)); this PowerShell: elevation $([SetupUi]::TokenValue($PID, 20)), type $([SetupUi]::TokenValue($PID, 18))"
+
+# Records each qlogg.exe start under the source identifier $Name.
+function Watch-Starts([string] $Name) {
+  Register-CimIndicationEvent -Query "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName = 'qlogg.exe'" -SourceIdentifier $Name | Out-Null
 }
-Write-Host "this shell: elevation $([SetupUi]::TokenValue($PID, 20)), type $([SetupUi]::TokenValue($PID, 18))"
 
 # Returns the dialog whose caption starts with $Title, waiting up to 60 s.
 function Wait-Window([string] $Title) {
@@ -236,9 +254,10 @@ function Invoke-Walk([string] $Title, [string] $Prefix, [scriptblock] $OnPage) {
   throw "$Title still open after 12 pages"
 }
 
-# Waits for the QLogg the finish page started from $Dir, throws unless every
-# process running from $Dir has token elevation 0, then stops them.
-function Test-Launched([string] $Dir) {
+# Waits for the QLogg the finish page started from $Dir; throws unless the
+# shell started qlogg.exe (events under $Name) and every process running from
+# $Dir has the shell's token elevation; then stops them.
+function Test-Launched([string] $Dir, [string] $Name) {
   $deadline = (Get-Date).AddSeconds(60)
   do {
     $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
@@ -250,27 +269,33 @@ function Test-Launched([string] $Dir) {
   Start-Sleep -Seconds 3
   $running = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$Dir\", [StringComparison]::OrdinalIgnoreCase) })
   try {
+    $starts = @(Get-Event -SourceIdentifier $Name -ErrorAction SilentlyContinue | ForEach-Object { $_.SourceEventArgs.NewEvent })
+    foreach ($start in $starts) { Write-Host "qlogg.exe $($start.ProcessID) started by $($start.ParentProcessID)" }
+    if (@($starts | Where-Object { [int] $_.ParentProcessID -eq $shellPid }).Count -eq 0) { throw "the shell $shellPid started no qlogg.exe" }
     foreach ($process in $running) {
       $elevation = [SetupUi]::TokenValue($process.ProcessId, 20)
       $type = [SetupUi]::TokenValue($process.ProcessId, 18)
       $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwner
       Write-Host "$($process.ExecutablePath) $($process.ProcessId) parent $($process.ParentProcessId) owner $($owner.Domain)\$($owner.User): elevation $elevation, type $type"
-      if ($elevation -ne 0) { throw "$($process.ExecutablePath) runs with token elevation $elevation" }
+      if ($elevation -ne $shellElevation) { throw "$($process.ExecutablePath) runs with token elevation $elevation, the shell with $shellElevation" }
     }
   } finally {
+    Unregister-Event -SourceIdentifier $Name
+    Remove-Event -SourceIdentifier $Name -ErrorAction SilentlyContinue
     foreach ($process in $running) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
   }
-  Write-Output "PASS: the finish page started QLogg from $Dir unelevated"
+  Write-Output "PASS: the shell started QLogg from $Dir with its own token elevation $shellElevation"
 }
 
 $installed = Join-Path $env:ProgramFiles 'QLogg'
 Write-Host "starting $setup"
+Watch-Starts 'setup-start'
 Start-Process -FilePath $setup | Out-Null
 Invoke-Walk 'QLogg Setup' 'setup' {
   param($hwnd)
   [SetupUi]::Click($hwnd, 'Create a &desktop shortcut')
 }
-Test-Launched $installed
+Test-Launched $installed 'setup-start'
 $desktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
 if ((New-Object -ComObject WScript.Shell).CreateShortcut($desktop).TargetPath -ne "$installed\qlogg.exe") { throw "the desktop shortcut box wrote no $desktop for $installed\qlogg.exe" }
 
@@ -283,6 +308,7 @@ if (Test-Path $desktop) { throw "the uninstaller left $desktop" }
 # the folder page (control 1019).
 $portable = Join-Path $env:RUNNER_TEMP 'QLogg Portable'
 Write-Host "starting $setup"
+Watch-Starts 'portable-start'
 Start-Process -FilePath $setup | Out-Null
 Invoke-Walk 'QLogg Setup' 'portable' {
   param($hwnd)
@@ -291,7 +317,7 @@ Invoke-Walk 'QLogg Setup' 'portable' {
   $false
 }
 if (-not (Test-Path (Join-Path $portable 'qlogg.conf'))) { throw "the portable install wrote no qlogg.conf in $portable" }
-Test-Launched $portable
+Test-Launched $portable 'portable-start'
 foreach ($path in @($desktop, (Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'))) {
   if (Test-Path $path) { throw "the portable install wrote $path" }
 }
