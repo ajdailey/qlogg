@@ -7,6 +7,7 @@ running instance over a loopback connection. On macOS, `Ctrl` in this guide is
 platform and Tools > Preferences, Shortcuts changes them. Menus on Linux show
 modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
+- [Installing](#installing)
 - [Opening files](#opening-files)
 - [The main window](#the-main-window)
 - [Moving around](#moving-around)
@@ -26,6 +27,19 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 - [Help menu and logs](#help-menu-and-logs)
 - [Command line](#command-line)
 - [Known issues](#known-issues)
+
+## Installing
+
+| System | Download | Result |
+|---|---|---|
+| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry; a portable copy registers nothing, and deleting its folder removes it |
+| Debian, Ubuntu | `qlogg-<version>-linux-<arch>.deb` | `sudo apt install ./<file>.deb`: `qlogg` on the path, QLogg in the applications menu and under Open With for text files |
+| Fedora, RHEL | `qlogg-<version>-linux-<arch>.rpm` | `sudo dnf install ./<file>.rpm`, the same |
+| Any, no install | The `.zip` or `.tar.gz` for your system | Extract it and run `qlogg.exe`, `bin/qlogg` or `QLogg.app` |
+
+Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
+your settings, and an upgrade of a portable copy keeps the settings in its
+folder. QLogg never becomes the default program for a file type.
 
 ## Opening files
 

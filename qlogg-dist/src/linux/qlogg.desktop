@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=QLogg
+GenericName=Log Viewer
+Comment=View large and growing log files
+Exec=/opt/qlogg/bin/qlogg %F
+Icon=qlogg
+Terminal=false
+Categories=Utility;
+Keywords=log;viewer;tail;follow;
+MimeType=text/plain;text/x-log;
+StartupWMClass=QLogg

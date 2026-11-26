@@ -5,12 +5,21 @@
 # second launch then hands a file to the running bundle and exits 0. The same
 # run follows with the universal zip's bin/qlogg, which has no runtime, on
 # $JAVA_HOME. Linux uses a private Xvfb display.
+#
+# With QLOGG_HOME set (an installed /opt/qlogg), the checks run against that
+# tree through the launcher $QLOGG_LAUNCHER instead, the main window's
+# WM_CLASS must be QLogg (the desktop entry's StartupWMClass), and the
+# universal zip is skipped.
 set -euo pipefail
 
 work="$PWD/bundle-run"
 rm -rf "$work"
 mkdir -p "$work"
-case "$TARGET" in
+case "${QLOGG_HOME:+installed-}$TARGET" in
+  installed-linux-*)
+    launcher="$QLOGG_LAUNCHER"
+    runtime="$QLOGG_HOME/runtime"
+    ;;
   linux-*)
     tar -xzf dist/qlogg-*-"$TARGET".tar.gz -C "$work"
     launcher="$work/qlogg/bin/qlogg"
@@ -59,6 +68,20 @@ await_line() {
   done
 }
 
+# Fails unless a top-level window whose title holds QLogg has WM_CLASS "QLogg",
+# "QLogg".
+check_wm_class() {
+  local w classes=""
+  for w in $(xwininfo -root -children | sed -n 's/^ *\(0x[0-9a-f]*\) ".*QLogg.*/\1/p'); do
+    classes="$classes$(xprop -id "$w" WM_CLASS)
+"
+  done
+  echo "--- WM_CLASS of the QLogg windows"
+  printf '%s' "$classes"
+  printf '%s' "$classes" | grep -qF 'WM_CLASS(STRING) = "QLogg", "QLogg"' \
+    || { echo "FAIL: no QLogg window has WM_CLASS QLogg" >&2; exit 1; }
+}
+
 # Runs launcher $1 until the main window opens, then hands it a file from a
 # second launch; passes when QLogg reports java.home $2 and logs no unhandled
 # or UI task failure. $3 names the run's settings directory and output.
@@ -68,6 +91,9 @@ check_launcher() {
   "$1" -d 1 --settings "$settings" "$work/app.log" >"$out" 2>&1 &
   local app=$!
   await_line "$out" 'Main window open' "$app"
+  if [ -n "${QLOGG_HOME:-}" ]; then
+    check_wm_class
+  fi
 
   # A failed handoff opens its own window and never exits, so the wait is bounded.
   "$1" --settings "$settings" "$work/handed.log" >"$second_out" 2>&1 &
@@ -110,6 +136,7 @@ check_launcher() {
 
 check_launcher "$launcher" "$runtime" bundle
 echo "PASS: $TARGET launcher ran $runtime (os.arch $arch), opened the main window and took a handoff"
+[ -z "${QLOGG_HOME:-}" ] || exit 0
 
 universal="$(ls dist/qlogg-*.zip | grep -Ev -- '-(linux|macos|windows)-')"
 unzip -q "$universal" -d "$work/universal"

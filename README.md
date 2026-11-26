@@ -76,19 +76,20 @@ Tests tagged `swt` open windows.
 
 ### Archives
 
-Archives are written to `dist/`, which no build step deletes. They are built on
-Linux x86_64 only, because packaging runs `tar`, `jlink`, `jmod`, launch4j's
-x86-64 Linux linker and `rcodesign`. On any other host `qlogg-dist` builds and
-smoke-tests `qlogg.jar` and writes no archive.
+Archives, installers and packages are written to `dist/`, which no build step
+deletes. They are built on Linux x86_64 only, because packaging runs `tar`,
+`jlink`, `jmod`, launch4j's x86-64 Linux linker, `rcodesign`, `nfpm`, and
+`makensis` unpacked from Ubuntu's `nsis` packages with `dpkg-deb`. On any other
+host `qlogg-dist` builds and smoke-tests `qlogg.jar` and writes no archive.
 
-The Temurin JDK archives and `rcodesign` are downloaded once into
+The Temurin JDK archives, `rcodesign`, `nfpm` and the `nsis` packages are downloaded once into
 `~/.cache/qlogg-build/`, outside the Maven cache and the app's own
 `~/.cache/qlogg` (`-Dqlogg.cache.dir` overrides it), and checked against pinned
 SHA-256 digests.
 
 Builds are reproducible: with the same JDK (CI's Temurin 21.0.13.1+2), two
-builds of one commit write byte-identical jars, `qlogg.exe` and archives, every
-entry dated `project.build.outputTimestamp` from the parent POM.
+builds of one commit write byte-identical jars, `qlogg.exe`, archives,
+installers and packages, every entry dated `project.build.outputTimestamp` from the parent POM.
 `.github/scripts/check-reproducible.sh` builds twice and compares SHA-256.
 
 ### Container build
@@ -98,7 +99,7 @@ A host with Docker (or Podman with compose) and no JDK builds in the image
 holds the mounts and environment and runs the same `./mvnw`.
 
 ```sh
-scripts/container.sh               # clean package -Pall-targets: seven archives into dist/
+scripts/container.sh               # clean package -Pall-targets: archives, installers, packages into dist/
 scripts/container.sh check         # xvfb-run ./mvnw clean verify, SWT tests included
 scripts/container.sh clean         # ./mvnw clean, and empty dist/
 scripts/container.sh shell         # a shell in the build image
@@ -130,13 +131,13 @@ from the Ubuntu archive when the runner image lacks them.
 | Job | Runners | Does |
 |---|---|---|
 | `test` | `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15-intel`, `macos-15` | `./mvnw -B verify` on each target natively, SWT tests included (Linux under `xvfb-run`) |
-| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
-| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message |
+| `package` | `ubuntu-24.04` | `./mvnw -B package -Pall-targets,sbom -DskipTests org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Drevision=<version>`, then `sbom-components.sh`; uploads the seven archives, two Windows installers, four Linux packages and the SBOM as `qlogg-archives`, kept 90 days for a tag and 14 otherwise |
+| `bundle` | the six `test` runners | Unpacks the target's bundle, runs `codesign --verify --deep --strict` on a macOS bundle, checks the runtime's `os.arch`, and starts the bundle's launcher until the main window opens, failing when its log holds `Unhandled failure` or `UI task failed`; a second launch must hand that instance a file and exit 0, and the instance must log `Handoff of 1 files taken`. On Windows it also finds the `javaw.exe` child running `qlogg.jar` and passes only when its image is the bundle's `runtime\bin\javaw.exe` with the target's PE machine type (`ARM64` on `windows-11-arm`) and its `-l` log shows the main window; then starts the universal zip's launcher with setup-java's JDK as `JAVA_HOME`. Each Windows launch repeats through `qlogg.cmd`, which also runs over a probe jar from folders whose names hold a space, `&` and `%` to check the Java it picks, the JVM options and each argument, then passes unquoted `&`, `^`, `!` and `%` names the way Explorer drops them, and escaped ones from a command prompt, and fails if any name changes or a command in one runs. A CJK file name beside a decoy then goes through both launchers, and the job fails if the decoy opens or the launch neither opens the name nor shows its message. Linux runners then install the `.deb` with `apt`, check its files, desktop entry and icons, run the same launch against `/opt/qlogg` through `/usr/bin/qlogg` with the main window's `WM_CLASS` checked against `StartupWMClass`, remove it, and install, verify (`rpm -V`), run `qlogg -v` and remove the `.rpm` in a Fedora 44 container. Windows runners walk the setup's pages and upload each as a PNG (`installer-screenshots-<target>`), then install silently for all users and for the current user, check the Installed apps entry, shortcut and Open With, run the same launch checks against the installed folder, install over it, uninstall and check removal; then a portable install, an install over it, and two refused folders |
 | `test-gtk4` | `ubuntu-24.04` | The SWT modules' and `qlogg-dist`'s tests with `SWT_GTK4=1`; a test that hits a known GTK 4 failure skips itself |
-| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's archives, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
+| `release` | `ubuntu-24.04` | `v*` tags only, after every `test` and `bundle` job passes: fails unless the tag is `v` plus `<revision>` without `-SNAPSHOT`, optionally followed by `-rc<N>`, runs `check-reproducible.sh` with the tag's `-Drevision`, writes `SHA256SUMS` over the `package` job's 13 archives, installers and packages, checks the rebuild against it, and creates a draft GitHub Release, marked pre-release when the tag has a suffix (`v0.2.0-rc1`) |
 | `continuous` | `ubuntu-24.04` | Pushes to `main` only, after every `test`, `test-gtk4` and `bundle` job passes: writes `SHA256SUMS` over the `package` job's archives and runs `publish-continuous.sh`, which replaces the `continuous` pre-release with them, the SBOM and `SHA256SUMS` and moves the `continuous` tag to the commit |
 
-CI keeps the JDK archives and `rcodesign` in `~/.cache/qlogg-build`, cached by the
+CI keeps the JDK archives, `rcodesign`, `nfpm` and NSIS in `~/.cache/qlogg-build`, cached by the
 `package` and `release` jobs and keyed on `qlogg-dist/src/build/dist.xml`; the
 Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
 `package`, `release` and `test-gtk4` restore it, since a Linux cache saved by a
@@ -145,7 +146,7 @@ send every later job to Maven Central for them.
 
 #### Releases
 
-The draft Release carries the seven archives the `bundle` jobs ran,
+The draft Release carries the archives, installers and packages the `bundle` jobs ran,
 `SHA256SUMS` and `qlogg-<version>-sbom.cdx.json`, with GitHub's generated
 release notes. A tag with a suffix (`v0.2.0-rc1`) drafts a pre-release, which
 never becomes the repository's latest release. Only the `release` and
@@ -228,14 +229,14 @@ To fix a bad draft, delete the draft and the tag
 
 ## Targets
 
-| Target | SWT fragment | Bundle |
-|---|---|---|
-| linux-x86_64 | `gtk.linux.x86_64` | `qlogg-<version>-linux-x86_64.tar.gz` |
-| linux-aarch64 | `gtk.linux.aarch64` | `qlogg-<version>-linux-aarch64.tar.gz` |
-| windows-x86_64 | `win32.win32.x86_64` | `qlogg-<version>-windows-x86_64.zip` |
-| windows-aarch64 | `win32.win32.aarch64` | `qlogg-<version>-windows-aarch64.zip` |
-| macos-x86_64 | `cocoa.macosx.x86_64` | `qlogg-<version>-macos-x86_64.zip` (`QLogg.app`) |
-| macos-aarch64 | `cocoa.macosx.aarch64` | `qlogg-<version>-macos-aarch64.zip` (`QLogg.app`) |
+| Target | SWT fragment | Bundle | Installer or package |
+|---|---|---|---|
+| linux-x86_64 | `gtk.linux.x86_64` | `qlogg-<version>-linux-x86_64.tar.gz` | `qlogg-<version>-linux-x86_64.deb`, `.rpm` |
+| linux-aarch64 | `gtk.linux.aarch64` | `qlogg-<version>-linux-aarch64.tar.gz` | `qlogg-<version>-linux-aarch64.deb`, `.rpm` |
+| windows-x86_64 | `win32.win32.x86_64` | `qlogg-<version>-windows-x86_64.zip` | `qlogg-<version>-windows-x86_64-setup.exe` |
+| windows-aarch64 | `win32.win32.aarch64` | `qlogg-<version>-windows-aarch64.zip` | `qlogg-<version>-windows-aarch64-setup.exe` |
+| macos-x86_64 | `cocoa.macosx.x86_64` | `qlogg-<version>-macos-x86_64.zip` (`QLogg.app`) | None |
+| macos-aarch64 | `cocoa.macosx.aarch64` | `qlogg-<version>-macos-aarch64.zip` (`QLogg.app`) | None |
 
 - `qlogg-<version>.zip` holds the universal `lib/qlogg.jar`, which runs on all
   six targets under an installed Java 21, with `bin/qlogg`, `qlogg.exe` and
@@ -257,14 +258,39 @@ To fix a bad draft, delete the draft and the tag
 - The Windows launchers and the macOS bundles are not signed by a publisher; see
   [First launch of an unsigned build](#first-launch-of-an-unsigned-build).
 
+### Installing
+
+The installers and packages hold the same tree as the target's bundle.
+
+| Download | Installs |
+|---|---|
+| `.deb` (Debian, Ubuntu), `.rpm` (Fedora, RHEL) | `/opt/qlogg`, `/usr/bin/qlogg`, a desktop entry with the icon at every size, and Open With for text and log files. Needs GTK 3: `libgtk-3-0t64` or `libgtk-3-0`, or `gtk3`. Removing the package removes them and keeps the settings in `~/.config/qlogg` |
+| `-setup.exe`, for all users | `C:\Program Files\QLogg`, with administrator rights |
+| `-setup.exe`, for me only | `%LOCALAPPDATA%\Programs\QLogg` |
+| `-setup.exe`, portable | A folder you choose and can write to, outside Program Files and Windows, with an empty `qlogg.conf`, so the settings stay in that folder. Nothing is registered with Windows; delete the folder to remove it |
+
+The all-users and current-user installs add a Start menu shortcut, Open With
+for `.log` and `.txt` (never the default program) and an Installed apps entry.
+Uninstalling removes them and keeps the settings in `%APPDATA%\QLogg`. Running
+setup again upgrades in place, release candidates included; over a portable
+folder it keeps `qlogg.conf` and the settings.
+
+Silent setup takes `/S` with `/MACHINE`, `/USER` or `/PORTABLE`, and
+`/D=<folder>` last and unquoted; `/S` alone installs for the current user. It
+exits 2 when the folder is refused and 5 for `/MACHINE` without administrator
+rights. `"<folder>\uninstall.exe" /S` uninstalls silently.
+
+Package versions replace `-` with `~`, so `0.2.0-rc1` is `0.2.0~rc1` and sorts
+before `0.2.0`.
+
 ### First launch of an unsigned build
 
-`qlogg.exe` carries no Authenticode signature, and `QLogg.app` is ad-hoc signed
+`qlogg.exe` and the setup carry no Authenticode signature, and `QLogg.app` is ad-hoc signed
 and not notarized. A downloaded copy therefore needs one approval:
 
 | Platform | First launch |
 |---|---|
-| Windows | `qlogg.exe`: SmartScreen shows "Windows protected your PC"; choose More info, then Run anyway. `qlogg.cmd`: "Open File - Security Warning", "The publisher could not be verified"; choose Run. |
+| Windows | `qlogg.exe` and the setup: SmartScreen shows "Windows protected your PC"; choose More info, then Run anyway. `qlogg.cmd`: "Open File - Security Warning", "The publisher could not be verified"; choose Run. |
 | macOS | macOS refuses the first open. Open System Settings > Privacy & Security and choose Open Anyway for QLogg, or run `xattr -dr com.apple.quarantine QLogg.app` before the first launch. |
 
 On Windows, unblock the downloaded zip before extracting it (Properties,
@@ -356,7 +382,7 @@ signed bundle; portable use there goes through `--settings`.
 | `qlogg-app/` | Command line, key bindings, controllers, view contracts, settings, search history and filters, About facts; no SWT |
 | `qlogg-ui-swt/` | SWT views: main window, log views, search and quick find bars, dialogs; the toolbar and menu icon set (`src/icons/*.svg`), rendered to PNG at build time |
 | `qlogg-launcher/` | Composition, logging configuration, architecture rules |
-| `qlogg-dist/` | Universal jar, launchers, runtimes and archives; icons |
+| `qlogg-dist/` | Universal jar, launchers, runtimes, archives, Windows installers and Linux packages; icons |
 | `qlogg-bench/` | Benchmark harness, JMH probes and comparison scripts; not shipped |
 | `config/` | Checkstyle, SpotBugs, find-sec-bugs and dependency-check configuration |
 | `docker/`, `compose.yaml`, `scripts/` | Container build |
