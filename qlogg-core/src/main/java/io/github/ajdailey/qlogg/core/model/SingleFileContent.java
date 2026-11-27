@@ -1,8 +1,6 @@
 package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
-import io.github.ajdailey.qlogg.core.concurrent.OperationGate;
-import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.index.GrowableLineIndex;
 import io.github.ajdailey.qlogg.core.index.IndexCapacityException;
@@ -14,12 +12,12 @@ import io.github.ajdailey.qlogg.core.io.FileByteSource;
 import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.time.FormatDetector;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
-import io.github.ajdailey.qlogg.core.watch.Baseline;
 import io.github.ajdailey.qlogg.core.watch.ChangeDetector;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
@@ -28,7 +26,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.ZoneOffset;
@@ -46,9 +43,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * fails calls {@link #reopenFailed}, which resumes the checks, so the next one reports what it
  * finds at the path and the owner reopens again. {@code MISSING} is reported once; a file that
  * reappears is reported as {@code REPLACED}. {@link #stopIndexing} cancels indexing and leaves
- * later growth unindexed. A completed or canceled pass records the head and tail digests at the
- * indexed end, so after a stopped load, growth whose last 4 KiB before the indexed end changed
- * reports {@code REPLACED}, not {@code APPENDED}.
+ * later growth unindexed. A completed or canceled pass records the digests at the indexed end
+ * ({@link FileCheck}), so after a stopped load, growth whose last 4 KiB before the indexed end
+ * changed reports {@code REPLACED}, not {@code APPENDED}.
  *
  * <p>Keep file closed: content opened with {@code keepClosed} reads through a {@link
  * ReopeningByteSource}. Nothing holds the file between reads, so a read after a rotation or a
@@ -60,30 +57,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * grows.
  */
 final class SingleFileContent implements DocumentContent {
-  private static final long CANCEL_SLICE_MILLIS = 50;
-
   private final ByteSource source;
   private final long pastedBytes;
   private final String name;
   private final EncodingDetection detection;
   private final BuiltInFormat timeFormat;
   private final GrowableLineIndex index;
+  private final FileCheck check;
   private final DocumentServices services;
-  private final OperationGate gate = new OperationGate();
-  private final AtomicBoolean indexStarted = new AtomicBoolean();
-  private final AtomicBoolean indexRunning = new AtomicBoolean();
-  private final AtomicBoolean extendWanted = new AtomicBoolean();
+  private final ContentOperations operations = new ContentOperations();
   private final AtomicBoolean watchStarted = new AtomicBoolean();
-  private final AtomicBoolean reopenWaiting = new AtomicBoolean();
   private volatile DocumentListener events;
-  private volatile OperationHandle indexing;
-  private volatile OperationHandle watching;
   private volatile IndexProgress progress = new IndexProgress(0, 0, 0);
-  private volatile boolean loadingStopped;
   private volatile boolean stale;
   private volatile boolean missing;
-  private volatile Tail tail = Tail.NONE;
-  private volatile Head head;
   private volatile long fileBytes;
   private volatile long modifiedMillis;
 
@@ -103,11 +90,9 @@ final class SingleFileContent implements DocumentContent {
     this.index =
         new GrowableLineIndex(detection.encoding(), services.budget(), source, services.cache());
     this.services = services;
-    FileIdentity identity = source.identity();
-    this.fileBytes = identity.size();
-    this.modifiedMillis = identity.modifiedMillis();
-    this.head =
-        new Head((int) Math.min(identity.size(), FileIdentity.HEAD_BYTES), identity.headDigest());
+    this.check = new FileCheck(source);
+    this.fileBytes = source.identity().size();
+    this.modifiedMillis = source.identity().modifiedMillis();
   }
 
   /**
@@ -272,11 +257,16 @@ final class SingleFileContent implements DocumentContent {
   }
 
   @Override
+  public LineMap lineMap() {
+    return null;
+  }
+
+  @Override
   public DocumentStatus status(boolean closed) {
     IndexProgress latest = progress;
     LineIndex snapshot = index.snapshot();
     long total = latest.totalBytes();
-    boolean running = indexRunning.get();
+    boolean running = operations.indexRunning();
     int percent = 100;
     if (running) {
       percent = total > 0 ? (int) Math.min(100, snapshot.indexedBytes() * 100 / total) : 0;
@@ -291,58 +281,39 @@ final class SingleFileContent implements DocumentContent {
         fileBytes,
         modifiedMillis,
         missing,
-        loadingStopped,
-        reopenWaiting.get());
+        operations.loadingStopped(),
+        operations.reopenWaiting());
   }
 
   @Override
   public boolean enter() {
-    return gate.enter();
+    return operations.enter();
   }
 
   @Override
   public void exit() {
-    gate.exit();
+    operations.exit();
   }
 
   @Override
   public void startIndexing(DocumentListener listener) {
-    if (!indexStarted.compareAndSet(false, true)) {
-      throw new IllegalStateException("Indexing already started or document closed");
-    }
-    if (!gate.enter()) {
-      throw new IllegalStateException("Document closed");
-    }
     events = listener;
-    indexRunning.set(true);
-    boolean started = false;
-    try {
-      indexing = services.indexer().index(source, index, index.resumeOffset(), new IndexEvents());
-      started = true;
-    } finally {
-      if (!started) {
-        indexRunning.set(false);
-        gate.exit();
-      }
-    }
+    operations.startIndexing(pass);
   }
 
   @Override
   public boolean stopIndexing() {
-    loadingStopped = true;
-    boolean running = indexRunning.get();
-    cancel(indexing);
-    return running;
+    return operations.stopIndexing();
   }
 
   @Override
   public void startWatching(FileMonitor monitor, DocumentListener listener) {
-    if (inMemory() || gate.isClosed() || !watchStarted.compareAndSet(false, true)) {
+    if (inMemory() || operations.isClosed() || !watchStarted.compareAndSet(false, true)) {
       return;
     }
     events = listener;
     try {
-      watching =
+      operations.watching(
           monitor.watch(
               source.path(),
               new MonitorListener() {
@@ -350,59 +321,33 @@ final class SingleFileContent implements DocumentContent {
                 public void possiblyChanged(Path path) {
                   check(path);
                 }
-              });
+              }));
     } catch (RejectedExecutionException e) {
-      return;
-    }
-    if (gate.isClosed()) {
-      cancel(watching);
+      // The workers are closing.
     }
   }
 
   @Override
   public boolean reopenFailed() {
-    boolean first = !reopenWaiting.getAndSet(true);
+    boolean first = operations.reopenFailed();
     stale = false;
     return first;
   }
 
   @Override
   public boolean reopenWaiting() {
-    return reopenWaiting.get();
+    return operations.reopenWaiting();
   }
 
-  /** Indexes the bytes the file gained, now or when the running operation ends. */
-  private void extendIndex() {
-    extendWanted.set(true);
-    tryExtend();
-  }
-
-  private void tryExtend() {
-    if (loadingStopped
-        || stale
-        || !extendWanted.get()
-        || !indexRunning.compareAndSet(false, true)) {
-      return;
-    }
-    if (!gate.enter()) {
-      indexRunning.set(false);
-      return;
-    }
-    extendWanted.set(false);
-    boolean started = false;
-    try {
-      indexing = services.indexer().index(source, index, index.resumeOffset(), new IndexEvents());
-      started = true;
-    } catch (RejectedExecutionException | IllegalStateException e) {
-      // The workers are closing, or the index storage was refused: growth stays unindexed.
-      loadingStopped = true;
-    } finally {
-      if (!started) {
-        indexRunning.set(false);
-        gate.exit();
-      }
-    }
-  }
+  /** Starts a pass from the resume offset to the file's current size. */
+  private final ContentOperations.Pass pass =
+      new ContentOperations.Pass() {
+        @Override
+        public void start() {
+          operations.indexing(
+              services.indexer().index(source, index, index.resumeOffset(), new IndexEvents()));
+        }
+      };
 
   /** One indexing operation's events; the operation holds a gate entry until its end. */
   private final class IndexEvents implements IndexListener {
@@ -415,117 +360,46 @@ final class SingleFileContent implements DocumentContent {
     @Override
     public void finished(OperationOutcome outcome, IOException failure) {
       try {
-        if (outcome == OperationOutcome.COMPLETED || outcome == OperationOutcome.CANCELED) {
-          recordTail();
+        boolean ended =
+            outcome == OperationOutcome.COMPLETED || outcome == OperationOutcome.CANCELED;
+        if (ended && !inMemory()) {
+          check.record(source.path(), index.snapshot().indexedBytes());
         }
-        indexRunning.set(false);
+        operations.releaseIndexing();
         events.indexFinished(outcome, failure);
       } finally {
-        gate.exit();
+        operations.exit();
       }
       if (outcome == OperationOutcome.COMPLETED) {
-        tryExtend();
+        operations.tryExtend(pass, stale);
       }
-    }
-  }
-
-  /**
-   * The indexed tail a {@code MODIFIED} check compares against.
-   *
-   * @param end the indexed bytes the digest ends at
-   * @param modified the modification time taken before the digest, or -1 for none
-   * @param digest CRC32C of the last bytes before {@code end}
-   */
-  private record Tail(long end, long modified, long digest) {
-    static final Tail NONE = new Tail(-1, -1, 0);
-  }
-
-  /**
-   * The head a check compares against.
-   *
-   * @param bytes the bytes from offset 0 the digest covers
-   * @param digest CRC32C of those bytes
-   */
-  private record Head(int bytes, long digest) {}
-
-  /**
-   * Takes the modification time, then the digest of the indexed tail, and extends the head digest
-   * over the indexed bytes until it covers {@link FileIdentity#HEAD_BYTES}.
-   */
-  private void recordTail() {
-    if (inMemory()) {
-      return;
-    }
-    try {
-      long modified = Files.getLastModifiedTime(source.path()).toMillis();
-      long end = index.snapshot().indexedBytes();
-      Head recorded = head;
-      if (recorded.bytes() < FileIdentity.HEAD_BYTES && end > recorded.bytes()) {
-        int bytes = (int) Math.min(end, FileIdentity.HEAD_BYTES);
-        head = new Head(bytes, ChangeDetector.headDigest(source, bytes));
-      }
-      tail = new Tail(end, modified, ChangeDetector.tailDigest(source, end));
-      if (source instanceof ReopeningByteSource reopening) {
-        reopening.expect(
-            head.bytes(),
-            head.digest(),
-            end,
-            (int) Math.min(end, ChangeDetector.TAIL_BYTES),
-            tail.digest());
-      }
-    } catch (IOException e) {
-      tail = Tail.NONE;
     }
   }
 
   /** Runs on the watch's thread. */
   private void check(Path path) {
-    if (stale || !gate.enter()) {
+    if (stale || !operations.enter()) {
       return;
     }
     try {
-      changed(withReadsSeen(ChangeDetector.classify(baseline(), path, source)));
+      changed(check.classify(path, covered()));
     } catch (IOException e) {
       // Unreadable for now, for example while a writer replaces it; the next check retries.
     } finally {
-      gate.exit();
+      operations.exit();
     }
   }
 
   /**
    * While indexing runs, the covered bytes are at least the size at open: before the first progress
-   * event the progress total is 0, and a check would then report the whole file as appended. The
-   * tail record takes part only when it ends where the index does: an indexing pass publishes its
-   * last snapshot before it records the new tail, and a check in between would otherwise compare
-   * the new end of the file with the previous pass's digest and report {@code MODIFIED}.
+   * event the progress total is 0, and a check would then report the whole file as appended.
    */
-  private Baseline baseline() {
+  private long covered() {
     long covered = index.snapshot().indexedBytes();
-    if (indexRunning.get()) {
+    if (operations.indexRunning()) {
       covered = Math.max(covered, Math.max(progress.totalBytes(), source.identity().size()));
     }
-    Tail recorded = tail;
-    if (recorded.end() != covered) {
-      recorded = Tail.NONE;
-    }
-    Head start = head;
-    return new Baseline(
-        source.identity(),
-        covered,
-        start.bytes(),
-        start.digest(),
-        recorded.modified(),
-        recorded.digest());
-  }
-
-  /** A read that found another file outweighs a check that found no difference. */
-  private ChangeDetector.Observation withReadsSeen(ChangeDetector.Observation seen) {
-    boolean quiet = seen.change() == FileChange.UNCHANGED || seen.change() == FileChange.APPENDED;
-    if (quiet && source instanceof ReopeningByteSource reopening && reopening.changed()) {
-      return new ChangeDetector.Observation(
-          FileChange.REPLACED, seen.size(), seen.modifiedMillis());
-    }
-    return seen;
+    return covered;
   }
 
   private void changed(ChangeDetector.Observation seen) {
@@ -546,8 +420,8 @@ final class SingleFileContent implements DocumentContent {
     }
     switch (change) {
       case APPENDED -> {
-        reopenWaiting.set(false);
-        extendIndex();
+        operations.clearReopenWaiting();
+        operations.extend(pass, stale);
         events.fileChanged(FileChange.APPENDED);
       }
       case TRUNCATED, REPLACED, MODIFIED -> {
@@ -555,7 +429,7 @@ final class SingleFileContent implements DocumentContent {
         events.fileChanged(change);
       }
       default -> {
-        if (reopenWaiting.getAndSet(false) || info) {
+        if (operations.clearReopenWaiting() || info) {
           events.fileChanged(FileChange.UNCHANGED);
         }
       }
@@ -564,8 +438,7 @@ final class SingleFileContent implements DocumentContent {
 
   @Override
   public boolean close(Duration bound) {
-    gate.close();
-    boolean clean = awaitOperations(bound);
+    boolean clean = operations.close(bound);
     if (clean) {
       index.close();
     }
@@ -577,34 +450,5 @@ final class SingleFileContent implements DocumentContent {
     services.cache().invalidate(source);
     services.budget().release(MemoryShare.PASTED, pastedBytes);
     return clean;
-  }
-
-  /** Cancels indexing and the watch each slice, so an operation started meanwhile stops too. */
-  private boolean awaitOperations(Duration bound) {
-    long deadline = System.nanoTime() + bound.toNanos();
-    try {
-      while (true) {
-        cancel(indexing);
-        OperationHandle watch = watching;
-        cancel(watch);
-        long left = (deadline - System.nanoTime()) / 1_000_000L;
-        long slice = Math.max(0, Math.min(left, CANCEL_SLICE_MILLIS));
-        if (gate.awaitIdle(slice) && (watch == null || watch.await(slice))) {
-          return true;
-        }
-        if (left <= 0) {
-          return false;
-        }
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
-  }
-
-  private static void cancel(OperationHandle handle) {
-    if (handle != null) {
-      handle.cancel();
-    }
   }
 }

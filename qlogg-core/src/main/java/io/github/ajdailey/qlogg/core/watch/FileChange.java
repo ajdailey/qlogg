@@ -13,5 +13,10 @@ public enum FileChange {
   /** Same size, but the indexed tail differs: reopen. */
   MODIFIED,
   /** No regular file at the path; the open file stays readable. */
-  MISSING
+  MISSING,
+  /**
+   * A rotated set rolled over in a way that changes line numbers: reopen the set and carry
+   * line-numbered state through the document's {@code LineMap}.
+   */
+  ROLLED
 }

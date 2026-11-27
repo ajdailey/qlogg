@@ -89,6 +89,41 @@ public record RotatedSet(
   public static RotatedSet discover(
       Path given, SafePaths.HeldLock held, Charset fallback, Charset forced, boolean ignoreCase)
       throws IOException {
+    return assemble(given, held, fallback, forced, ignoreCase, null);
+  }
+
+  /**
+   * Lists the series again as {@link #discover} does, keeping an existing set's encoding: a member
+   * whose line feed differs from it is left out, whichever member is newest.
+   *
+   * @param given any member's path, or the base path
+   * @param held the lock file the process holds, or null
+   * @param fallback the charset detection falls back to
+   * @param forced the charset the user chose, or null
+   * @param ignoreCase true where the file system compares names without regard to case
+   * @param keep the set's detection, byte order mark length 0
+   * @return the set, with {@code keep} as its detection
+   * @throws IOException when the path is rejected or the directory cannot be listed
+   */
+  public static RotatedSet rescan(
+      Path given,
+      SafePaths.HeldLock held,
+      Charset fallback,
+      Charset forced,
+      boolean ignoreCase,
+      EncodingDetection keep)
+      throws IOException {
+    return assemble(given, held, fallback, forced, ignoreCase, keep);
+  }
+
+  private static RotatedSet assemble(
+      Path given,
+      SafePaths.HeldLock held,
+      Charset fallback,
+      Charset forced,
+      boolean ignoreCase,
+      EncodingDetection keep)
+      throws IOException {
     Path absolute = SafePaths.logPath(given, held).given();
     Path directory = absolute.getParent();
     Path name = absolute.getFileName();
@@ -113,7 +148,7 @@ public record RotatedSet(
     }
     loadable = loadable.subList(over, loadable.size());
     ByteBuffer head = ByteBuffer.allocate(EncodingDetector.SAMPLE_BYTES);
-    EncodingDetection detected = null;
+    EncodingDetection detected = keep;
     for (int i = loadable.size() - 1; i >= 0 && detected == null; i--) {
       if (loadable.get(i).size() > 0 && readHead(loadable.get(i).path(), head)) {
         detected = detect(head, fallback, forced);

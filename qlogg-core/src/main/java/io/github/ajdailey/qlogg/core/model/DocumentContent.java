@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
@@ -11,10 +12,10 @@ import java.time.Duration;
 /**
  * The file state behind a {@link LogDocument}: the bytes, the line index, background indexing, the
  * watch and the {@link io.github.ajdailey.qlogg.core.concurrent.OperationGate} every operation on
- * the bytes enters. {@link SingleFileContent} holds one file or pasted text. {@link LogDocument}
- * keeps the marks, the reader settings, the listeners and the close sequence, and checks its own
- * closed state before it calls {@link #startIndexing} or {@link #startWatching}. Thread-safe; every
- * method except {@link #close} returns without I/O.
+ * the bytes enters. {@link SingleFileContent} holds one file or pasted text, {@link RotatedContent}
+ * a rotated set. {@link LogDocument} keeps the marks, the reader settings, the listeners and the
+ * close sequence, and checks its own closed state before it calls {@link #startIndexing} or {@link
+ * #startWatching}. Thread-safe; every method except {@link #close} returns without I/O.
  */
 interface DocumentContent {
   /**
@@ -80,6 +81,14 @@ interface DocumentContent {
    * @return an immutable snapshot
    */
   LineIndex index();
+
+  /**
+   * Returns the map of the last {@link io.github.ajdailey.qlogg.core.watch.FileChange#ROLLED}
+   * report.
+   *
+   * @return the map, or null before one and for content that never reports it
+   */
+  LineMap lineMap();
 
   /**
    * Returns the current state.

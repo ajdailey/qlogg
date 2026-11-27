@@ -14,14 +14,18 @@ The six-argument constructor, without the lock, is for tests and benchmarks;
 
 The file state sits behind the package-private `DocumentContent`: the bytes,
 the line index, indexing, the watch and the operation gate. `SingleFileContent`
-holds one file or pasted text. `LogDocument` keeps the marks, the reader
-settings, the listeners and the close sequence.
+holds one file or pasted text; `RotatedContent` holds a rotated set
+([Rotated sets](rotated-sets.md#rotated-documents)). Both keep their gate,
+pass and reopen state in `ContentOperations` and their digests in `FileCheck`.
+`LogDocument` keeps the marks, the reader settings, the listeners and the close
+sequence.
 
 | Method | Contract |
 |---|---|
 | `open(path, forcedCharset, services)` | Validates the path against the held lock (`FileByteSource.open`), reads the first 64 KiB, detects the encoding and the timestamp format from those bytes (`FormatDetector`), and creates the line index. Blocks; run it on a worker |
 | `open(..., detectTimeFormat)` | `false` skips the format detection, for a file whose format the owner remembers |
 | `open(..., detectTimeFormat, keepClosed)` | `true` reads through a `ReopeningByteSource` ([Keep file closed](#keep-file-closed)) |
+| `openRotated(path, forcedCharset, services, detectTimeFormat, keepClosed, ignoreCase)` | A document over the rotated set `path` belongs to ([Rotated sets](rotated-sets.md#rotated-documents)) |
 | `ofText(name, text, maxBytes, services)` | A document over pasted text, below |
 | `startIndexing()` | Starts the `Indexer` and returns |
 | `stopIndexing()` | Cancels indexing; later growth stays unindexed while the document is open |
@@ -78,10 +82,13 @@ did not close cleanly.
 | `TRUNCATED`, `REPLACED`, `MODIFIED` | Reaches `DocumentListener.fileChanged` once, and the document stops checking; its owner reopens the path, which is how a renamed log is followed by name |
 | `MISSING` | Reported once; the open file stays readable unless the document keeps its file closed. A file that reappears is reported as `REPLACED` |
 | `UNCHANGED` | Reported when only the size or modification time moved, for the status fields |
+| `ROLLED` | Rotated sets only: reported once with `lineMap()` when a roll-over changes line numbers, and the document stops checking until its owner's reopen fails |
 
-After each completed indexing operation the document records the modification
-time, then the CRC32C of the indexed tail, and extends the head digest over the
-indexed bytes until it covers 4 KiB.
+After each completed or canceled indexing operation `FileCheck` records the
+modification time, then the CRC32C of the indexed tail, and extends the head
+digest over the indexed bytes until it covers 4 KiB. A file that holds fewer
+than the indexed bytes, before or after the digests, keeps the previous record:
+a rotated set matches a copy-truncate's copy by those digests.
 
 ### Failed reopen
 
@@ -104,8 +111,9 @@ the path. The document keeps the source it opened with.
 - Each `read` validates the real path captured at open through
   `SafePaths.logFile`, opens it, and compares, with the channel open, the file
   key (without one, the creation time), the head digest, and the tail digest
-  `recordTail` passes to `expect`. The read runs on that verified channel, so
-  it returns that file's bytes or fails; old offsets never read a new file.
+  `FileCheck.record` passes to `expect`. The read runs on that verified
+  channel, so it returns that file's bytes or fails; old offsets never read a
+  new file.
 - A mismatch throws `FileChangedException` and sets `changed()`; a missing
   file throws `NoSuchFileException`. A failed read takes the normal error path
   of its caller.

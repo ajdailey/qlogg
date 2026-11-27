@@ -8,6 +8,9 @@ line index. Module overview: [qlogg-core](../README.md).
 `RotatedSet.discover(given, held, fallback, forced, ignoreCase)` lists the
 directory of `given` once, not recursively, stats each matching file and reads
 the first 64 KiB of each member. It blocks; call it on a worker.
+`RotatedSet.rescan(..., keep)` lists the series the same way but keeps an open
+set's encoding, so a newer file in another line feed width is left out rather
+than changing the set.
 
 `MemberNames` matches names. The base is `given` with its compression
 extension and rotation token removed; a token is `\d+([._-]\d+)*`.
@@ -55,6 +58,9 @@ files, the newest is last.
   just-renamed name the old creation time.
 - An empty region matches every file, so an empty member is `AMBIGUOUS`
   whenever another member exists.
+- `byContent()` drops the file key, so `find` compares digests: a copy of the
+  member matches, and the member itself only while it holds the indexed
+  bytes.
 
 ## RotatedBytes
 
@@ -92,3 +98,60 @@ change while it grows.
   members' generations.
 - `memberOf(line)` and `memberLine(line)` give a line's member and its line
   in that member.
+
+## Rotated documents
+
+`LogDocument.openRotated(path, forcedCharset, services, detectTimeFormat,
+keepClosed, ignoreCase)` opens the set `path` belongs to through
+`RotatedContent`. The caller passes the case rule (`OsTraits` on the caller's
+side); the document shows the base name and `path()` is the base path, which
+need not exist.
+
+- Each member is a `SetMember`: a `FileByteSource`, or a `ReopeningByteSource`
+  with `keepClosed`, under the member's current name, and its own
+  `GrowableLineIndex` with its own byte order mark. A member before the last
+  shows the size it had when it stopped being last.
+- `SetBytes` is the one `ByteSource` the document hands out. It holds the
+  members and the `RotatedBytes` over them and replaces both when members join;
+  a join changes no byte the published index covers.
+- Indexing runs member by member, oldest first, as one operation toward the
+  listener. The published `RotatedIndex` holds the completed members and the
+  growing prefix of the current one. `stopIndexing` leaves later members
+  unindexed.
+- The timestamp format is detected from the newest member with bytes.
+
+### Follow and roll-over
+
+`SetFollow` runs one `FileMonitor` watch on the base path with a name
+predicate for the series. Each check classifies the last member, and the member
+before it once that one is indexed, with `FileCheck`. It lists the series again
+(`RotatedSet.rescan`) when either reports anything but growth of the last
+member, when a member's `ReopeningByteSource` read another file, when the
+directory's modification time moved, while newer files wait to join, and every
+10th check. `RollOver` matches the loaded members to the listing by
+`MemberIdentity`, by name where a member has no digests yet or its digests
+match several files.
+
+| Listing | Action | Line numbers |
+|---|---|---|
+| Every member keeps its rank, members before the last keep their size, the last holds its indexed bytes | Renamed members re-pointed; newer files join once one has bytes (`APPENDED`); until then growth of the renamed last member is an append | Kept |
+| Last member truncated, an unmatched file holds its indexed bytes | Copy-truncate: the copy takes the member's place, the truncated file joins | Kept |
+| An unmatched file before the last member starts with its bytes, the last member not truncated | Copy in progress: ignored until its size holds for two rescans | - |
+| Last member gone, nothing in its place | `MISSING` once; the content stays readable and the checks go on | Kept |
+| Anything else: a member gone, compressed or past the cap, a member before the last grown or shrunk, the order changed, the last member rewritten | `ROLLED` once, with `lineMap()`; the checks stop until the owner's reopen fails | Mapped |
+
+`MISSING` and `ROLLED` wait until two rescans in a row agree: a listing taken
+while a writer renames the series can miss a member.
+
+A re-pointed member keeps its handle when it holds the renamed file open
+(`FileByteSource` with a file key). Otherwise it opens the new name, verified by
+file key or by `byContent` digests, and records the digests again, so a
+`ReopeningByteSource` reads the renamed file.
+
+### LineMap
+
+`LineMap` lists each old member with its old line base, its line count and its
+new line base, or `DROPPED`. `map(line)` translates one old line number;
+`dropped()` lists the members that left. New line bases count the lines of the
+listing's order: a loaded member's index where it covers the file, the file
+itself for the rest, a last line without LF included.
