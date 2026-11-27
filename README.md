@@ -75,6 +75,18 @@ Tests tagged `swt` open windows.
 | Windows | Always run |
 | macOS | Always run, with `-XstartOnFirstThread` |
 
+### Split gate
+
+`-Dqlogg.gate` splits `verify` into a half that needs no display and a half
+that needs one, so builds sharing one Xvfb host serialize only the second.
+Run the halves in this order in one tree; together they run every test and
+check of a plain `verify` (`-Dqlogg.gate=all`, the default).
+
+| Command | Runs |
+|---|---|
+| `./mvnw -B clean verify -Dqlogg.gate=headless` | Spotless, Checkstyle, SpotBugs, the ArchUnit rules and every test not tagged `swt`; builds the jar and bundle |
+| `xvfb-run -a ./mvnw -B verify -Dqlogg.gate=gui` | Only the `swt` tests, including the `qlogg-dist` smoke test, over the headless half's build |
+
 ### Archives
 
 Archives, installers and packages are written to `dist/`, which no build step

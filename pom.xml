@@ -86,7 +86,13 @@
         <slf4j.version>2.0.20</slf4j.version>
         <swt.version>3.135.0</swt.version>
 
-        <!-- JUnit tags surefire skips; the no-display profile adds swt. -->
+        <!-- Test half: all, headless (everything but the swt tests, plus
+             Spotless, Checkstyle and SpotBugs) or gui (only the swt tests). -->
+        <qlogg.gate>all</qlogg.gate>
+        <!-- JUnit tags surefire runs and skips; the gate-gui profile sets the
+             first, and the no-display and gate-headless profiles add swt to
+             the second. -->
+        <qlogg.groups></qlogg.groups>
         <qlogg.excludedGroups></qlogg.excludedGroups>
         <!-- Extra test JVM options; the macos profile sets them. -->
         <qlogg.test.jvmArgs></qlogg.test.jvmArgs>
@@ -391,6 +397,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
+                        <groups>${qlogg.groups}</groups>
                         <excludedGroups>${qlogg.excludedGroups}</excludedGroups>
                         <!-- SWT writes ~/.swt/trims.prefs; keep it out of the
                              user's home. -->
@@ -464,6 +471,11 @@
                                 <requireMavenVersion>
                                     <version>[3.9,)</version>
                                 </requireMavenVersion>
+                                <requireProperty>
+                                    <property>qlogg.gate</property>
+                                    <regex>all|headless|gui</regex>
+                                    <regexMessage>qlogg.gate must be all, headless or gui</regexMessage>
+                                </requireProperty>
                                 <!-- The SWT host artifact adds, through its
                                      OS-activated profiles, the build host's
                                      fragment: a second SWT on the class path. -->
@@ -577,6 +589,30 @@
     </build>
 
     <profiles>
+        <!-- The two halves of the local gate. Run headless (clean verify)
+             first, then gui (verify, no clean) in the same tree; together
+             they run the tests and checks of a plain verify. -->
+        <profile>
+            <id>gate-headless</id>
+            <activation>
+                <property><name>qlogg.gate</name><value>headless</value></property>
+            </activation>
+            <properties>
+                <qlogg.excludedGroups>swt</qlogg.excludedGroups>
+            </properties>
+        </profile>
+        <profile>
+            <id>gate-gui</id>
+            <activation>
+                <property><name>qlogg.gate</name><value>gui</value></property>
+            </activation>
+            <properties>
+                <qlogg.groups>swt</qlogg.groups>
+                <spotless.check.skip>true</spotless.check.skip>
+                <checkstyle.skip>true</checkstyle.skip>
+                <spotbugs.skip>true</spotbugs.skip>
+            </properties>
+        </profile>
         <!-- On Linux without DISPLAY SWT cannot create a Display, so SWT tests
              are skipped; run them under a display or xvfb-run. Windows and
              macOS always run them. -->
