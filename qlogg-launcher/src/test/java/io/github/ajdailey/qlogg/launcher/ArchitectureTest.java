@@ -169,15 +169,16 @@ class ArchitectureTest {
         .check(classes);
   }
 
-  // Public SWT API exceptions: Always on Top, GTK 4 tool item sizing, win32 menu themes and the
-  // foreground grant.
+  // Public SWT API exceptions: Always on Top, GTK 4 tool item sizing, win32 dark combo list
+  // selection, win32 menu themes and the foreground grant.
 
   /** The classes that reach SWT internals by reflection, which no import shows. */
   private static final String[] SWT_REFLECTION = {
     ROOT + ".ui.swt.platform.Win32Stacking",
     ROOT + ".ui.swt.platform.CocoaStacking",
     ROOT + ".ui.swt.platform.GtkX11Stacking",
-    ROOT + ".ui.swt.platform.Gtk4ToolItemSizing"
+    ROOT + ".ui.swt.platform.Gtk4ToolItemSizing",
+    ROOT + ".ui.swt.platform.Win32ComboListSelection"
   };
 
   /** The view class excepted to link the Java 21 foreign-function API by reflection. */
@@ -205,6 +206,8 @@ class ArchitectureTest {
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[2])
         .and()
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[3])
+        .and()
+        .doNotHaveFullyQualifiedName(SWT_REFLECTION[4])
         .and()
         .doNotHaveFullyQualifiedName(VIEW_FOREIGN)
         .and()

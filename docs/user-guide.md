@@ -940,9 +940,6 @@ characters outside the code page.
   while File, Use directory change notifications is on; turn that off as well
   to rename any folder above it. With Keep file closed off, renaming either
   folder is refused while the file is open.
-- Windows: under the dark theme at a display scale other than 100%, such as
-  150%, the selected item of a drop-down list draws white on white; the other
-  items stay readable.
 - macOS: menus and the menu bar follow the macOS appearance setting, not the
   QLogg theme.
 - Linux: GTK 4 is an experimental opt-in on linux-x86_64 (`bin/qlogg --gtk4`).

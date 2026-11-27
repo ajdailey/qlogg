@@ -20,6 +20,7 @@ import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ColorScheme;
 import io.github.ajdailey.qlogg.app.theme.ColorSchemes;
 import io.github.ajdailey.qlogg.core.model.FoldRules;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import java.util.ArrayList;
 import java.util.List;
@@ -238,6 +239,7 @@ final class PreferencesDialog {
   private void view(Composite page) {
     new Label(page, SWT.NONE).setText(UiText.PREFERENCES_FONT_FAMILY.text());
     fontFamily = new Combo(page, SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(fontFamily);
     fontFamily.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     fontFamily.setTextLimit(FontSettings.MAX_FAMILY_CHARS);
     fontFamily.add(UiText.PREFERENCES_FONT_DEFAULT.text());
@@ -745,6 +747,7 @@ final class PreferencesDialog {
   private void viewColors(Composite page) {
     new Label(page, SWT.NONE).setText(UiText.PREFERENCES_VIEW_COLORS.text());
     viewColors = new Combo(page, SWT.READ_ONLY | SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(viewColors);
     viewColors.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     String current = controller.preferences().view().colors();
     colorIds.add(ColorSchemes.FOLLOW_THEME);

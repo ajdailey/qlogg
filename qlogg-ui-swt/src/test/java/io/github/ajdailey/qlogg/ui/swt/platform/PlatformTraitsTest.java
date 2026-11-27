@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -136,6 +137,18 @@ class PlatformTraitsTest {
         Gtk4WindowPlacement.class,
         NoticeGuideDisplay.class);
     assertTrue(PlatformTraits.of("gtk", true).stacking() instanceof WindowManagerStacking);
+  }
+
+  @Test
+  void onlyWin32PaintsTheComboListSelection() {
+    assertInstanceOf(
+        Win32ComboListSelection.class, PlatformTraits.of("win32", false).comboListSelection());
+    assertInstanceOf(
+        NativeComboListSelection.class, PlatformTraits.of("cocoa", false).comboListSelection());
+    assertInstanceOf(
+        NativeComboListSelection.class, PlatformTraits.of("gtk", false).comboListSelection());
+    assertInstanceOf(
+        NativeComboListSelection.class, PlatformTraits.of("gtk", true).comboListSelection());
   }
 
   @Test

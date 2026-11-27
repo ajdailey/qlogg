@@ -202,7 +202,7 @@ leaves a `ToolBar`, `Composite`, `Label`, `Link` and every field light, and
 While `ui.theme` resolves to dark (`ThemeController.dark`, reported by
 `PaletteListener.themeChanged`), every control under a surface takes the
 neutral grays of `Win32DialogColors` whatever the `view.colors` scheme, as
-native controls do: `BODY` `#202020` with `TEXT` `#ffffff` (16.29:1). A `Link`
+native controls do: `WINDOW` `#202020` with `TEXT` `#ffffff` (16.29:1). A `Link`
 takes the system link color raised to 4.5:1 (`Contrast.readable`); each
 composite takes `SWT.INHERIT_DEFAULT`, so native push buttons show no light
 corners. A `Text` and an editable `Combo` take `FIELD` `#2b2b2b` (14.16:1), and
@@ -274,12 +274,6 @@ API sets:
   `CTabFolder`'s selection highlight in the same renderer.
 - The top row's separators: a `Label` with `SWT.SEPARATOR` draws an etched
   pair, 1 px `#a0a0a0` and 1 px `#ffffff`, whatever its colors.
-- The selected item of a combo's drop-down list under the dark theme at a
-  fractional display scale draws white on white (1.00:1, measured at 150% on
-  Windows 11 build 26300); the other items stay readable. Uncolored combos,
-  colored ones and ones created while the dark theme is not preferred draw it
-  the same. At 100% (`windows-2025`) and under light the row is `#0078d4` or
-  `#0078d7` with white text (4.5:1).
 - A table header under dark dialog colors: once `setHeaderBackground` is set,
   SWT 3.135.0 custom-draws the header with `DrawText` and no
   `DT_END_ELLIPSIS`, 6 px in from each column edge, and aligns column 0 by the
@@ -297,6 +291,25 @@ API sets:
   around `setBackground` leaves the frame white and draws the field native dark
   (`#212121`) after the switch back to light.
 
+### Combo list selection
+
+Under the dark native setting Windows 11 draws the selected row of a drop-down
+combo's open list, which is also the hover row, white on white, read-only or
+editable, whatever the combo's colors (1.00:1, measured at 150% on build
+26300); `windows-2025` at 100% draws it `#0078d4` with white text. Neither
+`SetWindowTheme` nor the `WM_CTLCOLORLISTBOX` answer changes that row. Every
+`Combo` is created with `ComboListSelection.PLATFORM.draw`.
+`Win32ComboListSelection` subclasses the list window through SWT's
+`internal.Callback` and `internal.win32.OS`, an `ArchitectureTest` exception,
+and while `DialogColors.nativeDark` holds paints the selected row in
+`Palette.DARK`'s selection, `#2f5f88` with white text, after each `WM_PAINT`
+and after each selection move, which the list draws without one. The setting is
+read per message, so a live switch applies at the next paint; under light the
+native selection stays. Disposing the combo restores the window procedure. A
+`SWT.SIMPLE` combo is left native. If an SWT upgrade drops a member, one WARN
+is logged, the native selection stays and `Win32ComboListSelectionTest` fails
+on win32. `NativeComboListSelection` does nothing on GTK and cocoa.
+
 ## Dialog colors
 
 `Dialogs.shell` calls `DialogColors.apply` on every dialog and tool window
@@ -306,7 +319,7 @@ platform:
 
 | Class | When | Colors |
 |---|---|---|
-| `Win32DialogColors` | win32; colors a dialog created while `DialogColors.nativeDark` holds | Body `#202020`, fields and lists `#2b2b2b`, read-only combos `#333333`, text `#ffffff`, links the system link color raised to 4.5:1 on the body under the dark side; none set under the light one |
+| `Win32DialogColors` | win32; colors a dialog created while `DialogColors.nativeDark` holds | `WINDOW` `#202020`, fields and lists `#2b2b2b`, read-only combos `#333333`, text `#ffffff`, links the system link color raised to 4.5:1 on the body under the dark side; none set under the light one |
 | `NativeDialogColors` | GTK, cocoa | None set |
 
 A dark win32 start draws the title bar (`#202020`), push buttons (`#333333`

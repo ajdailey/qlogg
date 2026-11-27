@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.MainView;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ final class TimeZoneDialog {
     shell = Dialogs.shell(parent, CommandId.TIME_ZONE.title(), true);
     Dialogs.label(shell, UiText.TIME_ZONE_PROMPT.text());
     combo = new Combo(shell, SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(combo);
     List<String> ids = new ArrayList<String>(ZoneId.getAvailableZoneIds());
     Collections.sort(ids);
     ids.add(0, defaultText);

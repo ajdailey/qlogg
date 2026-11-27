@@ -151,8 +151,7 @@ class ComboListGuiTest {
   /**
    * Saves the open list and logs both rows. On win32 x86-64 the unselected row reads at {@link
    * ComboCapture#READABLE}, on the combo's own background when {@code colored}; the selected row is
-   * asserted only under light, since under dark at a fractional scale Windows draws it white on
-   * white.
+   * asserted only under light ({@code Win32ComboListTest} covers dark).
    */
   private void measure(Combo combo, String name, boolean dark, boolean colored) {
     int count = combo.getItemCount();

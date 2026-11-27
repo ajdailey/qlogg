@@ -53,8 +53,8 @@ import org.eclipse.swt.widgets.Tree;
  * under the light one, so a checked item takes the light ink only under the dark native theme.
  */
 final class Win32ChromeColors implements ChromeColors {
-  /** Background of every surface under dark: {@link Win32DialogColors#BODY}. */
-  static final Color BACKGROUND = Win32DialogColors.BODY;
+  /** Background of every surface under dark: {@link Win32DialogColors#WINDOW}. */
+  static final Color BACKGROUND = Win32DialogColors.WINDOW;
 
   /** Text and field text under dark: {@link Win32DialogColors#TEXT}. */
   static final Color TEXT = Win32DialogColors.TEXT;

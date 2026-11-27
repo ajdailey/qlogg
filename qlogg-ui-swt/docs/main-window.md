@@ -331,7 +331,8 @@ the `PlatformTraits.stacking` implementation chosen on first use, after the
 Display exists (GTK reads the backend the Display records). SWT has no public call, so each implementation
 reaches SWT internals by reflection and the product compiles against every
 platform's SWT jar. `ArchitectureTest.reflectionOnlyInExceptionClasses` allows
-reflection in these three classes, `Gtk4ToolItemSizing`, and the two
+reflection in these three classes, `Gtk4ToolItemSizing`,
+`Win32ComboListSelection`, and the two
 foreign-function callers `Win32MenuThemes` and `WindowsForegroundRights` only;
 `noSwtInternals` is unchanged.
 
@@ -429,8 +430,8 @@ GTK 3 fails to load, and QLogg uses the GTK 4 traits with no WARN. When neither
 loads, `LoadedToolkit` logs the failure at DEBUG and chooses the GTK 3 traits,
 and `Gui` exits 3.
 
-`MenuBehavior`, `WindowPlacement`, `LaunchDocuments`, `ToolItemSizing` and
-`WindowStacking` hold the running platform's instance as `PLATFORM`.
+`MenuBehavior`, `WindowPlacement`, `LaunchDocuments`, `ToolItemSizing`,
+`ComboListSelection` and `WindowStacking` hold the running platform's instance as `PLATFORM`.
 
 `PlatformTraits.of` builds any platform's traits, so `PlatformTraitsTest` checks
 every value and seam class on Linux and fails on a boolean `PlatformTraits`
@@ -483,6 +484,7 @@ would choose platform code calls a seam instead.
 | `ChromeColors` (`chromeColors`) | `Win32ChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `NativeChromeColors` | `MainWindow`: the window's rows and fields under a dark theme ([theme.md](theme.md#chrome-colors)) |
 | `WindowStacking` (`stacking`) | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WindowManagerStacking` | `WindowManagerStacking` | `MainWindow` (Always on Top, Minimize), `MainMenuBar` (tool tip) |
 | `ToolItemSizing` (`toolItemSizing`) | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolIcons` |
+| `ComboListSelection` (`comboListSelection`) | `Win32ComboListSelection`: paints a drop-down combo's open list selection under the dark native setting | `NativeComboListSelection` | `NativeComboListSelection` | `NativeComboListSelection` | every `Combo` at creation ([theme.md](theme.md#combo-list-selection)) |
 
 ## Platform services
 
