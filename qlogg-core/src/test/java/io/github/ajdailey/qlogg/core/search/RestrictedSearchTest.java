@@ -19,6 +19,7 @@ import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -40,8 +41,21 @@ import org.junit.jupiter.api.Test;
 class RestrictedSearchTest {
   private static final int LINES = 3000;
   private static final int MIB = 1 << 20;
+  private static final int GAP = SearchSettings.DEFAULT_GAP_BYTES;
+
+  /**
+   * Chunk lines, chunk bytes, chunks in flight and, when given, the gap; the last is the default.
+   */
   private static final int[][] SIZES = {
-    {1, 1, 1}, {2, 64, 2}, {3, 300, 2}, {7, 100, 3}, {50, 4096, 4}, {10_000, MIB, 3}
+    {1, 1, 1, 0},
+    {2, 64, 2},
+    {3, 300, 2, 150},
+    {7, 100, 3, 1000},
+    {20, 700, 2, 1},
+    {400, 2000, 3, 300},
+    {50, 4096, 4, 0},
+    {10_000, MIB, 3, 1000},
+    {10_000, MIB, 3}
   };
 
   private SearchFixture fixture;
@@ -65,6 +79,14 @@ class RestrictedSearchTest {
     final MemoryByteSource delegate;
     final AtomicLong read = new AtomicLong();
 
+    /** Thrown by every read from the second on when set; null reads normally. */
+    volatile IOException failure;
+
+    /** True ends every read from the second on at end of file. */
+    volatile boolean truncated;
+
+    private final AtomicLong reads = new AtomicLong();
+
     Counting(byte[] content) {
       this.delegate = new MemoryByteSource(content, 0);
     }
@@ -81,6 +103,14 @@ class RestrictedSearchTest {
 
     @Override
     public int read(long position, ByteBuffer dst) throws IOException {
+      if (reads.incrementAndGet() > 1) {
+        if (failure != null) {
+          throw failure;
+        }
+        if (truncated) {
+          return -1;
+        }
+      }
       int n = delegate.read(position, dst);
       if (n > 0) {
         read.addAndGet(n);
@@ -125,6 +155,7 @@ class RestrictedSearchTest {
       assertTrue(handle.await(SearchFixture.BOUND.toMillis()));
       assertEquals(OperationOutcome.COMPLETED, outcome.get());
       bytes.read.set(0);
+      bytes.reads.set(0);
       return new Source(index.snapshot(), bytes, encoding);
     }
   }
@@ -242,7 +273,8 @@ class RestrictedSearchTest {
   }
 
   private SearchEngine engine(int[] size) {
-    return fixture.engine(new SearchSettings(size[0], size[1], size[2], 0, fixture.budget));
+    int gap = size.length > 3 ? size[3] : GAP;
+    return fixture.engine(new SearchSettings(size[0], size[1], gap, size[2], 0, fixture.budget));
   }
 
   /** Restricted search equals the full search intersected with the set. */
@@ -391,6 +423,94 @@ class RestrictedSearchTest {
     source.bytes().read.set(0);
     run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL));
     assertTrue(source.bytes().read.get() > 50 * expected);
+  }
+
+  /**
+   * Members 0, 2 and 4: a 100-byte line between 0 and 2, and a filler between 2 and 4 that starts
+   * line 4 {@code gap - 1}, {@code gap} or {@code gap + 1} bytes after line 2's end. Up to the gap
+   * the search reads one span; past it, 0 and 2 read together and 4 alone.
+   */
+  @Test
+  void aGapOverTheLimitIsNotRead() throws Exception {
+    int gap = 1000;
+    SearchEngine engine =
+        fixture.engine(new SearchSettings(10_000, MIB, gap, 2, 0, fixture.budget));
+    for (int delta = -1; delta <= 1; delta++) {
+      String filler = "f".repeat(gap + delta - 2);
+      String text = "hit a\n" + "g".repeat(100) + "\nhit b\n" + filler + "\nhit c\nhit d\n";
+      Source source =
+          source(text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, fixture.budget);
+      LineIndex index = source.index();
+      assertEquals(gap + delta, index.lineStart(4) - index.lineEnd(2));
+      MutableLineSet set = toSet(List.of(0L, 2L, 4L));
+      assertEquals(
+          List.of(0L, 2L, 4L),
+          toList(run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set))));
+      long joined = index.lineEnd(4) - index.lineStart(0);
+      long split = index.lineEnd(2) - index.lineStart(0) + index.lineEnd(4) - index.lineStart(4);
+      assertEquals(delta <= 0 ? joined : split, source.bytes().read.get(), "delta " + delta);
+    }
+  }
+
+  /**
+   * Members 0 and 2 within the gap, in a chunk of their span's bytes or one byte fewer: the span
+   * reads whole, or each member alone without the line between them.
+   */
+  @Test
+  void aRunEndsWhereTheChunkBytesEnd() throws Exception {
+    String text = "hit a\n" + "g".repeat(100) + "\nhit b\n";
+    Source source =
+        source(text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, fixture.budget);
+    LineIndex index = source.index();
+    int joined = (int) (index.lineEnd(2) - index.lineStart(0));
+    long split = index.lineEnd(0) - index.lineStart(0) + index.lineEnd(2) - index.lineStart(2);
+    MutableLineSet set = toSet(List.of(0L, 2L));
+    for (int bytes = joined - 1; bytes <= joined; bytes++) {
+      source.bytes().read.set(0);
+      SearchEngine engine =
+          fixture.engine(new SearchSettings(10_000, bytes, 1000, 2, 0, fixture.budget));
+      assertEquals(
+          List.of(0L, 2L),
+          toList(run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set))));
+      assertEquals(bytes == joined ? joined : split, source.bytes().read.get(), "bytes " + bytes);
+    }
+  }
+
+  /**
+   * Members 97 lines apart at a zero gap, so a chunk holds several runs: a closed channel on the
+   * second read ends the search {@code CANCELED}, a file shorter than its index {@code FAILED}.
+   */
+  @Test
+  void aFailedRunReadEndsTheSearch() throws Exception {
+    MutableLineSet set = new MutableLineSet();
+    for (long line = 3; line < LINES; line += 97) {
+      set.add(line);
+    }
+    SearchQuery query = SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set);
+    SearchEngine engine = fixture.engine(new SearchSettings(10_000, MIB, 0, 2, 0, fixture.budget));
+    byte[] content = encode(corpus(), StandardCharsets.UTF_8);
+    Source closed = source(content, StandardCharsets.UTF_8, fixture.budget);
+    closed.bytes().failure = new ClosedChannelException();
+    SearchFixture.Recording recording = fixture.search(engine, closed, query, new MutableLineSet());
+    assertEquals(OperationOutcome.CANCELED, recording.outcome);
+    Source shorter = source(content, StandardCharsets.UTF_8, fixture.budget);
+    shorter.bytes().truncated = true;
+    recording = fixture.search(engine, shorter, query, new MutableLineSet());
+    assertEquals(OperationOutcome.FAILED, recording.outcome);
+    assertTrue(recording.failure instanceof IOException, String.valueOf(recording.failure));
+  }
+
+  @Test
+  void aZeroGapReadsEachMemberAlone() throws Exception {
+    String text = "hit 0\nhit 1\nmiss 2\nhit 3\n";
+    Source source =
+        source(text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, fixture.budget);
+    SearchEngine engine = fixture.engine(new SearchSettings(10_000, MIB, 0, 2, 0, fixture.budget));
+    MutableLineSet set = toSet(List.of(0L, 1L, 3L));
+    assertEquals(
+        List.of(0L, 1L, 3L),
+        toList(run(engine, source, SearchQuery.of("hit", MatchMode.LITERAL).restrictedTo(set))));
+    assertEquals(15, source.bytes().read.get());
   }
 
   @Test

@@ -36,7 +36,7 @@ threads and CPU-bound work on a fixed platform pool.
 | Class or call | Thread |
 |---|---|
 | `Indexer` coordinator, `IndexListener` | `qlogg-index-` |
-| `SearchEngine` coordinator, `SearchListener` | `qlogg-search-` |
+| `SearchEngine` coordinator, `SearchListener`, `ChunkReader.readRuns` (restricted chunk reads) | `qlogg-search-` |
 | `FolderSearch` coordinator, `FolderListener` | `qlogg-search-` |
 | Index block scans, search chunk matching, `CpuSteps` steps | `qlogg-cpu-N` |
 | `FileMonitor` watch, `MonitorListener` | `qlogg-follow-` |
