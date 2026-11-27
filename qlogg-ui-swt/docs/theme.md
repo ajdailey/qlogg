@@ -141,8 +141,8 @@ While the pinned side differs from the side SWT cached its colors under,
 `CocoaChrome` gives each shell the window color of the pinned side with
 `INHERIT_FORCE`, from constants measured on macOS 15. A `TabFolder` stops that
 inheritance, so check boxes get a transparent background over its native panel
-and its titles the text color; tables, trees, lists, combos, fields, spinners
-and a `CTabFolder` get list colors. A control with `PALETTE_COLORED` keeps its
+and its titles the text color; tables, trees, lists, editable combos, fields,
+spinners and a `CTabFolder` get list colors. A control with `PALETTE_COLORED` keeps its
 colors. A `SWT.Show` filter covers shells opened later and an `SWT.Skin`
 listener controls created later, such as a new scratchpad tab's field or the
 Marks List comment field. SWT sends `SWT.Skin` from `readAndDispatch` and
@@ -171,8 +171,14 @@ palette.
 
 Limits on cocoa:
 
-- Menus and the menu bar follow the system appearance, not the pin. AppKit
-  draws them whole, so they stay readable.
+- A read-only `Combo`, an `NSPopUpButton`, keeps null colors on every side.
+  SWT writes a Combo's foreground into each item title of its menu, and AppKit
+  draws that menu in the pinned appearance, where an explicit white title draws
+  `#656565` on `#323232` (2.2:1). With no color the items draw `#e0e0e0` on
+  `#323232` under a dark pin and `#242424` on `#ececec` under a light pin
+  (measured on macOS 15 arm64 and Intel, SWT 3.135.0).
+- AppKit draws menus and the menu bar whole, so they stay readable. Only the
+  read-only `Combo` menu is measured under a pin: it takes the pinned side.
 - `Display.getSystemColor` returns the cached side for the life of the
   process. `COLOR_WIDGET_NORMAL_SHADOW`, the sash grip, is one gray on both
   sides. `NativeDialogColors.disabledText` stays `#dcdcdc` after a light start
