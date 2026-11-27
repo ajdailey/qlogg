@@ -156,6 +156,8 @@ natives.macos-aarch64=${natives.macos-aarch64}
       <zipfileset file="${universal.jar}" fullpath="qlogg/lib/qlogg.jar"/>
       <zipfileset file="${build}/qlogg.exe" fullpath="qlogg/qlogg.exe"/>
       <zipfileset file="${basedir}/src/windows/qlogg.cmd" fullpath="qlogg/qlogg.cmd"/>
+      <zipfileset file="${basedir}/src/windows/register-associations.cmd"
+          fullpath="qlogg/register-associations.cmd"/>
       <zipfileset refid="notices" prefix="qlogg"/>
       <zipfileset file="${basedir}/src/dist/THIRD-PARTY.txt" fullpath="qlogg/THIRD-PARTY.txt"/>
     </zip>
@@ -366,6 +368,7 @@ natives.macos-aarch64=${natives.macos-aarch64}
       <swt-dir target="@{target}" dest="${home}/lib/swt"/>
       <copy file="${build}/qlogg.exe" todir="${home}"/>
       <copy file="${basedir}/src/windows/qlogg.cmd" todir="${home}"/>
+      <copy file="${basedir}/src/windows/register-associations.cmd" todir="${home}"/>
       <copy todir="${home}"><fileset refid="notices"/></copy>
       <copy file="${basedir}/src/dist/THIRD-PARTY.txt" todir="${home}"/>
       <mkdir dir="${out}"/>

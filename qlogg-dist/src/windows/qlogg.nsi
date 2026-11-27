@@ -7,9 +7,10 @@
 ; Optional SIGN_INSTALLER and SIGN_UNINSTALLER name a command makensis runs
 ; on the build host with the file as its argument.
 ;
-; Silent use: /S plus /MACHINE, /USER or /PORTABLE, optionally /DESKTOP, and
-; optionally /D=<folder> as the last argument. /S alone installs for the
-; current user. /DESKTOP adds the desktop shortcut to a regular install. A
+; Silent use: /S plus /MACHINE, /USER or /PORTABLE, optionally /DESKTOP and
+; /NOEXPLORERMENU, and optionally /D=<folder> as the last argument. /S alone
+; installs for the current user. /DESKTOP adds the desktop shortcut to a
+; regular install; /NOEXPLORERMENU clears the Explorer menu component. A
 ; silent install never starts QLogg. portable.txt or qlogg.conf in the folder
 ; selects portable mode, so a per-machine or per-user install refuses a folder
 ; holding either; only /PORTABLE writes portable.txt, and keeps an existing one.
@@ -31,11 +32,13 @@ SetCompressor /SOLID lzma
 !include LogicLib.nsh
 !include FileFunc.nsh
 !include nsDialogs.nsh
+!include Sections.nsh
 !include "${FILES}"
 
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg"
 !define PROGID "QLogg.File"
 !define APPKEY "Software\Classes\Applications\qlogg.exe"
+!define VERBKEY "Software\Classes\*\shell\QLogg.Open"
 
 Name "QLogg"
 OutFile "${OUTFILE}"
@@ -85,12 +88,16 @@ Var ScopeMachine
 Var ScopeUser
 Var ScopePortable
 Var DesktopSwitch ; 1 when /DESKTOP was given
+Var NoMenuSwitch ; 1 when /NOEXPLORERMENU was given
 
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_PAGE_HEADER_TEXT "License"
 !define MUI_PAGE_HEADER_SUBTEXT "The terms under which QLogg is distributed."
 !insertmacro MUI_PAGE_LICENSE "${LICENSE}"
 Page custom ScopePage ScopePageLeave
+!define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
+!define MUI_COMPONENTSPAGE_NODESC
+!insertmacro MUI_PAGE_COMPONENTS
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -102,6 +109,8 @@ Page custom ScopePage ScopePageLeave
 !insertmacro MUI_UNPAGE_FINISH
 
 !insertmacro MUI_LANGUAGE "English"
+
+LangString ExplorerMenu ${LANG_ENGLISH} "Add to Explorer right-click menu"
 
 ; Pushes 1 when $INSTDIR is $0 or under it, else 0.
 Function IsUnder
@@ -225,6 +234,13 @@ Function .onInit
   ${IfNot} ${Errors}
     StrCpy $DesktopSwitch 1
   ${EndIf}
+  StrCpy $NoMenuSwitch 0
+  ClearErrors
+  ${GetOptions} $R0 "/NOEXPLORERMENU" $R1
+  ${IfNot} ${Errors}
+    StrCpy $NoMenuSwitch 1
+  ${EndIf}
+  Call ApplyMenuSwitch
 
   ${If} $Mode == ""
     ReadRegStr $0 HKLM "${UNINSTKEY}" "InstallLocation"
@@ -306,6 +322,13 @@ Function ScopePageLeave
   Call ApplyModeDir
 FunctionEnd
 
+; A portable copy registers nothing, so it skips the components page.
+Function ComponentsPre
+  ${If} $Mode == portable
+    Abort
+  ${EndIf}
+FunctionEnd
+
 ; A portable copy gets no desktop shortcut.
 Function FinishShow
   ${If} $Mode == portable
@@ -333,7 +356,7 @@ Function DirectoryLeave
   ${EndIf}
 FunctionEnd
 
-Section "QLogg"
+Section "-QLogg"
   ${If} $Mode == machine
     SetShellVarContext all
   ${Else}
@@ -388,6 +411,8 @@ Section "QLogg"
   WriteRegStr SHCTX "${APPKEY}\shell\open\command" "" '"$INSTDIR\qlogg.exe" "%1"'
   WriteRegStr SHCTX "${APPKEY}\SupportedTypes" ".log" ""
   WriteRegStr SHCTX "${APPKEY}\SupportedTypes" ".txt" ""
+  ; The Explorer menu section writes the verb again when it is selected.
+  DeleteRegKey SHCTX "${VERBKEY}"
 
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "QLogg"
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
@@ -405,6 +430,24 @@ Section "QLogg"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "EstimatedSize" $0
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
+
+; A static verb under * on every file. It is not the default verb of any type,
+; so double-click and ShellExecute's open stay with each type's own handler.
+Section "$(ExplorerMenu)" SecExplorerMenu
+  ${If} $Mode == portable
+    Return
+  ${EndIf}
+  WriteRegStr SHCTX "${VERBKEY}" "MUIVerb" "Open in QLogg"
+  WriteRegStr SHCTX "${VERBKEY}" "Icon" '"$INSTDIR\qlogg.exe",0'
+  WriteRegStr SHCTX "${VERBKEY}\command" "" '"$INSTDIR\qlogg.exe" "%1"'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+SectionEnd
+
+Function ApplyMenuSwitch
+  ${If} $NoMenuSwitch == 1
+    !insertmacro UnselectSection ${SecExplorerMenu}
+  ${EndIf}
+FunctionEnd
 
 Function un.onInit
   ReadRegStr $0 HKLM "${UNINSTKEY}" "InstallLocation"
@@ -453,6 +496,7 @@ Section "Uninstall"
 
   DeleteRegKey SHCTX "Software\Classes\${PROGID}"
   DeleteRegKey SHCTX "${APPKEY}"
+  DeleteRegKey SHCTX "${VERBKEY}"
   DeleteRegValue SHCTX "Software\Classes\.log\OpenWithProgids" "${PROGID}"
   DeleteRegKey /ifempty SHCTX "Software\Classes\.log\OpenWithProgids"
   DeleteRegKey /ifempty SHCTX "Software\Classes\.log"

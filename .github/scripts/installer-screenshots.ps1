@@ -1,10 +1,12 @@
 # Walks the $env:TARGET setup interactively and saves each page as a PNG in
-# installer-screenshots\: a per-machine install that ticks the desktop
-# shortcut box and leaves Run QLogg checked, its uninstaller, then a portable
-# install into a temporary folder. After each install the finish page must
+# installer-screenshots\: a per-machine install that keeps the Explorer menu
+# component, ticks the desktop shortcut box and leaves Run QLogg checked, its
+# uninstaller, then a portable install into a temporary folder, which skips
+# the components page. After each install the finish page must
 # have started qlogg.exe from an explorer.exe, with QLogg's token elevation
 # equal to the shell's, and the per-machine install must have written the
-# common desktop shortcut; QLogg is then stopped. A shell with elevation 0
+# common desktop shortcut and the HKLM QLogg.Open verb, which its uninstaller
+# removes; QLogg is then stopped. A shell with elevation 0
 # makes this the unelevated check; on a runner whose shell is elevated it
 # checks the launch path only. Pages are driven by window messages (the Next button's
 # WM_COMMAND, BM_CLICK on a radio button or check box, WM_SETTEXT on the
@@ -307,11 +309,14 @@ Invoke-Walk 'QLogg Setup' 'setup' {
 Test-Launched $installed 'setup-start'
 $desktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
 if ((New-Object -ComObject WScript.Shell).CreateShortcut($desktop).TargetPath -ne "$installed\qlogg.exe") { throw "the desktop shortcut box wrote no $desktop for $installed\qlogg.exe" }
+$verb = 'HKLM:\Software\Classes\*\shell\QLogg.Open'
+if (-not (Test-Path -LiteralPath $verb)) { throw "the components page left the Explorer menu unchecked: no $verb" }
 
 # The uninstaller runs from a copy in %TEMP%; its window is found by title.
 Start-Process -FilePath (Join-Path $env:ProgramFiles 'QLogg\uninstall.exe') | Out-Null
 Invoke-Walk 'QLogg Uninstall' 'uninstall' $null
 if (Test-Path $desktop) { throw "the uninstaller left $desktop" }
+if (Test-Path -LiteralPath $verb) { throw "the uninstaller left $verb" }
 
 # The portable walk picks Portable on the type page and a temporary folder on
 # the folder page (control 1019).
