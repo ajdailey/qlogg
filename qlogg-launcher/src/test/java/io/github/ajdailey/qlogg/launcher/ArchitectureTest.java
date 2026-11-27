@@ -277,7 +277,8 @@ class ArchitectureTest {
     "takesCtrlShiftZero",
     "runsInsteadOfOpening",
     "keepFileClosedByDefault",
-    "watchServiceByDefault"
+    "watchServiceByDefault",
+    "fileNamesIgnoreCase"
   };
 
   /** Outside the platform packages no class branches on a boolean trait other than a value one. */
@@ -350,7 +351,9 @@ class ArchitectureTest {
           "keepFileClosedByDefault",
           List.of(ROOT + ".app.config.FollowSettings"),
           "watchServiceByDefault",
-          List.of(ROOT + ".core.watch.MonitorSettings"));
+          List.of(ROOT + ".core.watch.MonitorSettings"),
+          "fileNamesIgnoreCase",
+          List.<String>of());
 
   /** Only {@code ui.swt.platform} calls a {@link #PLATFORM_QUERIES} method. */
   @Test

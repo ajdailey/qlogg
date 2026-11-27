@@ -40,7 +40,7 @@ class RotatedSetTest {
     "server, server"
   })
   void theBaseNameDropsTheTokenAndCompression(String name, String base) {
-    assertEquals(base, MemberNames.baseOf(name));
+    assertEquals(base, MemberNames.baseOf(name, false));
   }
 
   @ParameterizedTest
@@ -60,7 +60,7 @@ class RotatedSetTest {
     "app.log.3.Z, 3, true"
   })
   void membersMatchWithTheirToken(String name, String token, boolean compressed) {
-    MemberNames.Match match = MemberNames.of("app.log").match(name);
+    MemberNames.Match match = MemberNames.of("app.log", false).match(name);
     assertEquals(token, match.token());
     assertEquals(compressed, match.compressed());
   }
@@ -69,7 +69,20 @@ class RotatedSetTest {
   @ValueSource(
       strings = {"app.log.bak", "app.logger", "app2.log", "app.log.1.tmp", "app.log.", "other.log"})
   void otherNamesAreNotMembers(String name) {
-    assertNull(MemberNames.of("app.log").match(name));
+    assertNull(MemberNames.of("app.log", false).match(name));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"App.Log, ", "APP.LOG.1, 1", "app.1.LOG, 1", "app.log.2.GZ, 2", "App.1.log.Zip, 1"})
+  void namesInAnotherCaseMatchWhereCaseIsIgnored(String name, String token) {
+    MemberNames.Match match = MemberNames.of("app.log", true).match(name);
+    assertEquals(token, match.token());
+    assertNull(MemberNames.of("app.log", false).match(name));
+  }
+
+  @Test
+  void theBaseDropsACompressionExtensionInAnyCaseWhereCaseIsIgnored() {
+    assertEquals("app.log", MemberNames.baseOf("app.log.2.GZ", true));
   }
 
   @Test
@@ -182,7 +195,11 @@ class RotatedSetTest {
     writeBytes("app.log.1", new byte[] {(byte) 0xef, (byte) 0xbb, (byte) 0xbf, 'b', '\n'}, 1);
     RotatedSet set =
         RotatedSet.discover(
-            dir.resolve("app.log"), null, StandardCharsets.UTF_8, StandardCharsets.ISO_8859_1);
+            dir.resolve("app.log"),
+            null,
+            StandardCharsets.UTF_8,
+            StandardCharsets.ISO_8859_1,
+            false);
     assertEquals(StandardCharsets.ISO_8859_1, set.encoding().charset());
     assertEquals(DetectionReason.FORCED, set.detection().reason());
     assertEquals(2, set.members().size());
@@ -203,8 +220,19 @@ class RotatedSetTest {
     assertEquals(List.of("app.log"), names(discover("app.log").members()));
   }
 
+  @Test
+  void aMemberInAnotherCaseJoinsOnlyWhereCaseIsIgnored() throws IOException {
+    write("app.log", "a\n", 3);
+    write("APP.LOG.1", "b\n", 1);
+    Path base = dir.resolve("app.log");
+    assertEquals(
+        List.of("APP.LOG.1", "app.log"),
+        names(RotatedSet.discover(base, null, StandardCharsets.UTF_8, null, true).members()));
+    assertEquals(List.of("app.log"), names(discover("app.log").members()));
+  }
+
   private RotatedSet discover(String name) throws IOException {
-    return RotatedSet.discover(dir.resolve(name), null, StandardCharsets.ISO_8859_1, null);
+    return RotatedSet.discover(dir.resolve(name), null, StandardCharsets.ISO_8859_1, null, false);
   }
 
   private void write(String name, String text, int hours) throws IOException {

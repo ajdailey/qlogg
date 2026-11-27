@@ -443,7 +443,8 @@ call in `ui.swt` outside that package or in the launcher.
 `ArchitectureTest.behaviorOnlyThroughSeams` fails on a call to a boolean
 `PlatformTraits` or `OsTraits` method outside the two platform packages, except
 the value traits `macKeys`, `macKeymap`, `takesCtrlShiftZero`,
-`runsInsteadOfOpening`, `keepFileClosedByDefault` and `watchServiceByDefault`.
+`runsInsteadOfOpening`, `keepFileClosedByDefault`, `watchServiceByDefault` and
+`fileNamesIgnoreCase`.
 
 `platformQueriesOnlyInThePlatformPackage` fails on a call outside
 `ui.swt.platform` of `Display.getSystemMenu`, `getSystemTray`,

@@ -134,6 +134,7 @@ system's answers from `OsTraits.of(name)`.
 | `takesCtrlShiftZero` | true | false | false | `Keymap.defaults()`: no `Ctrl+Shift+0` for Clear Color Labels |
 | `keepFileClosedByDefault` | true | false | false | `FollowSettings.defaults`: the `follow.keepClosed` default |
 | `watchServiceByDefault` | true | false | true | `MonitorSettings.defaults`: the `monitor.watchService` default |
+| `fileNamesIgnoreCase` | true | true | false | The `ignoreCase` of `RotatedSet.discover` and `MemberNames.of`; true on macOS for its default case-insensitive volumes |
 | `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
 
 `PlatformSetup` calls `confineHome` and `placeBrowserData` on every system

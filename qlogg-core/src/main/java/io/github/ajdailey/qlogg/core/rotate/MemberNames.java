@@ -7,7 +7,8 @@ import java.util.regex.Pattern;
  * File names of one rotation series. A rotation token is {@code \d+([._-]\d+)*}; a member is the
  * base name, the base name plus a separator ({@code .}, {@code _} or {@code -}) and a token, or the
  * base's stem plus a separator, a token and the base's extension. Any of these may end in a
- * compression extension. Names compare case-sensitively.
+ * compression extension. Names compare with or without regard to case, as the file system does
+ * ({@code OsTraits.fileNamesIgnoreCase}).
  */
 public final class MemberNames {
   private static final String TOKEN = "\\d+(?:[._-]\\d+)*";
@@ -29,9 +30,11 @@ public final class MemberNames {
   private final String base;
   private final String stem;
   private final String extension;
+  private final boolean ignoreCase;
 
-  private MemberNames(String base) {
+  private MemberNames(String base, boolean ignoreCase) {
     this.base = base;
+    this.ignoreCase = ignoreCase;
     Matcher split = EXTENSION.matcher(base);
     if (split.matches()) {
       this.stem = split.group(1);
@@ -46,10 +49,11 @@ public final class MemberNames {
    * Creates the matcher for the series a file name belongs to.
    *
    * @param name any member's file name, the base included
+   * @param ignoreCase true where the file system compares names without regard to case
    * @return the matcher for {@link #baseOf} the name
    */
-  public static MemberNames of(String name) {
-    return new MemberNames(baseOf(name));
+  public static MemberNames of(String name, boolean ignoreCase) {
+    return new MemberNames(baseOf(name, ignoreCase), ignoreCase);
   }
 
   /**
@@ -58,10 +62,11 @@ public final class MemberNames {
    * is removed before one in front of the extension.
    *
    * @param name a file name
+   * @param ignoreCase true to remove a compression extension in any case
    * @return the base name; the name itself when it has no token
    */
-  public static String baseOf(String name) {
-    String plain = uncompressed(name);
+  public static String baseOf(String name, boolean ignoreCase) {
+    String plain = uncompressed(name, ignoreCase);
     Matcher suffix = SUFFIX.matcher(plain);
     if (suffix.matches()) {
       return suffix.group(1);
@@ -89,9 +94,10 @@ public final class MemberNames {
    * @return the match, or null when the name is not a member
    */
   public Match match(String name) {
-    String plain = uncompressed(name);
+    String plain = uncompressed(name, ignoreCase);
     boolean compressed = plain.length() != name.length();
-    if (plain.equals(base)) {
+    if (plain.length() == base.length()
+        && plain.regionMatches(ignoreCase, 0, base, 0, base.length())) {
       return new Match(null, compressed);
     }
     String token = tokenAfter(plain, base, "");
@@ -101,12 +107,12 @@ public final class MemberNames {
     return token == null ? null : new Match(token, compressed);
   }
 
-  private static String tokenAfter(String name, String prefix, String suffix) {
+  private String tokenAfter(String name, String prefix, String suffix) {
     int from = prefix.length() + 1;
     int to = name.length() - suffix.length();
     if (to <= from
-        || !name.startsWith(prefix)
-        || !name.endsWith(suffix)
+        || !name.regionMatches(ignoreCase, 0, prefix, 0, prefix.length())
+        || !name.regionMatches(ignoreCase, to, suffix, 0, suffix.length())
         || "._-".indexOf(name.charAt(prefix.length())) < 0) {
       return null;
     }
@@ -114,9 +120,10 @@ public final class MemberNames {
     return TOKEN_ONLY.matcher(token).matches() ? token : null;
   }
 
-  private static String uncompressed(String name) {
+  private static String uncompressed(String name, boolean ignoreCase) {
     for (String extension : COMPRESSED) {
-      if (name.length() > extension.length() && name.endsWith(extension)) {
+      int at = name.length() - extension.length();
+      if (at > 0 && name.regionMatches(ignoreCase, at, extension, 0, extension.length())) {
         return name.substring(0, name.length() - extension.length());
       }
     }

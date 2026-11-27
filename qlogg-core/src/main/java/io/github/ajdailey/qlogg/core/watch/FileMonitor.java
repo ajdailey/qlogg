@@ -18,17 +18,20 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
 
 /**
  * Watches files by name. Each {@link #watch} runs a {@code qlogg-follow-} thread that calls its
  * listener every {@code pollMillis} and, with {@code useWatchService}, also when the parent
- * directory reports an event for the file name. The poll stays on while directory events work,
- * because a {@code WatchService} misses events on network mounts and polls on macOS.
+ * directory reports an event for the file name, or for any name the watch's predicate accepts. The
+ * poll stays on while directory events work, because a {@code WatchService} misses events on
+ * network mounts and polls on macOS.
  *
  * <p>One {@link WatchService} serves every watched directory; a {@code qlogg-follow-} thread
  * dispatches its events and ends when the last watch ends or the workers close. Registration runs
  * on the watch's own thread, so {@link #watch} does no I/O. A directory that cannot be registered
- * is polled only. Lock order: {@code lock} alone; it is never held during a listener call.
+ * is polled only. Lock order: {@code lock} alone; it is never held during a listener or predicate
+ * call.
  *
  * <p>An exception from the listener does not end the watch: it goes to the thread's
  * uncaught-exception handler, once until a check completes, and the next check runs as usual.
@@ -66,7 +69,30 @@ public final class FileMonitor {
    * @throws RejectedExecutionException after the workers close
    */
   public OperationHandle watch(Path path, MonitorListener listener) {
-    Watch watch = new Watch(path, listener);
+    final Path name = path.getFileName();
+    return watch(
+        path,
+        new Predicate<Path>() {
+          @Override
+          public boolean test(Path event) {
+            return name != null && name.equals(event);
+          }
+        },
+        listener);
+  }
+
+  /**
+   * Starts watching a path, woken also by a directory event for any name in the path's directory
+   * that {@code names} accepts, for example every member of a rotation series. Returns at once.
+   *
+   * @param path the file, absolute; the listener receives this path
+   * @param names tests the file name of each directory event, on the dispatcher thread
+   * @param listener receives the checks on the watch's thread
+   * @return the handle; {@code cancel} stops the watch within one check
+   * @throws RejectedExecutionException after the workers close
+   */
+  public OperationHandle watch(Path path, Predicate<Path> names, MonitorListener listener) {
+    Watch watch = new Watch(path, names, listener);
     workers.start(Workers.Kind.FOLLOW, watch);
     return watch;
   }
@@ -217,45 +243,45 @@ public final class FileMonitor {
     }
   }
 
+  /** Tests the names outside the lock, so a predicate never runs with it held. */
   private void deliver(WatchKey key) {
-    List<Watch> targets = new ArrayList<Watch>();
     List<WatchEvent<?>> events = key.pollEvents();
     key.reset();
+    List<Watch> list;
     lock.lock();
     try {
       Object watchable = key.watchable();
-      List<Watch> list = watchable instanceof Path directory ? watches.get(directory) : null;
-      if (list == null) {
+      List<Watch> registered = watchable instanceof Path directory ? watches.get(directory) : null;
+      if (registered == null) {
         return;
       }
-      for (WatchEvent<?> event : events) {
-        for (Watch watch : list) {
-          if (event.kind() == StandardWatchEventKinds.OVERFLOW
-              || (watch.name != null && watch.name.equals(event.context()))) {
-            targets.add(watch);
-          }
-        }
-      }
+      list = new ArrayList<Watch>(registered);
     } finally {
       lock.unlock();
     }
-    for (Watch watch : targets) {
-      watch.wake.release();
+    for (Watch watch : list) {
+      for (WatchEvent<?> event : events) {
+        if (event.kind() == StandardWatchEventKinds.OVERFLOW
+            || (event.context() instanceof Path name && watch.names.test(name))) {
+          watch.wake.release();
+          break;
+        }
+      }
     }
   }
 
   /** One watched path and its thread. */
   private final class Watch implements OperationHandle, Runnable {
     final Path path;
-    final Path name;
+    final Predicate<Path> names;
     final MonitorListener listener;
     final Semaphore wake = new Semaphore(0);
     final CountDownLatch done = new CountDownLatch(1);
     volatile boolean canceled;
 
-    Watch(Path path, MonitorListener listener) {
+    Watch(Path path, Predicate<Path> names, MonitorListener listener) {
       this.path = path;
-      this.name = path.getFileName();
+      this.names = names;
       this.listener = listener;
     }
 

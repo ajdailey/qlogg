@@ -82,18 +82,20 @@ public record RotatedSet(
    * @param held the lock file the process holds, or null
    * @param fallback the charset detection falls back to
    * @param forced the charset the user chose, or null to detect
+   * @param ignoreCase true where the file system compares names without regard to case
    * @return the set
    * @throws IOException when the path is rejected or the directory cannot be listed
    */
   public static RotatedSet discover(
-      Path given, SafePaths.HeldLock held, Charset fallback, Charset forced) throws IOException {
+      Path given, SafePaths.HeldLock held, Charset fallback, Charset forced, boolean ignoreCase)
+      throws IOException {
     Path absolute = SafePaths.logPath(given, held).given();
     Path directory = absolute.getParent();
     Path name = absolute.getFileName();
     if (directory == null || name == null) {
       throw new IOException(absolute + " names no file in a directory");
     }
-    MemberNames names = MemberNames.of(name.toString());
+    MemberNames names = MemberNames.of(name.toString(), ignoreCase);
     List<Candidate> found = list(directory, names, held);
     found.sort(ORDER);
     List<LeftOut> leftOut = new ArrayList<LeftOut>();

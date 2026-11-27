@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -135,6 +136,44 @@ class FileMonitorTest {
             BOUND));
     Files.writeString(file, "y\n", StandardOpenOption.APPEND);
     assertTrue(Poll.until(atLeast(calls, 2), BOUND));
+    handle.cancel();
+    assertTrue(handle.await(BOUND.toMillis()));
+    assertEquals(0, monitor.watchedDirectories());
+  }
+
+  /** An event for another name the predicate accepts wakes the watch; the predicate sees names. */
+  @Test
+  void anEventForANameThePredicateAcceptsWakesTheWatch() throws Exception {
+    String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+    Assumptions.assumeFalse(os.contains("mac"), "the macOS WatchService polls");
+    Path file = Files.writeString(dir.resolve("app.log"), "x\n");
+    FileMonitor monitor = new FileMonitor(workers, new MonitorSettings(600_000, true));
+    final AtomicInteger calls = new AtomicInteger();
+    final List<Path> tested = new CopyOnWriteArrayList<Path>();
+    OperationHandle handle =
+        monitor.watch(
+            file,
+            new Predicate<Path>() {
+              @Override
+              public boolean test(Path name) {
+                tested.add(name);
+                return name.toString().startsWith("app.log.");
+              }
+            },
+            counting(calls));
+    assertTrue(Poll.until(atLeast(calls, 1), BOUND));
+    assertTrue(
+        Poll.until(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return monitor.watchedDirectories() == 1;
+              }
+            },
+            BOUND));
+    Files.writeString(dir.resolve("app.log.1"), "y\n");
+    assertTrue(Poll.until(atLeast(calls, 2), BOUND));
+    assertTrue(tested.contains(Path.of("app.log.1")), tested.toString());
     handle.cancel();
     assertTrue(handle.await(BOUND.toMillis()));
     assertEquals(0, monitor.watchedDirectories());
