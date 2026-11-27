@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
@@ -68,12 +69,14 @@ final class SelectorsDialog {
     editor.setLayout(layout);
     editor.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     kind = new Combo(editor, SWT.READ_ONLY);
+    ComboListSelection.PLATFORM.draw(kind);
     kind.setItems(UiText.SELECTORS_BY_NAME.text(), UiText.SELECTORS_BY_FIRST_LINE.text());
     kind.select(0);
     pattern = new Text(editor, SWT.BORDER);
     pattern.setTextLimit(HighlightSelector.MAX_PATTERN_CHARS);
     pattern.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     set = new Combo(editor, SWT.READ_ONLY);
+    ComboListSelection.PLATFORM.draw(set);
     for (HighlightSet each : sets) {
       set.add(each.name());
     }

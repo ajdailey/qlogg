@@ -77,16 +77,16 @@ class DialogTabsTest {
     CTabFolder folder = (CTabFolder) tabs.control();
     assertTrue((folder.getStyle() & SWT.FLAT) != 0);
     assertTrue((folder.getStyle() & SWT.BORDER) == 0, "no frame around the page");
-    assertEquals(Win32DialogColors.BODY.getRGB(), folder.getBackground().getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), folder.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), folder.getForeground().getRGB());
     assertEquals(Win32DialogColors.FIELD.getRGB(), folder.getSelectionBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), folder.getSelectionForeground().getRGB());
     assertTrue(
-        Contrast.ratio(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.BODY.getRGB()) >= 4.5);
+        Contrast.ratio(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.WINDOW.getRGB()) >= 4.5);
     assertTrue(
         Contrast.ratio(Win32DialogColors.TEXT.getRGB(), Win32DialogColors.FIELD.getRGB()) >= 4.5);
     for (Label label : labels) {
-      assertEquals(Win32DialogColors.BODY.getRGB(), label.getParent().getBackground().getRGB());
+      assertEquals(Win32DialogColors.WINDOW.getRGB(), label.getParent().getBackground().getRGB());
       assertEquals(Win32DialogColors.TEXT.getRGB(), label.getForeground().getRGB());
     }
     assertEquals(0, tabs.selection(), "the first tab added is selected");

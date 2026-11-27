@@ -35,13 +35,13 @@ import org.eclipse.swt.widgets.Tree;
  * dividers to {@link #GRID} through {@link Win32HeaderLines}. A read-only {@link Combo} needs
  * colors set: the dark native theme draws its closed field and leaves its drop-down list white
  * without them. A {@link Link} takes the system link color raised to {@link Contrast#LINK} on
- * {@link #BODY}.
+ * {@link #WINDOW}.
  *
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
  * on {@code windows-2025}); {@link Win32EmptyField} draws it in {@link #HINT} over that.
  *
- * <p>A {@link ToolBar} takes {@link #BODY} as its own background, not only through inheritance:
+ * <p>A {@link ToolBar} takes {@link #WINDOW} as its own background, not only through inheritance:
  * under the dark native theme SWT fills a hot or checked tool item with a shade of the bar's own
  * background, {@code #d8d8d8} from the default {@code #f0f0f0}, which hides a light icon.
  *
@@ -52,7 +52,7 @@ import org.eclipse.swt.widgets.Tree;
  */
 final class Win32DialogColors implements DialogColors {
   /** Dialog background: the dark title bar. */
-  static final Color BODY = new Color(0x20, 0x20, 0x20);
+  static final Color WINDOW = new Color(0x20, 0x20, 0x20);
 
   /** Field and list background, between the body and {@link #FACE}. */
   static final Color FIELD = new Color(0x2b, 0x2b, 0x2b);
@@ -101,7 +101,7 @@ final class Win32DialogColors implements DialogColors {
       return;
     }
     shell.setData(COLORED, Boolean.TRUE);
-    shell.setBackground(BODY);
+    shell.setBackground(WINDOW);
     shell.setForeground(TEXT);
     shell.setBackgroundMode(SWT.INHERIT_DEFAULT);
     shell.addListener(
@@ -167,7 +167,7 @@ final class Win32DialogColors implements DialogColors {
 
   @Override
   public Color background(Shell owner) {
-    return DialogColors.nativeDark(owner.getDisplay()) ? BODY : owner.getBackground();
+    return DialogColors.nativeDark(owner.getDisplay()) ? WINDOW : owner.getBackground();
   }
 
   @Override
@@ -212,8 +212,9 @@ final class Win32DialogColors implements DialogColors {
         control.setBackground(face(control) ? FACE : FIELD);
       }
     } else if (same(control, control.getBackground(), SWT.COLOR_WIDGET_BACKGROUND)
-        || (control instanceof ToolBar && control.getBackground().getRGB().equals(BODY.getRGB()))) {
-      control.setBackground(BODY);
+        || (control instanceof ToolBar
+            && control.getBackground().getRGB().equals(WINDOW.getRGB()))) {
+      control.setBackground(WINDOW);
     }
     if (defaultForeground(control)) {
       control.setForeground(TEXT);
@@ -247,14 +248,14 @@ final class Win32DialogColors implements DialogColors {
   }
 
   /**
-   * Returns the system link color raised to {@link Contrast#LINK} on {@link #BODY}.
+   * Returns the system link color raised to {@link Contrast#LINK} on {@link #WINDOW}.
    *
    * @param display the Display
    * @return the color
    */
   static Color link(Display display) {
     RGB theme = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND).getRGB();
-    return new Color(Contrast.readable(theme, BODY.getRGB()));
+    return new Color(Contrast.readable(theme, WINDOW.getRGB()));
   }
 
   /** True for a field color the application did not set. */
@@ -262,7 +263,7 @@ final class Win32DialogColors implements DialogColors {
     Color color = control.getBackground();
     return same(control, color, SWT.COLOR_LIST_BACKGROUND)
         || same(control, color, SWT.COLOR_WIDGET_BACKGROUND)
-        || color.getRGB().equals(BODY.getRGB());
+        || color.getRGB().equals(WINDOW.getRGB());
   }
 
   /** True for a text color the application did not set. */

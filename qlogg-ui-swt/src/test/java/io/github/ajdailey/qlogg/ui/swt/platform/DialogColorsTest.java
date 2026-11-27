@@ -80,13 +80,13 @@ class DialogColorsTest {
     RGB pushBackground = push.getBackground().getRGB();
     RGB pushForeground = push.getForeground().getRGB();
     shell.open();
-    assertEquals(Win32DialogColors.BODY.getRGB(), shell.getBackground().getRGB());
-    assertEquals(Win32DialogColors.BODY.getRGB(), page.getBackground().getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), shell.getBackground().getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), page.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), label.getForeground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), link.getForeground().getRGB());
     assertEquals(Win32DialogColors.link(display).getRGB(), link.getLinkForeground().getRGB());
     assertTrue(
-        Contrast.ratio(link.getLinkForeground().getRGB(), Win32DialogColors.BODY.getRGB())
+        Contrast.ratio(link.getLinkForeground().getRGB(), Win32DialogColors.WINDOW.getRGB())
             >= Contrast.LINK);
     assertEquals(Win32DialogColors.TEXT.getRGB(), check.getForeground().getRGB());
     assertEquals(Win32DialogColors.FIELD.getRGB(), text.getBackground().getRGB());
@@ -101,7 +101,7 @@ class DialogColorsTest {
     assertEquals(Win32DialogColors.FACE.getRGB(), readOnly.getBackground().getRGB());
     assertEquals(Win32DialogColors.TEXT.getRGB(), readOnly.getForeground().getRGB());
     assertEquals(OWN, own.getForeground().getRGB());
-    assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), colors.background(owner).getRGB());
   }
 
   /**
@@ -117,7 +117,7 @@ class DialogColorsTest {
     new ToolItem(bar, SWT.PUSH).setText("mock");
     shell.open();
     shell.setBackgroundMode(SWT.INHERIT_NONE);
-    assertEquals(Win32DialogColors.BODY.getRGB(), bar.getBackground().getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), bar.getBackground().getRGB());
   }
 
   @Test
@@ -332,7 +332,7 @@ class DialogColorsTest {
               }
             },
             BOUND));
-    assertEquals(Win32DialogColors.BODY.getRGB(), colors.background(owner).getRGB());
+    assertEquals(Win32DialogColors.WINDOW.getRGB(), colors.background(owner).getRGB());
   }
 
   @Test

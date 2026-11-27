@@ -26,7 +26,7 @@ final class Win32DialogTabs implements DialogTabs {
    */
   Win32DialogTabs(Composite parent) {
     folder = new CTabFolder(parent, SWT.TOP | SWT.FLAT);
-    folder.setBackground(Win32DialogColors.BODY);
+    folder.setBackground(Win32DialogColors.WINDOW);
     folder.setForeground(Win32DialogColors.TEXT);
     folder.setSelectionBackground(Win32DialogColors.FIELD);
     folder.setSelectionForeground(Win32DialogColors.TEXT);
@@ -42,7 +42,7 @@ final class Win32DialogTabs implements DialogTabs {
     CTabItem item = new CTabItem(folder, SWT.NONE);
     item.setText(title);
     Composite page = new Composite(folder, SWT.NONE);
-    page.setBackground(Win32DialogColors.BODY);
+    page.setBackground(Win32DialogColors.WINDOW);
     item.setControl(page);
     if (folder.getItemCount() == 1) {
       folder.setSelection(0);

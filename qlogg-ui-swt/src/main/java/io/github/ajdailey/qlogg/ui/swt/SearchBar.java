@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.app.view.SearchViewListener;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -146,6 +147,7 @@ public final class SearchBar {
     layout.horizontalSpacing = 4;
     bar.setLayout(layout);
     visibility = new Combo(bar, SWT.READ_ONLY | SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(visibility);
     for (UiText mode : MODES) {
       visibility.add(mode.text());
     }
@@ -187,12 +189,14 @@ public final class SearchBar {
     filters.setToolTipText(CommandId.PREDEFINED_FILTERS.title());
     filterMenu = new Menu(filterBar);
     pattern = new Combo(bar, SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(pattern);
     GridData patternData = new GridData(SWT.FILL, SWT.CENTER, true, false);
     patternData.widthHint = MIN_PATTERN_WIDTH;
     patternData.minimumWidth = MIN_PATTERN_WIDTH;
     pattern.setLayoutData(patternData);
     pattern.setToolTipText(UiText.SEARCH_HINT.text());
     rangeEnd = new Combo(bar, SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(rangeEnd);
     GridData endData = new GridData(SWT.FILL, SWT.CENTER, true, false);
     endData.widthHint = MIN_RANGE_WIDTH;
     endData.minimumWidth = MIN_RANGE_WIDTH;

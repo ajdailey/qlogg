@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.controller.EncodingChoices;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ final class EncodingCombo {
    */
   EncodingCombo(Composite parent, String current, MainWindow.EncodingSource source) {
     combo = new Combo(parent, SWT.READ_ONLY | SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(combo);
     show(EncodingChoices.commonCharsets(), List.<Charset>of(), current);
     source.load(
         new EncodingChoices.Listener() {

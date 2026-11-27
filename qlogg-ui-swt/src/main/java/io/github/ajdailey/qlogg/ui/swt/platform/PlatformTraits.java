@@ -135,6 +135,13 @@ public interface PlatformTraits {
   ToolItemSizing toolItemSizing();
 
   /**
+   * Returns how a drop-down combo's open list draws its selected row.
+   *
+   * @return {@link Win32ComboListSelection} on win32, else {@link NativeComboListSelection}
+   */
+  ComboListSelection comboListSelection();
+
+  /**
    * Creates the native controls' theme handling for a Display.
    *
    * @param display the Display

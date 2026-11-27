@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.folder.FileHits;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.text.ControlChars;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import java.util.List;
 import java.util.function.Supplier;
 import org.eclipse.swt.SWT;
@@ -119,6 +120,7 @@ final class FolderSearchWindow {
     setRow.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     new Label(setRow, SWT.NONE).setText(UiText.FOLDER_SETS.text());
     setList = new Combo(setRow, SWT.READ_ONLY | SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(setList);
     setList.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     setList.addListener(
         SWT.Selection,

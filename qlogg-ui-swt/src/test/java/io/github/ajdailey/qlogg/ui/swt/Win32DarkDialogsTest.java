@@ -78,8 +78,8 @@ class Win32DarkDialogsTest {
   private static final Duration BOUND = Duration.ofSeconds(20);
   private static final RGB PROBE = new RGB(0x12, 0x9a, 0x56);
 
-  /** {@code Win32DialogColors.BODY}. */
-  private static final RGB DARK_BODY = new RGB(0x20, 0x20, 0x20);
+  /** {@code Win32DialogColors.WINDOW}. */
+  private static final RGB DARK_WINDOW = new RGB(0x20, 0x20, 0x20);
 
   private static final int TOLERANCE = 8;
 
@@ -432,7 +432,7 @@ class Win32DarkDialogsTest {
       Point origin = dialog.toDisplay(client.x + 2, client.y + client.height - 10);
       body = mode(capture(new Rectangle(origin.x, origin.y, 6, 6)));
       RGB expected =
-          dark ? DARK_BODY : display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND).getRGB();
+          dark ? DARK_WINDOW : display.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND).getRGB();
       if (!near(body, expected)) {
         wrong.add(name + " body");
       }
@@ -515,8 +515,8 @@ class Win32DarkDialogsTest {
       wrong.add(name + " selected tab");
     }
     if (dark
-        && ((read.row() != null && !near(read.row(), DARK_BODY))
-            || !near(read.edge(), DARK_BODY))) {
+        && ((read.row() != null && !near(read.row(), DARK_WINDOW))
+            || !near(read.edge(), DARK_WINDOW))) {
       wrong.add(name + " tab row or frame");
     }
     report.append(
