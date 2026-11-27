@@ -119,7 +119,7 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
     if (-not $launch.Ended) { throw "$Name $($launch.Label) launch did not exit within 60 s" }
     if ($launch.ExitCode -ne 0) { throw "$Name $($launch.Label) launch exited $($launch.ExitCode)" }
   }
-  if ($flagged.Stderr.Contains('restricted method')) { throw "$Name handoff with the flag printed a restricted-method warning:`n$($second.Stderr)" }
+  if ($flagged.Stderr.Contains('restricted method')) { throw "$Name handoff with the flag printed a restricted-method warning:`n$($flagged.Stderr)" }
   if (-not $control.Stderr.Contains('restricted method')) { throw "$Name handoff without the flag printed no restricted-method warning, so the grant did not link:`n$($control.Stderr)" }
   if (-not $text.Contains('Handoff of 1 files taken')) { throw "$Name primary took no handoff" }
   if ($text.Contains('Unhandled failure')) { throw "$Name logged an unhandled failure" }

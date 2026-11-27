@@ -46,11 +46,17 @@ in the root POM) and its GFM tables extension (BSD-2-Clause, build only) and
 runs `src/build/GuideRenderer.java` with the Java source launcher.
 `docs/user-guide.md` becomes one HTML page under
 `target/generated-resources/guide`, with each image a `data:` URI and each
-heading an `<a id>` with its GitHub anchor.
+heading an `<a id>` with its GitHub anchor. The first element after the charset
+meta is a `Content-Security-Policy` meta carrying `UserGuide.POLICY`
+(`default-src 'none'; style-src 'unsafe-inline'; img-src data:`), so a browser
+loads nothing but the inline style and the embedded images, raw HTML in the
+guide included. `GuideRenderer` repeats the string because a source-launcher
+script cannot load the app's classes.
 
 - A link that leaves the page or names no heading fails the build.
 - An image that is not a PNG beside the guide fails the build.
-- `UserGuidePageTest` checks the shipped page's links against its anchors.
+- `UserGuidePageTest` checks the shipped page's links against its anchors, the
+  policy meta against `UserGuide.POLICY`, and every image source as `data:`.
 
 ### Showing the guide
 

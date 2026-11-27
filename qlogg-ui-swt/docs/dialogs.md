@@ -119,7 +119,9 @@ Each is modal with OK disabled until its input parses.
 
 `GuideWindow` is an SWT `Browser` with JavaScript off on the guide's copy, and
 Close. A `LocationListener` refuses every location but that file (with or
-without an anchor) and `about:blank`.
+without an anchor) and `about:blank`. The page's content security policy
+(`UserGuide.POLICY`) blocks every subresource but inline styles and `data:`
+images.
 
 The window closes and calls `ApplicationController.showGuideElsewhere` (the OS
 browser, else a notice naming the copy) when:

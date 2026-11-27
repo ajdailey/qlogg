@@ -162,7 +162,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `UiTextTest` | Every `UiText` constant with a bundle entry and every entry with a constant; each pattern formatting |
 | `WindowTitlesTest` | `WindowTitles.plain` removing mnemonic markers and a trailing ellipsis, `&&` kept as `&`; every `CommandId.title` plain |
 | `AboutInfoTest` | The OS line: name, version and architecture |
-| `UserGuidePageTest` | Every in-page link of the rendered guide naming a heading anchor; on Linux the embedded guide only in per-user mode |
+| `UserGuidePageTest` | Every in-page link of the rendered guide naming a heading anchor; the policy meta after the charset meta, equal to `UserGuide.POLICY` and before the styles; every image a `data:` PNG; on Linux the embedded guide only in per-user mode |
 | `RecentLogTest` | The newest lines kept, long lines cut, concurrent appends keeping the capacity |
 | `EventLoopWatchdogTest` | A held probe reported as a stall with the UI thread's stack, then the recovery |
 | `BusyCounterTest` | Overlapping operations keeping the indicator until the last ends; an idle with nothing active ignored; calls from a worker applied on the UI thread |

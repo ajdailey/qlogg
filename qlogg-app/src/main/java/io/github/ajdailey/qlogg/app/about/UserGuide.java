@@ -10,10 +10,15 @@ import java.nio.file.Path;
 
 /**
  * The user guide shipped in the jar: one self-contained HTML page the build generates from {@code
- * docs/user-guide.md}, with its images inlined. A browser shows the copy {@link #writeCopy} puts in
- * the settings directory's {@code cache} folder; the page loads nothing from elsewhere.
+ * docs/user-guide.md}, with its images inlined and {@link #POLICY} in its head. A browser shows the
+ * copy {@link #writeCopy} puts in the settings directory's {@code cache} folder; the page loads
+ * nothing from elsewhere.
  */
 public final class UserGuide {
+  /** The page's content security policy: nothing loads but inline styles and data images. */
+  public static final String POLICY =
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
+
   /** The page's resource name. */
   static final String RESOURCE = "/io/github/ajdailey/qlogg/app/guide/guide.html";
 
