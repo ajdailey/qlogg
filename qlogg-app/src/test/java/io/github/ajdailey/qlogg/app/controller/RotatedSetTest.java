@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
+import io.github.ajdailey.qlogg.app.config.FollowSettings;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.view.FolderRequest;
@@ -19,12 +21,15 @@ import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
@@ -34,7 +39,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * A rotated set in a window: open with {@code --rotated}, title, tooltip, status member and
  * boundaries, Include Rotated Files both ways, a roll-over that renumbers lines, session marks
- * across a rotation, Recently Closed, Search in Folder, and a rotated CSV set's repeated header.
+ * across a rotation, Recently Closed, Search in Folder, a rotated CSV set's repeated header, the
+ * caret through a roll-over, rotations during a reload, and a rotated open typed in another case.
  */
 class RotatedSetTest {
   private static final long NOW = System.currentTimeMillis();
@@ -206,6 +212,154 @@ class RotatedSetTest {
     assertNotNull(notice);
     assertTrue(notice.contains("app.log.2 left the set"), notice);
     assertTrue(notice.contains("1 marks left the set"), notice);
+  }
+
+  @Test
+  void aRollOverKeepsTheCaretOnItsTextWhileFollowing() throws Exception {
+    caretThroughARollOver(true);
+  }
+
+  @Test
+  void aRollOverKeepsTheCaretOnItsTextWithoutFollowing() throws Exception {
+    caretThroughARollOver(false);
+  }
+
+  /**
+   * Puts the caret on {@code hit one b} (line 4), deletes the oldest file and finds it on line 1.
+   */
+  private void caretThroughARollOver(boolean follow) throws Exception {
+    Path base = series();
+    final DocumentController set = openSet(base, "app.log +2");
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return set.viewport().lineCount() == 9;
+          }
+        });
+    set.setFollowing(follow);
+    set.select(Selection.caretAt(new TextPosition(4, 0)));
+    assertEquals(follow, set.following());
+    Files.delete(base.resolveSibling("app.log.2"));
+    final DocumentController rolled = replacement(set);
+    rolled.viewportResized(10, 80);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return rolled.viewport().lineCount() == 6 && !rolled.state().indexing();
+          }
+        });
+    assertEquals(1, rolled.selection().caret().line());
+    assertEquals("app.log.1:2", rolled.caretMember());
+    assertEquals(follow, rolled.following());
+  }
+
+  /**
+   * A writer appends every 50 ms and rotates every 400 ms, files kept closed, so rotations land
+   * while the set reloads and reindexes 3 MB files. Each notice names the set by its base name and
+   * the file that left, and the tab ends with three files. Each new active file starts with its own
+   * line: on Windows, with no file key and NTFS tunneling, two files with the same first bytes are
+   * ambiguous and the set drops the active file.
+   */
+  @Test
+  void rotationsDuringAReloadEachNameTheSetAndTheFileThatLeft() throws Exception {
+    Path dir = Files.createDirectories(temp.resolve("logs"));
+    Path base = dir.resolve("app.log");
+    String[] names = {"app.log.2", "app.log.1", "app.log"};
+    for (int i = 0; i < names.length; i++) {
+      StringBuilder text = new StringBuilder();
+      for (int line = 0; line < 30_000; line++) {
+        text.append(names[i]).append(" mock line ").append(line).append(" padding padding\n");
+      }
+      write(names[i], text.toString(), 300 - 100 * i);
+    }
+    fixture =
+        new ControllerFixture(
+            temp, Preferences.DEFAULTS.withFollow(new FollowSettings(false, true, true)));
+    fixture.application.open(List.of(new FileRequest(base, 0, true)), true);
+    shown("app.log +2");
+    int rotations = 0;
+    int appends = 0;
+    long nextRotation = 0;
+    long end = System.nanoTime() + 3_000_000_000L;
+    while (System.nanoTime() < end) {
+      Files.writeString(
+          base,
+          "mock append " + appends++ + "\n",
+          StandardCharsets.US_ASCII,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.APPEND);
+      if (System.nanoTime() >= nextRotation) {
+        if (rotations > 0) {
+          Files.delete(dir.resolve("app.log.2"));
+          Files.move(dir.resolve("app.log.1"), dir.resolve("app.log.2"));
+          Files.move(base, dir.resolve("app.log.1"));
+          Files.writeString(base, "mock first " + rotations + "\n", StandardCharsets.US_ASCII);
+        }
+        rotations++;
+        nextRotation = System.nanoTime() + 400_000_000L;
+      }
+      fixture.ui.runPending();
+      Thread.sleep(50);
+    }
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController shown = fixture.application.activeDocument();
+            return shown != null
+                && shown.state().title().equals("app.log +2")
+                && !shown.state().indexing()
+                && rolled().size() > 0;
+          }
+        });
+    for (String notice : rolled()) {
+      assertTrue(notice.startsWith("app.log rolled over; app.log.2"), notice);
+      assertTrue(notice.contains(" left the set"), notice);
+    }
+    assertEquals(1, fixture.application.documents().size());
+  }
+
+  private List<String> rolled() {
+    List<String> notices = new ArrayList<String>();
+    for (String notice : fixture.view.notices) {
+      if (notice.contains("rolled over")) {
+        notices.add(notice);
+      }
+    }
+    return notices;
+  }
+
+  /**
+   * Where names ignore case, {@code --rotated} with a name typed in another case opens the set
+   * under its on-disk names, and opening it again shows the same tab. The stub case rule makes this
+   * run on a case-sensitive file system.
+   */
+  @Test
+  void aRotatedOpenTypedInAnotherCaseUsesTheOnDiskNamesAndTheOpenTab() throws Exception {
+    Path base = series();
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS, OsTraits.of("Mac OS X"));
+    typedInAnotherCase(base);
+  }
+
+  /** As above with the host's own case rule; runs only on a case-insensitive file system. */
+  @Test
+  void aRotatedOpenTypedInAnotherCaseOnACaseInsensitiveFileSystem() throws Exception {
+    Path base = series();
+    assumeTrue(Files.exists(base.resolveSibling("APP.LOG.1")), "names keep their case here");
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    typedInAnotherCase(base);
+  }
+
+  private void typedInAnotherCase(Path base) throws Exception {
+    Path typed = temp.resolve("LOGS").resolve("APP.LOG.1");
+    DocumentController set = openSet(typed, "app.log +2");
+    assertEquals(base, set.document().path());
+    fixture.application.open(List.of(new FileRequest(base, 0, true)));
+    fixture.application.open(List.of(new FileRequest(typed, 0, true)));
+    fixture.runUntilIdle();
+    assertEquals(List.of(set), fixture.application.documents());
   }
 
   @Test

@@ -110,7 +110,7 @@ public interface OsTraits {
 
   /**
    * Reports whether {@code follow.keepClosed} defaults to on: true on Windows, where a file held
-   * open refuses a writer's rename over it.
+   * open can refuse a writer's rename over it.
    *
    * @return true on Windows
    */

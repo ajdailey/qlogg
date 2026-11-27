@@ -357,7 +357,7 @@ class LogDocumentFollowTest {
     }
   }
 
-  /** Off the option, the rename over a followed file is the case Windows refuses. */
+  /** Off the option, the rename over a followed file is the case Windows can refuse. */
   @Test
   void aRenameOverAKeptClosedFileLandsAndReportsReplaced() throws Exception {
     Path file = Files.writeString(dir.resolve("app.log"), "first\nsecond\n");

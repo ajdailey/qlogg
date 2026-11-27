@@ -262,7 +262,7 @@ class FollowControllerTest {
     return Preferences.DEFAULTS.withFollow(new FollowSettings(false, true, true));
   }
 
-  /** A rename over the name is what Windows refuses while the default holds the file. */
+  /** A rename over the name is what Windows can refuse while the default holds the file. */
   @Test
   void aRenameOverAKeptClosedFileReopensTheTab() throws Exception {
     DocumentController document = open(keptClosed(), 40);

@@ -641,8 +641,10 @@ final class DocumentOpener {
    * remembered timestamp format skips the format detection. A set reads the base file's entry.
    */
   @WorkerThread
-  private LogDocument openRemembered(Path path, DocumentServices services, boolean rotated)
+  private LogDocument openRemembered(Path given, DocumentServices services, boolean rotated)
       throws IOException {
+    // A set's base name, tab title and open-tab lookup use the on-disk spelling.
+    Path path = rotated ? RotatedTabs.onDisk(given, ignoreCase) : given;
     Path key = rotated ? RotatedTabs.base(path, ignoreCase) : path;
     PositionStore.Entry entry;
     try {

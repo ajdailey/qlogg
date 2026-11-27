@@ -155,8 +155,9 @@ public final class DocumentController extends LineViewController {
    * @param top the first visible line of a restored position, or -1 to center the line
    * @param column the caret's column of a restored position
    * @param quiet true when a time sync group does not hear of the move
+   * @param scroll false to move only the caret, as a kept line does while following
    */
-  private record PendingMove(long line, long top, long column, boolean quiet) {}
+  private record PendingMove(long line, long top, long column, boolean quiet, boolean scroll) {}
 
   /**
    * Creates the controller for an open document; {@link #start} begins indexing.
@@ -741,23 +742,41 @@ public final class DocumentController extends LineViewController {
       pending = null;
       moveTo(revealRow(Math.min(line, Math.max(0, shownLines() - 1))));
     } else {
-      pending = new PendingMove(line, -1, 0, false);
+      pending = new PendingMove(line, -1, 0, false, true);
     }
   }
 
   /**
    * Goes to a line as {@link #goToLine} does, for a position kept rather than chosen: a time sync
-   * group does not hear of it.
+   * group does not hear of it. The move waits until a flush shows the line; before a reopened tab's
+   * first flush it would land on line 0. While following, only the caret moves and the view stays
+   * at the end.
    *
    * @param oneBasedLine the line as the user numbers it, from 1
    */
   void keepLine(long oneBasedLine) {
-    time.setQuiet(true);
-    goToLine(oneBasedLine);
-    time.setQuiet(false);
-    if (pending != null) {
-      pending = new PendingMove(pending.line(), -1, 0, true);
+    long line = Math.max(0, oneBasedLine - 1);
+    if (line >= shownLines()) {
+      pending = new PendingMove(line, -1, 0, true, !following);
+    } else if (following) {
+      pending = null;
+      keepCaret(line);
+    } else {
+      pending = null;
+      time.setQuiet(true);
+      moveTo(revealRow(line));
+      time.setQuiet(false);
     }
+  }
+
+  /** Puts the caret on a line without scrolling and without a time sync group hearing of it. */
+  private void keepCaret(long line) {
+    long row = revealRow(Math.min(line, Math.max(0, shownLines() - 1)));
+    time.setQuiet(true);
+    select(
+        Selection.caretAt(
+            new TextPosition(Math.max(0, Math.min(row, viewport().lineCount() - 1)), 0)));
+    time.setQuiet(false);
   }
 
   /**
@@ -800,7 +819,7 @@ public final class DocumentController extends LineViewController {
       pending = null;
       applyPosition(top, line, column);
     } else {
-      pending = new PendingMove(line, top, column, false);
+      pending = new PendingMove(line, top, column, false, true);
     }
   }
 
@@ -1387,6 +1406,8 @@ public final class DocumentController extends LineViewController {
       long line = Math.min(move.line(), Math.max(0, index.lineCount() - 1));
       if (move.top() >= 0) {
         applyPosition(move.top(), line, move.column());
+      } else if (!move.scroll()) {
+        keepCaret(line);
       } else {
         time.setQuiet(move.quiet());
         moveTo(revealRow(line));

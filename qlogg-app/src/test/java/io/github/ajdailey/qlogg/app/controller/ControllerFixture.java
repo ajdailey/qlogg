@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.search.LineSet;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -37,7 +38,17 @@ final class ControllerFixture implements AutoCloseable {
 
   /** An application whose encoding detection falls back to {@code fallback}. */
   ControllerFixture(Path temp, Preferences preferences, Charset fallback) {
+    this(temp, preferences, fallback, OsTraits.current());
+  }
+
+  /** An application whose view answers {@code system} for the platform. */
+  ControllerFixture(Path temp, Preferences preferences, OsTraits system) {
+    this(temp, preferences, StandardCharsets.ISO_8859_1, system);
+  }
+
+  private ControllerFixture(Path temp, Preferences preferences, Charset fallback, OsTraits system) {
     this.temp = temp;
+    view.system = system;
     workers =
         new Workers(
             2,

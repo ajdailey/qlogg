@@ -205,7 +205,7 @@ empty. The tab's filter tabs are derived again over the new document.
 
 | Trigger | Marks, comments, labels | Search |
 |---|---|---|
-| `F5` | Kept: the worker copies them into the new document, and its first completed indexing drops marks and comments past the last line. The caret's line is kept | Not rerun |
+| `F5` | Kept: the worker copies them into the new document, and its first completed indexing drops marks and comments past the last line. The caret's line is kept; in a following tab only the caret moves there (`keepLine`) and the view stays at the end | Not rerun |
 | Change on disk | Emptied, with a notice | With `autoRefresh` on, a search that was not canceled runs again with the text and toggles it ran with; the notice says so instead of results cleared. The field and toggles stay as they were |
 | `ROLLED` (a rotated set renumbered) | Kept as for `F5`, moved through the document's `LineMap`; those on a dropped member go. The caret and the navigation history move the same way. One notice names the dropped members and counts the marks | As for a change on disk |
 | Include Rotated Files | Kept as for `F5`, moved through a map `LineCarry.toggled` builds | Not rerun |
@@ -216,9 +216,12 @@ A tab shows a rotated set when its `FileRequest` is `rotated` (`--rotated`, the
 handoff's `ROTATED 1`, a Recently Closed or session entry closed as a set) or
 after Include Rotated Files. `DocumentOpener` then calls
 `LogDocument.openRotated` with `OsTraits.fileNamesIgnoreCase()` and the base
-file's `PositionStore` entry. A set's `path()` is its base path, so `find`
-matches a plain open of the active file to the set's tab; a rotated open that
-finds the file shown alone turns that tab into the set.
+file's `PositionStore` entry. Where names ignore case, `RotatedTabs.onDisk`
+first replaces each name of the given path with its directory entry's
+spelling, so `APP.LOG.1` opens the set as `app.log`. A set's `path()` is its
+base path, so `find` matches a plain open of the active file, and a rotated
+open typed in another case, to the set's tab; a rotated open that finds the
+file shown alone turns that tab into the set.
 
 `LineCarry` moves marks and comments into the reopened document on the worker:
 
