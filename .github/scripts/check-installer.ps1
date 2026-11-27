@@ -311,6 +311,19 @@ public static class TokenInfo {
   }
 }
 "@
+  # Start-Process -Credential passes the caller's environment; point the profile variables
+  # at this user's profile so setup and the checks use its folders.
+  $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $userHome = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid").ProfileImagePath
+  $env:USERPROFILE = $userHome
+  $env:HOMEPATH = $userHome.Substring(2)
+  $env:USERNAME = [Environment]::UserName
+  $env:APPDATA = Join-Path $userHome 'AppData\Roaming'
+  $env:LOCALAPPDATA = Join-Path $userHome 'AppData\Local'
+  $env:TEMP = Join-Path $env:LOCALAPPDATA 'Temp'
+  $env:TMP = $env:TEMP
+  New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null
+  $result.localAppData = $env:LOCALAPPDATA
   $setup = Join-Path $PSScriptRoot 'setup.exe'
   $installed = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
   $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
@@ -369,7 +382,8 @@ try {
   if ($result.callerLevel -ne 0x2000) { throw "the standard user's shell runs at integrity $($result.callerLevel), expected 0x2000" }
   if ($result.setupLevel -ne 0x2000 -or $result.setupElevation -ne 0) { throw "standard user setup ran at integrity $($result.setupLevel), elevation $($result.setupElevation)" }
   if ($result.userExit -ne 0) { throw "standard user setup /S /USER exited $($result.userExit)" }
-  if (-not $result.installed -or -not $result.entry) { throw 'standard user setup /S /USER installed no qlogg.exe or Installed apps entry' }
+  if (-not $result.installed) { throw 'standard user setup /S /USER installed no qlogg.exe' }
+  if ($result.entry -ne (Join-Path $result.localAppData 'Programs\QLogg')) { throw "standard user setup /S /USER wrote InstallLocation [$($result.entry)]" }
   if (-not $result.verb) { throw 'standard user setup /S /USER wrote no QLogg.Open verb' }
   if ($result.machineExit -ne 5) { throw "standard user setup /S /MACHINE exited $($result.machineExit), expected 5" }
   if ("$($result.machineError)" -notlike '*/MACHINE needs an elevated caller*') { throw "standard user setup /S /MACHINE wrote [$($result.machineError)] to standard error" }
