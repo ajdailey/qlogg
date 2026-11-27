@@ -90,18 +90,71 @@ public final class SearchController {
     REPLACE
   }
 
+  /**
+   * A search that ran to its end, as a filter tab takes it. A class, not a record, so the mutable
+   * set has no public accessor.
+   */
+  static final class Ran {
+    final String text;
+    final SearchOptions options;
+    final SearchQuery query;
+    final MutableLineSet lines;
+    final SearchLimit limit;
+    final long end;
+    final long bytes;
+    final boolean rangeOpen;
+
+    /**
+     * Creates the search.
+     *
+     * @param text the search text
+     * @param options the toggles it ran with
+     * @param query its query, without a restriction to the tab's rows
+     * @param lines the matching lines
+     * @param limit what stopped it early, or {@code NONE}
+     * @param end the line below which {@code lines} holds every match
+     * @param bytes the indexed bytes it searched
+     * @param rangeOpen for a range search, whether a range was open before the line {@code end - 1}
+     */
+    Ran(
+        String text,
+        SearchOptions options,
+        SearchQuery query,
+        MutableLineSet lines,
+        SearchLimit limit,
+        long end,
+        long bytes,
+        boolean rangeOpen) {
+      this.text = text;
+      this.options = options;
+      this.query = query;
+      this.lines = lines;
+      this.limit = limit;
+      this.end = end;
+      this.bytes = bytes;
+      this.rangeOpen = rangeOpen;
+    }
+  }
+
   /** A finished search kept as a pinned result set. */
   public static final class KeptResults {
     private final String text;
     private final SearchOptions options;
     private final MutableLineSet lines;
     private final SearchLimit limit;
+    private final Ran ran;
 
     KeptResults(String text, SearchOptions options, MutableLineSet lines, SearchLimit limit) {
+      this(text, options, lines, limit, null);
+    }
+
+    KeptResults(
+        String text, SearchOptions options, MutableLineSet lines, SearchLimit limit, Ran ran) {
       this.text = text;
       this.options = options;
       this.lines = lines;
       this.limit = limit;
+      this.ran = ran;
     }
 
     /**
@@ -180,6 +233,7 @@ public final class SearchController {
   private long limitEnd = -1;
   private boolean closed;
   private SearchQuery lastQuery;
+  private SearchQuery ranQuery;
   private long searchedEnd;
   private long searchedBytes;
   private boolean searchedRangeOpen;
@@ -292,6 +346,30 @@ public final class SearchController {
    */
   public SearchOptions shownOptions() {
     return shown < 0 ? state.options() : kept.get(shown).options();
+  }
+
+  /**
+   * Returns the shown set's search when it ran to its end ({@code DONE}), for a filter tab.
+   *
+   * @return the search, or null while it runs, after it failed or was canceled, or with no search
+   */
+  Ran shownRan() {
+    if (shown >= 0) {
+      return kept.get(shown).ran;
+    }
+    return state.phase() == SearchViewState.Phase.DONE ? ran(results) : null;
+  }
+
+  private Ran ran(MutableLineSet lines) {
+    return new Ran(
+        state.text(),
+        state.options(),
+        ranQuery,
+        lines,
+        state.limit(),
+        searchedEnd,
+        searchedBytes,
+        searchedRangeOpen);
   }
 
   /**
@@ -513,6 +591,7 @@ public final class SearchController {
             false);
     document.filtered().setVisibility(Visibility.MARKS_AND_MATCHES);
     lastQuery = query.scope() == null || query.scope().end() == Long.MAX_VALUE ? query : null;
+    ranQuery = query;
     AtomicBoolean active = new AtomicBoolean(true);
     activity.setActive();
     if (!start(query, active, false)) {
@@ -527,7 +606,9 @@ public final class SearchController {
   }
 
   /**
-   * Starts the engine over the document's current snapshot inside a document entry.
+   * Starts the engine over the document's current snapshot inside a document entry, restricted to
+   * the view's rows below their settled line ({@link RowMap#settledLines}), holding the rows as a
+   * reader until it ends.
    *
    * @return false when the document is closing or the workers are closed
    */
@@ -536,6 +617,7 @@ public final class SearchController {
       return false;
     }
     LineIndex index = document.document().index();
+    final RowMap rows = document.rowMap();
     long first = query.scope() == null ? 0 : Math.min(query.scope().first(), index.lineCount());
     AtomicBoolean discarded = new AtomicBoolean();
     Events events =
@@ -545,18 +627,41 @@ public final class SearchController {
             active,
             discarded,
             first,
-            index.indexedBytes(),
+            rows.settledBytes(index),
             refresh ? results.size() : 0,
             refresh ? state.skippedLines() : 0,
-            refresh);
+            refresh,
+            rows);
+    rows.readerStarted();
     try {
-      OperationHandle handle = engine.search(document.document(), index, query, results, events);
+      OperationHandle handle =
+          engine.search(document.document(), index, settled(query, rows), results, events);
       running = new Running(handle, active, discarded, refresh);
       return true;
     } catch (RejectedExecutionException e) {
       document.document().exit();
+      rows.readerEnded();
       return false;
     }
+  }
+
+  /** Restricts a query to the rows' members and cuts its scope at their settled line. */
+  private static SearchQuery settled(SearchQuery query, RowMap rows) {
+    LineRange scope = query.scope();
+    long end = Math.min(scope == null ? Long.MAX_VALUE : scope.end(), rows.settledLines());
+    long first = scope == null ? 0 : scope.first();
+    LineRange cut =
+        first == 0 && end == Long.MAX_VALUE ? null : new LineRange(first, Math.max(first, end));
+    return new SearchQuery(
+        query.expression(),
+        query.caseSensitive(),
+        query.wholeWord(),
+        query.inverse(),
+        cut,
+        query.hideAnsi(),
+        query.rangeEnd(),
+        query.rangeOpen(),
+        rows.members());
   }
 
   /**
@@ -574,12 +679,14 @@ public final class SearchController {
       return;
     }
     LineIndex index = document.document().index();
-    if (index.indexedBytes() <= searchedBytes || index.lineCount() == 0) {
+    RowMap rows = document.rowMap();
+    long settled = Math.min(index.lineCount(), rows.settledLines());
+    if (rows.settledBytes(index) <= searchedBytes || settled == 0) {
       return;
     }
     long first = lastQuery.scope() == null ? 0 : lastQuery.scope().first();
     long from = Math.max(first, searchedEnd - 1);
-    if (from >= index.lineCount()) {
+    if (from >= settled) {
       return;
     }
     results.removeFrom(from);
@@ -922,7 +1029,8 @@ public final class SearchController {
     boolean idle = running == null || running.refresh();
     if (keep && finished && idle && !state.text().isEmpty()) {
       cancel();
-      kept.add(new KeptResults(state.text(), state.options(), results, state.limit()));
+      Ran ran = state.phase() == SearchViewState.Phase.DONE ? ran(results) : null;
+      kept.add(new KeptResults(state.text(), state.options(), results, state.limit(), ran));
     } else {
       discard();
       results.clear();
@@ -981,6 +1089,7 @@ public final class SearchController {
     private final long baseMatches;
     private final long baseSkipped;
     private final boolean refresh;
+    private final RowMap rows;
     private volatile long searched;
     private volatile long total;
     private volatile long matches;
@@ -996,7 +1105,8 @@ public final class SearchController {
         long bytes,
         long baseMatches,
         long baseSkipped,
-        boolean refresh) {
+        boolean refresh,
+        RowMap rows) {
       this.searchGeneration = searchGeneration;
       this.set = set;
       this.active = active;
@@ -1007,6 +1117,7 @@ public final class SearchController {
       this.baseSkipped = baseSkipped;
       this.skipped = baseSkipped;
       this.refresh = refresh;
+      this.rows = rows;
     }
 
     @Override
@@ -1042,6 +1153,15 @@ public final class SearchController {
         }
         report(build(true, outcome, limit, failure));
         end(active);
+        document
+            .ui()
+            .asyncExec(
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    rows.readerEnded();
+                  }
+                });
       } finally {
         document.document().exit();
       }

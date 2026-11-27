@@ -1471,7 +1471,16 @@ public enum UiText {
   /** Startup message: file arguments holding {@code ?} or {@code *}, not opened. */
   LAUNCH_NAMES_UNPASSED,
   /** Startup message: the Java launcher expanded these patterns; no command-line file opened. */
-  LAUNCH_NAMES_EXPANDED;
+  LAUNCH_NAMES_EXPANDED,
+  // Filter tabs.
+  /** Notice: Filter to Tab needs a search that ran to its end. */
+  NOTICE_FILTER_TAB_NOT_DONE,
+  /** Notice: the copy of the result set for a filter tab did not fit the memory limit. */
+  NOTICE_FILTER_TAB_MEMORY,
+  /** Notice: a filter tab stopped growing at the result limit: its row count. */
+  NOTICE_FILTER_TAB_RESULT_LIMIT,
+  /** Notice: a filter tab stopped growing at the memory limit: its row count. */
+  NOTICE_FILTER_TAB_MEMORY_LIMIT;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

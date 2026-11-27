@@ -2,7 +2,8 @@
 
 The controllers of one document's two views in `app.controller` of
 [qlogg-app](../README.md): `LineViewController`, `DocumentController` (the main
-view), `FilteredController`, `FoldController`, `TextExporter`,
+view), `FilteredController`, `FoldController`, the filter tab classes
+(`DerivedTabs`, `Derivation`, `DerivedRows`), `TextExporter`,
 `MarksListController` and `TabDataModel`.
 
 ## Line view controller
@@ -121,7 +122,8 @@ refused, so QLogg never writes a file it shows.
 ## Main view
 
 `DocumentController` is the main view, where row n is line n unless entries are
-folded. It owns the document's `SearchController` and `FilteredController`.
+folded, or, in a [filter tab](#filter-tabs), the n-th line of a set. It owns the
+document's `SearchController` and `FilteredController`.
 
 ### Index progress
 
@@ -171,7 +173,8 @@ its menu's enablement then.
 
 ### Marks
 
-- `]` and `[` go to the next and previous mark; with none, a notice shows.
+- `]` and `[` go to the next and previous mark among the rows; with none, a
+  notice shows.
 - `toggleMarks` runs `MarkToggle` from a `qlogg-search-` worker, one batch of
   4,096 rows per CPU step (`CpuSteps`), with the `ActivityIndicator` active.
   One toggle runs at a time (a second `M` shows a notice), with progress
@@ -218,7 +221,7 @@ the tab.
 ### Detach and close
 
 `detach()` drops every later result and detaches the search and the filtered
-view. `close()` also closes the document on a worker.
+view. `close()` also closes the document on a worker, in a file tab only.
 
 ### Highlighter and overview
 
@@ -245,10 +248,10 @@ bins are charged to `HIGHLIGHT`.
 
 ## Folding
 
-`DocumentController` maps rows to lines through a `FoldMap`, so a collapsed
-entry is one row. `FoldController` finds entry bounds with `FoldClassifier` on
-a `qlogg-read-` worker, one classification at a time and only around the
-visible rows.
+In a file tab `DocumentController` maps rows to lines through a `FoldMap`, so a
+collapsed entry is one row. `FoldController` finds entry bounds with
+`FoldClassifier` on a `qlogg-read-` worker, one classification at a time and
+only around the visible rows.
 
 | Command | Effect |
 |---|---|
@@ -266,6 +269,60 @@ visible rows.
 - A Toggle Fold pressed while a classification runs waits for it and then runs.
   A later press replaces a waiting one; Fold All, Unfold All or new rules
   drop it.
+
+## Filter tabs
+
+A filter tab is a `DocumentController` over its root tab's `LogDocument` whose
+rows are the root lines one search matched. `ApplicationController.filterToTab`
+makes one from a tab's shown result set when its search ran to its end
+(`SearchController.shownRan`), else a notice shows. A `qlogg-search-` worker
+copies the set (`MutableLineSet.copy`, charged to `RESULTS`), so the parent's
+next search leaves the tab as it is; a refused copy shows a notice. A filter
+tab of a filter tab makes a chain, every level in root lines.
+
+`DocumentController` takes a `RowMap` and a `DocumentRole` at construction;
+callers never check the tab kind.
+
+| | File tab | Filter tab |
+|---|---|---|
+| `RowMap` | `FoldRows`: row n is line n unless folded | `DerivedRows`: row n is `select(n)`; a line's row is `rank(line)`, the next row for a line that is not one |
+| `DocumentRole` | `OwnedDocument`: indexes, reopens on a change, closes | `Derivation`: shares the document and grows the rows |
+| Folding, keyword triggers | On | Off |
+| Its search tests | Every line | Its rows below `settledLines` (`SearchQuery.restriction`) |
+| Position, Recently Closed, session tab | Recorded | Left out (`ownsDocument()` is false) |
+
+### Growth
+
+`Derivation` searches the root lines from the rows' last searched line, which
+may have grown, to the parent's `settledLines`, restricted to the parent's
+rows. It runs whenever the parent's `settledBytes` passes the rows': a first
+level on the document's flush, a deeper level when its parent's growth ends.
+Growth ignores the auto-refresh toggle and shows no progress.
+
+- A growth removes the rows from its first line before it searches, so it
+  waits while a reader holds the rows: the tab's own search or a child's
+  growth. A reader that starts during a growth reads below its first line.
+- A growth stopped by the result or memory limit ends growth with a notice. A
+  search scoped to end before the end of the file ends growth at that line.
+
+### Chains and closing
+
+`DerivedTabs` (one per `WindowSet`) holds each filter tab's `Derivation`, whose
+parent is a controller in any window.
+
+- Closing a file tab closes its filter tabs at every depth in every window.
+  Closing a filter tab moves its children under its parent. Closing a window
+  does both for its tabs.
+- A reload or a change on disk that replaces the root tab derives every level
+  again over the new document, parents first, each with empty rows its growth
+  fills. The root's notice is the only one. `F5` in a filter tab reloads its
+  root.
+- Marks are the root document's. `]`, `[` and the marks list skip marks that
+  are not rows (`MarkSteps`, alternating `ceiling` or `floor` on the marks and
+  the rows).
+- `locateSource(tab)` shows the caret's line in the immediate parent: it shows
+  the parent's tab, raises its window, and records a jump in the parent's
+  navigation history. In a file tab it does nothing.
 
 ## Filtered view
 
@@ -301,8 +358,9 @@ set's), so a kept set keeps its counts.
 ## Marks list
 
 `MarksListController` backs Go > Marks List: the shown tab's first 10,000
-marks as rows of line, comment and the line's first 160 chars. It reads them on
-a `qlogg-read-` worker under `LogDocument.enter`, one read at a time.
+marks among its rows, each as line, comment and the line's first 160 chars. It
+reads them on a `qlogg-read-` worker under `LogDocument.enter`, one read at a
+time.
 
 - It follows `activeDocumentChanged`, `documentReplaced` and `documentClosed`,
   and reads again when a content event finds the marks' or comments'

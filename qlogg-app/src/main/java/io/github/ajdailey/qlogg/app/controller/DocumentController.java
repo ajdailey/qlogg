@@ -72,6 +72,11 @@ import org.slf4j.LoggerFactory;
  * DocumentHost}, which reopens it; a missing file keeps its content and shows a notice, unless a
  * failed reopen already showed one.
  *
+ * <p>Rows map to lines through a {@link RowMap}: {@link FoldRows} in a file tab, which owns its
+ * document ({@link OwnedDocument}), and {@link DerivedRows} in a filter tab, which shares its root
+ * tab's document and grows through its {@link Derivation}. Mark jumps step over marks that are not
+ * rows ({@link MarkSteps}).
+ *
  * <p>Folding ({@link FoldController}): a collapsed entry is one row, so rows map to lines through
  * the {@link FoldMap}. A fold change keeps the top line and the selection on their lines. Go to
  * line, find next and previous, mark jumps, a filtered-view or overview click and quick find expand
@@ -125,9 +130,10 @@ public final class DocumentController extends LineViewController {
   private boolean following;
   private long overscroll;
   private DocumentViewState state;
-  // Folding and the automatic highlighter set.
+  // Rows, folding and the automatic highlighter set.
   private final FoldMap folds;
-  private final FoldController folding;
+  private final RowMap rows;
+  private final DocumentRole role;
   private String autoSet;
   // Keyword triggers.
   private final TriggerController triggers;
@@ -172,11 +178,38 @@ public final class DocumentController extends LineViewController {
       MemoryBudget budget,
       SearchEngine engine,
       DocumentHost host) {
+    this(document, workers, ui, clipboard, notifications, activity, budget, engine, host, null);
+  }
+
+  /**
+   * Creates the controller of a file tab, or of a filter tab over its root tab's document.
+   *
+   * @param derivation the filter tab's definition, which takes this controller; null for a file
+   *     tab, which closes the document
+   */
+  DocumentController(
+      LogDocument document,
+      Workers workers,
+      UiDispatcher ui,
+      ClipboardService clipboard,
+      NotificationService notifications,
+      ActivityIndicator activity,
+      MemoryBudget budget,
+      SearchEngine engine,
+      DocumentHost host,
+      Derivation derivation) {
     super(document, workers, ui, clipboard, notifications, activity, budget);
     this.document = document;
     this.time = new TimeController(this);
     this.folds = new FoldMap(budget);
-    this.folding = new FoldController(this, folds);
+    if (derivation == null) {
+      this.rows = new FoldRows(this, folds);
+      this.role = new OwnedDocument();
+    } else {
+      this.rows = derivation.rows();
+      this.role = derivation;
+      derivation.attach(this);
+    }
     this.state = buildState(document.status());
     this.updates =
         new UiUpdateQueue(
@@ -264,21 +297,21 @@ public final class DocumentController extends LineViewController {
               new Runnable() {
                 @Override
                 public void run() {
-                  changedOnDisk(change);
+                  if (!isClosed()) {
+                    role.changed(DocumentController.this, change);
+                  }
                 }
               });
     }
 
     @Override
     public void closed() {
-      // The controller closes the document; nothing to refresh.
+      // The root tab's controller closes the document; nothing to refresh.
     }
   }
 
-  private void changedOnDisk(FileChange change) {
-    if (isClosed()) {
-      return;
-    }
+  /** Shows a missing file's notice, or reopens a truncated, replaced or modified one. */
+  void changedOnDisk(FileChange change) {
     if (change == FileChange.MISSING) {
       if (!document.reopenWaiting()) {
         UiText notice =
@@ -400,15 +433,39 @@ public final class DocumentController extends LineViewController {
     updates.post();
   }
 
-  /** Starts indexing and the first read. */
+  /** Starts indexing, or a filter tab's growth, and the first read. */
   public void start() {
+    document.addListener(events);
+    role.start(this);
+    refresh();
+  }
+
+  /** Starts indexing the document a file tab owns, and its keyword triggers. */
+  void startIndexing() {
     indexActive.set(true);
     activity().setActive();
-    document.addListener(events);
     indexStarted.set(System.nanoTime());
     document.startIndexing();
     triggers.started();
-    refresh();
+  }
+
+  /**
+   * Reports whether this tab owns its document: a file tab, not a filter tab.
+   *
+   * @return true when closing the tab closes the document
+   */
+  public boolean ownsDocument() {
+    return role.owns();
+  }
+
+  /** Returns the row map. */
+  RowMap rowMap() {
+    return rows;
+  }
+
+  /** The rows changed outside a document event; flushes them. */
+  void rowsChanged() {
+    updates.post();
   }
 
   /** Ends the indexing activity once, on whichever comes first: the end of indexing or detach. */
@@ -425,32 +482,22 @@ public final class DocumentController extends LineViewController {
 
   @Override
   public long sourceLine(long row) {
-    return row >= 0 && row < viewport().lineCount() ? folds.lineAt(row) : -1;
+    return row >= 0 && row < viewport().lineCount() ? rows.lineAt(row) : -1;
   }
 
   @Override
   public long rowOf(long line) {
-    return folds.rowOf(line);
+    return rows.rowOf(line);
   }
 
   @Override
   public RowCursor rows() {
-    return folds.cursor(document.index().lineCount());
+    return rows.cursor(document.index().lineCount());
   }
 
   @Override
   public long revealRow(long line) {
-    if (folds.collapsedEntry(line) != null && !folds.isCollapsed(line)) {
-      final long hidden = line;
-      changeFolds(
-          new Runnable() {
-            @Override
-            public void run() {
-              folds.expandContaining(hidden);
-            }
-          });
-    }
-    return folds.rowOf(line);
+    return rows.revealRow(line);
   }
 
   /**
@@ -460,9 +507,7 @@ public final class DocumentController extends LineViewController {
    * @return the line after the row's line, or after its collapsed entry
    */
   public long endOfRow(long row) {
-    long line = sourceLine(row);
-    long[] entry = folds.collapsedEntry(line);
-    return entry == null ? line + 1 : entry[1];
+    return rows.endOf(sourceLine(row));
   }
 
   /**
@@ -473,7 +518,7 @@ public final class DocumentController extends LineViewController {
    */
   @Override
   public boolean folded(long line) {
-    return folds.isCollapsed(line);
+    return rows.folded(line);
   }
 
   /**
@@ -487,17 +532,17 @@ public final class DocumentController extends LineViewController {
 
   /** Collapses or expands the entry at the caret's line. */
   public void toggleFold() {
-    folding.toggle(sourceLine(selection().caret().line()));
+    rows.toggleFold(sourceLine(selection().caret().line()));
   }
 
   /** Collapses every multi-line entry as it is shown. */
   public void collapseAllFolds() {
-    folding.collapseAll();
+    rows.collapseAll();
   }
 
   /** Expands every entry. */
   public void expandAllFolds() {
-    folding.expandAll();
+    rows.expandAll();
   }
 
   /**
@@ -506,7 +551,7 @@ public final class DocumentController extends LineViewController {
    * @param rules the rules
    */
   public void setFoldRules(FoldRules rules) {
-    folding.setRules(rules);
+    rows.setFoldRules(rules);
   }
 
   /**
@@ -520,38 +565,29 @@ public final class DocumentController extends LineViewController {
     long anchor = sourceLine(current.anchor().line());
     long caret = sourceLine(current.caret().line());
     change.run();
-    long rows = document.index().lineCount() - folds.hiddenLines();
-    viewport().setLineCount(rows);
+    long count = rows.rowCount(document.index().lineCount());
+    viewport().setLineCount(count);
     if (topLine >= 0) {
-      viewport().scrollToLine(folds.rowOf(topLine));
+      viewport().scrollToLine(rows.rowOf(topLine));
     }
     if (anchor >= 0 && caret >= 0) {
       Selection moved =
           new Selection(
-              new TextPosition(folds.rowOf(anchor), current.anchor().column()),
-              new TextPosition(folds.rowOf(caret), current.caret().column()));
+              new TextPosition(rows.rowOf(anchor), current.anchor().column()),
+              new TextPosition(rows.rowOf(caret), current.caret().column()));
       if (blockSelection()) {
         selectBlock(moved);
       } else {
         select(moved);
       }
     }
-    refreshRows(rows);
+    refreshRows(count);
     overview.foldsChanged();
   }
 
   /** Asks the fold controller to classify the visible region, with collapse-all on. */
   void foldsMayNeedClassifying() {
-    if (!folding.collapsingAll()) {
-      return;
-    }
-    long count = viewport().lineCount();
-    if (count == 0) {
-      return;
-    }
-    long top = viewport().topLine();
-    long bottom = Math.min(count - 1, top + viewport().rows());
-    folding.visible(sourceLine(top), sourceLine(bottom), viewport().rows());
+    rows.visibleChanged();
   }
 
   @Override
@@ -708,7 +744,7 @@ public final class DocumentController extends LineViewController {
    * the viewport's last row.
    */
   private long shownLines() {
-    return viewport().lineCount() + folds.hiddenLines();
+    return rows.lineSpan(viewport().lineCount());
   }
 
   /** True when the last flush showed the line, or showed indexing ended. */
@@ -777,10 +813,10 @@ public final class DocumentController extends LineViewController {
 
   /** Goes to the last line indexed so far. */
 
-  /** Moves the caret to the first mark after its line, or shows a notice when there is none. */
+  /** Moves the caret to the first mark after its line among the rows, or shows a notice. */
   public void nextMark() {
     long caret = Math.max(0, sourceLine(selection().caret().line()));
-    long next = document.marks().ceiling(caret + 1);
+    long next = MarkSteps.next(document.marks(), rows.members(), caret + 1);
     if (next >= 0) {
       recordJump();
       showLine(next);
@@ -789,10 +825,11 @@ public final class DocumentController extends LineViewController {
     }
   }
 
-  /** Moves the caret to the last mark before its line, or shows a notice when there is none. */
+  /** Moves the caret to the last mark before its line among the rows, or shows a notice. */
   public void previousMark() {
     long caret = Math.max(0, sourceLine(selection().caret().line()));
-    long previous = caret == 0 ? -1 : document.marks().floor(caret - 1);
+    long previous =
+        caret == 0 ? -1 : MarkSteps.previous(document.marks(), rows.members(), caret - 1);
     if (previous >= 0) {
       recordJump();
       showLine(previous);
@@ -1266,7 +1303,8 @@ public final class DocumentController extends LineViewController {
   public void detach() {
     cancelMarks();
     updates.close();
-    folding.detach();
+    role.detached();
+    rows.detach();
     search.detach();
     filtered.detach();
     overview.detach();
@@ -1279,15 +1317,13 @@ public final class DocumentController extends LineViewController {
     indexEnded();
   }
 
-  /** Detaches and closes the document on a {@code qlogg-lifecycle-} worker. */
+  /** Detaches and, in a file tab, closes the document on a {@code qlogg-lifecycle-} worker. */
   public void close() {
     if (isClosed()) {
       return;
     }
     detach();
-    if (!workers().tryStart(Workers.Kind.LIFECYCLE, document::close)) {
-      LOG.warn("Cannot close {}: workers are closed", LogText.oneLine(document.path()));
-    }
+    role.close(this);
   }
 
   private void refresh() {
@@ -1296,8 +1332,8 @@ public final class DocumentController extends LineViewController {
     DocumentStatus status = document.status();
     LineIndex index = document.index();
     viewport().setMaxColumns(Math.max(estimatedColumns(index), lines().maxWidth()));
-    long rows = index.lineCount() - folds.hiddenLines();
-    viewport().setLineCount(rows);
+    long count = rows.rowCount(index.lineCount());
+    viewport().setLineCount(count);
     if (pending != null && (pending.line() < index.lineCount() || !status.indexing())) {
       PendingMove move = pending;
       pending = null;
@@ -1319,11 +1355,12 @@ public final class DocumentController extends LineViewController {
     }
     state = buildState(status);
     fireState(state);
-    refreshRows(rows);
+    refreshRows(count);
     overview.refresh();
     search.appended();
     filtered.grew(index.lineCount());
     triggers.flushed(status.indexing());
+    role.flushed();
   }
 
   private long estimatedColumns(LineIndex index) {

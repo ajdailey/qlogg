@@ -59,6 +59,7 @@ class BusyCoverageTest {
 
   static {
     String[] wrapped = {
+      "controller.DerivedTabs#create",
       "controller.DocumentController#toggleMarks",
       "controller.LineViewController#copy",
       "controller.OpenPathAtCaret#open",
@@ -97,7 +98,7 @@ class BusyCoverageTest {
       "controller.ApplicationController#closeOnWorker",
       "controller.ApplicationController#loadEncodingChoices",
       "controller.CaretTimes#request",
-      "controller.DocumentController#close",
+      "controller.OwnedDocument#close",
       "controller.DocumentOpener#restore",
       "controller.FilteredController#buildContext",
       "controller.FilteredController#buildExtras",

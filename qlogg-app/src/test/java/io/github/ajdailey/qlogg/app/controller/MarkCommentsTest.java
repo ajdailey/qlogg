@@ -107,7 +107,7 @@ class MarkCommentsTest {
     MemoryBudget own = MemoryBudget.of(1L << 28);
     CancellationToken token = new CancellationToken();
     token.cancel();
-    assertNull(MarksListController.read(document.document(), own, token));
+    assertNull(MarksListController.read(document.document(), null, own, token));
     assertEquals(0, own.reserved(MemoryShare.RESULTS));
   }
 

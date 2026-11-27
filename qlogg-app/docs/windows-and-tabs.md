@@ -129,6 +129,9 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
 - Closing the last tab, or Close All, leaves an empty window. With
   `tabs.closeWindowWithLastTab` on, the window closes through `closeWindow`, so
   the last window quits. Close All in an empty window does nothing.
+- Closing a file tab closes its filter tabs; closing a filter tab moves its
+  children under its parent
+  ([Filter tabs](document-views.md#chains-and-closing)).
 - `Ctrl+PageDown` and `Ctrl+PageUp` show the next and previous tab.
 - The tab context menu calls `closeOthers`, `closeSide`, `renameTab`,
   `resetTabName` and, through `pathCommands()`, the path commands. A tab
@@ -197,7 +200,7 @@ Window, the tab menu, a tab drag). The `DocumentController` and its
 `reload` (`F5`) and a `TRUNCATED`, `REPLACED` or `MODIFIED` file
 (`reopenChanged`) reopen the path on a `qlogg-index-` worker. The new
 controller takes the tab, the follow state and the search text; results start
-empty.
+empty. The tab's filter tabs are derived again over the new document.
 
 | Trigger | Marks, comments, labels | Search |
 |---|---|---|

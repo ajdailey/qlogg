@@ -19,7 +19,9 @@ a new `MutableLineSet` charged to `RESULTS`. Empty text only clears.
 field text and the toggles stay.
 
 - The search covers the lines indexed when it starts, narrowed by the search
-  start and end lines and, with `inSelection`, the selected lines.
+  start and end lines and, with `inSelection`, the selected lines. In a
+  [filter tab](document-views.md#filter-tabs) it tests the tab's rows only,
+  below the line where they are decided.
 - A combined expression that does not parse fails at once with its column. A
   regex compiles on the search thread and fails there.
 - A search that starts sets the filtered view to marks and matches.
