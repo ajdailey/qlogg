@@ -110,10 +110,10 @@ compares SHA-256.
 ### Container build
 
 A host with Docker (or Podman with compose) and no JDK builds in the image
-`docker/Dockerfile` defines: Temurin 21, git, jq, Xvfb, GTK 3 and 4 and
-WebKitGTK 4.1. `compose.yaml` holds the mounts and environment and runs the
-same `./mvnw`. The default command runs CI's `package` job, and `check` its
-Linux `test` job.
+`docker/Dockerfile` defines: Temurin 21, git, jq, Xvfb, the X11 utilities,
+GTK 3 and 4 and WebKitGTK 4.1. `compose.yaml` holds the mounts and environment
+and runs the same `./mvnw`. The default command runs CI's `package` job, and
+`check` its Linux `test` job.
 
 ```sh
 scripts/container.sh               # clean package -Pall-targets,sbom: archives, installers, packages, SBOM into dist/

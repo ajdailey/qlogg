@@ -12,10 +12,11 @@ FROM eclipse-temurin:21.0.13.1_2-jdk-noble@sha256:4dea56dcfa1a89832caf1ffe082c49
 # xvfb, xauth: xvfb-run for `check`. libgtk-3-0t64, fonts: SWT on GTK 3.
 # libwebkit2gtk-4.1-0: SWT's Browser, so the user guide tests run.
 # libgtk-4-1: the experimental GTK 4 run. jq: sbom-components.sh.
+# x11-utils: xprop and xwininfo for the window stacking tests.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      git unzip jq xvfb xauth libgtk-3-0t64 libgtk-4-1 libwebkit2gtk-4.1-0 \
-      fonts-dejavu-core \
+      git unzip jq xvfb xauth x11-utils libgtk-3-0t64 libgtk-4-1 \
+      libwebkit2gtk-4.1-0 fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
 # World-writable so the container can run as the caller's uid. MAVEN_USER_HOME
