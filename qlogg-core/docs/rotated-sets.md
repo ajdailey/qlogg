@@ -5,9 +5,9 @@ line index. Module overview: [qlogg-core](../README.md).
 
 ## Discovery
 
-`RotatedSet.discover(given, held, fallback, forced)` lists the directory of
-`given` once, not recursively, stats each matching file and reads the first
-64 KiB of each member. It blocks; call it on a worker.
+`RotatedSet.discover(given, held, fallback, forced, ignoreCase)` lists the
+directory of `given` once, not recursively, stats each matching file and reads
+the first 64 KiB of each member. It blocks; call it on a worker.
 
 `MemberNames` matches names. The base is `given` with its compression
 extension and rotation token removed; a token is `\d+([._-]\d+)*`.
@@ -19,9 +19,10 @@ extension and rotation token removed; a token is `\d+([._-]\d+)*`.
 | Compressed | `app.log.2.gz`, `app.1.log.zip` | either form plus `.gz`, `.bz2`, `.xz`, `.zst`, `.zip` or `.Z` |
 
 `app.log.bak`, `app.logger`, `app2.log` and `app.log.1.tmp` are not members.
-Names compare case-sensitively. A token at the end is removed before one in
-front of the extension, so `my-app-1.0.log` opened alone has the base
-`my-app.log`.
+Names compare without regard to case when `ignoreCase` is true, as
+`OsTraits.fileNamesIgnoreCase` answers on Windows and macOS. A token at the end
+is removed before one in front of the extension, so `my-app-1.0.log` opened
+alone has the base `my-app.log`.
 
 Members are regular files that pass `SafePaths.logPath`; a file that vanishes
 during the listing is skipped. The base file need not exist: with only dated

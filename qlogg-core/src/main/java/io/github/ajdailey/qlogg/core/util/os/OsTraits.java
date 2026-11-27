@@ -125,6 +125,14 @@ public interface OsTraits {
   boolean watchServiceByDefault();
 
   /**
+   * Reports whether file names in one directory compare without regard to case: true on Windows and
+   * on macOS, whose default volume formats are case-insensitive, false on Linux.
+   *
+   * @return true on Windows and macOS
+   */
+  boolean fileNamesIgnoreCase();
+
+  /**
    * Reports whether opening a file with its default application runs it: on Windows an extension in
    * {@link RunnableTypes#WINDOWS} or {@code PATHEXT}, whatever the attributes, since every readable
    * file is executable there; on macOS an extension in {@link RunnableTypes#MAC} or the execute

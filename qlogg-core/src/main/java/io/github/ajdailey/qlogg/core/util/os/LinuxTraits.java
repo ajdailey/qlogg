@@ -60,6 +60,11 @@ final class LinuxTraits implements OsTraits {
   }
 
   @Override
+  public boolean fileNamesIgnoreCase() {
+    return false;
+  }
+
+  @Override
   public boolean runsInsteadOfOpening(Path file) {
     return Files.isExecutable(file);
   }

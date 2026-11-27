@@ -104,7 +104,8 @@ class MemberIdentityTest {
   private List<Path> members() throws IOException {
     List<Path> paths = new ArrayList<Path>();
     for (Member member :
-        RotatedSet.discover(dir.resolve("app.log"), null, StandardCharsets.UTF_8, null).members()) {
+        RotatedSet.discover(dir.resolve("app.log"), null, StandardCharsets.UTF_8, null, false)
+            .members()) {
       paths.add(member.path());
     }
     return paths;

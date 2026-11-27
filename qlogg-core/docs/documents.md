@@ -12,6 +12,11 @@ charset and the held instance lock (`SafePaths.HeldLock`, null without one).
 The six-argument constructor, without the lock, is for tests and benchmarks;
 `withFallbackCharset` keeps the lock.
 
+The file state sits behind the package-private `DocumentContent`: the bytes,
+the line index, indexing, the watch and the operation gate. `SingleFileContent`
+holds one file or pasted text. `LogDocument` keeps the marks, the reader
+settings, the listeners and the close sequence.
+
 | Method | Contract |
 |---|---|
 | `open(path, forcedCharset, services)` | Validates the path against the held lock (`FileByteSource.open`), reads the first 64 KiB, detects the encoding and the timestamp format from those bytes (`FormatDetector`), and creates the line index. Blocks; run it on a worker |

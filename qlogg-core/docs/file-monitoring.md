@@ -22,6 +22,10 @@ a scan of the directory every 2 s.
 - `cancel` ends the watch within one check.
 - An exception from the listener goes to the thread's uncaught-exception
   handler, once per run of failing checks, and the watch continues.
+- `watch(path, names, listener)` also wakes on an event for any name in the
+  directory the `Predicate<Path>` accepts, such as every member of a rotation
+  series. The predicate runs on the dispatcher thread, outside the monitor's
+  lock.
 - `setSettings` replaces the settings. The interval applies from each watch's
   next wait; directory events apply to watches started afterwards.
 

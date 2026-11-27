@@ -72,6 +72,7 @@ class OsTraitsTest {
     assertTrue(os.takesCtrlShiftZero());
     assertTrue(os.keepFileClosedByDefault());
     assertTrue(os.watchServiceByDefault());
+    assertTrue(os.fileNamesIgnoreCase());
     Path roaming = temp.resolve("Roaming");
     assertEquals(
         roaming.resolve("QLogg"), os.userSettings(Map.of("APPDATA", roaming.toString()), temp));
@@ -89,6 +90,7 @@ class OsTraitsTest {
     assertFalse(os.takesCtrlShiftZero());
     assertFalse(os.keepFileClosedByDefault());
     assertFalse(os.watchServiceByDefault());
+    assertTrue(os.fileNamesIgnoreCase());
     assertEquals(
         temp.resolve("Library").resolve("Application Support").resolve("QLogg"),
         os.userSettings(Map.of("XDG_CONFIG_HOME", temp.toString()), temp));
@@ -104,6 +106,7 @@ class OsTraitsTest {
     assertFalse(os.takesCtrlShiftZero());
     assertFalse(os.keepFileClosedByDefault());
     assertTrue(os.watchServiceByDefault());
+    assertFalse(os.fileNamesIgnoreCase());
     Path xdg = temp.resolve("xdg");
     assertEquals(
         xdg.resolve("qlogg"), os.userSettings(Map.of("XDG_CONFIG_HOME", xdg.toString()), temp));
