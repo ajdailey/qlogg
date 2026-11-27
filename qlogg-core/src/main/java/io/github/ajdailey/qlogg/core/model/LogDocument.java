@@ -12,6 +12,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
@@ -381,6 +382,34 @@ public final class LogDocument implements LineSource, Closeable {
    */
   public LineMap lineMap() {
     return content.lineMap();
+  }
+
+  /**
+   * Returns a rotated set's files: the loaded members in stream order and the left-out files.
+   *
+   * @return the files, or null for one file and pasted text
+   */
+  public SetFiles files() {
+    return content.files();
+  }
+
+  /**
+   * Counts the lines of a rotated set's members before the last, as the index will, without waiting
+   * for indexing. Blocking; reads every member but the last.
+   *
+   * @param closing true ends the count with an {@link IOException}
+   * @return each member's first line, member 0 first; {@code {0}} for one file and pasted text
+   * @throws IOException when a read fails, {@code closing} is true, or the document is closed
+   */
+  public long[] memberBases(BooleanSupplier closing) throws IOException {
+    if (!enter()) {
+      throw new IOException("The document is closed");
+    }
+    try {
+      return content.memberBases(closing);
+    } finally {
+      exit();
+    }
   }
 
   /**

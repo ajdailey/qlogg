@@ -46,6 +46,7 @@ class CommandStatesTest {
   static {
     // The rows the menu bar recorded, plus the push items CommandStates enables.
     row(CommandId.RELOAD, "-- -e -e");
+    row(CommandId.INCLUDE_ROTATED, "-- -e -e");
     row(CommandId.TOGGLE_COLUMNS, "-- -- --");
     row(CommandId.COPY_RAW_LINES, "-- -- --");
     row(CommandId.COPY_CELL, "-- -- --");

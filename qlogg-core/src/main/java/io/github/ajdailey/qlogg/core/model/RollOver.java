@@ -314,34 +314,12 @@ final class RollOver {
     }
     int unit = encoding.unitWidth();
     long end = file.size() / unit * unit;
-    byte[] lineFeed = encoding.lineFeed();
-    boolean open = false;
+    boolean open;
     try (FileByteSource source = FileByteSource.open(file.path(), held)) {
-      ByteBuffer block = ByteBuffer.allocate(READ_BYTES / unit * unit);
-      long at = from;
-      while (at < end) {
-        if (closing.getAsBoolean()) {
-          throw new IOException("The set is closing");
-        }
-        block.clear();
-        block.limit((int) Math.min(block.capacity(), end - at));
-        int read = source.read(at, block);
-        if (read <= 0) {
-          throw new IOException(file.path() + " shrank while its lines were counted");
-        }
-        int whole = read / unit * unit;
-        for (int i = 0; i < whole; i += unit) {
-          boolean lf = true;
-          for (int b = 0; b < unit && lf; b++) {
-            lf = block.get(i + b) == lineFeed[b];
-          }
-          if (lf) {
-            complete++;
-          }
-          open = !lf;
-        }
-        at += whole;
-      }
+      LineCounter.Counted counted =
+          LineCounter.count(source, file.path(), from, end, encoding, closing);
+      complete += counted.complete();
+      open = counted.open();
     }
     if (from == end && member != null) {
       LineIndex snapshot = member.index().snapshot();

@@ -22,12 +22,16 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.model.Selection;
+import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,7 +40,12 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -135,6 +144,70 @@ class TabsTest {
 
   private static DocumentController documentOf(CTabItem item) {
     return (DocumentController) item.getData();
+  }
+
+  @Test
+  void aRotatedSetShowsItsFilesTheCaretMemberAndARuleAtEachFile() throws Exception {
+    Path old = Files.writeString(temp.resolve("set.log.1"), "a\nb\n");
+    Files.setLastModifiedTime(old, FileTime.fromMillis(System.currentTimeMillis() - 60_000));
+    Path active = Files.writeString(temp.resolve("set.log"), "c\nd\ne\n");
+    controller.open(List.of(new FileRequest(active, 0, true)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return shown != null
+                    && shown.state().title().equals("set.log +1")
+                    && !shown.state().indexing()
+                    && window.canvas() != null
+                    && window.canvas().document() == shown;
+              }
+            }));
+    final DocumentController set = controller.activeDocument();
+    CTabItem item = window.tabStrip().tabs().getSelection();
+    assertEquals("set.log +1", item.getText());
+    assertTrue(item.getToolTipText().contains("\nset.log.1  4 B  "), item.getToolTipText());
+    set.setFollowing(false);
+    set.select(Selection.caretAt(new TextPosition(1, 0)));
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return window.positionText().endsWith("set.log.1:2");
+              }
+            }),
+        window.positionText());
+    final Canvas canvas = window.canvas().control();
+    final int height = window.canvas().lineHeight();
+    Rgb lineNumbers = window.canvas().palette().lineNumbers();
+    final RGB expected = new RGB(lineNumbers.red(), lineNumbers.green(), lineNumbers.blue());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return set.lines().contains(4)
+                    && expected.equals(pixel(canvas, canvas.getSize().x / 2, 2 * height));
+              }
+            }),
+        "rule above set.log: " + pixel(canvas, canvas.getSize().x / 2, 2 * height));
+  }
+
+  /** Paints a canvas into an image and returns the pixel at a point. */
+  private RGB pixel(Canvas canvas, int x, int y) {
+    Image image = new Image(display, canvas.getSize().x, canvas.getSize().y);
+    GC gc = new GC(image);
+    try {
+      Gtk4.assertPrinted(canvas.print(gc));
+      ImageData data = Pixels.read(image, canvas);
+      return data.palette.getRGB(data.getPixel(x, y));
+    } finally {
+      gc.dispose();
+      image.dispose();
+    }
   }
 
   @Test

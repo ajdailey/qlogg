@@ -34,6 +34,7 @@ class LauncherTest {
   void helpPrintsUsage() {
     assertEquals(0, run("-h"));
     assertTrue(out.toString(StandardCharsets.UTF_8).startsWith("Usage: qlogg"));
+    assertTrue(out.toString(StandardCharsets.UTF_8).contains("--rotated"));
   }
 
   @Test

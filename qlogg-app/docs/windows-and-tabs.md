@@ -197,8 +197,9 @@ Window, the tab menu, a tab drag). The `DocumentController` and its
 
 ## Reload and reopen
 
-`reload` (`F5`) and a `TRUNCATED`, `REPLACED` or `MODIFIED` file
-(`reopenChanged`) reopen the path on a `qlogg-index-` worker. The new
+`reload` (`F5`), a `TRUNCATED`, `REPLACED`, `MODIFIED` or `ROLLED` file
+(`reopenChanged`) and Include Rotated Files (`toggleRotated`) reopen the path on
+a `qlogg-index-` worker. The new
 controller takes the tab, the follow state and the search text; results start
 empty. The tab's filter tabs are derived again over the new document.
 
@@ -206,6 +207,41 @@ empty. The tab's filter tabs are derived again over the new document.
 |---|---|---|
 | `F5` | Kept: the worker copies them into the new document, and its first completed indexing drops marks and comments past the last line. The caret's line is kept | Not rerun |
 | Change on disk | Emptied, with a notice | With `autoRefresh` on, a search that was not canceled runs again with the text and toggles it ran with; the notice says so instead of results cleared. The field and toggles stay as they were |
+| `ROLLED` (a rotated set renumbered) | Kept as for `F5`, moved through the document's `LineMap`; those on a dropped member go. The caret and the navigation history move the same way. One notice names the dropped members and counts the marks | As for a change on disk |
+| Include Rotated Files | Kept as for `F5`, moved through a map `LineCarry.toggled` builds | Not rerun |
+
+### Rotated sets
+
+A tab shows a rotated set when its `FileRequest` is `rotated` (`--rotated`, the
+handoff's `ROTATED 1`, a Recently Closed or session entry closed as a set) or
+after Include Rotated Files. `DocumentOpener` then calls
+`LogDocument.openRotated` with `OsTraits.fileNamesIgnoreCase()` and the base
+file's `PositionStore` entry. A set's `path()` is its base path, so `find`
+matches a plain open of the active file to the set's tab; a rotated open that
+finds the file shown alone turns that tab into the set.
+
+`LineCarry` moves marks and comments into the reopened document on the worker:
+
+- `ROLLED`: through `LogDocument.lineMap()`, which core computed when the
+  roll-over fired.
+- Turned on: the old file lands at its member's first line, from
+  `LogDocument.memberBases`, which counts the lines of the members before the
+  last. The count reads those members once before indexing does.
+- Turned off: the tab reopens the set's newest file alone; the lines of that
+  member keep their member line numbers and the other members' marks go.
+
+`RotatedTabs` builds the tab title (`app.log +2`), the tooltip's member list,
+the status note of compressed files, the notices for files left out (over the
+100-file cap, another encoding, compressed) and the status bar member text
+(`DocumentController.caretMember`). `DocumentController.startsGroup` answers
+true at each member's first line after the first, so the log view draws its
+group rule there. `FolderSearchController.open` shows a listed line of a set's
+member in the set's tab at the member's first line plus the line. While indexing
+has not reached that line, `SetJump` waits on the tab's state changes and goes
+there once the index holds it; it never applies a member line as a set line. A
+later jump or the tab closing drops the wait. A set records
+no position and opens following; the session keeps its marks per member
+([settings](settings.md#position-and-session-stores)).
 
 ### Failed reopen
 
@@ -287,6 +323,7 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | Checks in `APPLICATION_CHECKS` | Settings, theme, block mode, debug log file, the window's Always on Top flag or `MainView.fullScreen` | Always; Always on Top only while `MainView.onTopSupported` |
 | Other checks | The shown document | A document shows |
 | `FILE_COMMANDS` (Reload, the path commands, Open in Editor, Encoding > Auto) | - | The shown document has a file (not clipboard text) |
+| Include Rotated Files | The shown document is a rotated set | The shown tab is a file tab, not clipboard text or a filter tab |
 | Move to New Window | - | A document shows |
 | Close Others, Close to the Left, Close to the Right | - | The active tab has a tab on that side (`tabItems`) |
 | Add to Favorites, Remove from Favorites | - | The file is not a favorite, or is one |
@@ -322,8 +359,9 @@ favorite path. File > Recent Files > Clean Up checks the paths on a
 Recent Files (`RecentFiles.clearRecent`) empties the list on the UI thread.
 
 `RecentFiles` keeps File > Recently Closed in `UiState.closedFiles`, at most 20,
-newest first. Closing a tab lists its file; closing a window or quitting does
-not. Opening the file in any tab drops it. A reopened file opens through the
+newest first, and the entries closed as rotated sets in `UiState.closedSets`,
+which Reopen Closed Tab, Open All and the list's items open as sets. Closing a
+tab lists its file; closing a window or quitting does not. Opening the file in any tab drops it. A reopened file opens through the
 normal path, at its remembered position unless Follow New Files is on. Open All
 on either list checks the paths on a `qlogg-lifecycle-` worker, opens the
 regular, readable ones in list order (a file open already shows its tab) and

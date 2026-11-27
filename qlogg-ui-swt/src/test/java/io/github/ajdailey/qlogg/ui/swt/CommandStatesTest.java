@@ -71,6 +71,7 @@ class CommandStatesTest {
     row(CommandId.FOLLOW_ON_LOAD, "-e -e -e");
     row(CommandId.FOLLOW_ON_OVERSCROLL, "ce ce ce");
     row(CommandId.RELOAD, "-- -e -e");
+    row(CommandId.INCLUDE_ROTATED, "-- -e -e");
     row(CommandId.TOGGLE_OVERVIEW, "ce ce ce");
     row(CommandId.TOGGLE_MATCH_HIGHLIGHT, "ce ce ce");
     row(CommandId.TOGGLE_LINE_NUMBERS, "-- ce ce");

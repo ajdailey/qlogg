@@ -234,6 +234,9 @@ public final class MainWindow implements MainView, ApplicationListener {
         public void stateChanged(DocumentViewState state) {
           showStatus(state);
           syncToolBar();
+          if (!state.members().isEmpty() && canvas != null) {
+            tabStrip.showSet((DocumentController) canvas.document());
+          }
         }
 
         @Override
@@ -1399,15 +1402,15 @@ public final class MainWindow implements MainView, ApplicationListener {
         && focused.selection().start().line() != focused.selection().end().line()) {
       selected = focused;
     }
-    boolean changed =
-        set(
-            position,
-            PositionText.of(
-                document.selection(),
-                document.viewport().lineCount(),
-                selected.selection(),
-                selected.selectedChars(),
-                TimeText.difference(selected.timeStatus())));
+    String text =
+        PositionText.of(
+            document.selection(),
+            document.viewport().lineCount(),
+            selected.selection(),
+            selected.selectedChars(),
+            TimeText.difference(selected.timeStatus()));
+    String member = document.caretMember();
+    boolean changed = set(position, member.isEmpty() ? text : text + "  " + member);
     GridData data = (GridData) position.getLayoutData();
     int width = Math.max(POSITION_WIDTH, position.computeSize(SWT.DEFAULT, SWT.DEFAULT).x);
     if (changed && width != data.widthHint) {

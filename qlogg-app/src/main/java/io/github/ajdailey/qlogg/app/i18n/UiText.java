@@ -1498,7 +1498,38 @@ public enum UiText {
   /** Notice: a filter tab stopped growing at the result limit: its row count. */
   NOTICE_FILTER_TAB_RESULT_LIMIT,
   /** Notice: a filter tab stopped growing at the memory limit: its row count. */
-  NOTICE_FILTER_TAB_MEMORY_LIMIT;
+  NOTICE_FILTER_TAB_MEMORY_LIMIT,
+  // Rotated sets.
+  /** File menu check item: show the tab's file with its rotated files as one view. */
+  COMMAND_INCLUDE_ROTATED,
+  /** Tab title of a rotated set: the base name and the count of the other files. */
+  TAB_SET_TITLE,
+  /** Tab tooltip line of a loaded member: its name, size and modification time. */
+  TAB_SET_MEMBER,
+  /** Tab tooltip line of a compressed file the set does not load. */
+  TAB_SET_COMPRESSED,
+  /** Tab tooltip line of a file in another encoding the set does not load. */
+  TAB_SET_ENCODING,
+  /** Tab tooltip line of a file over the member cap. */
+  TAB_SET_OVER_CAP,
+  /** Status bar: the caret line's member and its line in that member. */
+  STATUS_SET_MEMBER,
+  /** Status bar: compressed files of the set not shown; their count. */
+  STATUS_SET_COMPRESSED,
+  /** Notice: the set's name, the older files left out and the cap. */
+  NOTICE_SET_OVER_CAP,
+  /** Notice: the set's name and the files left out for their encoding. */
+  NOTICE_SET_ENCODING,
+  /** Notice: the set's name and the compressed files left out. */
+  NOTICE_SET_COMPRESSED,
+  /** Notice: the set's name after a roll-over that changed line numbers. */
+  NOTICE_SET_ROLLED,
+  /** Notice: the set's name and the files that left it in a roll-over. */
+  NOTICE_SET_ROLLED_LEFT,
+  /** Notice: marks left out with the files they were on; their count. */
+  NOTICE_SET_MARKS_DROPPED,
+  /** Notice: the set's name and the restored marks whose file left the set. */
+  NOTICE_SET_MARKS_NOT_RESTORED;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

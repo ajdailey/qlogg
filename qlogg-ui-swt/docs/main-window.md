@@ -55,6 +55,8 @@ and caret time, each after a separator.
   gives up the difference down to its 160 px minimum, then the time field is
   cut. The selection part describes the filtered view's selection while that
   view has focus and a selection over more than one row, else the main view's.
+  A rotated set adds the caret line's member and its line in that member
+  (`DocumentController.caretMember`), such as `app.log.1:1,204`.
 - The time field (`TimeText`) shows the main view's caret time in the display
   zone with the offset, and is empty for a file without a format. Its tooltip
   names the format, the zone and the offset; a click runs Go to Time. Position
@@ -69,7 +71,8 @@ and caret time, each after a separator.
 
 The tab row under the top row (`TabStrip`, which `MainWindow` drives from its
 `ApplicationListener` calls) is a `CTabFolder` with one closable tab per open
-file: text `tabTitle` (the file name unless renamed), tooltip the path, data
+file: text `tabTitle` (the file name unless renamed; `app.log +2` for a rotated
+set), tooltip the path and a set's member list, data
 its `DocumentController`. It shows while a file is open, one included, and is
 excluded from the layout with none. Its height hint is 1 px, because the folder
 adds its tab row as trim around the hint.
@@ -192,7 +195,9 @@ A tab whose `TabDataModel` state is not `NONE` shows a `TabDots` image: a dot
 in the palette's `newLinesDot`, `newMatchesDot` or `followStoppedDot` color
 with a darker rim. Its tooltip (`TabTips`) adds "New lines", "New matching
 lines" or "Follow stopped by a highlighter" under the path, then "Time synced,
-group N" for a time sync member; `timeSyncChanged` rebuilds every tab's.
+group N" for a time sync member; `timeSyncChanged` rebuilds every tab's. A
+rotated set's tab title and tooltip follow its state as members join
+(`TabStrip.showSet`).
 
 `TabDots` renders each image per zoom through an `ImageDataProvider`. A
 palette change creates the next palette's dots, sets them on every tab, then

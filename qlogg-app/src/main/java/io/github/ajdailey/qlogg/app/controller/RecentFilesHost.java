@@ -40,4 +40,13 @@ interface RecentFilesHost {
    * @param text the path
    */
   void openListed(String text);
+
+  /**
+   * Opens a listed path on a worker, as its rotated set when asked; a path that does not parse
+   * shows an error.
+   *
+   * @param text the path
+   * @param rotated true to open the rotated set the file belongs to
+   */
+  void openListed(String text, boolean rotated);
 }

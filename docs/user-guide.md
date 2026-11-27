@@ -136,7 +136,8 @@ file shows a notice in the status bar.
   `+` and `-` resize the main view; View > Filtered View > Save Splitter
   Position keeps the split. The filtered view keeps at least three rows while
   the window has room for them.
-- The status bar shows indexing, follow and notices. A warning marker appears
+- The status bar shows indexing, follow, compressed files a [rotated
+  set](#rotated-files) leaves out, and notices. A warning marker appears
   when QLogg logs a warning; a click opens Help > Show Log.
 - Dialogs and tool windows open inside the screen's work area, clear of the
   taskbar or Dock. Tool windows and the Highlighters, Filters and Edit Search
@@ -295,7 +296,9 @@ search runs.
 The upper table lists each file with its matches; selecting a file lists its
 matching lines below, with a control character shown as its code, such as
 `<1B>` for ESC. Double-click a line, or press Enter, to open the file at
-that line, or to go there in the tab that already shows it. Compressed or
+that line, or to go there in the tab that already shows it; a line of a file
+in an open rotated set goes to that line in the set's tab, once the set has
+loaded that far. Compressed or
 binary files show Not text, and files that cannot be read show why, such as
 Access denied for a folder or file your account cannot read. When
 the matching lines fill the memory set aside for results, the oldest unpinned
@@ -422,6 +425,37 @@ rotator's rename and its create, the tab keeps its content, shows one notice
 and reads Waiting to reopen in the status bar in place of Following. QLogg
 tries again at each check of the file, once a second by default, and following
 resumes when the file opens.
+
+### Rotated files
+
+File > Include Rotated Files, or `--rotated` on the command line, shows a log
+and its rotated files as one tab: `app.log` with `app.log.1`, `app.log.2`, or
+dated names such as `app.log-20261125` and `app-2026-11-25.log`. Opening
+`app.log.1` this way opens the whole set. The files run oldest first by
+modification time, with the active file last; a plain open of the active file
+shows the set's tab. Choosing the item again shows the newest file alone.
+Marks, mark comments and the caret move with their lines either way.
+
+- The tab reads `app.log +2`, counting the files before the active one, and its
+  tooltip lists each file with its size and modification time.
+- Line numbers run through the whole set; Go to Line and `+line:N` use them.
+  The position field adds the current line's file and its line in that file,
+  such as `app.log.1:1,204`, and a rule marks where each file starts.
+- A set shows at most 100 files. Older files, files in another encoding and
+  compressed files (`.gz`, `.zip` and the like) are not shown; a notice counts
+  each kind, the tooltip names them, and the status bar counts compressed
+  files.
+- The set follows its log through rotation. When the rotator renames the files
+  or copies and truncates the active one, line numbers stay. When a file
+  leaves the set or the order changes, the tab reloads with its line numbers
+  renumbered: marks, comments, color labels, the caret and Go Back move with
+  their lines, a search with Auto-refresh on runs again, filter tabs follow,
+  and a notice names the files that left and counts the marks that left with
+  them.
+- A set opens at its end and remembers no position. Its session marks are kept
+  per file and find the file again after a rotation between sessions; marks on
+  a file that left the set are counted in a notice. Recently Closed and Reopen
+  Closed Tab reopen a set as a set.
 
 ### Keep file closed
 
@@ -787,7 +821,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 
 | Menu | Items |
 |---|---|
-| File | Open, Open from Clipboard; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor, Open Path at Caret; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
+| File | Open, Open from Clipboard, Include Rotated Files; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor, Open Path at Caret; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
@@ -898,6 +932,7 @@ qlogg [options] [[+line:N] file]...
 | `-s`, `--load-session` | Restore the last session |
 | `-n`, `--new-session` | Start without the last session |
 | `-f`, `--follow` | Follow the files given |
+| `--rotated` | Open each file with its [rotated files](#rotated-files) as one tab |
 | `--window-width <px>`, `--window-height <px>` | Client-area size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland and under GTK 4 |
 | `--settings <dir>` | [Settings directory](#settings-directory) |

@@ -18,6 +18,7 @@ import javax.crypto.spec.SecretKeySpec;
  * S: QLOGG 1 PROOF nonceS HMAC(token, "server" nonceC nonceS)
  * C: AUTH HMAC(token, "client" nonceS nonceC)
  * C: FOLLOW 0|1
+ * C: ROTATED 1                           (only with --rotated)
  * C: OPEN base64url(UTF-8 path) line      (repeated; line 0 = none)
  * C: END
  * S: OK | ERR
@@ -40,6 +41,7 @@ final class Protocol {
   static final String PROOF = "QLOGG 1 PROOF ";
   static final String AUTH = "AUTH ";
   static final String FOLLOW = "FOLLOW ";
+  static final String ROTATED = "ROTATED 1";
   static final String OPEN = "OPEN ";
   static final String END = "END";
   static final String OK = "OK";

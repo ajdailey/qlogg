@@ -181,8 +181,10 @@ own drops it. While typing in quick find with incremental find on, only the
 first match is a jump.
 
 Entries are lines, so appends leave them in place. A reload or reopen copies
-them to the new controller (`takeOver`); once indexing ends, `clamp` moves
-entries past the last line onto it and merges neighbors that became equal.
+them to the new controller (`takeOver`); a rotated set's roll-over or toggle
+then moves them through its line map (`map`), dropping entries on a dropped
+member. Once indexing ends, `clamp` moves entries past the last line onto it
+and merges neighbors that became equal.
 
 Go Back and Go Forward are enabled while their direction has an entry
 (`canGoBack`, `canGoForward`). A disabled item's accelerator does not fire, so
@@ -230,7 +232,7 @@ each viewport resize.
 | Monitor state | Effect |
 |---|---|
 | `MISSING` | A notice and the status note; the content stays. With `follow.keepClosed` the notice says the file cannot be read until it returns. The notice is left out while a failed reopen waits, because that run showed one |
-| `TRUNCATED`, `REPLACED`, `MODIFIED` | `DocumentHost.reopenChanged` ([Reload and reopen](windows-and-tabs.md#reload-and-reopen)) |
+| `TRUNCATED`, `REPLACED`, `MODIFIED`, `ROLLED` | `DocumentHost.reopenChanged` ([Reload and reopen](windows-and-tabs.md#reload-and-reopen)) |
 
 `DocumentOpener` reads `follow.keepClosed` at each open, so a change applies to
 files opened or reloaded afterwards. An indexing pass ended by

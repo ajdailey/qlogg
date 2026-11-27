@@ -20,7 +20,7 @@ display.
 | `core.time` | Timestamp formats and parsers, format detection, lookups by time, time spread | [Timestamps](docs/timestamps.md) |
 | `core.columns` | Column formats (CSV, TSV, Apache access log, Serilog CLEF, log4j XML, timestamp), their field parsers, format detection | [Columns](docs/columns.md) |
 | `core.watch` | `FileMonitor`, `ChangeDetector` | [File monitoring](docs/file-monitoring.md) |
-| `core.rotate` | Rotated sets: member discovery and order, `MemberIdentity`, `RotatedBytes`, `RotatedIndex`, `LineMap` | [Rotated sets](docs/rotated-sets.md) |
+| `core.rotate` | Rotated sets: member discovery and order, `MemberIdentity`, `RotatedBytes`, `RotatedIndex`, `LineMap`, `SetFiles` | [Rotated sets](docs/rotated-sets.md) |
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
 | `core.model` | `RecordRows`, the column view's row map over records | [Columns](docs/columns.md#records) |
@@ -136,7 +136,7 @@ system's answers from `OsTraits.of(name)`.
 | `takesCtrlShiftZero` | true | false | false | `Keymap.defaults()`: no `Ctrl+Shift+0` for Clear Color Labels |
 | `keepFileClosedByDefault` | true | false | false | `FollowSettings.defaults`: the `follow.keepClosed` default |
 | `watchServiceByDefault` | true | false | true | `MonitorSettings.defaults`: the `monitor.watchService` default |
-| `fileNamesIgnoreCase` | true | true | false | The `ignoreCase` of `RotatedSet.discover`, `MemberNames.of` and `LogDocument.openRotated`; true on macOS for its default case-insensitive volumes |
+| `fileNamesIgnoreCase` | true | true | false | The `ignoreCase` of `RotatedSet.discover`, `MemberNames.of` and `LogDocument.openRotated`, which `DocumentOpener` passes; true on macOS for its default case-insensitive volumes |
 | `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
 
 `PlatformSetup` calls `confineHome` and `placeBrowserData` on every system

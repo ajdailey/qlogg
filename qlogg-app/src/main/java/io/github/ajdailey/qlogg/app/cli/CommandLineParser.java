@@ -43,6 +43,7 @@ public final class CommandLineParser {
     LOAD_SESSION('s', "load-session", false),
     NEW_SESSION('n', "new-session", false),
     FOLLOW('f', "follow", false),
+    ROTATED('\0', "rotated", false),
     WINDOW_WIDTH('\0', "window-width", true),
     WINDOW_HEIGHT('\0', "window-height", true),
     WINDOW_X('\0', "window-x", true),
@@ -88,6 +89,7 @@ public final class CommandLineParser {
     boolean load;
     boolean fresh;
     boolean follow;
+    boolean rotated;
     Integer width;
     Integer height;
     Integer x;
@@ -106,6 +108,7 @@ public final class CommandLineParser {
         case LOAD_SESSION -> load = true;
         case NEW_SESSION -> fresh = true;
         case FOLLOW -> follow = true;
+        case ROTATED -> rotated = true;
         case WINDOW_WIDTH -> width = size(option, value);
         case WINDOW_HEIGHT -> height = size(option, value);
         case WINDOW_X -> x = coordinate(option, value);
@@ -159,9 +162,16 @@ public final class CommandLineParser {
     }
     SessionMode session =
         state.load ? SessionMode.LOAD : state.fresh ? SessionMode.NEW : SessionMode.DEFAULT;
+    List<FileRequest> files = state.files;
+    if (state.rotated) {
+      files = new ArrayList<FileRequest>();
+      for (FileRequest file : state.files) {
+        files.add(new FileRequest(file.path(), file.line(), true));
+      }
+    }
     StartupRequest request =
         new StartupRequest(
-            state.files,
+            files,
             state.follow,
             session,
             state.width,
@@ -339,6 +349,7 @@ public final class CommandLineParser {
           -s, --load-session       Restore the previous session
           -n, --new-session        Do not restore the previous session
           -f, --follow             Follow the files given
+              --rotated            Open each file with its rotated files as one view
               --window-width <px>  Initial client-area width
               --window-height <px> Initial client-area height
               --window-x <px>      Initial left edge of the window

@@ -17,6 +17,22 @@ public final class TabTips {
    *     null when the tab has no tooltip
    */
   public static String text(String path, TabDataState state, int group) {
+    return text(path, "", state, group);
+  }
+
+  /**
+   * Builds the tooltip of a document tab: the path, a rotated set's files, the data-state line,
+   * then the sync group line, each omitted when empty.
+   *
+   * @param path the document's path; empty for a pasted document
+   * @param members a rotated set's files, one per line, or empty
+   * @param state the tab's data state
+   * @param group the tab's time sync group number; 0 for none
+   * @return the text with every {@code &} doubled, because SWT drops a single one from a tool tip;
+   *     null when the tab has no tooltip
+   */
+  public static String text(String path, String members, TabDataState state, int group) {
+    String head = path.isEmpty() || members.isEmpty() ? path + members : path + "\n" + members;
     String line =
         switch (state) {
           case NONE -> "";
@@ -24,7 +40,7 @@ public final class TabTips {
           case NEW_MATCHES -> UiText.TAB_DATA_NEW_MATCHES.text();
           case FOLLOW_STOPPED -> UiText.TAB_DATA_FOLLOW_STOPPED.text();
         };
-    String tip = path.isEmpty() || line.isEmpty() ? path + line : path + "\n" + line;
+    String tip = head.isEmpty() || line.isEmpty() ? head + line : head + "\n" + line;
     if (group > 0) {
       String synced = UiText.TAB_TIME_SYNCED.format(group);
       tip = tip.isEmpty() ? synced : tip + "\n" + synced;

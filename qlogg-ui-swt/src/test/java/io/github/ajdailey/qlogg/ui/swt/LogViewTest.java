@@ -466,6 +466,7 @@ class LogViewTest {
             List.of(
                 "Open",
                 "Open from Clipboard",
+                "Include Rotated Files",
                 "-",
                 "Recent Files",
                 "Reopen Closed Tab",

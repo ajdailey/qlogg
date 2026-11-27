@@ -49,7 +49,10 @@ final class RecentFiles {
    */
   void closed(LogDocument document) {
     if (!document.inMemory()) {
-      setState(host.preferences().state().addClosed(document.path().toString()));
+      setState(
+          host.preferences()
+              .state()
+              .addClosed(document.path().toString(), document.files() != null));
     }
   }
 
@@ -62,8 +65,9 @@ final class RecentFiles {
       return;
     }
     String path = closed.get(0);
+    boolean rotated = host.preferences().state().closedSets().contains(path);
     setState(host.preferences().state().removeClosed(path));
-    host.openListed(path);
+    host.openListed(path, rotated);
   }
 
   /** Empties Recently Closed. */
@@ -89,9 +93,11 @@ final class RecentFiles {
    * Opens every listed file that is a regular, readable file, in list order.
    *
    * @param listed the paths as the list holds them
+   * @param sets the listed paths that open as rotated sets
    */
-  void openAll(List<String> listed) {
+  void openAll(List<String> listed, List<String> sets) {
     final List<String> paths = List.copyOf(listed);
+    final List<String> rotated = List.copyOf(sets);
     if (paths.isEmpty()) {
       return;
     }
@@ -101,7 +107,7 @@ final class RecentFiles {
             new Runnable() {
               @Override
               public void run() {
-                check(paths);
+                check(paths, rotated);
               }
             });
     if (!started) {
@@ -110,7 +116,7 @@ final class RecentFiles {
   }
 
   @WorkerThread
-  private void check(List<String> paths) {
+  private void check(List<String> paths, List<String> sets) {
     final List<FileRequest> requests = new ArrayList<FileRequest>();
     final List<String> skipped = new ArrayList<String>();
     for (String text : paths) {
@@ -122,7 +128,7 @@ final class RecentFiles {
         continue;
       }
       if (Files.isRegularFile(path) && Files.isReadable(path)) {
-        requests.add(new FileRequest(path, 0));
+        requests.add(new FileRequest(path, 0, sets.contains(text)));
       } else {
         Path name = path.getFileName();
         skipped.add(name == null ? text : name.toString());

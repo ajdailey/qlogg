@@ -20,6 +20,8 @@ import java.util.Map;
  * @param dialogs {@code dialog.<name>.width} and {@code .height}: a dialog's last size
  * @param closedFiles {@code closed.N}: File > Recently Closed, most recent first, at most {@link
  *     #MAX_CLOSED}
+ * @param closedSets {@code closed.N.rotated}: the entries of {@code closedFiles} closed as rotated
+ *     sets
  * @param folderSearch {@code folderSearch.*}: the Search in Folder window's folder, names and
  *     subfolders
  */
@@ -33,6 +35,7 @@ public record UiState(
     List<String> recentFiles,
     Map<String, Size> dialogs,
     List<String> closedFiles,
+    List<String> closedSets,
     FolderSearchSettings folderSearch) {
   /** Most dialog sizes kept. */
   public static final int MAX_DIALOGS = 32;
@@ -51,6 +54,7 @@ public record UiState(
           "",
           List.of(),
           Map.of(),
+          List.of(),
           List.of(),
           FolderSearchSettings.DEFAULTS);
 
@@ -77,6 +81,7 @@ public record UiState(
         || recentFiles == null
         || dialogs == null
         || closedFiles == null
+        || closedSets == null
         || folderSearch == null) {
       throw new IllegalArgumentException("every component is required");
     }
@@ -92,6 +97,7 @@ public record UiState(
     closedFiles =
         List.copyOf(
             closedFiles.size() > MAX_CLOSED ? closedFiles.subList(0, MAX_CLOSED) : closedFiles);
+    closedSets = List.copyOf(closedSets);
   }
 
   /**
@@ -112,6 +118,7 @@ public record UiState(
         recentFiles,
         dialogs,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -132,6 +139,7 @@ public record UiState(
         recentFiles,
         dialogs,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -153,6 +161,7 @@ public record UiState(
         recentFiles,
         dialogs,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -173,6 +182,7 @@ public record UiState(
         recentFiles,
         dialogs,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -193,6 +203,7 @@ public record UiState(
         value,
         dialogs,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -232,7 +243,19 @@ public record UiState(
         recentFiles,
         dialogs,
         value,
+        retained(closedSets, value),
         folderSearch);
+  }
+
+  /** Keeps the entries of {@code sets} that {@code closed} lists. */
+  private static List<String> retained(List<String> sets, List<String> closed) {
+    List<String> kept = new ArrayList<String>();
+    for (String path : sets) {
+      if (closed.contains(path)) {
+        kept.add(path);
+      }
+    }
+    return kept;
   }
 
   /**
@@ -242,10 +265,37 @@ public record UiState(
    * @return the copy
    */
   public UiState addClosed(String path) {
+    return addClosed(path, false);
+  }
+
+  /**
+   * Returns a copy with a file first in Recently Closed, at most {@link #MAX_CLOSED} kept.
+   *
+   * @param path the path
+   * @param rotated true when the tab showed the file's rotated set
+   * @return the copy
+   */
+  public UiState addClosed(String path, boolean rotated) {
     List<String> list = new ArrayList<String>(closedFiles);
     list.remove(path);
     list.add(0, path);
-    return withClosedFiles(list);
+    List<String> sets = new ArrayList<String>(closedSets);
+    sets.remove(path);
+    if (rotated) {
+      sets.add(path);
+    }
+    return new UiState(
+        window,
+        split,
+        search,
+        lineNumbers,
+        filteredLineNumbers,
+        openDirectory,
+        recentFiles,
+        dialogs,
+        list,
+        retained(sets, list.size() > MAX_CLOSED ? list.subList(0, MAX_CLOSED) : list),
+        folderSearch);
   }
 
   /**
@@ -290,6 +340,7 @@ public record UiState(
         recentFiles,
         copy,
         closedFiles,
+        closedSets,
         folderSearch);
   }
 
@@ -312,6 +363,7 @@ public record UiState(
         recentFiles,
         dialogs,
         closedFiles,
+        closedSets,
         value);
   }
 }

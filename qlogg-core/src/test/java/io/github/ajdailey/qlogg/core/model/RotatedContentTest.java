@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -21,6 +22,7 @@ import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LeftOut;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.RecordLines;
 import io.github.ajdailey.qlogg.core.search.RecordScan;
@@ -257,6 +259,36 @@ class RotatedContentTest {
       assertEquals(9, document.index().lineCount());
       assertEquals(concat(two, one, active), text(document.bytes()));
       assertEquals(3, document.index().lineStart(3) / "app.log.2 line 0\n".length());
+    } finally {
+      document.close();
+    }
+  }
+
+  @Test
+  void filesAndMemberBasesBeforeIndexing() throws Exception {
+    member("app.log.2", 3, 3);
+    Path one = dir.resolve("app.log.1");
+    Files.writeString(one, "no final line feed", StandardCharsets.US_ASCII);
+    age(one, 2);
+    Path active = member("app.log", 4, 1);
+    Files.writeString(dir.resolve("app.log.3.gz"), "z", StandardCharsets.US_ASCII);
+    LogDocument document = new LogDocument(open(active, false), services);
+    try {
+      SetFiles files = document.files();
+      assertEquals(3, files.members().size());
+      assertEquals(dir.resolve("app.log.1"), files.members().get(1).path());
+      assertEquals(18, files.members().get(1).size());
+      assertEquals(document.bytes().identity().headDigest(), files.members().get(2).headDigest());
+      assertEquals(1, files.leftOut(LeftOut.Reason.COMPRESSED));
+      long[] bases =
+          document.memberBases(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return false;
+                }
+              });
+      assertArrayEquals(new long[] {0, 3, 4}, bases);
     } finally {
       document.close();
     }

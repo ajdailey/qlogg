@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.controller;
 
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import java.util.Arrays;
 
 /**
@@ -151,6 +152,32 @@ final class NavigationHistory {
     }
     size = kept;
     at = newAt < 0 ? size : newAt;
+  }
+
+  /**
+   * Moves the entries through a rotated set's line map; entries on a dropped member go, and
+   * neighbors that became equal merge.
+   *
+   * @param map the map, or null to keep the entries
+   */
+  void map(LineMap map) {
+    if (map == null) {
+      return;
+    }
+    int kept = 0;
+    int newAt = -1;
+    for (int i = 0; i < size; i++) {
+      long line = map.map(lines[i]);
+      if (i == at) {
+        newAt = kept;
+      }
+      if (line == LineMap.DROPPED || (kept > 0 && lines[kept - 1] == line)) {
+        continue;
+      }
+      lines[kept++] = line;
+    }
+    size = kept;
+    at = newAt < 0 || newAt > size ? size : newAt;
   }
 
   /**

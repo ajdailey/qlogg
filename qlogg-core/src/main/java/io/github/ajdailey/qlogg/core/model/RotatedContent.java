@@ -13,6 +13,7 @@ import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.rotate.Member;
 import io.github.ajdailey.qlogg.core.rotate.RotatedIndex;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.SortedLines;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
@@ -24,8 +25,11 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.BooleanSupplier;
 
 /**
  * A rotated set behind a {@link LogDocument}: the files {@link RotatedSet#discover} found, read as
@@ -182,6 +186,47 @@ final class RotatedContent implements DocumentContent {
    */
   List<LeftOut> leftOut() {
     return follow.leftOut();
+  }
+
+  @Override
+  public SetFiles files() {
+    Map<Path, Member> listed = new HashMap<Path, Member>();
+    for (Member member : follow.listed()) {
+      listed.put(member.path(), member);
+    }
+    List<SetFiles.Loaded> loaded = new ArrayList<SetFiles.Loaded>();
+    for (SetMember member : bytes.layout().members()) {
+      FileIdentity identity = member.identity();
+      Member found = listed.get(member.path());
+      loaded.add(
+          new SetFiles.Loaded(
+              member.path(),
+              found == null ? identity.size() : found.size(),
+              found == null ? identity.modifiedMillis() : found.modifiedMillis(),
+              identity.headDigest()));
+    }
+    return new SetFiles(loaded, follow.leftOut());
+  }
+
+  @Override
+  public long[] memberBases(BooleanSupplier closing) throws IOException {
+    SetBytes.Layout layout = bytes.layout();
+    int count = layout.members().size();
+    long[] bases = new long[count];
+    for (int i = 0; i + 1 < count; i++) {
+      SetMember member = layout.members().get(i);
+      LineCounter.Counted counted =
+          LineCounter.count(
+              layout.rotated().member(i),
+              member.path(),
+              member.bomLength(),
+              layout.rotated().memberEnd(i),
+              detection.encoding(),
+              closing);
+      // A member before the last that does not end with LF is followed by one.
+      bases[i + 1] = bases[i] + counted.lines();
+    }
+    return bases;
   }
 
   @Override

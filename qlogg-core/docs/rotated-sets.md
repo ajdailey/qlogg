@@ -119,6 +119,13 @@ need not exist.
   growing prefix of the current one. `stopIndexing` leaves later members
   unindexed.
 - The timestamp format is detected from the newest member with bytes.
+- `files()` returns a `SetFiles`: the loaded members in stream order, each with
+  its current name, size and modification time from the last listing, and its
+  head digest at open, then the left-out files. It reads no file.
+- `memberBases(closing)` counts the lines of every member but the last as the
+  index will, an added LF included, and returns each member's first line. It
+  reads those members, so an owner can place line-numbered state before
+  indexing reaches them; `RollOver` counts lines the same way (`LineCounter`).
 
 ### Follow and roll-over
 

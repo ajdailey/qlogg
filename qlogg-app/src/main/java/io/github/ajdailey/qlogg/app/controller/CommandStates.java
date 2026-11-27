@@ -142,6 +142,8 @@ public final class CommandStates {
     }
     return switch (command) {
       case MOVE_TO_NEW_WINDOW -> document != null;
+      // Rotated sets: a file tab, not a filter tab.
+      case INCLUDE_ROTATED -> file && document.ownsDocument();
       // Close Multiple Tabs.
       case CLOSE_OTHERS -> document != null && tabItems(document).closeOthers();
       case CLOSE_LEFT -> document != null && tabItems(document).closeLeft();
@@ -291,6 +293,7 @@ public final class CommandStates {
     Visibility visibility = document.filtered().visibility();
     return switch (command) {
       case FOLLOW -> document.following();
+      case INCLUDE_ROTATED -> document.document().files() != null;
       case TOGGLE_LINE_NUMBERS -> document.lineNumbers();
       case TOGGLE_FILTERED_LINE_NUMBERS -> document.filtered().lineNumbers();
       case SHOW_MARKS_AND_MATCHES -> visibility == Visibility.MARKS_AND_MATCHES;

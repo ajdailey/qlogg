@@ -388,6 +388,22 @@ final class TabStrip {
     }
   }
 
+  /**
+   * Shows a rotated set's tab title and tooltip again, as its files change.
+   *
+   * @param document the tab's controller
+   */
+  void showSet(DocumentController document) {
+    CTabItem item = tabOf(document);
+    if (item != null) {
+      String title = controller.tabTitle(document).replace("&", "&&");
+      if (!title.equals(item.getText())) {
+        item.setText(title);
+      }
+      showTabData(item);
+    }
+  }
+
   /** Sets a tab's text; a {@code CTabItem} takes a single {@code &} as a mnemonic. */
   private void showTabTitle(CTabItem item, DocumentController document) {
     item.setText(controller.tabTitle(document).replace("&", "&&"));
@@ -442,7 +458,8 @@ final class TabStrip {
     TabDataState state =
         controller == null ? TabDataState.NONE : controller.tabData().state(document);
     int group = controller == null ? 0 : controller.windowSet().timeSync().number(document);
-    item.setToolTipText(TabTips.text(document.state().path(), state, group));
+    item.setToolTipText(
+        TabTips.text(document.state().path(), document.state().members(), state, group));
     item.setImage(tabDots == null ? null : tabDots.image(state));
   }
 

@@ -16,12 +16,13 @@ import java.util.Properties;
  * comma-separated, 0-based. A session keeps at most {@link #MAX_WINDOWS} windows, {@link #MAX_TABS}
  * tabs over all windows and {@link #MAX_MARK_RANGES} mark ranges over all tabs; marks past that are
  * not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line, a space and
- * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept.
- * {@code droppedComments}, written when not 0, sums the windows' {@link Session#droppedComments}
- * and loads on the first window; a missing, malformed or negative value reads as 0. {@code
- * window.W.onTop} is written when true; {@code window.W.x}, {@code .y}, {@code .width} and {@code
- * .height} each when known (a malformed value reads as unknown), and {@code .maximized} when true.
- * Tab paths pass through {@link InstallPaths}. Blocking; workers call it.
+ * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept. A
+ * rotated tab writes {@code .rotated=1} and its marks per member ({@link MemberMarksFile}); both
+ * caps count them. {@code droppedComments}, written when not 0, sums the windows' {@link
+ * Session#droppedComments} and loads on the first window; a missing, malformed or negative value
+ * reads as 0. {@code window.W.onTop} is written when true; {@code window.W.x}, {@code .y}, {@code
+ * .width} and {@code .height} each when known (a malformed value reads as unknown), and {@code
+ * .maximized} when true. Tab paths pass through {@link InstallPaths}. Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -97,6 +98,15 @@ public final class SessionStore {
         ranges += marks.length / 2;
         List<MarkComments.Comment> tabComments = parseComments(p, key, MAX_COMMENTS - comments);
         comments += tabComments.size();
+        boolean rotated = "1".equals(p.getProperty(key + "rotated", "").strip());
+        List<Session.MemberMarks> members =
+            rotated
+                ? MemberMarksFile.read(p, key, MAX_MARK_RANGES - ranges, MAX_COMMENTS - comments)
+                : List.<Session.MemberMarks>of();
+        for (Session.MemberMarks member : members) {
+          ranges += member.marks().length / 2;
+          comments += member.comments().size();
+        }
         count++;
         tabs.add(
             new Session.Tab(
@@ -106,7 +116,9 @@ public final class SessionStore {
                 marks,
                 tabComments,
                 offset(p.getProperty(key + "timeOffset", "0")),
-                syncGroup(p.getProperty(key + "syncGroup", "0"))));
+                syncGroup(p.getProperty(key + "syncGroup", "0")),
+                rotated,
+                members));
       }
       int active = -1;
       try {
@@ -204,6 +216,10 @@ public final class SessionStore {
           MarkComments.Comment comment = tab.comments().get(k);
           p.setProperty(key + COMMENT + k, comment.line() + " " + comment.text());
           comments++;
+        }
+        if (tab.rotated()) {
+          p.setProperty(key + "rotated", "1");
+          comments += MemberMarksFile.write(p, key, tab.members(), MAX_COMMENTS - comments);
         }
       }
       count += tabs;
@@ -330,21 +346,27 @@ public final class SessionStore {
       if (value == null) {
         break;
       }
-      int space = value.indexOf(' ');
-      if (space <= 0) {
-        continue;
-      }
-      String text = MarkComments.clean(value.substring(space + 1));
-      try {
-        long line = Long.parseLong(value.substring(0, space));
-        if (line >= 0 && !text.isEmpty()) {
-          out.add(new MarkComments.Comment(line, text));
-        }
-      } catch (NumberFormatException e) {
-        // Skipped.
+      MarkComments.Comment comment = comment(value);
+      if (comment != null) {
+        out.add(comment);
       }
     }
     return out;
+  }
+
+  /** Reads {@code <line> <text>}; null without a line number and text. */
+  static MarkComments.Comment comment(String value) {
+    int space = value.indexOf(' ');
+    if (space <= 0) {
+      return null;
+    }
+    String text = MarkComments.clean(value.substring(space + 1));
+    try {
+      long line = Long.parseLong(value.substring(0, space));
+      return line >= 0 && !text.isEmpty() ? new MarkComments.Comment(line, text) : null;
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 
   static String formatMarks(long[] ranges) {

@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
@@ -34,6 +35,7 @@ import java.time.Duration;
 import java.time.ZoneOffset;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 
 /**
  * One file, or pasted text, behind a {@link LogDocument}.
@@ -292,6 +294,16 @@ final class SingleFileContent implements DocumentContent {
   @Override
   public LineMap lineMap() {
     return null;
+  }
+
+  @Override
+  public SetFiles files() {
+    return null;
+  }
+
+  @Override
+  public long[] memberBases(BooleanSupplier closing) {
+    return new long[] {0};
   }
 
   @Override
