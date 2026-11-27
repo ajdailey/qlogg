@@ -103,23 +103,27 @@ against pinned SHA-256 digests.
 Builds are reproducible: with the same JDK (CI's Temurin 21.0.13.1+2), two
 builds of one commit write byte-identical jars, `qlogg.exe`, archives,
 installers and packages, every entry dated `project.build.outputTimestamp`
-from the parent POM. `.github/scripts/check-reproducible.sh` builds twice and
+from the parent POM. The container build writes the same 13 archives as CI's
+`package` job for the same `-Drevision`. `.github/scripts/check-reproducible.sh` builds twice and
 compares SHA-256.
 
 ### Container build
 
 A host with Docker (or Podman with compose) and no JDK builds in the image
-`docker/Dockerfile` defines: Temurin 21, git, Xvfb and GTK 3. `compose.yaml`
-holds the mounts and environment and runs the same `./mvnw`.
+`docker/Dockerfile` defines: Temurin 21, git, jq, Xvfb, the X11 utilities,
+GTK 3 and 4 and WebKitGTK 4.1. `compose.yaml` holds the mounts and environment
+and runs the same `./mvnw`. The default command runs CI's `package` job, and
+`check` its Linux `test` job.
 
 ```sh
-scripts/container.sh               # clean package -Pall-targets: archives, installers, packages into dist/
-scripts/container.sh check         # xvfb-run ./mvnw clean verify, SWT tests included
+scripts/container.sh               # clean package -Pall-targets,sbom: archives, installers, packages, SBOM into dist/
+scripts/container.sh check         # xvfb-run ./mvnw clean verify, SWT and user guide tests included
 scripts/container.sh clean         # ./mvnw clean, and empty dist/
 scripts/container.sh shell         # a shell in the build image
 scripts/container.sh --rebuild     # rebuild the build image first
 scripts/container.sh --out DIR     # write the archives to DIR
 scripts/container.sh ./mvnw -B spotless:check
+scripts/container.sh env SWT_GTK4=1 xvfb-run -a ./mvnw -B verify -pl qlogg-ui-swt,qlogg-launcher,qlogg-dist -am
 ```
 
 - Any other command runs verbatim in the image at the repository root.
@@ -127,8 +131,11 @@ scripts/container.sh ./mvnw -B spotless:check
   Linux script.
 - The output directory is bind-mounted over `dist/`, so `clean` empties it and
   never removes it.
-- The Maven repository, the wrapper's Maven and the JDK cache live in the named
-  volume `qlogg-maven-repo`.
+- The Maven repository and the wrapper's Maven live in the named volume
+  `qlogg-maven-repo`; the JDK archives and tools `dist.xml` downloads live in
+  `qlogg-build-tools`.
+- The `env SWT_GTK4=1` line runs CI's `test-gtk4` job on the experimental
+  GTK 4 backend.
 - On Linux the container runs as the calling user, so files in `dist/` and
   `target/` belong to that user.
 - The service is `linux/amd64`, because packaging runs launch4j's x86-64
@@ -139,9 +146,10 @@ scripts/container.sh ./mvnw -B spotless:check
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
 every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13.1+2
 (21.0.12.1+1 on `windows-11-arm`). Actions are pinned by commit SHA, and every
-checkout sets `persist-credentials: false`. Linux jobs install Xvfb and GTK 3
-from the Ubuntu archive when the runner image lacks them, and the Linux `test`
-jobs install WebKitGTK 4.1 so the user guide's `Browser` tests run.
+checkout sets `persist-credentials: false`. Linux jobs install Xvfb, GTK 3 and
+the X11 utilities from the Ubuntu archive when the runner image lacks them, and
+the Linux `test` jobs install WebKitGTK 4.1 so the user guide's `Browser` tests
+run.
 
 | Job | Runners | Does |
 |---|---|---|
