@@ -29,6 +29,7 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -75,37 +76,50 @@ class Win32ComboListTest {
 
   @Test
   void theSelectedRowReadsUnderADarkStart() {
-    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, "dark"));
+    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, 0, "dark"));
+  }
+
+  @Test
+  void theSelectedRowReadsAfterKeyboardMovesUnderADarkStart() {
+    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, 2, "dark-down"));
+  }
+
+  @Test
+  void anEditableComboSelectedRowReadsAfterKeyboardMovesUnderADarkStart() {
+    assertEquals(
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, 2, "editable-dark-down"));
   }
 
   @Test
   void theSelectedRowReadsUnderALightStart() {
-    assertNotEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, false, "light"));
+    assertNotEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, false, 0, "light"));
   }
 
   @Test
   void theSelectedRowReadsAfterALiveSwitchToDark() {
-    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, true, "light-to-dark"));
+    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, true, 0, "light-to-dark"));
   }
 
   @Test
   void anEditableComboSelectedRowReadsUnderADarkStart() {
-    assertEquals(DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, "editable-dark"));
+    assertEquals(DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, 0, "editable-dark"));
   }
 
   @Test
   void anEditableComboSelectedRowReadsAfterALiveSwitchToDark() {
     assertEquals(
-        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, "editable-light-to-dark"));
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, 0, "editable-light-to-dark"));
   }
 
   /**
-   * Opens the list and checks its selected row; returns the row's fill.
+   * Opens the list with the pointer off it and checks its selected row, then moves the selection
+   * {@code downs} rows with the Down key and checks the row it lands on; returns the last row's
+   * fill.
    *
    * @param style {@code SWT.READ_ONLY} or {@code SWT.DROP_DOWN}, an editable combo
    * @param switchToDark sets the dark native setting after the combo exists, as a live switch does
    */
-  private RGB check(int style, ThemeMode mode, boolean switchToDark, String name) {
+  private RGB check(int style, ThemeMode mode, boolean switchToDark, int downs, String name) {
     assumeTrue("win32".equals(SWT.getPlatform()), "win32 combo list");
     display = new Display();
     SwtThemeService.open(display, mode);
@@ -129,9 +143,47 @@ class Win32ComboListTest {
     combo.setFocus();
     final RGB body = mostRows(capture(combo));
     combo.setListVisible(true);
+    ImageData list = stableList(combo, body);
+    save(name, list);
+    assumeTrue(
+        !mostRows(list).equals(body),
+        "the screen does not show the open list below the combo; body " + hex(body));
+    report.setLength(0);
+    int[] band = selectedBand(list, mostRows(list));
+    RGB fill = readable(list, band, name);
+    for (int i = 0; i < downs; i++) {
+      postKey(SWT.KeyDown);
+      postKey(SWT.KeyUp);
+    }
+    if (downs == 0) {
+      return fill;
+    }
+    final int target = 1 + downs;
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return combo.getSelectionIndex() == target;
+              }
+            },
+            BOUND),
+        "Down moves the selection to " + target + ", at " + combo.getSelectionIndex());
+    ImageData moved = stableList(combo, body);
+    report.setLength(0);
+    int[] movedBand = selectedBand(moved, mostRows(moved));
+    String movedName = name + "-moved";
+    save(movedName, moved);
+    assertTrue(
+        movedBand != null && movedBand[0] > band[0],
+        "the selected band moves down with the selection\n" + report);
+    return readable(moved, movedBand, movedName);
+  }
+
+  /** Captures until two reads in a row match, so the list has finished opening and painting. */
+  private ImageData stableList(final Combo combo, final RGB body) {
     final ImageData[] list = {null};
-    final int[][] selected = {null};
-    // Two equal reads in a row, so the list has finished opening and painting.
     EventLoop.runUntil(
         display,
         new BooleanSupplier() {
@@ -141,26 +193,38 @@ class Win32ComboListTest {
             ImageData previous = list[0];
             list[0] = capture(combo);
             report.setLength(0);
-            selected[0] = selectedBand(list[0], mostRows(list[0]));
             return !mostRows(list[0]).equals(body)
-                && selected[0] != null
+                && selectedBand(list[0], mostRows(list[0])) != null
                 && previous != null
                 && Arrays.equals(previous.data, list[0].data);
           }
         },
         BOUND);
-    save(name, list[0]);
-    assumeTrue(
-        !mostRows(list[0]).equals(body),
-        "the screen does not show the open list below the combo; body " + hex(body));
-    assertTrue(selected[0] != null, "no row on its own ground\n" + report);
+    return list[0];
+  }
+
+  /**
+   * Asserts that the band is a row on its own ground with text at {@link #TEXT_CONTRAST}; returns
+   * the band's fill.
+   */
+  private RGB readable(ImageData list, int[] band, String name) {
+    assertTrue(band != null, "no row on its own ground\n" + report);
     // The band's middle row: its edge rows carry the focus outline, XORed over the fill.
-    RGB fill = rowMode(list[0], (selected[0][0] + selected[0][1]) / 2);
-    double contrast = Pixels.contrast(strongest(list[0], selected[0], fill), fill);
+    RGB fill = rowMode(list, (band[0] + band[1]) / 2);
+    double contrast = Pixels.contrast(strongest(list, band, fill), fill);
     report.append(String.format("selected %s contrast=%.2f%n", hex(fill), contrast));
-    save(name, list[0]);
+    save(name, list);
     assertTrue(contrast >= TEXT_CONTRAST, "selected row text\n" + report);
     return fill;
+  }
+
+  /** Posts a Down key event to the focused combo, whose list is open. */
+  private void postKey(int type) {
+    Event key = new Event();
+    key.type = type;
+    key.keyCode = SWT.ARROW_DOWN;
+    display.post(key);
+    settle();
   }
 
   /** Reads the screen below the combo, where its list opens, four rows and a margin high. */

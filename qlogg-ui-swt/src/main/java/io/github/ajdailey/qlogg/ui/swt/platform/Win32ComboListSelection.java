@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt.platform;
 
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
+import io.github.ajdailey.qlogg.core.text.LogText;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;
@@ -35,6 +36,14 @@ import org.slf4j.LoggerFactory;
 final class Win32ComboListSelection implements ComboListSelection {
   private static final int WM_PAINT = 0x000f;
   private static final int WM_GETFONT = 0x0031;
+  private static final int WM_TIMER = 0x0113;
+  private static final int WM_PRINTCLIENT = 0x0318;
+  private static final int CB_GETCURSEL = 0x0147;
+  private static final int LB_GETCARETINDEX = 0x019f;
+
+  /** Posted to the list when it shows; the hook repaints on it and keeps it from the list. */
+  private static final int SHOWN = 0x8000 + 0x0f42;
+
   private static final int LB_GETCURSEL = 0x0188;
   private static final int LB_GETTEXT = 0x0189;
   private static final int LB_GETTEXTLEN = 0x018a;
@@ -49,6 +58,9 @@ final class Win32ComboListSelection implements ComboListSelection {
   private static final int INSET = 2;
 
   private static final Logger LOG = LoggerFactory.getLogger(Win32ComboListSelection.class);
+
+  /** Diagnostic: logs each list message and each paint at INFO. */
+  private static final boolean TRACE = Boolean.getBoolean("qlogg.comboListTrace");
 
   /** The resolved members, the failure that stopped them, or null before the first combo. */
   private Object members;
@@ -132,6 +144,9 @@ final class Win32ComboListSelection implements ComboListSelection {
     found.textColor = os.getMethod("SetTextColor", long.class, int.class);
     found.drawText =
         os.getMethod("DrawText", long.class, char[].class, int.class, found.rect, int.class);
+    found.visible = os.getMethod("IsWindowVisible", long.class);
+    found.invalidate = os.getMethod("InvalidateRect", long.class, found.rect, boolean.class);
+    found.post = os.getMethod("PostMessage", long.class, int.class, long.class, long.class);
     return found;
   }
 
@@ -165,6 +180,9 @@ final class Win32ComboListSelection implements ComboListSelection {
     Method bkMode;
     Method textColor;
     Method drawText;
+    Method visible;
+    Method invalidate;
+    Method post;
 
     long os(Method method, Object... args) throws ReflectiveOperationException {
       return number(method.invoke(null, args));
@@ -183,6 +201,7 @@ final class Win32ComboListSelection implements ComboListSelection {
     private long list;
     private long old;
     private long painted = -1;
+    private boolean shown;
     private boolean busy;
     private boolean broken;
 
@@ -211,6 +230,32 @@ final class Win32ComboListSelection implements ComboListSelection {
               remove();
             }
           });
+      combo.addListener(
+          SWT.Selection,
+          new Listener() {
+            @Override
+            public void handleEvent(Event event) {
+              if (TRACE) {
+                LOG.info("combo list {}: combo Selection, shown={}", Long.toHexString(list), shown);
+              }
+              if (shown) {
+                repaint();
+              }
+            }
+          });
+    }
+
+    /** Invalidates the open list, so a {@code WM_PAINT} repaints it and the selected row. */
+    private void repaint() {
+      if (combo.isDisposed() || broken) {
+        return;
+      }
+      try {
+        os.os(os.invalidate, list, null, false);
+      } catch (ReflectiveOperationException | IllegalArgumentException e) {
+        broken = true;
+        LOG.warn("Dark combo list selection painting stopped: a reflective call failed", e);
+      }
     }
 
     /** Restores the list's window procedure and frees the callback, before SWT destroys it. */
@@ -228,6 +273,13 @@ final class Win32ComboListSelection implements ComboListSelection {
      * dark native setting is on. SWT's callback passes every argument as a long.
      */
     long windowProc(long hwnd, long msg, long wParam, long lParam) {
+      if (msg == SHOWN) {
+        if (TRACE) {
+          LOG.info("combo list {}: repaint after show", Long.toHexString(list));
+        }
+        repaint();
+        return 0;
+      }
       long result;
       try {
         result = os.os(os.callProc, old, hwnd, (int) msg, wParam, lParam);
@@ -241,9 +293,22 @@ final class Win32ComboListSelection implements ComboListSelection {
       busy = true;
       try {
         long selected = os.os(os.send, hwnd, LB_GETCURSEL, 0L, 0L);
-        if (msg == WM_PAINT || selected != painted) {
-          paint(hwnd, selected);
+        boolean visible = os.os(os.visible, hwnd) != 0;
+        String painting = "-";
+        if (msg == WM_PRINTCLIENT) {
+          painting = "print";
+          paint(hwnd, selected, wParam);
+        } else if (msg == WM_PAINT || msg == WM_TIMER || selected != painted) {
+          painting = "window";
+          paintWindow(hwnd, selected);
         }
+        if (visible && !shown) {
+          os.os(os.post, hwnd, SHOWN, 0L, 0L);
+        }
+        if (TRACE) {
+          trace(hwnd, msg, wParam, lParam, selected, visible, painting);
+        }
+        shown = visible;
         painted = selected;
       } catch (ReflectiveOperationException | IllegalArgumentException e) {
         broken = true;
@@ -254,8 +319,50 @@ final class Win32ComboListSelection implements ComboListSelection {
       return result;
     }
 
-    /** Fills the selected row and draws its text in the dark selection colors. */
-    private void paint(long hwnd, long selected) throws ReflectiveOperationException {
+    private void trace(
+        long hwnd,
+        long msg,
+        long wParam,
+        long lParam,
+        long selected,
+        boolean visible,
+        String painting)
+        throws ReflectiveOperationException {
+      long caret = os.os(os.send, hwnd, LB_GETCARETINDEX, 0L, 0L);
+      long comboSelected = os.os(os.send, os.handle.getLong(combo), CB_GETCURSEL, 0L, 0L);
+      LOG.info(
+          "{}",
+          LogText.oneLine(
+              String.format(
+                  "combo list %x: msg=0x%x w=0x%x l=0x%x cursel=%d caret=%d combo=%d visible=%b"
+                      + " painted=%d paint=%s",
+                  hwnd,
+                  msg,
+                  wParam,
+                  lParam,
+                  selected,
+                  caret,
+                  comboSelected,
+                  visible,
+                  painted,
+                  painting)));
+    }
+
+    /** Paints the selected row through the list's window DC. */
+    private void paintWindow(long hwnd, long selected) throws ReflectiveOperationException {
+      if (selected < 0) {
+        return;
+      }
+      long dc = os.os(os.getDc, hwnd);
+      try {
+        paint(hwnd, selected, dc);
+      } finally {
+        os.os(os.releaseDc, hwnd, dc);
+      }
+    }
+
+    /** Fills the selected row on {@code dc} and draws its text in the dark selection colors. */
+    private void paint(long hwnd, long selected, long dc) throws ReflectiveOperationException {
       if (selected < 0) {
         return;
       }
@@ -265,7 +372,6 @@ final class Win32ComboListSelection implements ComboListSelection {
       char[] text = new char[length + 1];
       os.os(os.sendChars, hwnd, LB_GETTEXT, selected, text);
       RGB[] colors = selection();
-      long dc = os.os(os.getDc, hwnd);
       long brush = os.os(os.solidBrush, colorRef(colors[0]));
       long font = os.os(os.send, hwnd, WM_GETFONT, 0L, 0L);
       long oldFont = os.os(os.selectObject, dc, font);
@@ -279,7 +385,6 @@ final class Win32ComboListSelection implements ComboListSelection {
       } finally {
         os.os(os.selectObject, dc, oldFont);
         os.os(os.deleteObject, brush);
-        os.os(os.releaseDc, hwnd, dc);
       }
     }
 
