@@ -35,6 +35,8 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A rotated set in a window: open with {@code --rotated}, title, tooltip, status member and
@@ -258,12 +260,17 @@ class RotatedSetTest {
   /**
    * A writer appends every 50 ms and rotates every 400 ms, files kept closed, so rotations land
    * while the set reloads and reindexes 3 MB files. Each notice names the set by its base name and
-   * the file that left, and the tab ends with three files. Each new active file starts with its own
-   * line: on Windows, with no file key and NTFS tunneling, two files with the same first bytes are
-   * ambiguous and the set drops the active file.
+   * the file that left, and the tab ends with three files. Regression, with every new active file
+   * starting {@code mock first}: on Windows, with no file key and NTFS tunneling, the renamed and
+   * the new active file both matched digests recorded over that line, and the set dropped the
+   * active file.
+   *
+   * @param fixedFirstLine true to start every new active file with the same line
    */
-  @Test
-  void rotationsDuringAReloadEachNameTheSetAndTheFileThatLeft() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void rotationsDuringAReloadEachNameTheSetAndTheFileThatLeft(boolean fixedFirstLine)
+      throws Exception {
     Path dir = Files.createDirectories(temp.resolve("logs"));
     Path base = dir.resolve("app.log");
     String[] names = {"app.log.2", "app.log.1", "app.log"};
@@ -295,7 +302,8 @@ class RotatedSetTest {
           Files.delete(dir.resolve("app.log.2"));
           Files.move(dir.resolve("app.log.1"), dir.resolve("app.log.2"));
           Files.move(base, dir.resolve("app.log.1"));
-          Files.writeString(base, "mock first " + rotations + "\n", StandardCharsets.US_ASCII);
+          String first = fixedFirstLine ? "mock first\n" : "mock first " + rotations + "\n";
+          Files.writeString(base, first, StandardCharsets.US_ASCII);
         }
         rotations++;
         nextRotation = System.nanoTime() + 400_000_000L;
