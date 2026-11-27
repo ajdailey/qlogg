@@ -180,11 +180,20 @@ class TabsTest {
               }
             }),
         window.positionText());
-    Canvas canvas = window.canvas().control();
-    int height = window.canvas().lineHeight();
-    RGB rule = pixel(canvas, canvas.getSize().x / 2, 2 * height);
+    final Canvas canvas = window.canvas().control();
+    final int height = window.canvas().lineHeight();
     Rgb lineNumbers = window.canvas().palette().lineNumbers();
-    assertEquals(new RGB(lineNumbers.red(), lineNumbers.green(), lineNumbers.blue()), rule);
+    final RGB expected = new RGB(lineNumbers.red(), lineNumbers.green(), lineNumbers.blue());
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return set.lines().contains(4)
+                    && expected.equals(pixel(canvas, canvas.getSize().x / 2, 2 * height));
+              }
+            }),
+        "rule above set.log: " + pixel(canvas, canvas.getSize().x / 2, 2 * height));
   }
 
   /** Paints a canvas into an image and returns the pixel at a point. */
