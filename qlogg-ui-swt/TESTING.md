@@ -19,6 +19,9 @@ a display; the untagged classes run without one. Module overview:
   widgets unscaled.
 - The `test-gtk4` CI job runs them with `SWT_GTK4=1`. A test that hits a known
   GTK 4 failure skips itself there through the test class `Gtk4`.
+- On GTK 3 the user guide tests need WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`);
+  without it `GuidePolicyTest` skips and `HelpItemsTest` and `LiveThemeGuiTest`
+  pass without opening a guide window. The Linux `test` CI jobs install it.
 - The root POM sets `XDG_CONFIG_DIRS` to the test classes' `gtk-config`,
   whose `settings.ini` names Adwaita for GTK 3 and GTK 4. Ubuntu's
   `/etc/gtk-3.0/settings.ini` names Yaru, which the CI runner lacks, and a
