@@ -39,13 +39,27 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk || '21.0.13.1+2' }}
-          cache: maven
+          show-download-progress: true
+      # One Maven cache per OS and architecture. A pom change misses the
+      # exact key and restores the newest entry for the prefix, so a job
+      # fetches only what changed. Only these jobs save it.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.m2/wrapper
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
       - name: Xvfb and GTK 3
         if: runner.os == 'Linux'
         run: .github/scripts/linux-display-deps.sh
       - name: Verify (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run -a ./mvnw -B verify
+      # Puts the SBOM plugin in the Linux x86-64 cache, which package restores.
+      - name: Resolve the SBOM plugin
+        if: matrix.target == 'linux-x86_64'
+        run: ./mvnw -B -Psbom org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -Dcyclonedx.skip=true
       - name: Verify (macOS)
         if: runner.os == 'macOS'
         run: ./mvnw -B verify
@@ -70,9 +84,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "21.0.13.1+2"
-          cache: maven
-          # A partial build; the full test job saves the Linux cache.
-          cache-read-only: true
+          show-download-progress: true
+      # Restores the test jobs' Maven cache; a partial build must not save it.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.m2/wrapper
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
       - name: Xvfb and GTK 3
         run: .github/scripts/linux-display-deps.sh
       - name: GTK 4
@@ -97,9 +117,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "21.0.13.1+2"
-          cache: maven
-          # Skips verify, so a cache it saved would lack SpotBugs.
-          cache-read-only: true
+          show-download-progress: true
+      # Restores the test jobs' Maven cache; a partial build must not save it.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.m2/wrapper
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/qlogg-build
@@ -220,9 +246,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "21.0.13.1+2"
-          cache: maven
-          # Restores only; the test jobs save the Linux cache.
-          cache-read-only: true
+          show-download-progress: true
+      # Restores the test jobs' Maven cache; a partial build must not save it.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.m2/wrapper
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
       # The package job built the tag's version; the tag must name the
       # commit's <revision>, with or without -SNAPSHOT, plus an optional
       # -rc<N> (v0.2.0-rc1 on 0.2.0-SNAPSHOT).
