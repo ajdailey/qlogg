@@ -96,10 +96,10 @@ supplies the blank-image alignment, ink and disabled image.
 - The ink follows the main toolbar's shown background on GTK
   (`PlatformTraits.shownBackground`, [theme.md](theme.md)), including a live
   theme switch: `MainWindow` calls `MenuIcons.reink` beside the toolbar's
-  `reink` on the UI turn after a palette change. win32 pop-up menus keep the
-  native side the Display started with through every live switch and window
-  rebuild, so their icons take that side's ink (`NativeTheme.startDark`), while
-  the toolbar takes `ChromeColors` from the live theme. The icons measured
+  `reink` on the UI turn after a palette change. win32 pop-up menus show the
+  native side of the last menu theme flush, so their icons take that side's
+  ink (`Win32MenuThemes.shownDark`, the start side until a flush), while the
+  toolbar takes `ChromeColors` from the live theme. The icons measured
   10.80:1 (`#3a3a3a` on `#f9f9f9`) in light menus and 9.42:1 (`#d4d4d4` on
   `#2c2c2c`) in dark menus, at a fresh start and after each live switch
   (Windows, 150%).

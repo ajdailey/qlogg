@@ -65,6 +65,13 @@ public interface OsTraits {
   FileConfinement confinement();
 
   /**
+   * Returns the foreground rights a launch passes to the running instance before a handoff.
+   *
+   * @return {@link WindowsForegroundRights} on Windows, else {@link NoForegroundRights}
+   */
+  ForegroundRights foregroundRights();
+
+  /**
    * Returns the per-user settings directory: {@code %APPDATA%\QLogg} on Windows, {@code
    * ~/Library/Application Support/QLogg} on macOS, {@code $XDG_CONFIG_HOME/qlogg} on Linux. A
    * variable that is unset, empty or not an absolute path takes its default under the home

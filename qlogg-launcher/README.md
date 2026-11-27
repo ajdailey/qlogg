@@ -58,6 +58,17 @@ launch the primary, or `InstanceClient.handOff` sends the files, `-f` and
 `+line:N` to the primary and `run` returns 0. The primary may still be
 starting; the client then waits for its first window, up to 35 s.
 
+Before `InstanceClient.handOff` the launch calls `ForegroundRights.grantAny`
+(`OsTraits.foregroundRights`). On Windows only the foreground process, or one
+it permits, brings a window to the front, and a launch from Explorer's Open
+With holds that right while the primary does not: without the grant, the
+primary's raise only flashes its taskbar button. `WindowsForegroundRights`
+calls `AllowSetForegroundWindow(ASFW_ANY)`; a failure is logged at debug and
+the handoff goes ahead. QCaret measured the same call on Windows 11: Open With
+raised the running window in 5 of 5 tries with the grant and flashed its
+taskbar button in 5 of 5 without it; QLogg is not yet measured on a Windows
+host.
+
 A handing launch without file arguments first calls `OpenDocuments.await`
 (`qlogg-ui-swt`) through the `LaunchDocuments` seam (`CocoaLaunchDocuments`,
 `NativeLaunchDocuments` elsewhere). On cocoa, Finder Open With can start a
@@ -278,7 +289,7 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture`,
 |---|---|
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
-| No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking` and `Gtk4ToolItemSizing` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT stays in listed Public SWT API exceptions |
+| No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`, `Gtk4ToolItemSizing`, `Win32MenuThemes` and `WindowsForegroundRights` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT and the Java 21 foreign-function API, a preview reached by reflection, stays in listed Public SWT API exceptions |
 | `SWT.getPlatform()`, strings starting `org.eclipse.swt.internal.` (system properties, class names) and the string `SWT_GTK4` only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | View-layer platform code stays in `ui.swt.platform`, behind a seam `PlatformTraits` chooses |
 | Outside `ui.swt.platform` and `core.util.os`, no call of a boolean `PlatformTraits` or `OsTraits` method other than the value traits (`behaviorOnlyThroughSeams`) | Platform behavior goes through a seam interface the traits choose; a trait answers a value |
 | No call of `Display.getSystemMenu`, `getSystemTray`, `getSystemTaskBar`, `isSystemDarkTheme` or `Program.findProgram` outside `ui.swt.platform` (`platformQueriesOnlyInThePlatformPackage`) | Their answer is the platform; shared code takes it from a seam or a value trait |

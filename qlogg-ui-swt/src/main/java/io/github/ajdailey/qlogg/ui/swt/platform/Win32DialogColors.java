@@ -224,6 +224,7 @@ final class Win32DialogColors implements DialogColors {
     if (control instanceof Table table) {
       table.setHeaderBackground(FIELD);
       table.setHeaderForeground(TEXT);
+      Win32HeaderText.follow(table, true);
     }
     if (control instanceof Text text) {
       Win32EmptyField.draw(text, DIALOG_INK);

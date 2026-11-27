@@ -30,9 +30,9 @@ public interface MenuBehavior {
   void decorate(Menu menu, ItemImages images);
 
   /**
-   * Chooses the menu icons' ink source. win32 pop-up menus keep the native side the Display started
-   * with through every live switch and window rebuild, while the toolbar follows the live theme, so
-   * there the ink is fixed for that side; GTK menus show the theme the owner toolbar shows.
+   * Chooses the menu icons' ink source. win32 pop-up menus show the native side of the last menu
+   * theme flush, not the toolbar's, so there the ink is fixed for that side; GTK menus show the
+   * theme the owner toolbar shows.
    *
    * @param <T> the icon set type
    * @param display the Display

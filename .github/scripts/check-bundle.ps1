@@ -1,8 +1,11 @@
 # Unpacks the $env:TARGET bundle from dist\, checks that it holds portable.txt and no qlogg.conf
 # and that its runtime reports os.arch $env:EXPECTED_ARCH, has jdk.charsets and no keytool.exe, then starts qlogg.exe and
 # finds the javaw.exe it starts. Passes only when that child runs runtime\bin\javaw.exe from the
-# bundle, the image's PE machine is $env:EXPECTED_MACHINE, its log shows the
-# main window and no failure, and a second launch hands it a file and exits 0. An ARM64 image
+# bundle with --enable-native-access=ALL-UNNAMED, the image's PE machine is $env:EXPECTED_MACHINE,
+# its log shows the main window and no failure, and a second launch hands it a file and exits 0.
+# Two more handoffs through java.exe: with the flag, no restricted-method warning on stderr;
+# without it, the warning.
+# An ARM64 image
 # cannot run under x86 or x64 emulation, so ARM64 proves a native arm64 JVM.
 # qlogg.cmd then runs the same check; it also runs LauncherProbe in place of qlogg.jar to check
 # the Java it picks, the JVM options and the arguments it passes, unquoted names as Explorer
@@ -61,6 +64,7 @@ function Wait-LogLine([string] $Path, [string] $Text) {
 function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   $settings = Join-Path $work "settings-$Name"
   $jar = Join-Path (Split-Path $Exe) 'lib\qlogg.jar'
+  $java = Join-Path (Split-Path $Javaw) 'java.exe'
   $exeName = Split-Path -Leaf $Exe
   if ($exeName -like '*.exe') { Write-Output "$Name $exeName image: $(Get-PeMachine $Exe)" }
   $launcher = Start-Process -FilePath $Exe -ArgumentList @('-l', '--settings', "`"$settings`"", "`"$log`"") -PassThru
@@ -94,6 +98,9 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
     $ended = $second.WaitForExit(60000)
     if (-not $ended) { Stop-Process -Id $second.Id -Force -ErrorAction SilentlyContinue }
     Wait-LogLine $logFile 'Handoff of 1 files'
+    $flagged = Invoke-Handoff $java @('--enable-native-access=ALL-UNNAMED') $jar $settings (Join-Path $work "$Name-flagged.err")
+    # Without the flag, the foreground grant's first link prints the restricted-method warning.
+    $control = Invoke-Handoff $java @() $jar $settings (Join-Path $work "$Name-control.err")
     $text = Read-Log $logFile
   } finally {
     Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
@@ -105,12 +112,35 @@ function Test-Launcher([string] $Exe, [string] $Javaw, [string] $Name) {
   if ($path -ine $Javaw) { throw "$Name child image is $path, expected $Javaw" }
   if ($machine -ne $env:EXPECTED_MACHINE) { throw "$Name child image machine is $machine" }
   if (-not $text.Contains('Main window open')) { throw "$Name opened no main window within 60 s" }
+  if (-not $child.CommandLine.Contains('--enable-native-access=ALL-UNNAMED')) { throw "$Name $exeName started Java without --enable-native-access=ALL-UNNAMED" }
   if (-not $ended) { throw "$Name second launch did not exit within 60 s" }
   if ($second.ExitCode -ne 0) { throw "$Name second launch exited $($second.ExitCode)" }
+  foreach ($launch in @($flagged, $control)) {
+    if (-not $launch.Ended) { throw "$Name $($launch.Label) launch did not exit within 60 s" }
+    if ($launch.ExitCode -ne 0) { throw "$Name $($launch.Label) launch exited $($launch.ExitCode)" }
+  }
+  if ($flagged.Stderr.Contains('restricted method')) { throw "$Name handoff with the flag printed a restricted-method warning:`n$($second.Stderr)" }
+  if (-not $control.Stderr.Contains('restricted method')) { throw "$Name handoff without the flag printed no restricted-method warning, so the grant did not link:`n$($control.Stderr)" }
   if (-not $text.Contains('Handoff of 1 files taken')) { throw "$Name primary took no handoff" }
   if ($text.Contains('Unhandled failure')) { throw "$Name logged an unhandled failure" }
   if ($text.Contains('UI task failed')) { throw "$Name logged a UI task failure" }
-  Write-Output "PASS: $Name $exeName started the $machine runtime $path, opened the main window and took a handoff"
+  Write-Output "PASS: $Name $exeName started the $machine runtime $path with native access, opened the main window and took three handoffs, a restricted-method warning only without the flag"
+}
+
+# Hands $handed to the instance using $Settings through $Java with $Options and returns whether it
+# exited within 60 s, its exit code and its stderr. A failed handoff opens its own window and never
+# exits, so the wait is bounded.
+function Invoke-Handoff([string] $Java, [string[]] $Options, [string] $Jar, [string] $Settings, [string] $ErrFile) {
+  $arguments = $Options + @('-jar', "`"$Jar`"", '--settings', "`"$Settings`"", "`"$handed`"")
+  $launch = Start-Process -FilePath $Java -ArgumentList $arguments -RedirectStandardError $ErrFile -NoNewWindow -PassThru
+  # ExitCode reads null unless the handle was taken while the process ran.
+  $null = $launch.Handle
+  $ended = $launch.WaitForExit(60000)
+  if (-not $ended) { Stop-Process -Id $launch.Id -Force -ErrorAction SilentlyContinue }
+  $stderr = if (Test-Path -LiteralPath $ErrFile) { [IO.File]::ReadAllText($ErrFile) } else { '' }
+  $label = if ($Options.Count -gt 0) { 'flagged' } else { 'control' }
+  Write-Output "$label handoff stderr: $stderr" | Out-Host
+  [pscustomobject] @{ Label = $label; Ended = $ended; ExitCode = $launch.ExitCode; Stderr = $stderr }
 }
 
 # Runs cmd.exe /d /s /c "$Line" with $Line passed as given, standard input closed and each
@@ -167,7 +197,7 @@ function Invoke-Probe([string] $Tree, [string] $Arguments, [hashtable] $Environm
 # Fails unless $Lines name $JavaHome, $Tree\lib\qlogg.jar, the JVM options of qlogg.exe plus
 # -Dqlogg.launcher=cmd, and exactly $Expected as the arguments the bootstrap reads.
 function Assert-Probe([string[]] $Lines, [string] $Tree, [string] $JavaHome, [string[]] $Expected) {
-  $want = @("home=$JavaHome", "jar=$(Join-Path $Tree 'lib\qlogg.jar')", 'opt=-XX:MaxRAMPercentage=50', 'opt=-Xms64m', 'opt=-XX:GCTimeRatio=1', 'opt=-Dqlogg.launcher=cmd')
+  $want = @("home=$JavaHome", "jar=$(Join-Path $Tree 'lib\qlogg.jar')", 'opt=--enable-native-access=ALL-UNNAMED', 'opt=-XX:MaxRAMPercentage=50', 'opt=-Xms64m', 'opt=-XX:GCTimeRatio=1', 'opt=-Dqlogg.launcher=cmd')
   foreach ($arg in $Expected) { $want += "arg=$arg" }
   $got = $Lines -join "`n"
   if ($got -cne ($want -join "`n")) { throw "qlogg.cmd in $Tree passed`n$got`nexpected`n$($want -join "`n")" }

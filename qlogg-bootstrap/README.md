@@ -108,10 +108,10 @@ that still mismatches after one extraction, or any mismatch in a bundle, prints
 SWT on macOS must create its Display on the process main thread, which needs
 `-XstartOnFirstThread`. The JDK launcher sets
 `JAVA_STARTED_ON_FIRST_THREAD_<pid>=1` with the flag. Without it, the
-bootstrap runs this JVM's own binary again with
-`-XstartOnFirstThread -Dqlogg.relaunched=true -jar <qlogg.jar>` and the original
-arguments as separate list elements, without a shell, and exits with the
-child's status. A relaunched process that is still off the main thread prints
+bootstrap runs this JVM's own binary again with `-XstartOnFirstThread
+--enable-native-access=ALL-UNNAMED -Dqlogg.relaunched=true -jar <qlogg.jar>`
+and the original arguments as separate list elements, without a shell, and
+exits with the child's status. A relaunched process that is still off the main thread prints
 `QLogg could not start on the macOS main thread.` and exits 2. JVM options of
 the first process are not carried over.
 

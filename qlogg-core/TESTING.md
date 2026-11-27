@@ -267,6 +267,7 @@ from a parser.
 | Class | Covers |
 |---|---|
 | `OsTraitsTest` | Each `os.name` form selecting one class, every answer of each class from a fixed name, `current()` matching this JVM, each class declaring every non-static `OsTraits` method itself (no default method), `EnvPaths.absolute` refusing null, empty, relative and NUL values; `runsInsteadOfOpening` by name per system, and by the execute bit on macOS and Linux (POSIX hosts) |
+| `ForegroundRightsTest` | Each system's `foregroundRights` class; on Windows, user32 `AllowSetForegroundWindow` linking through `java.lang.foreign`, so a JDK or Windows change that removes a member fails |
 | `RunnableTypesTest` | Every `WINDOWS` and `MAC` extension in either case, trailing dots and spaces on Windows, a `PATHEXT` entry added and malformed entries ignored |
 | `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of`; `aRejectedFormCarriesItsReason` checks the `PathFormException` reason of an empty path, a NUL character and, on Windows, an invalid path |
 

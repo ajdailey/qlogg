@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.ui.swt.platform.HeaderTexts;
 import io.github.ajdailey.qlogg.ui.swt.platform.Zoom;
 import java.util.Arrays;
 import org.eclipse.swt.SWT;
@@ -68,7 +69,7 @@ final class TableFit {
     GC gc = new GC(table);
     try {
       for (TableColumn column : table.getColumns()) {
-        int minimum = gc.textExtent(column.getText()).x + HEADER_PADDING;
+        int minimum = gc.textExtent(HeaderTexts.full(column)).x + HEADER_PADDING;
         if (column.getWidth() < minimum) {
           column.setWidth(minimum);
         }
@@ -92,7 +93,7 @@ final class TableFit {
     try {
       for (int i = 1; i < weights.length; i++) {
         weights[i] = Math.max(1, table.getColumn(i).getWidth());
-        minima[i] = gc.textExtent(table.getColumn(i).getText()).x + HEADER_PADDING;
+        minima[i] = gc.textExtent(HeaderTexts.full(table.getColumn(i))).x + HEADER_PADDING;
       }
     } finally {
       gc.dispose();

@@ -202,6 +202,7 @@
                                 <minVersion>21.0.0</minVersion>
                                 <requires64Bit>true</requires64Bit>
                                 <opts>
+                                    <opt>--enable-native-access=ALL-UNNAMED</opt>
                                     <opt>-XX:MaxRAMPercentage=50</opt>
                                     <opt>-Xms64m</opt>
                                     <opt>-XX:GCTimeRatio=1</opt>

@@ -21,6 +21,11 @@ final class MacTraits implements OsTraits {
   }
 
   @Override
+  public ForegroundRights foregroundRights() {
+    return NoForegroundRights.INSTANCE;
+  }
+
+  @Override
   public Path userSettings(Map<String, String> env, Path userHome) {
     return userHome.resolve("Library").resolve("Application Support").resolve("QLogg");
   }

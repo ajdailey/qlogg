@@ -142,6 +142,7 @@ class BootTest {
         List.of(
             "/j/bin/java",
             "-XstartOnFirstThread",
+            "--enable-native-access=ALL-UNNAMED",
             "-Dqlogg.relaunched=true",
             "-jar",
             Path.of("/q/lib/qlogg.jar").toString(),

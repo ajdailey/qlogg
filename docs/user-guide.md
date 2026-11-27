@@ -587,9 +587,8 @@ it was read.
 The View menu holds line numbers in either view, text wrap (`w`, and Wrap New
 Files), Wrap Line (`W`), markers for tabs, trailing spaces and line
 ends, hiding ANSI color sequences (for display, copy and search), syntax
-colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to scroll bars and
-other controls at once, and to menus except on Windows
-([Known issues](#known-issues)). On Windows the system theme applies them too and
+colors ([Syntax colors](#syntax-colors)), the overview bar, and the light, dark and system themes. Light and dark also apply to scroll bars, menus and
+other controls at once. On Windows the system theme applies them too and
 follows a change of the Windows setting; the title bar, menu bar, buttons,
 scroll bars, lists and dialogs turn dark, and so do the toolbar, search row,
 quick find bar, status bar, splitter and their text fields. On Windows each
@@ -761,9 +760,7 @@ A launch without `-m` hands its files to the QLogg already running for the
 same settings directory and exits. The files open in the window used last,
 which comes to the front. A file a window shows already is shown in that tab
 instead of a second one, with `+line:N` and `-f` applied. On macOS, files
-opened from the Finder or dropped on the Dock icon arrive the same way. On
-Windows a file opened from Explorer into the running instance does not raise
-its window; the window's taskbar button flashes instead.
+opened from the Finder or dropped on the Dock icon arrive the same way.
 
 When the running QLogg's `instance.endpoint` file is not owned by the user or
 is open to other accounts, the launch opens its own window and QLogg's log
@@ -941,17 +938,9 @@ characters outside the code page.
   while File, Use directory change notifications is on; turn that off as well
   to rename any folder above it. With Keep file closed off, renaming either
   folder is refused while the file is open.
-- Windows: after View > Theme changes, pop-up menus and the menus of the menu
-  bar, with their icons, keep the theme QLogg started with until the next
-  start.
 - Windows: under the dark theme at a display scale other than 100%, such as
   150%, the selected item of a drop-down list draws white on white; the other
   items stay readable.
-- Windows: under the dark theme, a column header narrowed below its text is cut
-  off without an ellipsis.
-- Windows: Open with QLogg from Explorer opens the file as a tab in the running
-  window but flashes its taskbar button instead of bringing the window to the
-  front.
 - macOS: menus and the menu bar follow the macOS appearance setting, not the
   QLogg theme.
 - Linux: GTK 4 is an experimental opt-in on linux-x86_64 (`bin/qlogg --gtk4`).

@@ -47,11 +47,12 @@ is over it (`TableFit.cellTips`).
 
 Every table creates column 0 `SWT.LEFT`: win32 draws column 0's cells left
 whatever the column's style, and a header colored under the dark theme follows
-the style ([theme.md](theme.md) win32 limits). That header also clips without an
-ellipsis, so each table calls `TableFit.headerMinima` after setting or packing
-its columns: a column narrower than its header text plus
-`TableFit.HEADER_PADDING` (16 points, SWT's 6-pixel padding each side) takes
-that width. A column narrowed by hand still clips. `TableFit.spread` keeps
+the style ([theme.md](theme.md) win32 limits). Each table calls
+`TableFit.headerMinima` after setting or packing its columns: a column narrower
+than its header text plus `TableFit.HEADER_PADDING` (16 points, SWT's 6-pixel
+padding each side) takes that width. A dark header narrowed by hand shows its
+text shortened with `...` and the whole text as the column's tool tip
+(`Win32HeaderText`). `TableFit.spread` keeps
 columns 1 and up spread over a table's width at each resize, each at least its
 header minimum while the width holds them all, setting narrowing columns before
 widening ones (`TableFit.order`): a total past the client area for a moment

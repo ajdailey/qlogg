@@ -34,7 +34,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 | Platform | `Display.setDarkThemePreferred` | System appearance change |
 |---|---|---|
 | GTK | `SwtThemeService.open` calls it for Light and Dark and `preferDark` at each switch; the GTK theme's dark variant applies at once | SWT reads the system setting once at Display creation, so a change made while QLogg runs applies at the next start |
-| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment; at a switch `showOnWindows` sets the new side and rebuilds every main window ([Window rebuild](#window-rebuild)) | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); under System a change rebuilds the windows like a switch |
+| win32 | Widgets read it only when created, so `SwtThemeService.open` sets it before the first Shell, for system from the system setting at that moment; at a switch `showOnWindows` sets the new side, flushes the pop-up menu theme and rebuilds every main window ([Window rebuild](#window-rebuild)) | The service reads `Display.isSystemDarkTheme()` every 500 ms, because SWT sends `SWT.Settings` only 2 s after `WM_SETTINGCHANGE` (`Display.SETTINGS_DELAY`); under System a change rebuilds the windows like a switch |
 | cocoa | `start` pins the application appearance to the side `ui.theme` resolves to in every mode, System from the system setting at that moment; at a switch `showOnWindows` pins the new side and `CocoaChrome` recolors every shell ([Cocoa chrome](#cocoa-chrome)); no rebuild | No `SWT.Settings` is sent (measured, macOS 15), so the service reads `Display.isSystemDarkTheme()` every 500 ms; under System a change re-pins like a switch, since SWT has no call that unpins |
 
 `SwtThemeService` reads the system setting through `NativeTheme.systemDark`
@@ -59,7 +59,24 @@ when created: a forced repaint, `setMenuBar`, a resize or a minimize and
 restore leaves the menu bar `#ffffff` after `setDarkThemePreferred(true)`
 (measured, `windows-2025`). `Win32ThemeFollow.showOnWindows` therefore sets the
 preference and `DialogColors.NATIVE_DARK` when the side differs from the
-recorded one, and calls `WindowRebuild.rebuild`.
+recorded one, calls `Win32MenuThemes.flush`, and calls `WindowRebuild.rebuild`.
+
+The pop-up menu theme (menu bar menus, cascades, context menus) is
+process-wide: `setDarkThemePreferred` reaches `SetPreferredAppMode`, and
+uxtheme draws menus in their first side until `FlushMenuThemes` runs, which SWT
+3.135.0 never calls and no public API reaches. `Win32MenuThemes.flush` calls it
+as uxtheme ordinal 136 (no exported name) through `java.lang.foreign` by
+reflection, the API being a preview in Java 21: `LoadLibraryA("uxtheme.dll")`,
+then `GetProcAddress` by ordinal, linked once per process. Every launcher
+passes `--enable-native-access=ALL-UNNAMED`, so the link prints no
+restricted-method warning. A link or call that fails logs one WARN, and menus
+keep the side of the start (`NativeTheme.startDark`). `Win32MenuThemes.shownDark`
+reports the side menus show, which the menu icons' ink takes. Measured on
+`windows-2025` at 100% (probe run 45910126999): a pop-up menu `#f9f9f9`
+after a switch to dark without the flush, `#2c2c2c` after it, and `#f9f9f9`
+after the flush back to light. On `windows-11-arm` and at 150% the flush
+returns true and the screen capture did not reach the menu, so those cases
+are unmeasured.
 
 `WindowViews` implements `WindowRebuild`. The launcher wraps each `MainWindow`
 in a `MainWindowSlot`, which implements `MainView` by forwarding to the current
@@ -243,17 +260,16 @@ API sets:
   the same. At 100% (`windows-2025`) and under light the row is `#0078d4` or
   `#0078d7` with white text (4.5:1).
 - A table header under dark dialog colors: once `setHeaderBackground` is set,
-  SWT 3.135.0 custom-draws the header without `DT_END_ELLIPSIS`, so a column
-  narrowed below its text cuts it off ("Na" for Name), and it aligns column 0
-  by the column's style while win32 draws column 0's cells left. Every QLogg
-  table creates column 0 `SWT.LEFT` (`TableColumn.setAlignment` ignores column
-  0 on win32) and opens each column at least as wide as its header text
-  (`TableFit.headerMinima`); a column narrowed by hand still clips.
-- Popup menus (menu bar menus, cascades, context menus) keep the native side
-  of the start until QLogg restarts, after a View > Theme switch and after a
-  Windows mode change under System. The popup menu theme is process-wide:
-  `setDarkThemePreferred` reaches `SetPreferredAppMode`, but SWT 3.135.0 never
-  calls `FlushMenuThemes` and no public API reaches it.
+  SWT 3.135.0 custom-draws the header with `DrawText` and no
+  `DT_END_ELLIPSIS`, 6 px in from each column edge, and aligns column 0 by the
+  column's style while win32 draws column 0's cells left. Every QLogg table
+  creates column 0 `SWT.LEFT` (`TableColumn.setAlignment` ignores column 0 on
+  win32) and opens each column at least as wide as its header text
+  (`TableFit.headerMinima`). `Win32DialogColors` calls `Win32HeaderText.follow`
+  beside the header colors: at each column resize a column narrower than its
+  text shows the longest prefix that fits followed by `...`, with the whole
+  text as the column's tool tip and under a data key that `HeaderTexts.full`
+  reads; `TableFit` measures with it.
 - A bordered field's 1 px frame, set when the field is created: after a light
   start it stays `#ffffff` around the dark field under dark; after a dark start
   it is `#646464` (measured, `windows-2025`). Turning the dark preference on
@@ -422,8 +438,8 @@ same `IMAGE_DISABLE` transform on win32): enabled 9.06:1 or more, SWT's disabled
 copy 10.14:1 or more, the faded copy 2.63:1 to 2.87:1. `fadeDisabled(false)`
 returns SWT's own disabled image. A set
 created with `ToolIcons(Control, boolean)` keeps that ink; `MenuIcons` uses it
-on win32 with the side the Display started with, which pop-up menus keep after
-a live switch. Menu icons: [menus.md](menus.md).
+on win32 with the side pop-up menus show (`Win32MenuThemes.shownDark`). Menu
+icons: [menus.md](menus.md).
 
 A set created with a background color (`ToolIcons(Control, Color)`) is for a
 palette-painted surface, the tab strip buttons: `reink` leaves it alone, and

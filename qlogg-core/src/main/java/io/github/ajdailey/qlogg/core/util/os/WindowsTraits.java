@@ -20,6 +20,11 @@ final class WindowsTraits implements OsTraits {
   }
 
   @Override
+  public ForegroundRights foregroundRights() {
+    return WindowsForegroundRights.INSTANCE;
+  }
+
+  @Override
   public Path userSettings(Map<String, String> env, Path userHome) {
     Path appData = EnvPaths.absolute(env.get("APPDATA"));
     if (appData == null) {

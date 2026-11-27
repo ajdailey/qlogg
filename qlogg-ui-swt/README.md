@@ -56,6 +56,9 @@ and `Gtk4ToolItemSizing` reach SWT internals by reflection, and
 dividers are the last exception: `Win32HeaderLines` sets the Display data key
 `org.eclipse.swt.internal.win32.Table.headerLineColor`, and `ArchitectureTest`
 allows that string in no other class ([theme](docs/theme.md#dialog-colors)).
+`Win32MenuThemes` calls uxtheme `FlushMenuThemes` through `java.lang.foreign`
+by reflection after a live theme switch
+([theme](docs/theme.md#window-rebuild)).
 
 ### GTK 4
 
