@@ -95,6 +95,16 @@ class ByteScanTest {
           count += buffer.get(i) == value ? 1 : 0;
         }
         assertEquals(count, ByteScan.count(buffer, from, to, value), context + " count " + value);
+        if (to > from) {
+          long word = ByteScan.word(buffer, from, to);
+          long flags = ByteScan.flags(word, ByteScan.repeat(value));
+          for (int k = 0; k < Long.BYTES; k++) {
+            byte expected = from + k < to ? buffer.get(from + k) : 0;
+            assertEquals(expected, (byte) (word >>> (k << 3)), context + " word byte " + k);
+            assertEquals(
+                expected == value, (flags >>> (k << 3) & 0x80) != 0, context + " flag " + k);
+          }
+        }
       }
     }
   }

@@ -208,8 +208,7 @@ final class Log4jXmlParser extends FieldParser {
         while (pos < length && text.charAt(pos) != '<') {
           pos++;
         }
-        XmlReferences.unescape(text, from, pos, values.builder());
-        values.limit();
+        values.appendXml(text, from, pos);
       }
     }
     values.close(column, start);
@@ -310,8 +309,7 @@ final class Log4jXmlParser extends FieldParser {
   /** Appends {@code text[from, to)} unescaped; nothing when {@code from} is -1. */
   private void unescape(int from, int to) {
     if (from >= 0) {
-      XmlReferences.unescape(text, from, to, values().builder());
-      values().limit();
+      values().appendXml(text, from, to);
     }
   }
 

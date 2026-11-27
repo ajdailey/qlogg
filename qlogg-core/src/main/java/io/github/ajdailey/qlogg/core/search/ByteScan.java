@@ -145,6 +145,49 @@ final class ByteScan {
     return -1;
   }
 
+  /**
+   * Returns a byte repeated across a word, for {@link #flags}.
+   *
+   * @param value the byte
+   * @return the word
+   */
+  static long repeat(byte value) {
+    return (value & 0xFFL) * ONES;
+  }
+
+  /**
+   * Reads up to 8 bytes from {@code at} as a little-endian word: byte {@code at + k} in bits {@code
+   * 8k} to {@code 8k + 7}, zero from {@code end} on.
+   *
+   * @param bytes the buffer
+   * @param at the first byte
+   * @param end the exclusive end of the bytes read, greater than {@code at}
+   * @return the word
+   */
+  static long word(ByteBuffer bytes, int at, int end) {
+    if (end - at >= Long.BYTES) {
+      long word = bytes.getLong(at);
+      return bytes.order() == ByteOrder.LITTLE_ENDIAN ? word : Long.reverseBytes(word);
+    }
+    long word = 0;
+    for (int k = 0; k < end - at; k++) {
+      word |= (bytes.get(at + k) & 0xFFL) << (k << 3);
+    }
+    return word;
+  }
+
+  /**
+   * Flags the bytes of a word that equal a repeated byte: the high bit of each such byte is set and
+   * every other bit is clear.
+   *
+   * @param word 8 bytes read with {@code getLong} or {@link #word}
+   * @param repeated a byte from {@link #repeat}
+   * @return the flags
+   */
+  static long flags(long word, long repeated) {
+    return zeroBytes(word ^ repeated);
+  }
+
   private static boolean equal(byte b, byte value, boolean fold) {
     return b == value || fold && (b | 0x20) == value;
   }

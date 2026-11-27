@@ -36,6 +36,18 @@ public final class XmlReferences {
     }
   }
 
+  /**
+   * Returns the code point a reference body names, as {@link #unescape} replaces it.
+   *
+   * @param text the chars
+   * @param from the body's first index, after {@code &}
+   * @param end the index of the closing {@code ;}, greater than {@code from}
+   * @return the code point, or -1 when the body names none
+   */
+  public static int codePoint(CharSequence text, int from, int end) {
+    return reference(text, from, end);
+  }
+
   /** Returns the offset of the {@code ;} closing a reference body starting at {@code from}. */
   private static int semicolon(CharSequence text, int from, int to) {
     int limit = Math.min(to, from + MAX_BODY + 1);
