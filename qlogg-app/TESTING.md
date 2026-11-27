@@ -91,6 +91,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `LineViewControllerTest` | A scroll while a read is in flight ending on a block at the new top; a block whose spans the `HIGHLIGHT` share refuses shown without them, and with them once the share has room |
 | `ExportCancelTest` | Tab close and `Esc` canceling a copy or save held at a gated row: the `COPY` and `LINE_INDEX` reservations returned, no file left; a second copy while one runs showing a notice, and copy running after `Esc` |
 | `WordSelectionTest` | `selectWordAt`: the word around a position or the one before it, and positions that select nothing |
+| `FilterTabTest` | Rows in root lines (`sourceLine`, `rowOf` of a line that is not a row, no folds) and a search in the tab testing its rows only; no tab without a search that ran to its end; mark jumps and the marks list skipping marks that are not rows; two levels growing with appends and testing a completed last line again; closing a middle tab moving its child, which keeps growing, and closing the root closing every level; a truncation deriving every level again with one notice; a reload from a filter tab and a replaced file (POSIX only: a retargeted symbolic link) deriving again; Locate Source Line into another window and up the chain |
 | `ControlBoxSelectionTest` | A selection across a control box copying the original char, the columns after it counting two, a double click stopping at the box, and `selectedChars` counting a box and a tab as one char each |
 
 ## Follow, reload and remembered state

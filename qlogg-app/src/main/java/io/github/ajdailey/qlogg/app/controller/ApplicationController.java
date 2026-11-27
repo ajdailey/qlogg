@@ -994,7 +994,7 @@ public final class ApplicationController
 
   private DocumentController find(Path path) {
     for (DocumentController document : documents) {
-      if (path != null && path.equals(document.document().path())) {
+      if (path != null && document.ownsDocument() && path.equals(document.document().path())) {
         return document;
       }
     }
@@ -1002,6 +1002,11 @@ public final class ApplicationController
   }
 
   private DocumentController create(LogDocument document) {
+    return create(document, null);
+  }
+
+  /** Creates a file tab's controller, or a filter tab's over its root's document. */
+  private DocumentController create(LogDocument document, Derivation derivation) {
     TabHost host = new TabHost(this, view);
     DocumentController created =
         new DocumentController(
@@ -1013,7 +1018,8 @@ public final class ApplicationController
             host,
             set.services().budget(),
             set.services().search(),
-            host);
+            host,
+            derivation);
     features.configure(created);
     time.configure(created);
     UiState state = preferences.get().state();
@@ -1194,13 +1200,16 @@ public final class ApplicationController
     if (index < 0) {
       return false;
     }
+    // Filter tabs.
+    set.derivedTabs().closing(document);
+    index = documents.indexOf(document);
     documents.remove(index);
     reopening.remove(document);
     quickFind.cancelRunning(document);
     features.documentClosed(document);
     remembered.rememberPosition(document);
     // Recently Closed.
-    if (!shuttingDown) {
+    if (!shuttingDown && document.ownsDocument()) {
       recent.closed(document.document());
     }
     remembered.scheduleSave();
@@ -1269,7 +1278,11 @@ public final class ApplicationController
    * @param document an open document's controller
    */
   public void reload(DocumentController document) {
-    reopen(document, null);
+    DocumentController root = set.derivedTabs().root(document);
+    ApplicationController holder = set.derivedTabs().holder(root);
+    if (holder != null) {
+      holder.reopen(root, null);
+    }
   }
 
   @Override
@@ -1308,34 +1321,13 @@ public final class ApplicationController
       return;
     }
     DocumentController replacement = create(document);
-    replacement.setLineNumbers(old.lineNumbers());
-    replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
-    replacement.search().setText(old.search().fieldText(), old.search().options());
-    // Navigation history.
-    replacement.takeHistory(old);
     SearchViewState ran = old.search().state();
-    boolean rerun =
-        change != null
-            && old.search().options().autoRefresh()
-            && ran.phase() != SearchViewState.Phase.IDLE
-            && ran.phase() != SearchViewState.Phase.CANCELED;
+    boolean rerun = rerun(old, change);
     boolean follow = old.following();
     long timeOffset = old.time().offset();
     long caret = Math.max(0, old.sourceLine(old.selection().caret().line()));
     LabelState labels = old.labels();
-    documents.set(index, replacement);
-    use.replaced(old, replacement);
-    quickFind.cancelRunning(old);
-    features.documentClosed(old);
-    set.timeSync().replace(old, replacement);
-    old.close();
-    if (active == old) {
-      active = replacement;
-      focused = replacement;
-    }
-    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
-      listener.documentReplaced(old, replacement);
-    }
+    takeTab(old, replacement, index);
     if (change == null) {
       replacement.restore(labels, document.marks().size() > 0);
       if (!marksComplete) {
@@ -1344,10 +1336,10 @@ public final class ApplicationController
     }
     start(replacement);
     if (rerun) {
-      // The search that ran goes again; the field and toggles stay as the user left them.
-      replacement.search().run(ran.text(), ran.options());
-      replacement.search().setText(old.search().fieldText(), old.search().options());
+      rerunSearch(replacement, ran);
     }
+    // Filter tabs.
+    set.derivedTabs().replaced(old, replacement, change);
     replacement.time().setOffset(timeOffset);
     if (follow) {
       replacement.setFollowing(true);
@@ -1365,6 +1357,112 @@ public final class ApplicationController
           };
       view.showNotice(notice.format(replacement.state().title()));
     }
+  }
+
+  /**
+   * Reports whether a replaced tab's search runs again: after a change on disk, with auto-refresh
+   * on, when it had run and was not canceled.
+   */
+  private static boolean rerun(DocumentController old, FileChange change) {
+    SearchViewState ran = old.search().state();
+    return change != null
+        && old.search().options().autoRefresh()
+        && ran.phase() != SearchViewState.Phase.IDLE
+        && ran.phase() != SearchViewState.Phase.CANCELED;
+  }
+
+  /** Runs the search that ran again; the field and toggles stay as the user left them. */
+  private static void rerunSearch(DocumentController replacement, SearchViewState ran) {
+    SearchController search = replacement.search();
+    String field = search.fieldText();
+    SearchOptions toggles = search.options();
+    search.run(ran.text(), ran.options());
+    search.setText(field, toggles);
+  }
+
+  /**
+   * Puts a replacement in an old tab's place with its line numbers, search text and navigation
+   * history, then closes the old tab.
+   */
+  private void takeTab(DocumentController old, DocumentController replacement, int index) {
+    replacement.setLineNumbers(old.lineNumbers());
+    replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
+    replacement.search().setText(old.search().fieldText(), old.search().options());
+    // Navigation history.
+    replacement.takeHistory(old);
+    documents.set(index, replacement);
+    use.replaced(old, replacement);
+    quickFind.cancelRunning(old);
+    features.documentClosed(old);
+    set.timeSync().replace(old, replacement);
+    old.close();
+    if (active == old) {
+      active = replacement;
+      focused = replacement;
+    }
+    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+      listener.documentReplaced(old, replacement);
+    }
+  }
+
+  // Filter tabs.
+
+  /**
+   * Opens a filter tab of the shown result set of a tab's search; see {@link DerivedTabs#create}.
+   *
+   * @param source an open tab
+   */
+  public void filterToTab(DocumentController source) {
+    set.derivedTabs().create(this, source);
+  }
+
+  /**
+   * Shows a filter tab's caret line in its parent tab; see {@link DerivedTabs#locate}.
+   *
+   * @param tab an open tab
+   * @return false for a file tab
+   */
+  public boolean locateSource(DocumentController tab) {
+    return set.derivedTabs().locate(this, tab);
+  }
+
+  /** Adds a filter tab, with its parent's color labels and highlighter set, and shows it. */
+  void openDerived(Derivation derivation, LogDocument document) {
+    DocumentController parent = derivation.parent();
+    DocumentController created = create(document, derivation);
+    set.derivedTabs().register(derivation);
+    created.restore(parent.labels(), false);
+    created.setAutoHighlightSet(parent.autoHighlightSet());
+    documents.add(created);
+    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
+      listener.documentOpened(created);
+    }
+    start(created);
+    activate(created);
+  }
+
+  /**
+   * Replaces a filter tab with one derived again, as the root's replacement does.
+   *
+   * @return the replacement
+   */
+  DocumentController replaceDerived(
+      DocumentController old, Derivation derivation, FileChange change) {
+    DocumentController replacement = create(derivation.parent().document(), derivation);
+    set.derivedTabs().register(derivation);
+    SearchViewState ran = old.search().state();
+    boolean rerun = rerun(old, change);
+    boolean follow = old.following();
+    replacement.restore(old.labels(), false);
+    takeTab(old, replacement, documents.indexOf(old));
+    start(replacement);
+    if (rerun) {
+      rerunSearch(replacement, ran);
+    }
+    if (follow) {
+      replacement.setFollowing(true);
+    }
+    return replacement;
   }
 
   /**
@@ -1903,6 +2001,18 @@ public final class ApplicationController
     for (DocumentController document : documents) {
       remembered.rememberPosition(document);
     }
+    // Filter tabs leave their chains; a window close then closes other windows' filter tabs of
+    // this window's file tabs.
+    for (DocumentController document : documents) {
+      if (!document.ownsDocument()) {
+        set.derivedTabs().closing(document);
+      }
+    }
+    for (DocumentController document : new ArrayList<DocumentController>(documents)) {
+      if (document.ownsDocument() && !set.isQuitting()) {
+        set.derivedTabs().closing(document);
+      }
+    }
     final List<DocumentController> closing = new ArrayList<DocumentController>(documents);
     documents.clear();
     reopening.clear();
@@ -1915,7 +2025,9 @@ public final class ApplicationController
     view.hide();
     List<LogDocument> files = new ArrayList<LogDocument>();
     for (DocumentController document : closing) {
-      files.add(document.document());
+      if (document.ownsDocument()) {
+        files.add(document.document());
+      }
     }
     return files;
   }
@@ -2078,7 +2190,7 @@ public final class ApplicationController
     int shown = -1;
     for (DocumentController document : documents) {
       Path path = document.document().path();
-      if (document.document().inMemory()) {
+      if (document.document().inMemory() || !document.ownsDocument()) {
         continue;
       }
       if (document == active) {
@@ -2233,7 +2345,7 @@ public final class ApplicationController
         UiText.NOTICE_ENCODING.format(
             document.state().title(),
             charset == null ? UiText.ENCODING_AUTO_NAME.text() : charset.name()));
-    reopen(document, null);
+    reload(document);
   }
 
   /**

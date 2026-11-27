@@ -129,6 +129,8 @@ public final class WindowSet implements RememberedStateHost {
 
   // Time sync.
   private final TimeSyncGroups timeSync = new TimeSyncGroups(this);
+  // Filter tabs and their parents, across the windows.
+  private final DerivedTabs derivedTabs = new DerivedTabs(this);
 
   /**
    * Creates the set with no window.
@@ -430,6 +432,11 @@ public final class WindowSet implements RememberedStateHost {
     saveTimer.cancel();
     flushSettings();
     return destination;
+  }
+
+  /** Returns the filter tabs of every window. */
+  DerivedTabs derivedTabs() {
+    return derivedTabs;
   }
 
   // Time sync.

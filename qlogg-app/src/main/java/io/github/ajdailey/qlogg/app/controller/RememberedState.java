@@ -43,9 +43,12 @@ public final class RememberedState {
     }
   }
 
-  /** Records a tab's top line and caret for its file; a pasted document records nothing. */
+  /**
+   * Records a tab's top line and caret for its file; a pasted document and a filter tab record
+   * nothing.
+   */
   void rememberPosition(DocumentController document) {
-    if (document.document().inMemory()) {
+    if (document.document().inMemory() || !document.ownsDocument()) {
       return;
     }
     TextPosition caret = document.selection().caret();

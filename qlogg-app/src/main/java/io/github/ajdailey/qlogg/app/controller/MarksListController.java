@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
@@ -21,9 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The marks list of a window: the shown document's first {@link #MAX_ROWS} marks, each with its
- * comment and the first {@link #TEXT_CHARS} chars of its line. It follows the shown tab and reads
- * again when the marks or comments change. Confined to the UI thread.
+ * The marks list of a window: the shown tab's first {@link #MAX_ROWS} marks among its rows, each
+ * with its comment and the first {@link #TEXT_CHARS} chars of its line. It follows the shown tab
+ * and reads again when the marks or comments change. Confined to the UI thread.
  *
  * <p>Rows are built on a {@code qlogg-read-} worker under a {@link LogDocument#enter} entry, one
  * read at a time; a change during a read starts one more when it returns, and a result for any
@@ -250,6 +251,7 @@ public final class MarksListController {
     }
     final DocumentController target = document;
     final LogDocument log = target.document();
+    final LineSet members = target.rowMap().members();
     final MemoryBudget budget = target.budget();
     marksVersion = log.marks().version();
     commentsVersion = log.markComments().version();
@@ -265,7 +267,7 @@ public final class MarksListController {
                   public void run() {
                     Snapshot snapshot = null;
                     try {
-                      snapshot = read(log, budget, token);
+                      snapshot = read(log, members, budget, token);
                     } finally {
                       final Snapshot result = snapshot;
                       target
@@ -303,11 +305,14 @@ public final class MarksListController {
   }
 
   /**
-   * Lists the marks with their comments and text; null when the document closed or the token was
-   * canceled, which it checks before each row.
+   * Lists the marks among a tab's rows with their comments and text; null when the document closed
+   * or the token was canceled, which it checks before each row.
+   *
+   * @param members the rows' lines, or null for every line
    */
   @WorkerThread
-  static Snapshot read(LogDocument log, MemoryBudget budget, CancellationToken token) {
+  static Snapshot read(
+      LogDocument log, LineSet members, MemoryBudget budget, CancellationToken token) {
     if (!log.enter()) {
       return null;
     }
@@ -319,7 +324,8 @@ public final class MarksListController {
       LineIndex index = log.index();
       LineReader reader = log.newReader();
       long[] lines = new long[MAX_ROWS];
-      int count = marks.fill(0, lines);
+      long among = members == null ? marks.size() : MarkSteps.among(marks, members, lines, token);
+      int count = members == null ? marks.fill(0, lines) : (int) Math.min(among, MAX_ROWS);
       StringBuilder text = new StringBuilder();
       boolean readable = true;
       for (int i = 0; i < count; i++) {
@@ -352,7 +358,7 @@ public final class MarksListController {
       }
       long done = reserved;
       reserved = 0;
-      return new Snapshot(List.copyOf(out), marks.size(), done);
+      return new Snapshot(List.copyOf(out), among, done);
     } finally {
       budget.release(MemoryShare.RESULTS, reserved);
       log.exit();
