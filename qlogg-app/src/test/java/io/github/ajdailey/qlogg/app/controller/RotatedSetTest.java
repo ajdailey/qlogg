@@ -258,7 +258,9 @@ class RotatedSetTest {
   /**
    * A writer appends every 50 ms and rotates every 400 ms, files kept closed, so rotations land
    * while the set reloads and reindexes 3 MB files. Each notice names the set by its base name and
-   * the file that left, and the tab ends with three files.
+   * the file that left, and the tab ends with three files. Each new active file starts with its own
+   * line: on Windows, with no file key and NTFS tunneling, two files with the same first bytes are
+   * ambiguous and the set drops the active file.
    */
   @Test
   void rotationsDuringAReloadEachNameTheSetAndTheFileThatLeft() throws Exception {
@@ -278,12 +280,13 @@ class RotatedSetTest {
     fixture.application.open(List.of(new FileRequest(base, 0, true)), true);
     shown("app.log +2");
     int rotations = 0;
+    int appends = 0;
     long nextRotation = 0;
     long end = System.nanoTime() + 3_000_000_000L;
     while (System.nanoTime() < end) {
       Files.writeString(
           base,
-          "mock append\n",
+          "mock append " + appends++ + "\n",
           StandardCharsets.US_ASCII,
           StandardOpenOption.CREATE,
           StandardOpenOption.APPEND);
@@ -292,7 +295,7 @@ class RotatedSetTest {
           Files.delete(dir.resolve("app.log.2"));
           Files.move(dir.resolve("app.log.1"), dir.resolve("app.log.2"));
           Files.move(base, dir.resolve("app.log.1"));
-          Files.writeString(base, "mock first\n", StandardCharsets.US_ASCII);
+          Files.writeString(base, "mock first " + rotations + "\n", StandardCharsets.US_ASCII);
         }
         rotations++;
         nextRotation = System.nanoTime() + 400_000_000L;
