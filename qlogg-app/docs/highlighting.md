@@ -178,9 +178,11 @@ schemes from `SchemeStore` ([Settings](settings.md#color-scheme-files)).
 | Each `tokens` color | `background`, `currentLine`, `contextRow`, `resultRow` | 4.5 |
 
 `LIGHT` and `DARK` start from a navy (`#1b2e44`) and white pair; each bundled
-scheme starts from a published terminal palette or a plain pair. `tokens`
-(`TokenColors`) holds QCaret's token foregrounds for the same scheme id, color
-only, except the warning (`escape`) color of Sandstone and Nightwater, an
+scheme starts from a published terminal palette or a plain pair. `text`,
+`background`, `selection`, `selectionText`, `currentLine`, `lineNumbers` and
+`gutter` equal QCaret's for the same scheme id; `overview` takes `gutter` and
+`overviewFrame` takes `lineNumbers`. `tokens` (`TokenColors`) holds QCaret's
+token foregrounds for the same scheme id, color only, except the warning (`escape`) color of Sandstone and Nightwater, an
 orange kept apart from the error red. Error, warning and info are three
 distinct colors in every built-in scheme.
 A color below its floor moves toward black or white only as far as the floor

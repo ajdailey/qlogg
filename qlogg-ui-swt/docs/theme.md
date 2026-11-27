@@ -445,11 +445,8 @@ reads them once, so an uncolored strip keeps them through a theme change
 - `CTabFolder` draws the selection background only while focus is inside the
   folder and keeps one selection foreground for both cases, so that
   foreground must read on `gutter` and on the selection background. `text` on
-  `background` and `gutter` reads at 4.5:1 or more in every bundled scheme.
-  `selectionText` on `selection` does not pair with it: Sandstone, Garden
-  Light, Legal Pad, Paper and Phosphor put a light `selectionText` on a
-  saturated `selection`, 1.11:1 to 1.26:1 on their gutter, and `text` on
-  `selection` falls to 1.13:1 (Sandstone).
+  `background` and `gutter` reads at 4.5:1 or more in every bundled scheme;
+  `text` on `selection` falls to 2.86:1 (Nightwater).
 - The strips follow the palette, not `ui.theme`: a fixed scheme keeps them
   through a theme change.
 - `colorTabs` sets `ChromeColors.PALETTE_COLORED`, and `CocoaChrome` leaves such
@@ -496,7 +493,7 @@ icons: [menus.md](menus.md).
 A set created with a background color (`ToolIcons(Control, Color)`) is for a
 palette-painted surface, the tab strip buttons: `reink` leaves it alone, and
 `follow` takes the ink of the palette's next `gutter`. Measured under Xvfb, GTK
-3: the Close icon against the strip is 7.79:1 (Garden Light) to 12.72:1
+3: the Close icon against the strip is 8.77:1 (Nightwater) to 12.72:1
 (Phosphor) across Follow Theme, Light, Dark and the nine bundled schemes, in
 light and dark chrome.
 
