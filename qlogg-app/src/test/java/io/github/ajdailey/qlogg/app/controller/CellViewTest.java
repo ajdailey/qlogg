@@ -113,7 +113,7 @@ class CellViewTest {
   void aRecordRowShowsItsCellsAndTheHeaderRowIsMarked() throws Exception {
     DocumentController document = open("cells.csv", CSV);
     scanned(document);
-    LineBlock lines = rowsWith(document, 1, "first");
+    LineBlock lines = rowsWith(document, 1, "first  second");
     assertTrue(lines.header(0));
     assertTrue(lines.text(1).startsWith("1               INFO            first  second"));
     assertEquals('\n', lines.controls(1).charAt(37));
@@ -254,7 +254,7 @@ class CellViewTest {
     if (!tab.columns().shown()) {
       fixture.application.execute(CommandId.TOGGLE_COLUMNS);
     }
-    LineBlock lines = rowsWith(tab, 0, "first");
+    LineBlock lines = rowsWith(tab, 0, "first  second");
     assertTrue(lines.text(0).startsWith("1               INFO"));
     assertEquals(2, lines.sourceLine(0));
   }
@@ -281,7 +281,7 @@ class CellViewTest {
     tab.search().run("message:\"second\"", LITERAL);
     fixture.runUntilEnded(tab.search());
     assertEquals(List.of(1L), ControllerFixture.toList(tab.search().results()));
-    assertTrue(rowsWith(tab, 0, "first").text(0).startsWith("1               INFO"));
+    assertTrue(rowsWith(tab, 0, "first  second").text(0).startsWith("1               INFO"));
   }
 
   @Test
