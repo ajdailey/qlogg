@@ -61,17 +61,17 @@ function Get-DefaultVerbs {
   @{ '.log' = [Assoc]::Command('.log'); '.txt' = [Assoc]::Command('.txt') }
 }
 
-# Throws unless the default verb's command for .log and .txt is the one read before any install,
-# or OpenWith.exe, and is no QLogg command. A type with no UserChoice whose OpenWithProgids gains
-# QLogg.File resolves to OpenWith.exe, Windows' app picker (measured on windows-2025 for .log);
-# the verb under * changes neither, which the /NOEXPLORERMENU step checks.
-function Assert-DefaultVerbs([string] $What) {
+# Throws unless the default verb's command for .log and .txt is no QLogg command and is the one
+# read before any install, or with $Picker OpenWith.exe: a type with no UserChoice whose
+# OpenWithProgids gains QLogg.File resolves to Windows' app picker (measured on windows-2025
+# for .log). The verb under * changes neither; the /NOEXPLORERMENU step checks that.
+function Assert-DefaultVerbs([string] $What, [switch] $Picker) {
   $now = Get-DefaultVerbs
   Write-Output "default verbs after $What`: .log [$($now['.log'])] .txt [$($now['.txt'])]"
   foreach ($ext in @('.log', '.txt')) {
     $command = $now[$ext]
     if ($command -like '*qlogg*') { throw "$What made QLogg the $ext default verb: $command" }
-    if ($command -ne $defaultVerbs[$ext] -and $command -notlike '*\OpenWith.exe*') { throw "$What changed the $ext default verb from [$($defaultVerbs[$ext])] to [$command]" }
+    if ($command -ne $defaultVerbs[$ext] -and -not ($Picker -and $command -like '*\OpenWith.exe*')) { throw "$What changed the $ext default verb from [$($defaultVerbs[$ext])] to [$command]" }
   }
 }
 
@@ -186,9 +186,9 @@ function Test-Scope([string] $Scope) {
   $command = (Get-Item "$classes\QLogg.File\shell\open\command").GetValue('')
   if ($command -ne "`"$dir\qlogg.exe`" `"%1`"") { throw "$Scope QLogg.File opens with $command" }
   Assert-Verb $classes "$dir\qlogg.exe" "$Scope install"
-  Assert-DefaultVerbs "$Scope install"
+  Assert-DefaultVerbs "$Scope install" -Picker
   Assert-CmdRuns "$Scope install"
-  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut, Open With and Explorer menu verb, no desktop shortcut, the default verbs unchanged, a .cmd that still runs, and no QLogg started"
+  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut, Open With and Explorer menu verb, no desktop shortcut, no QLogg default verb, a .cmd that still runs, and no QLogg started"
 
   $env:QLOGG_HOME = $dir
   try { & .github\scripts\check-bundle.ps1 } finally { Remove-Item Env:QLOGG_HOME }
@@ -231,7 +231,7 @@ function Test-Scope([string] $Scope) {
   if (-not (Test-Path $marker)) { throw "$Scope uninstall removed the per-user settings" }
   Remove-Item -Recurse -Force $settings
   Assert-CmdRuns "$Scope uninstall"
-  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry, kept the settings, and a .cmd still runs"
+  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry, restored the default verbs, kept the settings, and a .cmd still runs"
 }
 
 Test-Scope 'machine'
@@ -350,9 +350,9 @@ foreach ($ext in @('.log', '.txt')) {
 }
 Assert-Verb $classes $exe 'register-associations.cmd'
 if (Test-Verb 'HKLM:') { throw 'register-associations.cmd wrote HKLM' }
-Assert-DefaultVerbs 'register-associations.cmd'
+Assert-DefaultVerbs 'register-associations.cmd' -Picker
 Assert-CmdRuns 'register-associations.cmd'
-Write-Output "PASS: register-associations.cmd in '$tree' added Open With and the Explorer menu verb under HKCU, the default verbs unchanged and a .cmd still runs"
+Write-Output "PASS: register-associations.cmd in '$tree' added Open With and the Explorer menu verb under HKCU, no QLogg default verb, and a .cmd still runs"
 
 # The verb on a two-file selection through the shell's context menu: it starts qlogg.exe once
 # per file, and each hands its file to the QLogg already running.
@@ -397,6 +397,6 @@ foreach ($ext in @('.log', '.txt')) {
 }
 if (Test-Verb 'HKCU:') { throw "register-associations.cmd /u left HKCU:\$verbKey" }
 Assert-DefaultVerbs 'register-associations.cmd /u'
-Write-Output 'PASS: register-associations.cmd /u removed Open With and the Explorer menu verb'
+Write-Output 'PASS: register-associations.cmd /u removed Open With and the Explorer menu verb and restored the default verbs'
 # The stopped QLogg's DLLs stay locked briefly after it exits.
 Wait-Until { Remove-Item -Recurse -Force -LiteralPath $unpacked -ErrorAction SilentlyContinue; -not (Test-Path -LiteralPath $unpacked) } "cannot remove $unpacked"
