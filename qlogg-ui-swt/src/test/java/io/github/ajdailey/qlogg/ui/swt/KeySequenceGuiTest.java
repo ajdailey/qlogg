@@ -51,6 +51,15 @@ class KeySequenceGuiTest {
   /** How long a posted key may take to arrive before the test skips. */
   private static final Duration POSTED_BOUND = Duration.ofSeconds(5);
 
+  /** The events the history records. */
+  private static final Map<Integer, String> EVENT_NAMES =
+      Map.of(
+          SWT.KeyDown, "KeyDown",
+          SWT.FocusIn, "FocusIn",
+          SWT.FocusOut, "FocusOut",
+          SWT.Activate, "Activate",
+          SWT.Deactivate, "Deactivate");
+
   @TempDir Path temp;
 
   private Display display;
@@ -58,10 +67,54 @@ class KeySequenceGuiTest {
   private ApplicationController controller;
   private DocumentController document;
 
+  /** Key, focus and activation events since the test started, for failure messages. */
+  private final List<String> history = new ArrayList<String>();
+
+  /**
+   * Key strokes (not modifiers alone) and focus losses on the main log view; each ends a pending
+   * sequence.
+   */
+  private int viewEnds;
+
+  private long started;
+
+  /** When the {@code Ctrl+E} that started the pending sequence was posted. */
+  private long sequenceStart;
+
+  private final Listener recorder =
+      new Listener() {
+        @Override
+        public void handleEvent(Event event) {
+          boolean view =
+              !windows.slots.isEmpty()
+                  && window() != null
+                  && window().canvas() != null
+                  && event.widget == window().canvas().control();
+          boolean stroke =
+              event.type == SWT.KeyDown
+                  && SwtKeys.stroke(event.stateMask, event.keyCode, event.character) != null;
+          if (view && (stroke || event.type == SWT.FocusOut)) {
+            viewEnds++;
+          }
+          history.add(
+              (System.nanoTime() - started) / 1_000_000
+                  + "ms "
+                  + EVENT_NAMES.get(event.type)
+                  + (view ? " view" : " " + event.widget.getClass().getSimpleName())
+                  + (event.type == SWT.KeyDown
+                      ? " " + event.keyCode + "/" + Integer.toHexString(event.stateMask)
+                      : ""));
+        }
+      };
+
   @BeforeEach
   void open() throws IOException {
+    started = System.nanoTime();
     display = new Display();
     windows = new SlotWindows(display, temp.resolve("config"), ThemeMode.LIGHT, null);
+    for (int type : EVENT_NAMES.keySet()) {
+      display.addFilter(type, recorder);
+    }
     controller = windows.open(40, 40, 900, 600);
     StringBuilder text = new StringBuilder();
     for (int i = 0; i < 200; i++) {
@@ -88,6 +141,9 @@ class KeySequenceGuiTest {
 
   @AfterEach
   void close() {
+    for (int type : EVENT_NAMES.keySet()) {
+      display.removeFilter(type, recorder);
+    }
     try {
       windows.close();
       assertTrue(windows.failures.isEmpty(), windows.failures.toString());
@@ -263,19 +319,30 @@ class KeySequenceGuiTest {
     press('e');
     canvas().notifyListeners(SWT.FocusOut, new Event());
     assertEquals(before, accelerators(), "focus out");
-    press('e');
-    long start = System.nanoTime();
-    assertEquals(Map.of(), accelerators());
-    assertTrue(
-        windows.await(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return !accelerators().isEmpty();
-              }
-            }),
-        "timeout");
-    assertTrue((System.nanoTime() - start) / 1_000_000 >= SequenceKeys.TIMEOUT_MILLIS - 100);
+    // A key or a focus loss on the log view during the wait also ends the sequence, so an attempt
+    // with one starts over.
+    for (int attempt = 1; ; attempt++) {
+      press('e');
+      int ends = viewEnds;
+      long start = System.nanoTime();
+      assertEquals(Map.of(), accelerators());
+      assertTrue(
+          windows.await(
+              new BooleanSupplier() {
+                @Override
+                public boolean getAsBoolean() {
+                  return !accelerators().isEmpty();
+                }
+              }),
+          "timeout");
+      long millis = (System.nanoTime() - start) / 1_000_000;
+      if (viewEnds == ends || attempt == 3) {
+        assertTrue(
+            millis >= SequenceKeys.TIMEOUT_MILLIS - 100,
+            "restored after " + millis + " ms; " + history);
+        break;
+      }
+    }
     assertEquals(before, accelerators());
   }
 
@@ -359,36 +426,17 @@ class KeySequenceGuiTest {
       selectLine(100);
       boolean first = true;
       for (final char key : collisions()) {
-        reached.clear();
-        boolean pending = postUntilReached('e', reached, selected);
+        boolean pending = startSequence();
         if (first) {
           assumeTrue(pending, "posted keys reach the log view");
           first = false;
         } else {
-          assertTrue(pending, "Ctrl+E before " + key);
+          assertTrue(pending, "Ctrl+E before " + key + "; " + history);
         }
-        postPrimary(key);
-        windows.await(
-            new BooleanSupplier() {
-              @Override
-              public boolean getAsBoolean() {
-                return reached.contains((int) key) || !selected.isEmpty();
-              }
-            });
-        windows.settle();
-        assertEquals(List.of(), selected, "menu command after Ctrl+E " + key);
+        secondStroke(key, reached, selected);
       }
       assertEquals(20, caretLine(), "Previous Mark");
-      postPrimary(',');
-      assertTrue(
-          windows.await(
-              new BooleanSupplier() {
-                @Override
-                public boolean getAsBoolean() {
-                  return !selected.isEmpty();
-                }
-              }),
-          "Preferences with none pending");
+      preferencesWithNonePending(reached, selected);
     } finally {
       display.removeFilter(SWT.KeyDown, strokes);
       for (Shell shell : display.getShells()) {
@@ -399,48 +447,132 @@ class KeySequenceGuiTest {
     }
   }
 
-  /**
-   * Posts a key with the primary modifier held until the log view receives it, at most three times,
-   * with the main window activated and the log view focused before each post. A posted key
-   * occasionally never arrives on the macOS runners; a key a menu item took ends the attempts.
-   *
-   * @return true once the log view received the key
-   */
-  private boolean postUntilReached(
-      final char key, final List<Integer> reached, List<Character> selected) {
+  /** Returns whether a sequence is pending: the hold clears every accelerator only then. */
+  private boolean pending() {
+    return accelerators().isEmpty();
+  }
+
+  /** Activates the main window, focuses the log view and waits until both hold. */
+  private void focusView() {
     final Canvas canvas = canvas();
-    BooleanSupplier arrived =
-        new BooleanSupplier() {
-          @Override
-          public boolean getAsBoolean() {
-            return reached.contains((int) key);
-          }
-        };
-    BooleanSupplier focused =
+    window().shell().setMinimized(false);
+    window().shell().forceActive();
+    canvas.setFocus();
+    EventLoop.runUntil(
+        display,
         new BooleanSupplier() {
           @Override
           public boolean getAsBoolean() {
             return display.getActiveShell() == window().shell()
                 && display.getFocusControl() == canvas;
           }
+        },
+        POSTED_BOUND);
+  }
+
+  /** Cancels a pending sequence with {@code Esc}. */
+  private void cancelPending() {
+    if (pending()) {
+      Event escape = new Event();
+      escape.keyCode = SWT.ESC;
+      canvas().notifyListeners(SWT.KeyDown, escape);
+    }
+  }
+
+  /**
+   * Posts {@code Ctrl+E} until a sequence is pending and stays pending once the queue is empty, at
+   * most three times. A posted key occasionally never arrives on the macOS runners, and one that
+   * arrives after the next post completes the pair {@code Ctrl+E Ctrl+E}, which ends the sequence;
+   * both lead to another post.
+   *
+   * @return true once a sequence is pending
+   */
+  private boolean startSequence() {
+    BooleanSupplier pending =
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return pending();
+          }
         };
     for (int attempt = 0; attempt < 3; attempt++) {
-      window().shell().forceActive();
-      canvas.setFocus();
-      EventLoop.runUntil(display, focused, POSTED_BOUND);
-      postPrimary(key);
-      if (EventLoop.runUntil(display, arrived, POSTED_BOUND)) {
-        return true;
-      }
+      cancelPending();
+      focusView();
+      sequenceStart = System.nanoTime();
+      postPrimary('e');
+      EventLoop.runUntil(display, pending, POSTED_BOUND);
       windows.settle();
-      if (arrived.getAsBoolean()) {
+      if (pending()) {
         return true;
-      }
-      if (!selected.isEmpty()) {
-        return false;
       }
     }
     return false;
+  }
+
+  /**
+   * Posts a colliding second stroke and fails if a menu item took it while the sequence was still
+   * pending. The sequence counts as pending when no key or focus loss reached the log view since it
+   * started and the timeout has not passed. A menu command after the sequence ended, or a key that
+   * never arrived, starts the attempt over, at most three times.
+   */
+  private void secondStroke(final char key, final List<Integer> reached, List<Character> selected) {
+    BooleanSupplier arrived =
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return reached.contains((int) key) || !selected.isEmpty();
+          }
+        };
+    for (int attempt = 1; ; attempt++) {
+      if (attempt > 1) {
+        assertTrue(startSequence(), "Ctrl+E before " + key + "; " + history);
+      }
+      reached.clear();
+      int ends = viewEnds;
+      postPrimary(key);
+      windows.await(arrived);
+      long millis = (System.nanoTime() - sequenceStart) / 1_000_000;
+      windows.settle();
+      if (!selected.isEmpty()) {
+        boolean ended = viewEnds != ends || millis >= SequenceKeys.TIMEOUT_MILLIS;
+        assertTrue(ended, "menu command after Ctrl+E " + key + "; " + history);
+        assertTrue(attempt < 3, "sequence ended before " + key + " three times; " + history);
+        selected.clear();
+      } else if (reached.contains((int) key)) {
+        return;
+      } else {
+        assertTrue(attempt < 3, "Ctrl+E " + key + " never arrived; " + history);
+      }
+    }
+  }
+
+  /**
+   * Posts {@code Ctrl+,} with none pending until Preferences runs, at most three times; the log
+   * view receiving it fails the test.
+   */
+  private void preferencesWithNonePending(
+      final List<Integer> reached, final List<Character> selected) {
+    for (int attempt = 1; ; attempt++) {
+      cancelPending();
+      focusView();
+      reached.clear();
+      postPrimary(',');
+      EventLoop.runUntil(
+          display,
+          new BooleanSupplier() {
+            @Override
+            public boolean getAsBoolean() {
+              return reached.contains((int) ',') || !selected.isEmpty();
+            }
+          },
+          POSTED_BOUND);
+      windows.settle();
+      if (!selected.isEmpty()) {
+        return;
+      }
+      assertFalse(reached.contains((int) ','), "Ctrl+, reached the log view; " + history);
+      assertTrue(attempt < 3, "Preferences with none pending; " + history);
+    }
   }
 
   /**
