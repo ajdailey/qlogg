@@ -26,8 +26,8 @@ if [ "${1:-}" = installer ]; then
     pages=$(mktemp -d)
     trap 'rm -rf "$pages"' EXIT
     gh run download "$run" -n installer-screenshots-windows-x86_64 -D "$pages"
-    # The setup walk's pages 3, 4 and 6: installation type, folder, finish.
-    for pair in 3:type 4:folder 6:finish; do
+    # The setup walk's pages 3, 5 and 7: installation type, folder, finish.
+    for pair in 3:type 5:folder 7:finish; do
         set -- "$pages"/[0-9][0-9]-setup-"${pair%%:*}".png
         [ $# -eq 1 ] && [ -f "$1" ] || { echo "run $run has no setup page ${pair%%:*}" >&2; exit 1; }
         cp "$1" "docs/images/guide/installer-${pair#*:}.png"

@@ -22,8 +22,8 @@ jars under `META-INF/qlogg/lib/`, the six SWT fragments unmodified under
 plugin cannot merge the fragments, which share class names.
 
 `qlogg-<version>.zip` holds `qlogg/lib/qlogg.jar`, `qlogg/bin/qlogg`,
-`qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `LICENSE`, `NOTICE` and
-`THIRD-PARTY.txt` (every bundled third-party component and its license text).
+`qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `qlogg/register-associations.cmd`,
+`LICENSE`, `NOTICE` and `THIRD-PARTY.txt` (every bundled third-party component and its license text).
 
 ## Bundles
 
@@ -33,7 +33,7 @@ every target runs the jar that was tested.
 | Target | Archive | Layout |
 |---|---|---|
 | Linux | `-portable.tar.gz` | `qlogg/bin/qlogg`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/`, `qlogg/portable.txt` |
-| Windows | `-portable.zip` | `qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/`, `qlogg/portable.txt` |
+| Windows | `-portable.zip` | `qlogg/qlogg.exe`, `qlogg/qlogg.cmd`, `qlogg/register-associations.cmd`, `qlogg/lib/qlogg.jar`, `qlogg/lib/swt/`, `qlogg/runtime/`, `qlogg/portable.txt` |
 | macOS | `.zip` | `QLogg.app/Contents/{Info.plist, MacOS/QLogg, app/QLogg.cfg, app/lib/qlogg.jar, runtime/, Resources/QLogg.icns, Resources/swt/}` |
 
 `lib/swt/` holds the target's natives, `about.html` and `about_files/`,
@@ -101,7 +101,7 @@ start, and for anyone else the all-users choice is disabled.
 
 | Choice | Folder | Writes |
 |---|---|---|
-| All users (`/MACHINE`) | `$PROGRAMFILES64\QLogg` | `uninstall.exe`; `HKLM` Installed apps entry (`DisplayIcon` `qlogg.exe`, publisher, version, size), Start menu `QLogg.lnk` for all users, `QLogg.File` ProgID listed in `.log` and `.txt` `OpenWithProgids` and `Applications\qlogg.exe` |
+| All users (`/MACHINE`) | `$PROGRAMFILES64\QLogg` | `uninstall.exe`; `HKLM` Installed apps entry (`DisplayIcon` `qlogg.exe`, publisher, version, size), Start menu `QLogg.lnk` for all users, `QLogg.File` ProgID listed in `.log` and `.txt` `OpenWithProgids`, `Applications\qlogg.exe`, and the Explorer menu verb |
 | Current user (`/USER`) | `$LOCALAPPDATA\Programs\QLogg` | The same under `HKCU` and the user's Start menu |
 | Portable (`/PORTABLE`) | `$DOCUMENTS\QLogg` by default | `portable.txt`, the archives' marker, unless one exists; nothing else |
 
@@ -127,6 +127,16 @@ start, and for anyone else the all-users choice is disabled.
   `$PROGRAMFILES32` or `$WINDIR`, or one it cannot write. Silent setup exits 2 instead.
 - Open With covers `.log` and `.txt` and never a script type: a ProgID in the
   `OpenWithProgids` of `.cmd` or `.bat` stops ShellExecute running batch files.
+- The components page holds one choice, "Add to Explorer right-click menu"
+  (the `ExplorerMenu` string), checked; portable skips the page, and
+  `/NOEXPLORERMENU` clears it in a silent install. It writes the static verb
+  `Software\Classes\*\shell\QLogg.Open` (`MUIVerb` "Open in QLogg", `Icon`
+  `"<folder>\qlogg.exe",0`, `command` `"<folder>\qlogg.exe" "%1"`). Every
+  regular install deletes the key before the section runs, so clearing the
+  choice on an upgrade removes it, and the uninstaller always deletes it. A verb
+  under `*` is no type's default verb, so double-click and ShellExecute's
+  `open` keep each type's handler. Explorer starts `qlogg.exe` once per
+  selected file, and each launch hands its file to the running instance.
 - `NsisFiles.java` writes `files.nsh`: a `File` per bundle file and a
   `Delete` and `RMDir` per file and folder for the uninstaller, sorted by
   name. The uninstaller removes exactly those, `uninstall.exe`, the shortcuts
@@ -209,6 +219,7 @@ recovery are in the root `README.md` under "Continuous integration".
 | `bin/qlogg` (POSIX sh) | Java from `<home>/runtime`, else `$JAVA_HOME`, else `PATH`; `--enable-native-access=ALL-UNNAMED -XX:MaxRAMPercentage=50 -Xms64m -XX:GCTimeRatio=1`, plus `-XstartOnFirstThread` on Darwin. Follows `$0` symlinks with plain `readlink`. `--gtk4` before `--` sets `SWT_GTK4=1` and is not passed to Java. Runs only `uname` and `readlink` besides Java |
 | `qlogg.exe` (launch4j 3.50, `gui`) | Runs `lib\qlogg.jar` with a Java 21+ found in `runtime`, `%JAVA_HOME%`, then `%PATH%`; 64-bit only; `--enable-native-access=ALL-UNNAMED -XX:MaxRAMPercentage=50 -Xms64m -XX:GCTimeRatio=1`. The launch4j header is a 32-bit x86 program that starts `javaw.exe` as a child process; on Windows arm64 it runs under x86 emulation. CI's `bundle windows-aarch64` job (`windows-11-arm`) checks that it starts `runtime\bin\javaw.exe` with PE machine `ARM64` and opens the main window (`.github/scripts/check-bundle.ps1`). The header reads its command line in the ANSI code page with best-fit mapping and starts Java with `CreateProcessA`: a character outside the code page arrives as `?` or as an ASCII look-alike (U+FF41 as `a`, U+0131 as `i`, U+FF02 as `"`, U+FF0A as `*`), quoted or not (measured, below) |
 | `qlogg.cmd` (cmd.exe) | Runs `lib\qlogg.jar` with `runtime\bin\javaw.exe`, else `%JAVA_HOME%\bin\javaw.exe`, else `javaw.exe` on `PATH`, with no version or 64-bit check; `--enable-native-access=ALL-UNNAMED -XX:MaxRAMPercentage=50 -Xms64m -XX:GCTimeRatio=1 -Dqlogg.launcher=cmd`, with the arguments in `QLOGG_CMDLINE`. Started as `cmd.exe /c ""<qlogg.cmd>" ..."` (Explorer, a shortcut, PowerShell, another program), it takes the arguments from `%cmdcmdline%` as the caller wrote them, before that cmd.exe's parse, and ends that cmd.exe with `exit`, so a command after an unquoted `&` never runs. From a command prompt or a batch file it reads `%*` back from an echoed `rem` line through a file in `%TEMP%`; where that fails, as under `cmd /q`, it runs nothing and prints `qlogg.cmd could not read its arguments through "<file>".` with exit 1. A name outside the ANSI code page arrives intact this way under console code page 65001 (measured on CI). Either way the script sets `QLOGG_CMDLINE` to the argument text through delayed expansion, which follows parsing, and starts Java with `-Dqlogg.launcher=cmd` and no arguments; the bootstrap splits the variable by the C runtime rules (`qlogg-bootstrap`). Java reads the environment in UTF-16, so a name outside the ANSI code page arrives intact and the Java launcher expands no wildcard. The calling cmd.exe acts on an unquoted `\|`, `<` or `>` before the script runs; no file name holds one. Every line starts with `@`: a calling batch keeps its echo state, and the prompt path restores echo on after its read-back. `start "" /b` returns at once and gives Java the console's output: `-v`, `-h` and errors print when it is redirected or piped, and not in an interactive console, as with `qlogg.exe` (measured on Windows 11 26H2). Once its window opens QLogg closes both handles (`CmdStreams`), so a caller reading a pipe reaches its end while QLogg runs. A double-clicked `qlogg.cmd` leaves no console open (same host). Without Java it prints a message, pauses and exits 1. Neither launcher starts from an install path holding `;`, which splits the `-jar` class path. It does not read `qlogg.l4j.ini` |
+| `register-associations.cmd` (cmd.exe) | `HKCU` only: the `QLogg.File` ProgID in the `OpenWithProgids` of `.log` and `.txt`, `Applications\qlogg.exe` and the `QLogg.Open` verb, all for the `qlogg.exe` beside it; `/u` removes them. The path expands after cmd splits the line, so a folder name holding `&`, `(` or `^` stays literal |
 | `QLogg.app/Contents/MacOS/QLogg` | The `jpackageapplauncher` binary from the target JDK's `jdk.jpackage` module. It reads `Contents/app/QLogg.cfg` and starts `Contents/runtime` with `-XstartOnFirstThread`, `--enable-native-access=ALL-UNNAMED`, `-XX:MaxRAMPercentage=50`, `-Xms64m` and `-XX:GCTimeRatio=1`; the layout copies jpackage's |
 
 ### Names outside the ANSI code page
@@ -263,8 +274,8 @@ The same job then checks the installers and packages on that runner:
 | Script | Checks |
 |---|---|
 | `check-linux-packages.sh` | Installs the `.deb` with `apt`: version, `/usr/bin/qlogg` link, no `qlogg.conf` or `portable.txt`, `desktop-file-validate`, `StartupWMClass=QLogg`, every icon. Runs `check-bundle.sh` with `QLOGG_HOME=/opt/qlogg` through `/usr/bin/qlogg`, which also requires a main window with `WM_CLASS` `"QLogg", "QLogg"`. Removes the package and checks the files are gone. Then, in `fedora:44` pinned by digest: `dnf install` of the `.rpm`, `rpm -V`, `qlogg -v`, no `qlogg.conf` or `portable.txt`, `dnf remove` |
-| `installer-screenshots.ps1` | Walks the setup's pages by window message (all-users install with the desktop shortcut ticked, its uninstaller, a portable install) and saves each with `PrintWindow` to `installer-screenshots\`, uploaded as `installer-screenshots-<target>`. After each install an `explorer.exe` must have started `qlogg.exe`, and QLogg must have the shell's token elevation (0 for an unelevated shell; the hosted runners' shell is elevated); the all-users walk must write the common desktop shortcut and its uninstaller remove it, and the portable walk writes none |
-| `check-installer.ps1` | For `/MACHINE` and then `/USER`: the Installed apps entry, the shortcut target, no desktop shortcut, `QLogg.File` in both `OpenWithProgids` with the default handler unchanged, no `qlogg.conf` or `portable.txt`, ShellExecute runs a `.cmd`, no QLogg process from the folder 5 s after setup exits; `check-bundle.ps1` with `QLOGG_HOME` set to the installed folder; an install over it with `/DESKTOP` removes a stale runtime file, adds no `qlogg.conf`, and writes the shortcut to that scope's desktop only; a silent uninstall removes the folder, shortcuts and keys, keeps `%APPDATA%\QLogg`, and a `.cmd` still runs. Then `/PORTABLE /DESKTOP`: a one-line `portable.txt` and no `qlogg.conf`, no registry entry, no Start menu or desktop shortcut, no QLogg started, QLogg writes its `-l` log in the folder, and an install over it keeps `portable.txt`, `qlogg.conf` and `logs\`. Exit 2 for `/USER` into the portable folder, into a folder holding only `qlogg.conf`, and for `/PORTABLE` under Program Files |
+| `installer-screenshots.ps1` | Walks the setup's pages by window message (all-users install with the desktop shortcut ticked, its uninstaller, a portable install) and saves each with `PrintWindow` to `installer-screenshots\`, uploaded as `installer-screenshots-<target>`. After each install an `explorer.exe` must have started `qlogg.exe`, and QLogg must have the shell's token elevation (0 for an unelevated shell; the hosted runners' shell is elevated); the all-users walk must write the common desktop shortcut and the `HKLM` `QLogg.Open` verb and its uninstaller remove both, and the portable walk writes no shortcut |
+| `check-installer.ps1` | For `/MACHINE` and then `/USER`: the Installed apps entry, the shortcut target, no desktop shortcut, `QLogg.File` in both `OpenWithProgids` with the default handler unchanged, no `qlogg.conf` or `portable.txt`, ShellExecute runs a `.cmd`, no QLogg process from the folder 5 s after setup exits; `check-bundle.ps1` with `QLOGG_HOME` set to the installed folder; an install over it with `/DESKTOP` removes a stale runtime file, adds no `qlogg.conf`, and writes the shortcut to that scope's desktop only; a silent uninstall removes the folder, shortcuts and keys, keeps `%APPDATA%\QLogg`, and a `.cmd` still runs. Then `/PORTABLE /DESKTOP`: a one-line `portable.txt` and no `qlogg.conf`, no registry entry, no Start menu or desktop shortcut, no QLogg started, QLogg writes its `-l` log in the folder, and an install over it keeps `portable.txt`, `qlogg.conf` and `logs\`. Exit 2 for `/USER` into the portable folder, into a folder holding only `qlogg.conf`, and for `/PORTABLE` under Program Files. Each regular install and uninstall checks the `QLogg.Open` key, its `Icon` and `command`, and that the default verb of `.log` and `.txt` (`AssocQueryString` `ASSOCSTR_COMMAND`) matches the one read before any install and is no QLogg command; `/NOEXPLORERMENU` over a per-user install removes the key and keeps Open With. Then `register-associations.cmd` from the portable zip, unpacked into `Q & Logg (zip)`: its keys under `HKCU` only, default verbs unchanged, a `.cmd` still runs, Open in QLogg in the context menu of a `.log`, the verb on a two-file selection (`FolderItems.InvokeVerbEx`) hands both files to the running QLogg, and `/u` removes every key |
 
 ## Icons
 

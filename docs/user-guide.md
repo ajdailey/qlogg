@@ -33,16 +33,20 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 
 | System | Download | Result |
 |---|---|---|
-| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files and an Installed apps entry, and a desktop shortcut when you tick it on the last page; a portable copy registers nothing, and deleting its folder removes it. Run QLogg on the last page starts QLogg without administrator rights |
+| Windows | `qlogg-<version>-windows-<arch>-setup.exe` | Setup asks for all users (Program Files, administrator rights), for you only (your profile), or portable (a folder you choose, with the settings kept in it). The first two add a Start menu shortcut, QLogg under Open With for `.log` and `.txt` files, an Installed apps entry, Open in QLogg on the right-click menu of every file unless you clear it on the components page, and a desktop shortcut when you tick it on the last page; a portable copy registers nothing, and deleting its folder removes it. Run QLogg on the last page starts QLogg without administrator rights |
 | Debian, Ubuntu | `qlogg-<version>-linux-<arch>.deb` | `sudo apt install ./<file>.deb`: `qlogg` on the path, QLogg in the applications menu and under Open With for text files |
 | Fedora, RHEL | `qlogg-<version>-linux-<arch>.rpm` | `sudo dnf install ./<file>.rpm`, the same |
-| Windows, Linux, no install | `qlogg-<version>-windows-<arch>-portable.zip`, `qlogg-<version>-linux-<arch>-portable.tar.gz` | Extract it and run `qlogg.exe` or `bin/qlogg`. The folder holds `portable.txt`, so QLogg keeps its settings, logs and cache there; extracting a newer version over it keeps the settings |
+| Windows, Linux, no install | `qlogg-<version>-windows-<arch>-portable.zip`, `qlogg-<version>-linux-<arch>-portable.tar.gz` | Extract it and run `qlogg.exe` or `bin/qlogg`. The folder holds `portable.txt`, so QLogg keeps its settings, logs and cache there; extracting a newer version over it keeps the settings. On Windows, `register-associations.cmd` in the folder adds Open With and Open in QLogg for your account, and `register-associations /u` removes them |
 | macOS | `qlogg-<version>-macos-<arch>.zip` | Extract it and run `QLogg.app`; settings are per user |
 
 Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
 your settings, and an upgrade of a portable copy keeps the settings in its
 folder. Installing QLogg does not set it as the default program for any file
 type.
+
+Open in QLogg opens the file in the running QLogg. With several files
+selected, each opens in its own tab of one window. On Windows 11 it is under
+Show more options.
 
 ![Windows setup: installation type](images/guide/installer-type.png)
 

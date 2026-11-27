@@ -1,6 +1,7 @@
 # Installs the $env:TARGET setup from dist\ silently for all users and then for the current
 # user. Each time it checks the Installed apps entry, the Start menu shortcut, no desktop
-# shortcut, Open With for .log and .txt with their default handlers unchanged, that a .cmd
+# shortcut, Open With for .log and .txt with their default handlers unchanged, the Explorer
+# menu verb QLogg.Open with the default verb of .log and .txt unchanged, that a .cmd
 # still runs through ShellExecute, that the folder holds no qlogg.conf or portable.txt and that
 # no QLogg process starts; runs check-bundle.ps1 against the installed folder; installs again with /DESKTOP over a stale runtime file, which the upgrade
 # removes, and checks the desktop shortcut on that scope's desktop only; then uninstalls
@@ -8,7 +9,10 @@
 # settings stay and a .cmd still runs. A portable install with /DESKTOP then gets portable.txt and no qlogg.conf, no
 # registry entry and no shortcut, starts with its settings in the folder, and an install over it
 # keeps both files. Setup refuses a portable folder under Program Files and a regular install into
-# a folder holding portable.txt or qlogg.conf. Run from the repository root with no QLogg installed.
+# a folder holding portable.txt or qlogg.conf. /NOEXPLORERMENU over an install removes the verb.
+# register-associations.cmd from the portable zip, in a folder named with a space, & and (,
+# adds Open With and the verb under HKCU, the verb on two selected files hands both to the
+# running QLogg, and /u removes every key. Run from the repository root with no QLogg installed.
 $ErrorActionPreference = 'Stop'
 
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
@@ -16,6 +20,7 @@ $version = (Split-Path -Leaf $setup) -replace '^qlogg-', '' -replace "-$env:TARG
 $uninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
 $commonDesktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
 $userDesktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'
+$verbKey = 'Software\Classes\*\shell\QLogg.Open'
 $work = Join-Path $env:RUNNER_TEMP 'installer-run'
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 New-Item -ItemType Directory -Path $work | Out-Null
@@ -32,6 +37,48 @@ function Invoke-Setup([string[]] $Arguments) {
 function Get-Handler([string] $Extension) {
   $key = Get-Item "Registry::HKEY_CLASSES_ROOT\$Extension" -ErrorAction SilentlyContinue
   if ($key) { $key.GetValue('') } else { $null }
+}
+
+Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class Assoc {
+  [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+  static extern int AssocQueryString(int flags, int str, string assoc, string extra, StringBuilder output, ref int length);
+
+  // ASSOCSTR_COMMAND of the default verb for extension; null when it has none.
+  public static string Command(string extension) {
+    int length = 4096;
+    StringBuilder output = new StringBuilder(length);
+    return AssocQueryString(0, 1, extension, null, output, ref length) == 0 ? output.ToString() : null;
+  }
+}
+'@
+
+# Throws unless the default verb's command for .log and .txt equals the one read before any
+# install and is no QLogg command: the verb under * must not become a type's default.
+function Assert-DefaultVerbs([string] $What) {
+  foreach ($ext in @('.log', '.txt')) {
+    $command = [Assoc]::Command($ext)
+    if ($command -ne $defaultVerbs[$ext]) { throw "$What changed the $ext default verb from [$($defaultVerbs[$ext])] to [$command]" }
+    if ($command -like '*qlogg*') { throw "$What made QLogg the $ext default verb: $command" }
+  }
+}
+
+# Throws unless $Classes holds the QLogg.Open verb for $Exe. The key path holds *, so every
+# registry read takes -LiteralPath.
+function Assert-Verb([string] $Classes, [string] $Exe, [string] $What) {
+  $key = Get-Item -LiteralPath "$Classes\*\shell\QLogg.Open" -ErrorAction SilentlyContinue
+  if (-not $key) { throw "$What wrote no $Classes\*\shell\QLogg.Open" }
+  if ($key.GetValue('MUIVerb') -ne 'Open in QLogg') { throw "$What QLogg.Open MUIVerb is $($key.GetValue('MUIVerb'))" }
+  if ($key.GetValue('Icon') -ne "`"$Exe`",0") { throw "$What QLogg.Open Icon is $($key.GetValue('Icon'))" }
+  $command = (Get-Item -LiteralPath "$Classes\*\shell\QLogg.Open\command").GetValue('')
+  if ($command -ne "`"$Exe`" `"%1`"") { throw "$What QLogg.Open runs $command" }
+}
+
+function Test-Verb([string] $Hive) {
+  Test-Path -LiteralPath "$Hive\$verbKey"
 }
 
 # Prints the values and subkeys of .log and .txt under each hive's Software\Classes.
@@ -81,6 +128,9 @@ function Wait-Until([scriptblock] $Condition, [string] $Message) {
   }
 }
 
+$defaultVerbs = @{ '.log' = [Assoc]::Command('.log'); '.txt' = [Assoc]::Command('.txt') }
+Write-Output "default verbs before any install: .log [$($defaultVerbs['.log'])] .txt [$($defaultVerbs['.txt'])]"
+
 function Test-Scope([string] $Scope) {
   if ($Scope -eq 'machine') {
     $hive = 'HKLM:'
@@ -126,8 +176,10 @@ function Test-Scope([string] $Scope) {
   }
   $command = (Get-Item "$classes\QLogg.File\shell\open\command").GetValue('')
   if ($command -ne "`"$dir\qlogg.exe`" `"%1`"") { throw "$Scope QLogg.File opens with $command" }
+  Assert-Verb $classes "$dir\qlogg.exe" "$Scope install"
+  Assert-DefaultVerbs "$Scope install"
   Assert-CmdRuns "$Scope install"
-  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut and Open With, no desktop shortcut, a .cmd that still runs, and no QLogg started"
+  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut, Open With and Explorer menu verb, no desktop shortcut, the default verbs unchanged, a .cmd that still runs, and no QLogg started"
 
   $env:QLOGG_HOME = $dir
   try { & .github\scripts\check-bundle.ps1 } finally { Remove-Item Env:QLOGG_HOME }
@@ -142,6 +194,7 @@ function Test-Scope([string] $Scope) {
   if (Test-Path (Join-Path $dir 'qlogg.conf')) { throw "$Scope upgrade added qlogg.conf" }
   if ((Get-ShortcutTarget $desktop) -ne "$dir\qlogg.exe") { throw "$Scope /DESKTOP shortcut $desktop does not start $dir\qlogg.exe" }
   if (Test-Path $otherDesktop) { throw "$Scope /DESKTOP wrote $otherDesktop" }
+  Assert-Verb $classes "$dir\qlogg.exe" "$Scope install over the last one"
   Assert-NotRunning $dir "silent $Scope setup over the install"
   Write-Output "PASS: $Scope install over the last one removed the stale runtime file, added no qlogg.conf, and /DESKTOP wrote $desktop"
 
@@ -159,6 +212,8 @@ function Test-Scope([string] $Scope) {
   foreach ($key in @('QLogg.File', 'Applications\qlogg.exe')) {
     Wait-Until { -not (Test-Path "$classes\$key") } "$Scope uninstall left $classes\$key"
   }
+  Wait-Until { -not (Test-Verb $hive) } "$Scope uninstall left $hive\$verbKey"
+  Assert-DefaultVerbs "$Scope uninstall"
   foreach ($ext in @('.log', '.txt')) {
     $progids = Get-ItemProperty "$classes\$ext\OpenWithProgids" -ErrorAction SilentlyContinue
     if ($progids -and $null -ne $progids.'QLogg.File') { throw "$Scope uninstall left QLogg.File in $ext OpenWithProgids" }
@@ -172,6 +227,23 @@ function Test-Scope([string] $Scope) {
 
 Test-Scope 'machine'
 Test-Scope 'user'
+
+# /NOEXPLORERMENU clears the Explorer menu component: an install over one with the verb
+# removes it and keeps Open With.
+$dir = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
+$code = Invoke-Setup @('/S', '/USER')
+if ($code -ne 0) { throw "per-user setup exited $code" }
+Assert-Verb 'HKCU:\Software\Classes' "$dir\qlogg.exe" 'per-user install'
+$code = Invoke-Setup @('/S', '/USER', '/NOEXPLORERMENU')
+if ($code -ne 0) { throw "per-user setup with /NOEXPLORERMENU exited $code" }
+foreach ($hive in @('HKLM:', 'HKCU:')) {
+  if (Test-Verb $hive) { throw "per-user install with /NOEXPLORERMENU left $hive\$verbKey" }
+}
+if ($null -eq (Get-ItemProperty 'HKCU:\Software\Classes\.log\OpenWithProgids').'QLogg.File') { throw 'per-user install with /NOEXPLORERMENU dropped Open With' }
+Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
+Wait-Until { -not (Test-Path $dir) } "per-user uninstall left $dir"
+Wait-Until { -not (Test-Path "HKCU:\$uninstallKey") } 'per-user uninstall left the Installed apps entry'
+Write-Output 'PASS: /NOEXPLORERMENU over a per-user install removed the Explorer menu verb and kept Open With'
 
 # Portable: portable.txt, nothing registered, settings in the folder.
 $portable = Join-Path $work 'QLogg Portable'
@@ -232,3 +304,85 @@ if ($code -ne 2) { throw "a portable install under Program Files exited $code, e
 if (Test-Path $refused) { throw "the refused portable install created $refused" }
 Write-Output 'PASS: setup refused a per-user install into a folder holding portable.txt or qlogg.conf and a portable folder under Program Files'
 Remove-Item -Recurse -Force $portable, $legacy
+
+# register-associations.cmd in the portable zip, unpacked into a folder whose name holds a
+# space, & and (.
+$unpacked = Join-Path $work 'Q & Logg (zip)'
+Expand-Archive -LiteralPath (Get-Item "dist\qlogg-*-$env:TARGET-portable.zip").FullName -DestinationPath $unpacked
+$tree = Join-Path $unpacked 'qlogg'
+$exe = Join-Path $tree 'qlogg.exe'
+$script = Join-Path $tree 'register-associations.cmd'
+$classes = 'HKCU:\Software\Classes'
+
+# Runs the script with $Arguments through cmd.exe /c ""<script>" <arguments>"; throws unless
+# it exits 0 and prints $Expected.
+function Invoke-Register([string] $Arguments, [string] $Expected) {
+  $out = Join-Path $work 'register.out'
+  $process = Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList "/d /c `"`"$script`" $Arguments`"" -RedirectStandardOutput $out -NoNewWindow -Wait -PassThru
+  $text = (Get-Content -LiteralPath $out -Raw).Trim()
+  if ($process.ExitCode -ne 0) { throw "register-associations.cmd $Arguments exited $($process.ExitCode): $text" }
+  if ($text -cne $Expected) { throw "register-associations.cmd $Arguments printed [$text], expected [$Expected]" }
+}
+
+Invoke-Register '' 'QLogg is in the Open With list for .log .txt and in the Explorer right-click menu.'
+$command = "`"$exe`" `"%1`""
+foreach ($key in @('QLogg.File\shell\open\command', 'Applications\qlogg.exe\shell\open\command')) {
+  $value = (Get-Item -LiteralPath "$classes\$key").GetValue('')
+  if ($value -ne $command) { throw "register-associations.cmd wrote $key as $value" }
+}
+if ((Get-Item -LiteralPath "$classes\QLogg.File\DefaultIcon").GetValue('') -ne "`"$exe`",0") { throw 'register-associations.cmd wrote the wrong QLogg.File icon' }
+foreach ($ext in @('.log', '.txt')) {
+  if ($null -eq (Get-ItemProperty "$classes\$ext\OpenWithProgids").'QLogg.File') { throw "register-associations.cmd left QLogg.File out of $ext OpenWithProgids" }
+}
+Assert-Verb $classes $exe 'register-associations.cmd'
+if (Test-Verb 'HKLM:') { throw 'register-associations.cmd wrote HKLM' }
+Assert-DefaultVerbs 'register-associations.cmd'
+Assert-CmdRuns 'register-associations.cmd'
+Write-Output "PASS: register-associations.cmd in '$tree' added Open With and the Explorer menu verb under HKCU, the default verbs unchanged and a .cmd still runs"
+
+# The verb on a two-file selection through the shell's context menu: it starts qlogg.exe once
+# per file, and each hands its file to the QLogg already running.
+$logs = Join-Path $unpacked 'logs & more (2)'
+New-Item -ItemType Directory -Path $logs | Out-Null
+foreach ($name in @('first one.log', 'second & (two).log')) {
+  Set-Content -LiteralPath (Join-Path $logs $name) -Value '2026-01-01 00:00:00 INFO mock line'
+}
+$log = Join-Path $tree 'logs\qlogg.log'
+Start-Process -FilePath $exe -ArgumentList '-l' | Out-Null
+try {
+  Wait-Until { (Test-Path $log) -and (Get-Content -LiteralPath $log -Raw).Contains('Main window open') } "the zip's QLogg wrote no 'Main window open' to $log"
+  $folder = (New-Object -ComObject Shell.Application).Namespace($logs)
+  $names = @($folder.ParseName('first one.log').Verbs() | ForEach-Object { $_.Name -replace '&', '' })
+  if ($names -notcontains 'Open in QLogg') { throw "the context menu of a .log lacks Open in QLogg: $($names -join ', ')" }
+  $items = $folder.Items()
+  # 0x40 SHCONTF_NONFOLDERS
+  $items.Filter(0x40, '*.log')
+  if ($items.Count -ne 2) { throw "the selection holds $($items.Count) files, expected 2" }
+  $items.InvokeVerbEx('QLogg.Open')
+  Wait-Until {
+    $handed = 0
+    foreach ($match in [regex]::Matches((Get-Content -LiteralPath $log -Raw), 'Handoff of (\d+) files taken')) { $handed += [int] $match.Groups[1].Value }
+    $handed -ge 2
+  } "QLogg took no handoff of both selected files; log:`n$(Get-Content -LiteralPath $log -Raw)"
+} finally {
+  Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$tree\", [StringComparison]::OrdinalIgnoreCase) } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+Write-Output '--- zip QLogg log'
+Write-Output (Get-Content -LiteralPath $log -Raw)
+Write-Output '---'
+Write-Output 'PASS: Open in QLogg on two selected files handed both to the running QLogg'
+
+Invoke-Register '/u' 'QLogg is out of the Open With lists and the Explorer right-click menu.'
+foreach ($key in @('QLogg.File', 'Applications\qlogg.exe')) {
+  if (Test-Path -LiteralPath "$classes\$key") { throw "register-associations.cmd /u left $classes\$key" }
+}
+foreach ($ext in @('.log', '.txt')) {
+  $progids = Get-ItemProperty "$classes\$ext\OpenWithProgids" -ErrorAction SilentlyContinue
+  if ($progids -and $null -ne $progids.'QLogg.File') { throw "register-associations.cmd /u left QLogg.File in $ext OpenWithProgids" }
+}
+if (Test-Verb 'HKCU:') { throw "register-associations.cmd /u left HKCU:\$verbKey" }
+Assert-DefaultVerbs 'register-associations.cmd /u'
+Write-Output 'PASS: register-associations.cmd /u removed Open With and the Explorer menu verb'
+# The stopped QLogg's DLLs stay locked briefly after it exits.
+Wait-Until { Remove-Item -Recurse -Force -LiteralPath $unpacked -ErrorAction SilentlyContinue; -not (Test-Path -LiteralPath $unpacked) } "cannot remove $unpacked"
