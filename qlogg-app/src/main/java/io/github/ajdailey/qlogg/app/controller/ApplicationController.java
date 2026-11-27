@@ -1392,13 +1392,14 @@ public final class ApplicationController
     replacement.time().setOffset(timeOffset);
     if (follow) {
       replacement.setFollowing(true);
-    } else if (kept) {
+    }
+    if (kept) {
       replacement.keepLine(caret + 1);
     }
     if (change == FileChange.ROLLED) {
       view.showNotice(
           RotatedTabs.rolledNotice(
-              replacement.state().title(), carried.map(), carried.droppedMarks()));
+              replacement.document().name(), carried.map(), carried.droppedMarks()));
     } else if (rerun) {
       view.showNotice(UiText.NOTICE_FILE_SEARCH_RERUN.format(replacement.state().title()));
     } else if (change != null) {

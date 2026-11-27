@@ -431,7 +431,9 @@ resumes when the file opens.
 File > Include Rotated Files, or `--rotated` on the command line, shows a log
 and its rotated files as one tab: `app.log` with `app.log.1`, `app.log.2`, or
 dated names such as `app.log-20261125` and `app-2026-11-25.log`. Opening
-`app.log.1` this way opens the whole set. The files run oldest first by
+`app.log.1` this way opens the whole set; on macOS and Windows, `APP.LOG.1`
+opens it too and the tab uses the names as they are on disk. The files run
+oldest first by
 modification time, with the active file last; a plain open of the active file
 shows the set's tab. Choosing the item again shows the newest file alone.
 Marks, mark comments and the caret move with their lines either way.
@@ -449,7 +451,7 @@ Marks, mark comments and the caret move with their lines either way.
   or copies and truncates the active one, line numbers stay. When a file
   leaves the set or the order changes, the tab reloads with its line numbers
   renumbered: marks, comments, color labels, the caret and Go Back move with
-  their lines, a search with Auto-refresh on runs again, filter tabs follow,
+  their lines, a following tab keeps following, a search with Auto-refresh on runs again, filter tabs follow,
   and a notice names the files that left and counts the marks that left with
   them.
 - A set opens at its end and remembers no position. Its session marks are kept
@@ -460,9 +462,10 @@ Marks, mark comments and the caret move with their lines either way.
 ### Keep file closed
 
 Keep file closed opens a file only for each read instead of holding it open
-while its tab is open. It is on by default on Windows, which refuses a rename
-over an open file, so a program that rotates its log by renaming can do so
-while the log is open in QLogg. It is off by default on Linux and macOS, where
+while its tab is open. It is on by default on Windows, where a file held open
+can refuse a rename over it, so a program that rotates its log by renaming can
+do so while the log is open in QLogg. Windows 11 build 26300 allows the rename,
+the delete and a rename over a held file. It is off by default on Linux and macOS, where
 a rename over an open file succeeds.
 
 With it on, the earlier content of a rotated, moved or deleted file cannot be
