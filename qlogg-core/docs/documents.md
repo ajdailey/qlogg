@@ -86,7 +86,9 @@ did not close cleanly.
 
 After each completed or canceled indexing operation `FileCheck` records the
 modification time, then the CRC32C of the indexed tail, and extends the head
-digest over the indexed bytes until it covers 4 KiB.
+digest over the indexed bytes until it covers 4 KiB. A file that holds fewer
+than the indexed bytes, before or after the digests, keeps the previous record:
+a rotated set matches a copy-truncate's copy by those digests.
 
 ### Failed reopen
 

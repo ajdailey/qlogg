@@ -59,21 +59,31 @@ final class FileCheck {
 
   /**
    * Takes the modification time, then the digest of the indexed tail, and extends the head digest
-   * over the indexed bytes until it covers {@link FileIdentity#HEAD_BYTES}. A read failure clears
-   * the tail record. Blocking.
+   * over the indexed bytes until it covers {@link FileIdentity#HEAD_BYTES}. A file that holds fewer
+   * than {@code end} bytes before or after the digests keeps the previous record: digests of a file
+   * truncated after indexing describe neither the indexed bytes nor a copy of them. A read failure
+   * clears the tail record. Blocking.
    *
    * @param path the file's current name, for its modification time
    * @param end the indexed bytes
    */
   void record(Path path, long end) {
     try {
-      long modified = Files.getLastModifiedTime(path).toMillis();
-      Head recorded = head;
-      if (recorded.bytes() < FileIdentity.HEAD_BYTES && end > recorded.bytes()) {
-        int bytes = (int) Math.min(end, FileIdentity.HEAD_BYTES);
-        head = new Head(bytes, ChangeDetector.headDigest(source, bytes));
+      if (source.size() < end) {
+        return;
       }
-      tail = new Tail(end, modified, ChangeDetector.tailDigest(source, end));
+      long modified = Files.getLastModifiedTime(path).toMillis();
+      Head next = head;
+      if (next.bytes() < FileIdentity.HEAD_BYTES && end > next.bytes()) {
+        int bytes = (int) Math.min(end, FileIdentity.HEAD_BYTES);
+        next = new Head(bytes, ChangeDetector.headDigest(source, bytes));
+      }
+      long digest = ChangeDetector.tailDigest(source, end);
+      if (source.size() < end) {
+        return;
+      }
+      head = next;
+      tail = new Tail(end, modified, digest);
       if (source instanceof ReopeningByteSource reopening) {
         reopening.expect(
             head.bytes(),
