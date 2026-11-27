@@ -27,9 +27,10 @@ import org.openjdk.jmh.annotations.Warmup;
 
 /**
  * Sequential scan of a generated log, counting LF bytes: positional {@code FileChannel} reads into
- * one 4 MiB direct buffer (the indexer's read path) against a {@code MappedByteBuffer} per 1 GiB
- * window. Both count with the same eight-bytes-at-a-time loop, so the difference is the read path.
- * The file is written once to {@code -Dqlogg.bench.dir} and reused; the cache is warm.
+ * one direct buffer of {@code IndexSettings.DEFAULT_BLOCK_BYTES} (the indexer's read path) against
+ * a {@code MappedByteBuffer} per 1 GiB window. Both count with the same eight-bytes-at-a-time loop,
+ * so the difference is the read path. The file is written once to {@code -Dqlogg.bench.dir} and
+ * reused; the cache is warm.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
@@ -38,7 +39,7 @@ import org.openjdk.jmh.annotations.Warmup;
 @Measurement(iterations = 5)
 @Fork(
     value = 1,
-    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_INITIAL_HEAP, Harness.LAUNCHER_GC})
 public class ReadProbe {
   private static final long WINDOW = 1L << 30;
   private static final long LF_BYTES = 0x0a0a0a0a0a0a0a0aL;

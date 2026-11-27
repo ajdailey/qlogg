@@ -167,7 +167,7 @@ function Invoke-Probe([string] $Tree, [string] $Arguments, [hashtable] $Environm
 # Fails unless $Lines name $JavaHome, $Tree\lib\qlogg.jar, the JVM options of qlogg.exe plus
 # -Dqlogg.launcher=cmd, and exactly $Expected as the arguments the bootstrap reads.
 function Assert-Probe([string[]] $Lines, [string] $Tree, [string] $JavaHome, [string[]] $Expected) {
-  $want = @("home=$JavaHome", "jar=$(Join-Path $Tree 'lib\qlogg.jar')", 'opt=-XX:MaxRAMPercentage=50', 'opt=-XX:GCTimeRatio=1', 'opt=-Dqlogg.launcher=cmd')
+  $want = @("home=$JavaHome", "jar=$(Join-Path $Tree 'lib\qlogg.jar')", 'opt=-XX:MaxRAMPercentage=50', 'opt=-Xms64m', 'opt=-XX:GCTimeRatio=1', 'opt=-Dqlogg.launcher=cmd')
   foreach ($arg in $Expected) { $want += "arg=$arg" }
   $got = $Lines -join "`n"
   if ($got -cne ($want -join "`n")) { throw "qlogg.cmd in $Tree passed`n$got`nexpected`n$($want -join "`n")" }

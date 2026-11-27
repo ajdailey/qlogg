@@ -43,7 +43,7 @@ which marks the LF units in a bitmap, eight bytes at a time for 1- and 2-byte
 units. The coordinator appends results in file order and publishes a snapshot
 at most every 100 ms and once at the end.
 
-- Blocks are 4 MiB by default and a multiple of 8, so no UTF-16 or UTF-32
+- Blocks are 2 MiB by default and a multiple of 8, so no UTF-16 or UTF-32
   unit straddles two. Only units at multiples of the unit width count, so a
   `0x0A` byte inside a UTF-16 unit is not an LF.
 - A trailing partial UTF-16 or UTF-32 unit is not indexed until the file

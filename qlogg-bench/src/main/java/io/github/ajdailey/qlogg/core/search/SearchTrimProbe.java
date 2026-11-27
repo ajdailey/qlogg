@@ -51,7 +51,7 @@ import org.openjdk.jmh.annotations.Warmup;
 @Measurement(iterations = 10)
 @Fork(
     value = 1,
-    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_GC})
+    jvmArgsPrepend = {Harness.LAUNCHER_HEAP, Harness.LAUNCHER_INITIAL_HEAP, Harness.LAUNCHER_GC})
 public class SearchTrimProbe {
   /** File size in MiB. */
   @Param({"16", "256"})
