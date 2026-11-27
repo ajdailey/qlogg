@@ -7,7 +7,9 @@ import io.github.ajdailey.qlogg.core.format.FormatException.Reason;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-/** {@link JsonStrings#unescape} and {@link XmlEntities#unescape}. */
+/**
+ * {@link JsonStrings#unescape}, {@link XmlEntities#unescape} and {@link XmlReferences#unescape}.
+ */
 class UnescapeTest {
   private static final String GRIN = "😀";
 
@@ -89,10 +91,10 @@ class UnescapeTest {
     assertEquals(malformed, out.toString());
     out.setLength(0);
     String xml = "&lt;&euro;&bogus;&#65;";
-    XmlEntities.unescape(new StringBuilder("&amp;" + xml + "&amp;"), 5, xml.length() + 5, out);
+    XmlReferences.unescape(new StringBuilder("&amp;" + xml + "&amp;"), 5, xml.length() + 5, out);
     assertEquals(XmlEntities.unescape(xml), out.toString());
     out.setLength(0);
-    XmlEntities.unescape("&amp;", 0, 4, out);
+    XmlReferences.unescape("&amp;", 0, 4, out);
     assertEquals("&amp", out.toString(), "a reference cut by the range stays");
   }
 

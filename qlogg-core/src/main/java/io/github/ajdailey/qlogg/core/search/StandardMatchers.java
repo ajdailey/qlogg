@@ -35,7 +35,8 @@ import java.util.regex.PatternSyntaxException;
  * #regexFlags}; whole word wraps the pattern with {@link #wholeWord}. A case-sensitive regex whose
  * {@link #requiredPrefix} encodes to at least {@link #MIN_PREFILTER_BYTES} bytes, where byte search
  * runs and ANSI sequences are not hidden, decodes and matches only lines whose bytes contain that
- * prefix. Thread-safe; each matcher it creates is not.
+ * prefix. A term with a column tests that column's value through {@link ColumnTerms}. Thread-safe;
+ * each matcher it creates is not.
  */
 public final class StandardMatchers implements MatcherFactory {
   /** The shared instance. */
@@ -111,13 +112,20 @@ public final class StandardMatchers implements MatcherFactory {
     throw new PatternSyntaxException("Whole word cannot close the pattern", pattern, -1);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @throws ColumnException when a term names a column the query's columns cannot test
+   */
   @Override
   public LineMatcher create(SearchQuery query, TextEncoding encoding, CancellationToken token) {
-    final Node root = compile(query.expression(), query, encoding);
+    final ColumnTerms columns = new ColumnTerms(query, encoding);
+    final Node root = compile(query.expression(), query, encoding, columns);
     final boolean inverse = query.inverse();
     return new LineMatcher() {
       @Override
       public boolean matches(LineText line) {
+        columns.next();
         return root.test(line) != inverse;
       }
     };
@@ -159,16 +167,17 @@ public final class StandardMatchers implements MatcherFactory {
   }
 
   /** Compiled expression node. */
-  private interface Node {
+  interface Node {
     boolean test(LineText line);
   }
 
-  private static Node compile(SearchExpression expression, SearchQuery query, TextEncoding enc) {
+  private static Node compile(
+      SearchExpression expression, SearchQuery query, TextEncoding enc, ColumnTerms columns) {
     if (expression instanceof SearchExpression.Term term) {
-      return term(term, query, enc);
+      return term.column() == null ? term(term, query, enc) : columns.term(term);
     }
     if (expression instanceof SearchExpression.Not not) {
-      final Node operand = compile(not.operand(), query, enc);
+      final Node operand = compile(not.operand(), query, enc, columns);
       return new Node() {
         @Override
         public boolean test(LineText line) {
@@ -177,8 +186,8 @@ public final class StandardMatchers implements MatcherFactory {
       };
     }
     if (expression instanceof SearchExpression.And and) {
-      final Node left = compile(and.left(), query, enc);
-      final Node right = compile(and.right(), query, enc);
+      final Node left = compile(and.left(), query, enc, columns);
+      final Node right = compile(and.right(), query, enc, columns);
       return new Node() {
         @Override
         public boolean test(LineText line) {
@@ -187,8 +196,8 @@ public final class StandardMatchers implements MatcherFactory {
       };
     }
     if (expression instanceof SearchExpression.Or or) {
-      final Node left = compile(or.left(), query, enc);
-      final Node right = compile(or.right(), query, enc);
+      final Node left = compile(or.left(), query, enc, columns);
+      final Node right = compile(or.right(), query, enc, columns);
       return new Node() {
         @Override
         public boolean test(LineText line) {
@@ -197,8 +206,8 @@ public final class StandardMatchers implements MatcherFactory {
       };
     }
     SearchExpression.Xor xor = (SearchExpression.Xor) expression;
-    final Node left = compile(xor.left(), query, enc);
-    final Node right = compile(xor.right(), query, enc);
+    final Node left = compile(xor.left(), query, enc, columns);
+    final Node right = compile(xor.right(), query, enc, columns);
     return new Node() {
       @Override
       public boolean test(LineText line) {
@@ -226,6 +235,13 @@ public final class StandardMatchers implements MatcherFactory {
    * not be a character match.
    */
   private static ByteLiteral prefilter(String pattern, SearchQuery query, TextEncoding enc) {
+    return prefilter(pattern, query, enc, MIN_PREFILTER_BYTES);
+  }
+
+  /**
+   * As {@link #prefilter(String, SearchQuery, TextEncoding)}, for a prefix of at least min bytes.
+   */
+  static ByteLiteral prefilter(String pattern, SearchQuery query, TextEncoding enc, int min) {
     if (!query.caseSensitive() || query.hideAnsi() || !byteAligned(enc)) {
       return null;
     }
@@ -234,10 +250,41 @@ public final class StandardMatchers implements MatcherFactory {
       return null;
     }
     byte[] bytes = prefix.getBytes(enc.charset());
-    if (bytes.length < MIN_PREFILTER_BYTES) {
+    if (bytes.length < min) {
       return null;
     }
     return new ByteLiteral(bytes, false, enc.unitWidth(), false);
+  }
+
+  /**
+   * Returns a byte search that every line holding a literal passes, case folded as {@link
+   * #foldsAsciiOnly} allows, or null when bytes cannot decide it.
+   *
+   * @param literal the literal
+   * @param caseSensitive false folds ASCII letters
+   * @param enc the document's encoding
+   * @param hideAnsi the query's {@link SearchQuery#hideAnsi}
+   * @return the search, never whole word
+   */
+  static ByteLiteral contains(
+      String literal, boolean caseSensitive, TextEncoding enc, boolean hideAnsi) {
+    if (literal.isEmpty() || hideAnsi || !byteAligned(enc) || literal.indexOf('\ufffd') >= 0) {
+      return null;
+    }
+    if (!caseSensitive) {
+      if (!foldsAsciiOnly(literal, enc, false)) {
+        return null;
+      }
+      byte[] bytes = literal.getBytes(StandardCharsets.US_ASCII);
+      for (int i = 0; i < bytes.length; i++) {
+        bytes[i] = ByteLiteral.lower(bytes[i]);
+      }
+      return new ByteLiteral(bytes, true, 1, false);
+    }
+    if (!encodable(literal, enc.charset())) {
+      return null;
+    }
+    return new ByteLiteral(literal.getBytes(enc.charset()), false, enc.unitWidth(), false);
   }
 
   /**
@@ -336,7 +383,7 @@ public final class StandardMatchers implements MatcherFactory {
   }
 
   /** Byte search for an encoded pattern at unit-aligned offsets. */
-  private static final class ByteLiteral implements Node {
+  static final class ByteLiteral implements Node {
     private final byte[] pattern;
     private final boolean fold;
     private final int unit;

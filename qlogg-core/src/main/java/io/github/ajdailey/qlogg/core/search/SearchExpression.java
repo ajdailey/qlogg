@@ -12,13 +12,25 @@ public sealed interface SearchExpression
    *
    * @param pattern the text or regular expression
    * @param mode how the pattern is read
+   * @param column the column name or 1-based number whose value the pattern tests, or null for the
+   *     whole line or record
    */
-  record Term(String pattern, MatchMode mode) implements SearchExpression {
+  record Term(String pattern, MatchMode mode, String column) implements SearchExpression {
     /** Checks the components. */
     public Term {
       if (pattern == null || mode == null) {
         throw new IllegalArgumentException("pattern and mode are required");
       }
+    }
+
+    /**
+     * Creates a term over the whole line or record.
+     *
+     * @param pattern the text or regular expression
+     * @param mode how the pattern is read
+     */
+    public Term(String pattern, MatchMode mode) {
+      this(pattern, mode, null);
     }
   }
 

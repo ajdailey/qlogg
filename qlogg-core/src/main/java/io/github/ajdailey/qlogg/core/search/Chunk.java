@@ -4,8 +4,9 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * One chunk of a search: its lines, runs and bytes and, once matched, its matching lines. A
- * restricted chunk of more than one line has no runs until {@link ChunkReader#readRuns} sets them.
+ * One chunk of a search: its lines, runs, record marks and bytes and, once matched, its matching
+ * lines. A restricted chunk of more than one line has no runs or marks until {@link
+ * ChunkReader#readRuns} sets them; marks are null when each unit is one line.
  */
 final class Chunk {
   final long firstLine;
@@ -15,6 +16,7 @@ final class Chunk {
   final long reservedBytes;
   final CountDownLatch done = new CountDownLatch(1);
   ChunkRuns runs;
+  RecordMarks marks;
   volatile Matched matched;
 
   Chunk(

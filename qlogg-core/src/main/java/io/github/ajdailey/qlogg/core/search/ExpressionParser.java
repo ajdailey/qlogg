@@ -6,7 +6,9 @@ package io.github.ajdailey.qlogg.core.search;
  * and &}, {@code or |}, {@code xor}, {@code not !}, the aliases {@code nand}, {@code nor} and
  * {@code xnor}, and parentheses. Operator words are case-insensitive. Precedence, highest first:
  * {@code not}, {@code and nand}, {@code xor xnor}, {@code or nor}; binary operators associate left.
- * A combining text without a double quote is one term, so a plain pattern searches as typed.
+ * A combining text without a double quote is one term, so a plain pattern searches as typed. A term
+ * may name a column directly before its opening quote, {@code level:"ERROR"}: a name matching
+ * {@code [A-Za-z_@][A-Za-z0-9_@.-]*}, or a 1-based column number, then a colon.
  */
 public final class ExpressionParser {
   /** Deepest nesting of parentheses and {@code not} accepted. */
@@ -31,6 +33,7 @@ public final class ExpressionParser {
   private int position;
   private Kind kind;
   private String term;
+  private String column;
   private int tokenColumn;
   private int depth;
 
@@ -105,7 +108,7 @@ public final class ExpressionParser {
         return new SearchExpression.Not(operand);
       }
       case TERM -> {
-        SearchExpression.Term result = new SearchExpression.Term(term, mode);
+        SearchExpression.Term result = new SearchExpression.Term(term, mode, column);
         next();
         return result;
       }
@@ -148,6 +151,7 @@ public final class ExpressionParser {
       return;
     }
     char c = text.charAt(position);
+    column = null;
     switch (c) {
       case '"' -> readTerm();
       case '(' -> single(Kind.OPEN);
@@ -199,6 +203,14 @@ public final class ExpressionParser {
     while (position < text.length() && !endsWord(text.charAt(position))) {
       position++;
     }
+    if (position < text.length()
+        && text.charAt(position) == '"'
+        && columnName(text, start, position - 1)) {
+      String name = text.substring(start, position - 1);
+      readTerm();
+      column = name;
+      return;
+    }
     String word = asciiLower(text.substring(start, position));
     kind =
         switch (word) {
@@ -222,6 +234,40 @@ public final class ExpressionParser {
       }
     }
     return new String(chars);
+  }
+
+  /**
+   * True when {@code text[from, colon)} is a column name or number and {@code colon} holds a colon.
+   */
+  private static boolean columnName(String text, int from, int colon) {
+    if (colon <= from || text.charAt(colon) != ':') {
+      return false;
+    }
+    boolean digits = true;
+    for (int i = from; i < colon; i++) {
+      digits &= digit(text.charAt(i));
+    }
+    if (digits) {
+      return true;
+    }
+    if (!nameStart(text.charAt(from))) {
+      return false;
+    }
+    for (int i = from + 1; i < colon; i++) {
+      char c = text.charAt(i);
+      if (!nameStart(c) && !digit(c) && c != '.' && c != '-') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean nameStart(char c) {
+    return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '_' || c == '@';
+  }
+
+  private static boolean digit(char c) {
+    return c >= '0' && c <= '9';
   }
 
   private static boolean endsWord(char c) {

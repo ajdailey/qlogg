@@ -16,9 +16,9 @@ of whole lines (10,000 lines or 2 MiB, whichever comes first; a longer line is
 a chunk of its own), reads each chunk through `ChunkReader` in one positional
 read (a restricted chunk: one per run) and submits it to the CPU pool. A
 worker splits its chunk at LF units, drops a trailing CR from each line and
-matches it. The coordinator merges results in chunk order, so they stay in
-line order however chunks finish, and no match spans two chunks.
-At most `maxChunksInFlight` chunks (default three per CPU thread) are read but
+matches it, or each record of a [record search](#record-search). The
+coordinator merges results in chunk order, so they stay in line order however
+chunks finish, and no match spans two chunks. At most `maxChunksInFlight` chunks (default three per CPU thread) are read but
 not merged.
 
 `SearchListener.progressed` runs at most every 100 ms and once at the end,
@@ -57,6 +57,29 @@ non-matching members. The results are a subset of the set.
 - A change to the set below the searched end while the search runs leaves the
   result undefined.
 
+### Record search
+
+A query with `SearchQuery.withColumns` and `ColumnSearch.records` (the
+`RecordLines` of a [`RecordScan`](columns.md#records) taken when the search
+starts) tests records instead of lines, restricted or not. A range search tests
+lines (`SearchQuery.records()` is null).
+
+- A record is tested when its first line is in the scope and, for a restricted
+  search, a member. A record that starts in the scope is read whole, past the
+  scope's end if it runs on. A member that continues a record tests nothing.
+- `SearchedLines.cut` ends a chunk before a record start; a record longer than
+  the chunk bounds is a chunk of its own, read as a long line is. A restricted
+  chunk's runs cover whole records, and the gap rule measures from a record's
+  last line to the next tested record.
+- The thread that cuts or reads a chunk copies its record bounds
+  (`RecordMarks`), so workers do not read the shared set.
+- The worker hands the matcher each record's span: its first line's first
+  byte to its last line's end, a CR before the last LF dropped, internal CRs
+  and LFs kept. `^` anchors at the record start; a byte literal matches across
+  lines. A hit adds the record's first line.
+- A record that `IO_BUFFERS` refuses is skipped as a long line is and counts
+  as one skipped line.
+
 ### Outcomes
 
 | End | Outcome | Limit |
@@ -65,7 +88,7 @@ non-matching members. The results are a subset of the set.
 | `maxResults` reached (0 is no limit) | `COMPLETED` | `MAX_RESULTS`; the results stop at the limit |
 | `RESULTS` refuses the next chunk's matches | `COMPLETED` | `MEMORY`; the results up to the last whole chunk stay |
 | `cancel()`, a read on a closed source, or closed workers | `CANCELED` | `NONE` |
-| A regex that does not compile (`PatternSyntaxException`), a regex that overflows the stack on a line (`PatternTooComplexException` with the line), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
+| A regex that does not compile (`PatternSyntaxException`), a term naming a column the query cannot test (`ColumnException`), a regex that overflows the stack on a line (`PatternTooComplexException` with the line), an I/O error, or a file shorter than its index | `FAILED` | `NONE` |
 
 ### Buffers and long lines
 
@@ -151,6 +174,29 @@ Line and option rules:
   decoded chars and every literal runs as a quoted regex, because the file's
   bytes still hold the sequences.
 
+### Column terms
+
+A term with a column (`SearchExpression.Term.column`) tests that column's
+value. `ColumnTerms` compiles it for one matcher; each line or record is
+parsed once (`FieldParser`), by the first column term that needs its values.
+
+- The name resolves through `ColumnSchema.columnIndex`: a column name,
+  ignoring ASCII case, or a 1-based number.
+- The value is tested with a `Pattern`: a literal quoted and case folded as a
+  whole-line literal of the same text folds (`foldsAsciiOnly`), a regex with
+  `regexFlags`, whole word through `wholeWord`. A record that does not parse
+  has empty values.
+- Prefilter: on a `ColumnSchema.verbatim` column, a term whose every match
+  holds a literal (the literal itself, or a case-sensitive regex's
+  `requiredPrefix` of any length) is parsed only when the line's bytes hold
+  that literal or one of the format's `ColumnSchema.escapes`. Without them the
+  value is a run of the line's chars, so it cannot hold the literal either.
+- `StandardMatchers.create` throws `ColumnException`, a
+  `PatternSyntaxException` at index -1, when the query has no
+  `ColumnSearch` (`NO_COLUMNS`: text view, Search in Folder), the schema has
+  no such column (`NO_SUCH_COLUMN`), or a multi-line format is tested line by
+  line (`LINES_ONLY`: a range search, or a `ColumnSearch` without records).
+
 ### Combining expressions
 
 `ExpressionParser.parse(text, mode, combining)` reads the combining syntax:
@@ -161,6 +207,9 @@ Line and option rules:
   and `xnor`, and parentheses. Operator words are case-insensitive.
 - Precedence, highest first: `not`, `and`, `xor`, `or`.
 - Combining text without a double quote is one term.
+- A term may name a column directly before its opening quote:
+  `level:"ERROR"`. The name matches `[A-Za-z_@][A-Za-z0-9_@.-]*` or is a
+  1-based number; any other word before a quote is `UNKNOWN_WORD`.
 - A syntax error throws `ExpressionException` with a `Reason` and a 1-based
   column; nesting deeper than 256 is an error.
 

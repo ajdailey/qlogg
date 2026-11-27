@@ -81,7 +81,7 @@ shares that all open documents draw from:
 | Share | Percent | Holder |
 |---|---|---|
 | `LINE_INDEX` | 40 | `GrowableLineIndex` |
-| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines, filtered-view `Extras` snapshots and `ContextRows` checkpoints, folder search results |
+| `RESULTS` | 20 | Search results, marks, mark comments, marks list rows, quiet trigger lines, filtered-view `Extras` snapshots and `ContextRows` checkpoints, folder search results, `RecordScan` record sets |
 | `BLOCK_CACHE` | 10 | `BlockCache`, at most 64 MiB |
 | `IO_BUFFERS` | 10 | `ReadBuffers` |
 | `COPY` | 5 | Text being copied to the clipboard or saved |

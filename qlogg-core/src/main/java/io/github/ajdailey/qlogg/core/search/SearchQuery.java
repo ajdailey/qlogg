@@ -20,6 +20,8 @@ package io.github.ajdailey.qlogg.core.search;
  *     held only these lines, so a range opens and closes on members and {@code inverse} returns
  *     non-matching members. A change to the set below the searched end while the search runs leaves
  *     the result undefined
+ * @param columns the columns column terms test and, with records, the records a line search tests;
+ *     null in text view, where a column term fails with {@link ColumnException}
  */
 public record SearchQuery(
     SearchExpression expression,
@@ -30,12 +32,49 @@ public record SearchQuery(
     boolean hideAnsi,
     SearchExpression rangeEnd,
     boolean rangeOpen,
-    LineSet restriction) {
+    LineSet restriction,
+    ColumnSearch columns) {
   /** Checks the components. */
   public SearchQuery {
     if (expression == null) {
       throw new IllegalArgumentException("expression is required");
     }
+  }
+
+  /**
+   * Creates a query in text view.
+   *
+   * @param expression the pattern or combined patterns
+   * @param caseSensitive see the record
+   * @param wholeWord see the record
+   * @param inverse see the record
+   * @param scope see the record
+   * @param hideAnsi see the record
+   * @param rangeEnd see the record
+   * @param rangeOpen see the record
+   * @param restriction see the record
+   */
+  public SearchQuery(
+      SearchExpression expression,
+      boolean caseSensitive,
+      boolean wholeWord,
+      boolean inverse,
+      LineRange scope,
+      boolean hideAnsi,
+      SearchExpression rangeEnd,
+      boolean rangeOpen,
+      LineSet restriction) {
+    this(
+        expression,
+        caseSensitive,
+        wholeWord,
+        inverse,
+        scope,
+        hideAnsi,
+        rangeEnd,
+        rangeOpen,
+        restriction,
+        null);
   }
 
   /**
@@ -117,18 +156,67 @@ public record SearchQuery(
    */
   public SearchQuery restrictedTo(LineSet lines) {
     return new SearchQuery(
-        expression, caseSensitive, wholeWord, inverse, scope, hideAnsi, rangeEnd, rangeOpen, lines);
+        expression,
+        caseSensitive,
+        wholeWord,
+        inverse,
+        scope,
+        hideAnsi,
+        rangeEnd,
+        rangeOpen,
+        lines,
+        columns);
   }
 
   /**
-   * Returns this query's matching for one expression: the same case, whole-word and ANSI rules, not
-   * inverted, as a line search.
+   * Returns this query in column view.
+   *
+   * @param search the columns and records, or null for text view
+   * @return the copy
+   */
+  public SearchQuery withColumns(ColumnSearch search) {
+    return new SearchQuery(
+        expression,
+        caseSensitive,
+        wholeWord,
+        inverse,
+        scope,
+        hideAnsi,
+        rangeEnd,
+        rangeOpen,
+        restriction,
+        search);
+  }
+
+  /**
+   * Returns the records a line search tests.
+   *
+   * @return the records, or null when the search tests lines: in text view, for a single-line
+   *     format and for a range search
+   */
+  public RecordLines records() {
+    return columns == null || range() ? null : columns.records();
+  }
+
+  /**
+   * Returns this query's matching for one expression: the same case, whole-word, ANSI and column
+   * rules, not inverted, as a line search that tests lines.
    *
    * @param term the expression
    * @return the line search
    */
   public SearchQuery lineSearch(SearchExpression term) {
-    return new SearchQuery(term, caseSensitive, wholeWord, false, scope, hideAnsi);
+    return new SearchQuery(
+        term,
+        caseSensitive,
+        wholeWord,
+        false,
+        scope,
+        hideAnsi,
+        null,
+        false,
+        null,
+        columns == null ? null : columns.lineByLine());
   }
 
   /**

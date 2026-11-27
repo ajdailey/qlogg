@@ -84,6 +84,17 @@ class ByteScanTest {
             naive(buffer, from, to, value, false, letter, true, distance),
             ByteScan.indexOfPair(buffer, from, to, value, false, letter, true, distance),
             context + " value=" + value + " letter=" + (char) letter);
+        int a = naive(buffer, from, to, value, false, value, false, 0);
+        int b = naive(buffer, from, to, trail, false, trail, false, 0);
+        assertEquals(
+            a < 0 ? b : b < 0 ? a : Math.min(a, b),
+            ByteScan.indexOfEither(buffer, from, to, value, trail),
+            context + " either " + value + " " + trail);
+        int count = 0;
+        for (int i = from; i < to; i++) {
+          count += buffer.get(i) == value ? 1 : 0;
+        }
+        assertEquals(count, ByteScan.count(buffer, from, to, value), context + " count " + value);
       }
     }
   }

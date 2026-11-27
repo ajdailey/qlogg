@@ -1,6 +1,6 @@
 package io.github.ajdailey.qlogg.core.columns;
 
-import io.github.ajdailey.qlogg.core.format.XmlEntities;
+import io.github.ajdailey.qlogg.core.format.XmlReferences;
 import io.github.ajdailey.qlogg.core.time.TimestampParser;
 
 /**
@@ -10,7 +10,8 @@ import io.github.ajdailey.qlogg.core.time.TimestampParser;
  * {@code log4j:locationInfo} as {@code class.method(file:line)}; each {@code log4j:data} as {@code
  * name=value}. Other elements, comments and text between elements are skipped. A record parses when
  * it starts with the event's well-formed start tag; a record cut before {@code </log4j:event>}
- * keeps what it holds. Entities unescape through {@link XmlEntities}; nothing else of XML is read.
+ * keeps what it holds. Entities unescape through {@link XmlReferences}; nothing else of XML is
+ * read.
  */
 final class Log4jXmlParser extends FieldParser {
   /** {@code log4j:data} pairs recorded per event; later ones are skipped. */
@@ -207,7 +208,7 @@ final class Log4jXmlParser extends FieldParser {
         while (pos < length && text.charAt(pos) != '<') {
           pos++;
         }
-        XmlEntities.unescape(text, from, pos, values.builder());
+        XmlReferences.unescape(text, from, pos, values.builder());
         values.limit();
       }
     }
@@ -309,7 +310,7 @@ final class Log4jXmlParser extends FieldParser {
   /** Appends {@code text[from, to)} unescaped; nothing when {@code from} is -1. */
   private void unescape(int from, int to) {
     if (from >= 0) {
-      XmlEntities.unescape(text, from, to, values().builder());
+      XmlReferences.unescape(text, from, to, values().builder());
       values().limit();
     }
   }

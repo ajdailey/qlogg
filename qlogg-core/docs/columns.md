@@ -2,9 +2,11 @@
 
 `core.columns` splits a record into column values for the built-in formats.
 It depends on `core.text`, `core.format` and `core.time`, not on `core.model`
-or `core.search`. Parsers are hand-written scanners: no regex, so no input
-backtracks, and no XML parser, so nothing reads a DTD, an entity declaration
-or an external reference. Module overview: [qlogg-core](../README.md).
+or `core.search`; the record scan and column search are in `core.search`,
+the record row map in `core.model`. Parsers are hand-written scanners: no
+regex, so no input backtracks, and no XML parser, so nothing reads a DTD, an
+entity declaration or an external reference. Module overview:
+[qlogg-core](../README.md).
 
 ## Formats
 
@@ -20,7 +22,8 @@ or an external reference. Module overview: [qlogg-core](../README.md).
 `ColumnFormat` holds the id, the fixed columns and `multiLine()`.
 `ColumnSchema` adds what a file decides: CSV and TSV columns, delimiter and
 header flag, or the timestamp format for `time`. At most 1,024 columns, and a
-name is cut at 256 chars.
+name is cut at 256 chars. `columnIndex(name)` finds a column by name, ignoring
+ASCII case, or by 1-based number, as a search term names it.
 
 ## Field parsers
 
@@ -42,7 +45,7 @@ every view `FieldValues.value` returned.
 | CSV, TSV | RFC 4180 quoting. A quote opens a quoted field only at a field start; elsewhere it is literal, so a stray quote does not join lines. `""` inside quotes is one quote. Fields past the last column join it with the delimiter; missing fields are empty. A leading BOM is skipped. Every record parses |
 | `clf` | `host ident user [time] "request" status size`, optionally `"referer" "user agent"`. Quoted values stay as written, backslash escapes included; `-` alone is empty. Trailing text or any other shape does not parse |
 | `clef` | One JSON object; its top-level members. Message is `@m`, else `@mt` with `{Name}`, `{@Name}`, `{$Name}`, `{Name:format}` and `{Name,width}` replaced by the property's value and `{{` `}}` unescaped; the first 1,024 tokens are replaced, an unknown name stays as written. Level defaults to `Information`. Properties lists the members not named with a single leading `@` as `name=value`, a `@@` name with one `@`. Nested values stay raw text, at most 64 deep; deeper, a malformed object or trailing text does not parse. Strings unescape through `JsonStrings`, a malformed escape kept as written |
-| `log4j-xml` | The record must start with the `<log4j:event` start tag. Attributes `timestamp` (1 to 13 digits of epoch milliseconds), `level`, `logger`, `thread`; text of `log4j:message`, `log4j:throwable` and `log4j:NDC`, CDATA as written and other text through `XmlEntities`; `log4j:locationInfo` as `class.method(file:line)`; `log4j:data` pairs as `name=value`. Other elements, comments and text between elements are skipped; a record cut before `</log4j:event>` keeps what it holds |
+| `log4j-xml` | The record must start with the `<log4j:event` start tag. Attributes `timestamp` (1 to 13 digits of epoch milliseconds), `level`, `logger`, `thread`; text of `log4j:message`, `log4j:throwable` and `log4j:NDC`, CDATA as written and other text through `XmlReferences`; `log4j:locationInfo` as `class.method(file:line)`; `log4j:data` pairs as `name=value`. Other elements, comments and text between elements are skipped; a record cut before `</log4j:event>` keeps what it holds |
 | `time` | Time is the line up to `TimestampParser.end()`, Text the rest after a `]` closing a leading `[` and the blanks after it. A line without a stamp does not parse |
 
 ## Detection
@@ -67,3 +70,53 @@ The first rule that matches wins; text logs match none.
   is left out.
 - `time` is never detected. `ColumnDetector.schema` builds the schema of a
   format the user chose, with the header guess or its override.
+
+## Records
+
+`RecordScan` (`core.search`) finds the records of a multi-line format in one
+pass over the complete lines, on the caller's thread, and `scan` again extends
+it from where it stopped as the index grows. Its `MutableLineSet` charges
+`RESULTS`:
+
+| Format | Set | A line continues the record when |
+|---|---|---|
+| CSV, TSV | Continuation lines, usually none | It starts inside a quoted field, by the parser's quote rules |
+| `log4j-xml` | Record starts, line 0 included | Its first chars other than spaces and tabs are not `<log4j:event` |
+
+- A record holds at most 10,000 lines (`MAX_RECORD_LINES`), and a line
+  starting 1 MiB (`MAX_RECORD_BYTES`) or more after the record's first byte
+  starts a new one, so a stray quote cannot make the rest of the file one
+  record.
+- The scan reads blocks of whole lines into one buffer from the caller's
+  `ReadBuffers`. A CSV block with no quote byte, starting outside quotes, is
+  counted with `ByteScan` alone. A line whose leading blanks fill a block is
+  not an event start.
+- A partial last line is left for the next pass. A `RESULTS` refusal stops the
+  scan for good (`refused()`); lines from the refused entry on stay
+  unclassified.
+- The scan compares encoded units. In a charset where the quote, delimiter,
+  space, tab or event tag does not encode to one unit per char, every line is
+  a record.
+
+`snapshot()` returns `RecordLines` over the set and the classified line count;
+lines from that count on are one record each, and set entries past it are not
+read, so the snapshot stays valid while the scan goes on. A search
+([Record search](search.md#record-search)) and `RecordRows` (`core.model`)
+read it. `RecordRows` maps rows to record first lines by `rank` and `select`
+on the set, or on its complement (a binary search over `rank`) for a
+continuation set, with the `rowOf`, `lineAt` and `cursor` calls `FoldMap` has.
+
+## Column search
+
+A column term tests one column's value; see
+[Column terms](search.md#column-terms). The prefilter skips a parse only where
+the value is a run of the record's own chars whenever the record holds none of
+`ColumnSchema.escapes()`:
+
+| Format | Escapes | Columns not verbatim |
+|---|---|---|
+| CSV, TSV | `"` | None |
+| `clf` | None | None |
+| `clef` | `\` | Level (defaulted), Message (rendered from `@mt`), Properties |
+| `log4j-xml` | `&`, `<![CDATA[` | Location, Properties |
+| `time` | None | None |

@@ -61,8 +61,16 @@ import java.util.regex.PatternSyntaxException;
  * starts at most {@code gapBytes} after the previous member's end; a longer gap is not read. The
  * worker walks each run's lines at LF and tests the members.
  *
+ * <p>A record search ({@link SearchQuery#records}) tests records instead of lines, restricted or
+ * not: a chunk ends before a record start ({@link SearchedLines#cut}), or holds one record longer
+ * than the chunk bounds, read as a long line is. The worker hands the matcher each record's span,
+ * from its first line's first byte to its last line's end before the LF and any CR, internal line
+ * feeds included; a hit adds the record's first line. A record that starts in the scope is read
+ * whole, past the scope's end if it runs on.
+ *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
- * {@link PatternTooComplexException} naming that line; the pool thread survives.
+ * {@link PatternTooComplexException} naming that line; the pool thread survives. A term naming a
+ * column the query cannot test ends it {@code FAILED} with a {@link ColumnException}.
  *
  * <p>Cancellation is checked before each chunk, every {@link #CHECK_LINES} lines in a worker and
  * every {@link LineText#CHECK_INTERVAL} chars a regex reads. A read on a closed source also ends a
@@ -397,7 +405,7 @@ public final class SearchEngine {
             buffers.release(buffer);
           }
         }
-        return new Chunk(line, stop, runs, buffer, true, 0);
+        return marked(new Chunk(line, stop, runs, buffer, true, 0));
       }
       long cost = span * LONG_LINE_BYTES_PER_BYTE;
       if (span > MAX_LINE_BYTES || !reserveLong(cost)) {
@@ -410,12 +418,17 @@ public final class SearchEngine {
         filled = true;
         ChunkRuns runs = new ChunkRuns();
         runs.add(line, stop - 1, start, finish);
-        return new Chunk(line, stop, runs, heap, false, cost);
+        return marked(new Chunk(line, stop, runs, heap, false, cost));
       } finally {
         if (!filled) {
           settings.budget().release(MemoryShare.IO_BUFFERS, cost);
         }
       }
+    }
+
+    private Chunk marked(Chunk chunk) {
+      chunk.marks = tested.marks(chunk.firstLine, chunk.firstLine + chunk.lines);
+      return chunk;
     }
 
     /** Reserves a long line's buffer, trimming the pool once before refusing. */
@@ -510,7 +523,7 @@ public final class SearchEngine {
     private Matched scan(Chunk chunk, Worker worker) {
       ByteBuffer bytes = chunk.buffer;
       ChunkRuns runs = chunk.runs;
-      int unit = lineFeed.length;
+      int width = lineFeed.length;
       LineText text = worker.text();
       LineMatcher matcher = worker.matcher();
       LineMatcher closer = worker.end();
@@ -518,9 +531,13 @@ public final class SearchEngine {
       int count = 0;
       long[] ends = closer == null ? null : new long[16];
       int endCount = 0;
+      RecordMarks marks = chunk.marks;
       int position = 0;
       int walked = 0;
       long member = chunk.firstLine;
+      long unit = -1;
+      long unitLast = -1;
+      int unitStart = 0;
       for (int run = 0; run < runs.count(); run++) {
         long firstLine = runs.firstLine(run);
         int lines = runs.lineCount(run);
@@ -536,19 +553,28 @@ public final class SearchEngine {
             if (lineEnd < 0) {
               throw new UncheckedIOException(new IOException("File changed after it was indexed"));
             }
-            next = lineEnd + unit;
+            next = lineEnd + width;
           }
           long line = firstLine + i;
-          if (line != member) {
+          if (unit < 0) {
+            if (line != member) {
+              position = next;
+              continue;
+            }
+            unit = line;
+            unitStart = position;
+            unitLast = marks == null ? line : marks.end(line) - 1;
+          }
+          if (line < unitLast && i < lines - 1) {
             position = next;
             continue;
           }
-          member = tested.next(member);
+          member = tested.next(line);
           int textEnd = lineEnd;
-          if (lineEnd - position >= unit && unitAt(bytes, lineEnd - unit, carriageReturn)) {
-            textEnd = lineEnd - unit;
+          if (lineEnd - position >= width && unitAt(bytes, lineEnd - width, carriageReturn)) {
+            textEnd = lineEnd - width;
           }
-          text.set(bytes, position, textEnd);
+          text.set(bytes, unitStart, textEnd);
           boolean hit;
           boolean closes = false;
           try {
@@ -557,13 +583,13 @@ public final class SearchEngine {
               closes = closer.matches(text);
             }
           } catch (StackOverflowError e) {
-            throw new PatternTooComplexException(line);
+            throw new PatternTooComplexException(unit);
           }
           if (hit) {
             if (count == hits.length) {
               hits = Arrays.copyOf(hits, count * 2);
             }
-            hits[count++] = line;
+            hits[count++] = unit;
           }
           if (closes) {
             if (endCount == ends.length) {
@@ -571,6 +597,7 @@ public final class SearchEngine {
             }
             ends[endCount++] = line;
           }
+          unit = -1;
           position = next;
         }
       }
@@ -621,7 +648,7 @@ public final class SearchEngine {
         searched = stop - first;
         return false;
       }
-      searched = chunk.firstLine + chunk.lines - first;
+      searched = Math.min(end, chunk.firstLine + chunk.lines) - first;
       return true;
     }
 
@@ -726,7 +753,7 @@ public final class SearchEngine {
   }
 
   /** Returns the offset of the first unit equal to {@code unit} at an aligned offset, or -1. */
-  private static int findUnit(ByteBuffer bytes, int from, int to, byte[] unit) {
+  static int findUnit(ByteBuffer bytes, int from, int to, byte[] unit) {
     int width = unit.length;
     int at = from;
     while (true) {
@@ -741,7 +768,7 @@ public final class SearchEngine {
     }
   }
 
-  private static boolean unitAt(ByteBuffer bytes, int at, byte[] unit) {
+  static boolean unitAt(ByteBuffer bytes, int at, byte[] unit) {
     for (int k = 0; k < unit.length; k++) {
       if (bytes.get(at + k) != unit[k]) {
         return false;
