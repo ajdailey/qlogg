@@ -45,15 +45,17 @@ final class ChunkReader {
 
   /**
    * Splits a restricted chunk into runs and reads them end to end into its buffer, checking the
-   * token before each run. Runs on a {@code qlogg-search-} virtual thread, so several chunks' reads
-   * are in flight at once.
+   * token before each run, and sets the chunk's record marks. Runs on a {@code qlogg-search-}
+   * virtual thread, so several chunks' reads are in flight at once.
    *
    * @return true with the chunk's runs set; false with its failure set: {@code
    *     UncheckedIOException} for a read error, {@code CancellationException} for a cancel
    */
   boolean readRuns(Chunk chunk) {
     try {
-      ChunkRuns runs = tested.runs(chunk.firstLine, chunk.firstLine + chunk.lines);
+      long stop = chunk.firstLine + chunk.lines;
+      ChunkRuns runs = tested.runs(chunk.firstLine, stop);
+      chunk.marks = tested.marks(chunk.firstLine, stop);
       ByteBuffer buffer = chunk.buffer;
       buffer.clear();
       for (int run = 0; run < runs.count(); run++) {

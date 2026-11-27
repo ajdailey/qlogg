@@ -45,12 +45,14 @@
   <!-- Line index writer state: one indexing operation at a time owns it,
        handed over through the index's AtomicBoolean; readers see only the
        volatile published snapshot. The indexing and search operations' own
-       fields are used by their coordinator thread only. -->
+       fields are used by their coordinator thread only, and a record scan's
+       by the one thread that scans; readers see its volatile progress. -->
   <Match>
     <Or>
       <Class name="io.github.ajdailey.qlogg.core.index.GrowableLineIndex"/>
       <Class name="io.github.ajdailey.qlogg.core.index.Indexer$Operation"/>
       <Class name="io.github.ajdailey.qlogg.core.search.SearchEngine$Operation"/>
+      <Class name="io.github.ajdailey.qlogg.core.search.RecordScan"/>
     </Or>
     <Bug pattern="AT_NONATOMIC_64BIT_PRIMITIVE,AT_NONATOMIC_OPERATIONS_ON_SHARED_VARIABLE,AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
   </Match>

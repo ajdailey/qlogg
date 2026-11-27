@@ -82,6 +82,31 @@ class ExpressionParserTest {
   }
 
   @Test
+  void aTermMayNameAColumnDirectlyBeforeItsQuote() throws ExpressionException {
+    Term level = new Term("ERROR", MatchMode.REGEX, "level");
+    Term message = new Term("x \"y\"", MatchMode.REGEX, "Msg_2.@a-b");
+    assertEquals(new And(level, message), parse("level:\"ERROR\" and Msg_2.@a-b:\"x \\\"y\\\"\""));
+    assertEquals(new Not(new Term("a", MatchMode.REGEX, "12")), parse("not 12:\"a\""));
+    assertEquals(new Or(new Term("a", MatchMode.REGEX, "_x"), B), parse("(_x:\"a\")|\"b\""));
+    assertEquals(new Term("a", MatchMode.REGEX, "and"), parse("and:\"a\""));
+    assertEquals(
+        new Term("level:\"x\"", MatchMode.LITERAL),
+        ExpressionParser.parse("level:\"x\"", MatchMode.LITERAL, false));
+  }
+
+  @Test
+  void aColumnNameOutsideTheGrammarIsAnUnknownWord() {
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, "level :\"a\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, "1a:\"a\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, "-a:\"a\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, "a+b:\"a\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, "caf\u00e9:\"a\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 5, "\"a\" b:c:\"d\"");
+    assertError(ExpressionException.Reason.UNKNOWN_WORD, 1, ":\"a\"");
+    assertError(ExpressionException.Reason.UNTERMINATED_QUOTE, 1, "level:\"a");
+  }
+
+  @Test
   void deepNestingWithinTheLimitParses() throws ExpressionException {
     int depth = ExpressionParser.MAX_DEPTH;
     assertEquals(A, parse("(".repeat(depth) + "\"a\"" + ")".repeat(depth)));

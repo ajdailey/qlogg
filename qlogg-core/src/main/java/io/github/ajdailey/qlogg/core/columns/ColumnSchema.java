@@ -103,6 +103,83 @@ public record ColumnSchema(
   }
 
   /**
+   * Finds a column by name, ignoring ASCII case, or by its 1-based number when the name is all
+   * ASCII digits.
+   *
+   * @param name a column name or number
+   * @return the 0-based index, or -1 when no column matches
+   */
+  public int columnIndex(String name) {
+    if (!name.isEmpty() && digits(name)) {
+      int number = name.length() > 4 ? -1 : Integer.parseInt(name);
+      return number >= 1 && number <= columns.size() ? number - 1 : -1;
+    }
+    for (int i = 0; i < columns.size(); i++) {
+      if (asciiEqualsIgnoreCase(columns.get(i).name(), name)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns the text whose presence in a record can make a {@link #verbatim} column's value differ
+   * from the record's own chars.
+   *
+   * @return a quote for CSV and TSV, a backslash for CLEF, {@code &} and {@code <![CDATA[} for
+   *     log4j XML; empty for CLF and Timestamp
+   */
+  public List<String> escapes() {
+    return switch (format) {
+      case CSV, TSV -> List.of("\"");
+      case CLEF -> List.of("\\");
+      case LOG4J_XML -> List.of("&", "<![CDATA[");
+      case CLF, TIME -> List.of();
+    };
+  }
+
+  /**
+   * Reports whether a column's value is empty or a run of the record's own chars whenever the
+   * record holds none of {@link #escapes}. Not so for a value composed from parts or defaulted: the
+   * CLEF Level, Message and Properties, the log4j Location and Properties.
+   *
+   * @param column 0 to the column count - 1
+   * @return true when a literal absent from such a record is absent from the value
+   */
+  public boolean verbatim(int column) {
+    return switch (format) {
+      case CSV, TSV, CLF, TIME -> true;
+      case CLEF -> column == 0 || column == 3 || column >= 5;
+      case LOG4J_XML -> column <= 6;
+    };
+  }
+
+  private static boolean asciiEqualsIgnoreCase(String a, String b) {
+    if (a.length() != b.length()) {
+      return false;
+    }
+    for (int i = 0; i < a.length(); i++) {
+      if (lower(a.charAt(i)) != lower(b.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static char lower(char c) {
+    return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
+  }
+
+  private static boolean digits(String name) {
+    for (int i = 0; i < name.length(); i++) {
+      if (name.charAt(i) < '0' || name.charAt(i) > '9') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Creates a parser for one thread.
    *
    * @param context the zone and file date for the Time column

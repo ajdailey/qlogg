@@ -3,8 +3,10 @@ package io.github.ajdailey.qlogg.core.search;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 
 /**
- * The lines a search tests: every line, or the members of {@link SearchQuery#restriction}. {@link
- * SearchEngine} cuts chunks, splits a chunk into runs, walks a chunk's lines and adds range lines
+ * The lines a search tests: every line, or the members of {@link SearchQuery#restriction}; with
+ * {@link SearchQuery#records}, the records whose first line is such a line. A tested unit is one
+ * line, or one record from its first line to the line before the next record start. {@link
+ * SearchEngine} cuts chunks, splits a chunk into runs, walks a chunk's units and adds range lines
  * through it.
  */
 abstract sealed class SearchedLines {
@@ -24,6 +26,9 @@ abstract sealed class SearchedLines {
    * @return every line when the query has no restriction, else its members
    */
   static SearchedLines of(SearchQuery query, LineIndex index, int gapBytes, int lineFeedBytes) {
+    if (query.records() != null) {
+      return new Records(query.restriction(), query.records(), index, gapBytes);
+    }
     return query.restriction() == null
         ? new All(index)
         : new Members(query.restriction(), index, gapBytes, lineFeedBytes);
@@ -39,12 +44,12 @@ abstract sealed class SearchedLines {
   abstract long first(long line, long end);
 
   /**
-   * Returns the searched line after a line.
+   * Returns the first unit after a unit.
    *
-   * @param line at least 0
-   * @return the line, or -1 when none follows
+   * @param last the unit's last line
+   * @return the next unit's first line, or -1 when none follows
    */
-  abstract long next(long line);
+  abstract long next(long last);
 
   /**
    * Returns the last searched line before a line.
@@ -55,11 +60,12 @@ abstract sealed class SearchedLines {
   abstract long last(long end);
 
   /**
-   * Returns the end of a chunk that starts at a searched line, cut back to its last searched line.
+   * Returns the end of a chunk that starts at a unit, cut back to the end of its last unit within
+   * {@code stop}, or past {@code stop} to the end of the first unit when that unit is longer.
    *
-   * @param start a searched line
+   * @param start a unit's first line
    * @param stop the first line after the chunk, above {@code start}
-   * @return one past the chunk's last searched line
+   * @return one past the chunk's last line
    */
   abstract long cut(long start, long stop);
 
@@ -79,6 +85,17 @@ abstract sealed class SearchedLines {
    */
   abstract int add(long[] out, int n, long from, long to);
 
+  /**
+   * Returns the record bounds of a chunk's lines for its worker.
+   *
+   * @param start the chunk's first line
+   * @param stop one past its last line
+   * @return null when each unit is one line
+   */
+  RecordMarks marks(long start, long stop) {
+    return null;
+  }
+
   /** Every line, read as one run. */
   private static final class All extends SearchedLines {
     All(LineIndex index) {
@@ -91,8 +108,8 @@ abstract sealed class SearchedLines {
     }
 
     @Override
-    long next(long line) {
-      return line + 1;
+    long next(long last) {
+      return last + 1;
     }
 
     @Override
@@ -145,8 +162,8 @@ abstract sealed class SearchedLines {
     }
 
     @Override
-    long next(long line) {
-      return set.ceiling(line + 1);
+    long next(long last) {
+      return set.ceiling(last + 1);
     }
 
     @Override
@@ -203,6 +220,121 @@ abstract sealed class SearchedLines {
         line = set.ceiling(line + 1);
       }
       return at;
+    }
+  }
+
+  /**
+   * Records whose first line is in a set, or every record. A run starts at a tested record and
+   * takes each following tested record that starts at most {@code gapBytes} after the previous
+   * one's end, with the lines between them.
+   */
+  private static final class Records extends SearchedLines {
+    private final LineSet set;
+    private final RecordLines records;
+    private final int gapBytes;
+
+    /** {@code set} null tests every record. */
+    Records(LineSet set, RecordLines records, LineIndex index, int gapBytes) {
+      super(index);
+      this.set = set;
+      this.records = records;
+      this.gapBytes = gapBytes;
+    }
+
+    @Override
+    long first(long line, long end) {
+      if (line >= end) {
+        return end;
+      }
+      if (set == null) {
+        return Math.min(records.nextStart(line), end);
+      }
+      long member = set.ceiling(line);
+      while (member >= 0 && member < end && !records.starts(member)) {
+        member = set.ceiling(member + 1);
+      }
+      return member < 0 ? end : Math.min(member, end);
+    }
+
+    @Override
+    long next(long last) {
+      if (set == null) {
+        return last + 1;
+      }
+      long next = first(last + 1, Long.MAX_VALUE);
+      return next == Long.MAX_VALUE ? -1 : next;
+    }
+
+    @Override
+    long last(long end) {
+      return end - 1;
+    }
+
+    @Override
+    long cut(long start, long stop) {
+      long last = start;
+      if (set == null) {
+        long boundary = stop >= index.lineCount() ? stop : records.startOf(stop);
+        if (boundary > start) {
+          return boundary;
+        }
+      } else {
+        long member = set.floor(stop - 1);
+        while (member > start && !records.starts(member)) {
+          member = set.floor(member - 1);
+        }
+        last = Math.max(start, member);
+      }
+      return recordEnd(last);
+    }
+
+    @Override
+    ChunkRuns runs(long start, long stop) {
+      ChunkRuns runs = new ChunkRuns();
+      if (set == null) {
+        runs.add(start, stop - 1, index.lineStart(start), index.lineEnd(stop - 1));
+        return runs;
+      }
+      long runFirst = start;
+      long first = index.lineStart(start);
+      long end = recordEnd(start);
+      long finish = index.lineEnd(end - 1);
+      while (true) {
+        long next = end < stop ? first(end, stop) : stop;
+        if (next >= stop) {
+          runs.add(runFirst, end - 1, first, finish);
+          return runs;
+        }
+        long nextStart = index.lineStart(next);
+        if (nextStart > finish + gapBytes) {
+          runs.add(runFirst, end - 1, first, finish);
+          runFirst = next;
+          first = nextStart;
+        }
+        end = recordEnd(next);
+        finish = index.lineEnd(end - 1);
+      }
+    }
+
+    @Override
+    int add(long[] out, int n, long from, long to) {
+      int at = n;
+      long line = first(from, to);
+      while (line < to) {
+        out[at++] = line;
+        line = first(line + 1, to);
+      }
+      return at;
+    }
+
+    @Override
+    RecordMarks marks(long start, long stop) {
+      return records.marks(start, stop);
+    }
+
+    /** The first line after the record starting at a line, within the index. */
+    private long recordEnd(long start) {
+      return Math.min(records.nextStart(start + 1), Math.max(start + 1, index.lineCount()));
     }
   }
 }

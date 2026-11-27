@@ -15,7 +15,7 @@ display.
 | `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
 | `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars`, `PathAtCaret` | [File access and text](docs/files-and-text.md) |
 | `core.index` | `GrowableLineIndex` (full and sparse), the parallel `Indexer` | [Line index](docs/line-index.md) |
-| `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet` | [Search](docs/search.md) |
+| `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet`; column terms and record search, `RecordScan` | [Search](docs/search.md), [Columns](docs/columns.md#records) |
 | `core.folder` | `FolderSearch`: search in a folder without opening its files | [Search](docs/search.md#search-in-a-folder) |
 | `core.time` | Timestamp formats and parsers, format detection, lookups by time, time spread | [Timestamps](docs/timestamps.md) |
 | `core.columns` | Column formats (CSV, TSV, Apache access log, Serilog CLEF, log4j XML, timestamp), their field parsers, format detection | [Columns](docs/columns.md) |
@@ -23,7 +23,8 @@ display.
 | `core.rotate` | Rotated sets: member discovery and order, `MemberIdentity`, `RotatedBytes`, `RotatedIndex` | [Rotated sets](docs/rotated-sets.md) |
 | `core.model` | `LogDocument`, `LineReader`, `Viewport`, `LineFinder` | [Documents](docs/documents.md) |
 | `core.model` | Folding, `Highlighter`, syntax colors (`LogTokens`), keyword triggers, marks, `OverviewBins`, `FilteredView` | [View models](docs/view-models.md) |
-| `core.format` | `PrettyPrint` for JSON and XML, `JsonStrings` and `XmlEntities` unescape | [Formats](#formats) |
+| `core.model` | `RecordRows`, the column view's row map over records | [Columns](docs/columns.md#records) |
+| `core.format` | `PrettyPrint` for JSON and XML, `JsonStrings`, `XmlEntities` and `XmlReferences` unescape | [Formats](#formats) |
 | `core.util` | `Checks`, `Streams` | [Utilities](#utilities) |
 | `core.util.os` | `OsTraits` and one class per operating system, `EnvPaths`, `RunnableTypes` | [Operating system seam](#operating-system-seam) |
 
@@ -41,7 +42,7 @@ threads and CPU-bound work on a fixed platform pool.
 | Index block scans, search chunk matching, `CpuSteps` steps | `qlogg-cpu-N` |
 | `FileMonitor` watch, `MonitorListener` | `qlogg-follow-` |
 | `LogDocument.closeAll` | `qlogg-lifecycle-`, one per document |
-| `LogDocument.open`, `LineReader`, `TimeReader`, `TimeSearch`, `FoldClassifier`, `LineFinder`, `RangeFinder`, `MarkToggle` | The caller's worker; these block. Given `Workers`, `LineFinder`, `MarkToggle`, `TimeSearch.locateLinear` and `RangeFinder` matching run in `CpuSteps` steps |
+| `LogDocument.open`, `LineReader`, `TimeReader`, `TimeSearch`, `FoldClassifier`, `LineFinder`, `RangeFinder`, `MarkToggle`, `RecordScan.scan` | The caller's worker; these block. Given `Workers`, `LineFinder`, `MarkToggle`, `TimeSearch.locateLinear` and `RangeFinder` matching run in `CpuSteps` steps |
 | `Viewport`, `FoldMap`, `FilteredView` | Confined to one thread (the UI thread in the app) |
 
 Listener calls from a coordinator must not block toward the UI thread.
@@ -84,7 +85,8 @@ no cancel; the caller bounds the input.
 |---|---|
 | `PrettyPrint` | `json` and `xml` change only the whitespace between tokens: two spaces per level, LF breaks. Strings, comments, element text, mixed content, `xml:space="preserve"` content, CDATA, PIs and the DOCTYPE stay verbatim. Output past `maxChars` throws `TOO_LONG` |
 | `JsonStrings` | `unescape` reads RFC 8259 escapes in a string's content without its quotes; a malformed escape or a surrogate escape without its escaped pair throws. The range overload appends to a `StringBuilder` and copies such an escape as written |
-| `XmlEntities` | `unescape` replaces the five XML entities, the 252 HTML 4.01 names and decimal and hex references; anything else stays as written. The range overload appends to a `StringBuilder` |
+| `XmlEntities` | `unescape` replaces the five XML entities, the 252 HTML 4.01 names and decimal and hex references; anything else stays as written |
+| `XmlReferences` | `unescape` over a char range, as `XmlEntities.unescape`, appending to a `StringBuilder`; a reference cut by the range end stays as written |
 
 Refusals throw `FormatException` with a `Reason`, the offset and its 1-based
 line and column (`\n`, `\r\n` and `\r` end a line; a column counts chars).

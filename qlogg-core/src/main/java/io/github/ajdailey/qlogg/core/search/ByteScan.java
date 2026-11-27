@@ -45,6 +45,61 @@ final class ByteScan {
   }
 
   /**
+   * Returns the offset of the first byte equal to {@code a} or {@code b} in {@code [from, to)}.
+   *
+   * @param bytes the buffer
+   * @param from the first offset searched
+   * @param to the exclusive end
+   * @param a a byte
+   * @param b another byte
+   * @return the offset, or -1
+   */
+  static int indexOfEither(ByteBuffer bytes, int from, int to, byte a, byte b) {
+    long as = (a & 0xFFL) * ONES;
+    long bs = (b & 0xFFL) * ONES;
+    boolean little = bytes.order() == ByteOrder.LITTLE_ENDIAN;
+    int i = from;
+    for (; i <= to - Long.BYTES; i += Long.BYTES) {
+      long word = bytes.getLong(i);
+      long zero = zeroBytes(word ^ as) | zeroBytes(word ^ bs);
+      if (zero != 0) {
+        return i + first(zero, little);
+      }
+    }
+    for (; i < to; i++) {
+      byte c = bytes.get(i);
+      if (c == a || c == b) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Counts the bytes equal to {@code value} in {@code [from, to)}.
+   *
+   * @param bytes the buffer
+   * @param from the first offset counted
+   * @param to the exclusive end
+   * @param value the byte
+   * @return the count
+   */
+  static int count(ByteBuffer bytes, int from, int to, byte value) {
+    long repeated = (value & 0xFFL) * ONES;
+    int found = 0;
+    int i = from;
+    for (; i <= to - Long.BYTES; i += Long.BYTES) {
+      found += Long.bitCount(zeroBytes(bytes.getLong(i) ^ repeated));
+    }
+    for (; i < to; i++) {
+      if (bytes.get(i) == value) {
+        found++;
+      }
+    }
+    return found;
+  }
+
+  /**
    * Returns the first offset {@code i} in {@code [from, to)} where the byte at {@code i} equals
    * {@code lead} and the byte at {@code i + distance} equals {@code trail}. The caller keeps {@code
    * to + distance} within the buffer.
