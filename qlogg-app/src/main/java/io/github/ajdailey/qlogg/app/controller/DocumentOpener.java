@@ -73,7 +73,7 @@ final class DocumentOpener {
     void reopenFailed(DocumentController old, FileChange change, String message);
 
     /**
-     * A restored rotated set left out marks whose member is no longer in the set; called after the
+     * A restored rotated set left out marks whose member is absent from the set; called after the
      * tab's {@link #opened}.
      */
     default void marksLeftOut(Path path, long marks) {}
