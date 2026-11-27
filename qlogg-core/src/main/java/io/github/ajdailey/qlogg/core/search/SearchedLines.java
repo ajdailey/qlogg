@@ -1,18 +1,32 @@
 package io.github.ajdailey.qlogg.core.search;
 
+import io.github.ajdailey.qlogg.core.index.LineIndex;
+
 /**
  * The lines a search tests: every line, or the members of {@link SearchQuery#restriction}. {@link
- * SearchEngine} cuts chunks, walks a chunk's lines and adds range lines through it.
+ * SearchEngine} cuts chunks, splits a chunk into runs, walks a chunk's lines and adds range lines
+ * through it.
  */
 abstract sealed class SearchedLines {
+  final LineIndex index;
+
+  SearchedLines(LineIndex index) {
+    this.index = index;
+  }
+
   /**
    * Returns the searched lines of a query.
    *
    * @param query the query
+   * @param index the snapshot searched
+   * @param gapBytes the most bytes between two members read in one run
+   * @param lineFeedBytes the width of the encoding's LF
    * @return every line when the query has no restriction, else its members
    */
-  static SearchedLines of(SearchQuery query) {
-    return query.restriction() == null ? new All() : new Members(query.restriction());
+  static SearchedLines of(SearchQuery query, LineIndex index, int gapBytes, int lineFeedBytes) {
+    return query.restriction() == null
+        ? new All(index)
+        : new Members(query.restriction(), index, gapBytes, lineFeedBytes);
   }
 
   /**
@@ -45,9 +59,18 @@ abstract sealed class SearchedLines {
    *
    * @param start a searched line
    * @param stop the first line after the chunk, above {@code start}
-   * @return one past the last searched line in {@code [start, stop)}
+   * @return one past the chunk's last searched line
    */
   abstract long cut(long start, long stop);
+
+  /**
+   * Splits a chunk into the runs read for it.
+   *
+   * @param start the chunk's first line, a searched line
+   * @param stop one past the chunk's last line, a searched line
+   * @return the runs, at least one
+   */
+  abstract ChunkRuns runs(long start, long stop);
 
   /**
    * Puts the searched lines of {@code [from, to)} into {@code out} at {@code n}.
@@ -56,8 +79,12 @@ abstract sealed class SearchedLines {
    */
   abstract int add(long[] out, int n, long from, long to);
 
-  /** Every line. */
+  /** Every line, read as one run. */
   private static final class All extends SearchedLines {
+    All(LineIndex index) {
+      super(index);
+    }
+
     @Override
     long first(long line, long end) {
       return Math.min(line, end);
@@ -79,6 +106,13 @@ abstract sealed class SearchedLines {
     }
 
     @Override
+    ChunkRuns runs(long start, long stop) {
+      ChunkRuns runs = new ChunkRuns();
+      runs.add(start, stop - 1, index.lineStart(start), index.lineEnd(stop - 1));
+      return runs;
+    }
+
+    @Override
     int add(long[] out, int n, long from, long to) {
       int at = n;
       for (long line = from; line < to; line++) {
@@ -88,12 +122,20 @@ abstract sealed class SearchedLines {
     }
   }
 
-  /** The members of a set. */
+  /**
+   * The members of a set. A run starts at a member and takes each following member that starts at
+   * most {@code gapBytes} after the previous member's end, with the lines between them.
+   */
   private static final class Members extends SearchedLines {
     private final LineSet set;
+    private final int gapBytes;
+    private final int lineFeedBytes;
 
-    Members(LineSet set) {
+    Members(LineSet set, LineIndex index, int gapBytes, int lineFeedBytes) {
+      super(index);
       this.set = set;
+      this.gapBytes = gapBytes;
+      this.lineFeedBytes = lineFeedBytes;
     }
 
     @Override
@@ -115,6 +157,41 @@ abstract sealed class SearchedLines {
     @Override
     long cut(long start, long stop) {
       return Math.max(start, set.floor(stop - 1)) + 1;
+    }
+
+    @Override
+    ChunkRuns runs(long start, long stop) {
+      ChunkRuns runs = new ChunkRuns();
+      long limit = stop - 1;
+      long member = start;
+      long first = index.lineStart(member);
+      if (gapBytes >= lineFeedBytes
+          && limit > member
+          && set.rank(stop) - set.rank(member) == stop - member) {
+        // Consecutive members are one LF apart, so a chunk of members only is one run.
+        runs.add(member, limit, first, index.lineEnd(limit));
+        return runs;
+      }
+      while (true) {
+        long last = member;
+        long finish = index.lineEnd(member);
+        while (last < limit) {
+          // Each member up to the last one starting within the gap of finish starts within the gap
+          // of the member before it.
+          long next = set.floor(Math.min(limit, index.lineAt(finish + gapBytes)));
+          if (next <= last) {
+            break;
+          }
+          last = next;
+          finish = index.lineEnd(next);
+        }
+        runs.add(member, last, first, finish);
+        if (last == limit) {
+          return runs;
+        }
+        member = set.ceiling(last + 1);
+        first = index.lineStart(member);
+      }
     }
 
     @Override

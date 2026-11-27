@@ -13,10 +13,11 @@ in ascending order.
 
 A coordinator on a `qlogg-search-` virtual thread cuts the range into chunks
 of whole lines (10,000 lines or 2 MiB, whichever comes first; a longer line is
-a chunk of its own), reads each chunk in one positional read and submits it to
-the CPU pool. A worker splits its chunk at LF units, drops a trailing CR from
-each line and matches it. The coordinator merges results in chunk order, so
-they stay in line order however chunks finish, and no match spans two chunks.
+a chunk of its own), reads each chunk through `ChunkReader` in one positional
+read (a restricted chunk: one per run) and submits it to the CPU pool. A
+worker splits its chunk at LF units, drops a trailing CR from each line and
+matches it. The coordinator merges results in chunk order, so they stay in
+line order however chunks finish, and no match spans two chunks.
 At most `maxChunksInFlight` chunks (default three per CPU thread) are read but
 not merged.
 
@@ -31,11 +32,28 @@ those lines: a range opens and closes on members, and `inverse` returns the
 non-matching members. The results are a subset of the set.
 
 - A chunk starts at the next member and ends at the last member that keeps it
-  within `chunkLines` lines and `chunkBytes` bytes, so a gap of `chunkLines`
-  lines or more is not read. Bytes read are at most a full search's.
-- The worker walks the chunk's lines at LF and matches the members only.
-- Each chunk start costs the index lookups a full search's chunk costs; on a
-  sparse index each reads from a checkpoint.
+  within `chunkLines` lines and `chunkBytes` bytes, as a full search's chunk
+  does.
+- A chunk of more than one line is split into runs and read by
+  `ChunkReader.readRuns` on a `qlogg-search-` virtual thread, then matched on
+  the CPU pool, so up to `maxChunksInFlight` chunks' reads are in flight at
+  once. A run spans whole lines from a member to a member and is one
+  positional read into the chunk's buffer, after the run before it. Read one
+  chunk at a time on the coordinator at a 64 KiB gap, a set of 0.1% of a
+  1 GiB log's lines took 2.8 s on a cold cache, 2.6 times a full search
+  (`DerivedSetProbe`).
+- A run takes the next member when it starts at most `SearchSettings.gapBytes`
+  (default 16 KiB) after the previous member's `lineEnd`, with the lines
+  between them; a longer gap is not read. A chunk of consecutive members is
+  one run after one `rank` check. Bytes read are at most a full search's. On
+  a warm cache, 4 KiB read 44% of the file for every 50th line and took 13%
+  longer than 16 KiB; 64 KiB read 10 times the bytes for the 0.1% set and
+  took twice as long.
+- The worker walks each run's lines at LF and matches the members only.
+- The coordinator cuts a chunk with the full search's 2 to 3 index lookups;
+  the reader splits it with a `lineStart` per run and a `lineAt`, `lineEnd`
+  and `floor` per `gapBytes` a run spans. On a sparse index each lookup reads
+  from a checkpoint.
 - A change to the set below the searched end while the search runs leaves the
   result undefined.
 
