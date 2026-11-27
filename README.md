@@ -146,9 +146,10 @@ scripts/container.sh env SWT_GTK4=1 xvfb-run -a ./mvnw -B verify -pl qlogg-ui-sw
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request and
 every pushed `v*` tag, and on manual dispatch, with Temurin 21.0.13.1+2
 (21.0.12.1+1 on `windows-11-arm`). Actions are pinned by commit SHA, and every
-checkout sets `persist-credentials: false`. Linux jobs install Xvfb and GTK 3
-from the Ubuntu archive when the runner image lacks them, and the Linux `test`
-jobs install WebKitGTK 4.1 so the user guide's `Browser` tests run.
+checkout sets `persist-credentials: false`. Linux jobs install Xvfb, GTK 3 and
+the X11 utilities from the Ubuntu archive when the runner image lacks them, and
+the Linux `test` jobs install WebKitGTK 4.1 so the user guide's `Browser` tests
+run.
 
 | Job | Runners | Does |
 |---|---|---|
