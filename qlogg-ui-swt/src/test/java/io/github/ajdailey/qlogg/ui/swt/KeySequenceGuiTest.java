@@ -238,9 +238,11 @@ class KeySequenceGuiTest {
   }
 
   @Test
-  void theCollisionsAreThePreferencesKeyAndOnMacOsMinimize() {
+  void theCollisionsAreThePreferencesKeyGoToLineAndOnMacOsMinimize() {
     Set<Character> expected = new TreeSet<Character>();
     expected.add(',');
+    // Ctrl+E Ctrl+L locates a filter tab's line; Ctrl+L stays Go to Line.
+    expected.add('l');
     if (SwtKeys.mac()) {
       expected.add('m');
     }
