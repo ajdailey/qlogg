@@ -249,6 +249,7 @@ public final class Launcher {
         return Handoff.ALONE;
       }
       List<FileRequest> files = request.files().isEmpty() ? openedDocuments() : request.files();
+      grantForeground();
       InstanceClient.handOff(directory, files, request.follow());
       if (LOG.isInfoEnabled()) {
         LOG.info("Handed {} files to the running instance", files.size());
@@ -259,6 +260,18 @@ public final class Launcher {
           "Handoff to the running instance failed; opening a window: {}",
           LogText.oneLine(e.getMessage()));
       return Handoff.ALONE;
+    }
+  }
+
+  /** Lets the running instance raise its window; a failure leaves the handoff to go ahead. */
+  private static void grantForeground() {
+    try {
+      OsTraits.current().foregroundRights().grantAny();
+    } catch (IOException e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(
+            "The running instance may not come to the front: {}", LogText.oneLine(e.getMessage()));
+      }
     }
   }
 

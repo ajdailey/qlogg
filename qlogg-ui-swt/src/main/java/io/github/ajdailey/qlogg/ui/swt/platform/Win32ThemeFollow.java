@@ -7,7 +7,8 @@ import org.eclipse.swt.widgets.Link;
 
 /**
  * win32: controls read the theme setting only when created, so it is set before the first Shell and
- * a later switch rebuilds the windows.
+ * a later switch sets it again, flushes the menu theme ({@link Win32MenuThemes}) and rebuilds the
+ * windows.
  */
 final class Win32ThemeFollow implements ThemeFollow {
   private final Display display;
@@ -38,6 +39,7 @@ final class Win32ThemeFollow implements ThemeFollow {
       return;
     }
     NativeTheme.set(display, dark);
+    Win32MenuThemes.flush(display, dark);
     windows.rebuild();
   }
 

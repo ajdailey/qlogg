@@ -349,6 +349,7 @@ class SmokeTest {
     assertEquals(
         List.of(
             "SWT_GTK4=1",
+            "arg --enable-native-access=ALL-UNNAMED",
             "arg -XX:MaxRAMPercentage=50",
             "arg -Xms64m",
             "arg -XX:GCTimeRatio=1",

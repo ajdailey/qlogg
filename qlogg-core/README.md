@@ -127,6 +127,7 @@ system's answers from `OsTraits.of(name)`.
 |---|---|---|---|---|
 | `deviceNames` | `WindowsDeviceNames` | `FileNames` | `FileNames` | `SafePaths` refuses a path `DeviceNames.opensDevice` matches: `\\.\`, `\\?\`, `CON`, `NUL`, `COM1`... on Windows, none elsewhere |
 | `confinement` | `WindowsFileConfinement` | `MacFileConfinement` | `LinuxFileConfinement` | `PlatformSetup` and `UserGuide.embedded`; see the next table |
+| `foregroundRights` | `WindowsForegroundRights`: user32 `AllowSetForegroundWindow(ASFW_ANY)` through `java.lang.foreign` by reflection, linked at the first call | `NoForegroundRights`: nothing | `NoForegroundRights` | `Launcher.handOff`, before the handoff |
 | `userSettings` | `%APPDATA%\QLogg` | `~/Library/Application Support/QLogg` | `$XDG_CONFIG_HOME/qlogg` | `SettingsLocation` per-user mode |
 | `launcherDirectory` | null | null | `<home>/bin` | `SettingsLocation` ([portable mode](../qlogg-app/docs/settings.md#settings-directory)) |
 | `macKeymap` | false | true | false | `Keymap.defaults()` |

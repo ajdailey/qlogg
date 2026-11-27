@@ -169,7 +169,8 @@ class ArchitectureTest {
         .check(classes);
   }
 
-  // Public SWT API exceptions: Always on Top and GTK 4 tool item sizing.
+  // Public SWT API exceptions: Always on Top, GTK 4 tool item sizing, win32 menu themes and the
+  // foreground grant.
 
   /** The classes that reach SWT internals by reflection, which no import shows. */
   private static final String[] SWT_REFLECTION = {
@@ -179,7 +180,16 @@ class ArchitectureTest {
     ROOT + ".ui.swt.platform.Gtk4ToolItemSizing"
   };
 
-  /** Only the listed exception classes load classes by name or open members. */
+  /** The view class excepted to link the Java 21 foreign-function API by reflection. */
+  private static final String VIEW_FOREIGN = ROOT + ".ui.swt.platform.Win32MenuThemes";
+
+  /** The core class excepted to link the Java 21 foreign-function API by reflection. */
+  private static final String FOREGROUND_FOREIGN = ROOT + ".core.util.os.WindowsForegroundRights";
+
+  /**
+   * Only the listed exception classes, {@code Win32MenuThemes} and {@code WindowsForegroundRights},
+   * which link the Java 21 foreign-function API, load classes by name or open members.
+   */
   @Test
   void reflectionOnlyInExceptionClasses() {
     reflectionOnlyInExceptionClassesRule().check(classes);
@@ -195,11 +205,16 @@ class ArchitectureTest {
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[2])
         .and()
         .doNotHaveFullyQualifiedName(SWT_REFLECTION[3])
+        .and()
+        .doNotHaveFullyQualifiedName(VIEW_FOREIGN)
+        .and()
+        .doNotHaveFullyQualifiedName(FOREGROUND_FOREIGN)
         .should()
         .callMethodWhere(call(Class.class, "forName|getDeclared.*|getField|getMethod"))
         .orShould()
         .callMethodWhere(call(AccessibleObject.class, "setAccessible|trySetAccessible"))
-        .because("SWT internals differ per platform; only these classes reach them");
+        .because(
+            "SWT internals and native calls differ per platform; only these classes reach them");
   }
 
   // Platform traits.

@@ -131,7 +131,7 @@
                         <configuration>
                             <test>TableFitSurfaceTest,CellImagePlacementTest</test>
                             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
-                            <argLine>-Duser.home=${project.build.directory}/test-home ${qlogg.test.jvmArgs} -Dswt.autoScale=150 -Dswt.autoScale.updateOnRuntime=false</argLine>
+                            <argLine>-Duser.home=${project.build.directory}/test-home --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs} -Dswt.autoScale=150 -Dswt.autoScale.updateOnRuntime=false</argLine>
                         </configuration>
                     </execution>
                 </executions>

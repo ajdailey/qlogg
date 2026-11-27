@@ -331,7 +331,8 @@ the `PlatformTraits.stacking` implementation chosen on first use, after the
 Display exists (GTK reads the backend the Display records). SWT has no public call, so each implementation
 reaches SWT internals by reflection and the product compiles against every
 platform's SWT jar. `ArchitectureTest.reflectionOnlyInExceptionClasses` allows
-reflection in these three classes and `Gtk4ToolItemSizing` only;
+reflection in these three classes, `Gtk4ToolItemSizing`, and the two
+foreign-function callers `Win32MenuThemes` and `WindowsForegroundRights` only;
 `noSwtInternals` is unchanged.
 
 | Platform | Class | Call | Verified |
