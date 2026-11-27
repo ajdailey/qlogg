@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
@@ -142,6 +143,36 @@ public final class LogDocument implements LineSource, Closeable {
       throws IOException {
     return new LogDocument(
         SingleFileContent.open(path, forcedEncoding, services, detectTimeFormat, keepClosed),
+        services);
+  }
+
+  /**
+   * Opens the rotated set a file belongs to as one document: the base file and its rotated files,
+   * oldest first, in one encoding. The document shows the base name and follows the set through
+   * roll-over ({@link FileChange#ROLLED}, {@link #lineMap}). Blocking; never call it on the UI
+   * thread.
+   *
+   * @param path any member's path, or the base path
+   * @param forcedEncoding the charset for every member, or null to detect it
+   * @param services shared services
+   * @param detectTimeFormat false when the owner has a remembered format
+   * @param keepClosed true to open each member only for each read ({@link ReopeningByteSource})
+   * @param ignoreCase true where the file system compares names without regard to case
+   * @return the open document; the caller closes it
+   * @throws IOException when the path is rejected, the series has no readable member, a member
+   *     cannot be opened, or the line index share cannot hold an empty index per member
+   */
+  public static LogDocument openRotated(
+      Path path,
+      Charset forcedEncoding,
+      DocumentServices services,
+      boolean detectTimeFormat,
+      boolean keepClosed,
+      boolean ignoreCase)
+      throws IOException {
+    return new LogDocument(
+        RotatedContent.open(
+            path, forcedEncoding, services, detectTimeFormat, keepClosed, ignoreCase),
         services);
   }
 
@@ -290,6 +321,15 @@ public final class LogDocument implements LineSource, Closeable {
   @Override
   public ByteSource bytes() {
     return content.bytes();
+  }
+
+  /**
+   * Returns where the old line numbers land after the last {@link FileChange#ROLLED} report.
+   *
+   * @return the map, or null before one and for a single file
+   */
+  public LineMap lineMap() {
+    return content.lineMap();
   }
 
   /**

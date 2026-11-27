@@ -16,6 +16,7 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -85,6 +86,7 @@ class DocumentContentTest {
     assertSame(content.detection, document.detection());
     assertSame(content.detection.encoding(), document.encoding());
     assertEquals(BuiltInFormat.ISO, document.timeFormat());
+    assertSame(content.map, document.lineMap());
     assertEquals(42, document.openedModifiedMillis());
     assertTrue(document.keepsFileClosed());
     assertFalse(document.inMemory());
@@ -148,6 +150,7 @@ class DocumentContentTest {
         new EncodingDetection(
             new TextEncoding(StandardCharsets.UTF_8, 1, ByteOrder.BIG_ENDIAN, 0),
             DetectionReason.FORCED);
+    final LineMap map = new LineMap(List.<LineMap.Entry>of());
     volatile DocumentListener indexEvents;
     volatile DocumentListener watchEvents;
     volatile boolean clean = true;
@@ -185,6 +188,11 @@ class DocumentContentTest {
     @Override
     public BuiltInFormat timeFormat() {
       return BuiltInFormat.ISO;
+    }
+
+    @Override
+    public LineMap lineMap() {
+      return map;
     }
 
     @Override

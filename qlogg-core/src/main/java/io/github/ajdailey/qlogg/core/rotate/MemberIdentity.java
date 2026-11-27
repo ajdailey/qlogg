@@ -76,6 +76,16 @@ public record MemberIdentity(
   }
 
   /**
+   * Returns this identity without its file key, so {@link #find} compares content: a copy of the
+   * member matches, and so does the member itself only while it still holds the indexed bytes.
+   *
+   * @return the identity with a null file key
+   */
+  public MemberIdentity byContent() {
+    return new MemberIdentity(null, creationMillis, indexedBytes, headDigest, tailDigest);
+  }
+
+  /**
    * Finds the member among files. A file that cannot be read does not match. Blocks; reads at most
    * two digests' worth per file.
    *
