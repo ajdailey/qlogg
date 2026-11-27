@@ -9,6 +9,11 @@ import io.github.ajdailey.qlogg.core.text.ControlChars;
  * dropped, so its text is bounded by the window rather than by the line. In the main view row n is
  * line n; in the filtered view {@link #sourceLine} gives each row's document line. Immutable, so a
  * worker can build one and publish it to the UI thread.
+ *
+ * <p>In column view ({@link #cellView}) a row is a record composed into cells ({@link CellReader}):
+ * its text holds the composed columns {@code [0, frozenColumns())} and then {@code [frozenColumns()
+ * + firstColumn, frozenColumns() + firstColumn + columns)}, and highlight, token and cell columns
+ * are composed columns.
  */
 public final class LineBlock {
   /** A block of no lines. */
@@ -27,6 +32,15 @@ public final class LineBlock {
   /** Added to a boxed char in the second column of its box in {@link #controls}. */
   public static final char SECOND_CELL = 0x100;
 
+  /** Row flag: the record did not parse and its text spans every cell. */
+  static final byte UNPARSED = 1;
+
+  /** Row flag: a header line. */
+  static final byte HEADER = 2;
+
+  /** Row flag: a cut record. */
+  static final byte CUT = 4;
+
   private final long firstLine;
   private final long firstColumn;
   private final int columns;
@@ -38,6 +52,9 @@ public final class LineBlock {
   private final String[] whitespace;
   private final byte[] terminators;
   private final String[] controls;
+  private final int[][] cells;
+  private final byte[] flags;
+  private final int frozenColumns;
 
   /**
    * Creates a block; the arrays are kept, not copied.
@@ -128,6 +145,56 @@ public final class LineBlock {
       String[] whitespace,
       byte[] terminators,
       String[] controls) {
+    this(
+        firstLine,
+        firstColumn,
+        columns,
+        lines,
+        widths,
+        sourceLines,
+        spans,
+        tokens,
+        whitespace,
+        terminators,
+        controls,
+        null,
+        null,
+        0);
+  }
+
+  /**
+   * Creates a block with every per-row array; the arrays are kept, not copied.
+   *
+   * @param firstLine row of the first entry
+   * @param firstColumn first display column held
+   * @param columns width of the window
+   * @param lines the cut text of each row
+   * @param widths the full display width of each row, in columns
+   * @param sourceLines the document line of each row, or null when row n is line n
+   * @param spans the highlight of each row, or null for none
+   * @param tokens the syntax-color tokens of each row, or null for none
+   * @param whitespace per row, one marker per char of its text, or null for none
+   * @param terminators per row, a {@link LineTerminator} ordinal, or null with no markers
+   * @param controls per row, the {@link #controls} cells, or null for none
+   * @param cells per row, the composed column of each cell, or null outside column view
+   * @param flags per row, {@link #UNPARSED}, {@link #HEADER} and {@link #CUT}, or null
+   * @param frozenColumns composed columns that do not scroll
+   */
+  LineBlock(
+      long firstLine,
+      long firstColumn,
+      int columns,
+      String[] lines,
+      long[] widths,
+      long[] sourceLines,
+      HighlightSpans[] spans,
+      TokenSpans[] tokens,
+      String[] whitespace,
+      byte[] terminators,
+      String[] controls,
+      int[][] cells,
+      byte[] flags,
+      int frozenColumns) {
     this.firstLine = firstLine;
     this.firstColumn = firstColumn;
     this.columns = columns;
@@ -139,6 +206,85 @@ public final class LineBlock {
     this.whitespace = whitespace;
     this.terminators = terminators;
     this.controls = controls;
+    this.cells = cells;
+    this.flags = flags;
+    this.frozenColumns = frozenColumns;
+  }
+
+  /**
+   * Reports whether the rows are column-view records.
+   *
+   * @return true when {@link #cellCount} describes the rows
+   */
+  public boolean cellView() {
+    return cells != null;
+  }
+
+  /**
+   * Returns the composed columns at the start of each row that do not scroll.
+   *
+   * @return 0 outside column view or without frozen cells
+   */
+  public int frozenColumns() {
+    return frozenColumns;
+  }
+
+  /**
+   * Counts a held row's cells.
+   *
+   * @param line a row that {@link #contains}
+   * @return the cells; 1 for a row that did not parse, 0 outside column view
+   */
+  public int cellCount(long line) {
+    int i = index(line);
+    return cells == null ? 0 : cells[i].length;
+  }
+
+  /**
+   * Returns a cell's first composed column.
+   *
+   * @param line a row that {@link #contains}
+   * @param cell 0 to {@link #cellCount} - 1
+   * @return the composed column
+   */
+  public int cellStart(long line, int cell) {
+    return cells[index(line)][cell];
+  }
+
+  /**
+   * Reports whether a held row's record did not parse; its text spans every cell.
+   *
+   * @param line a row that {@link #contains}
+   * @return true for raw text
+   */
+  public boolean unparsed(long line) {
+    return flag(line, UNPARSED);
+  }
+
+  /**
+   * Reports whether a held row is a header line.
+   *
+   * @param line a row that {@link #contains}
+   * @return true for a header row
+   */
+  public boolean header(long line) {
+    return flag(line, HEADER);
+  }
+
+  /**
+   * Reports whether a held row's record is cut ({@link CellRecord#cut}), so the row shows the
+   * truncation marker.
+   *
+   * @param line a row that {@link #contains}
+   * @return true for a cut record
+   */
+  public boolean cut(long line) {
+    return flag(line, CUT);
+  }
+
+  private boolean flag(long line, byte flag) {
+    int i = index(line);
+    return flags != null && (flags[i] & flag) != 0;
   }
 
   /**
@@ -240,7 +386,10 @@ public final class LineBlock {
             null,
             whitespace,
             terminators,
-            controls);
+            controls,
+            cells,
+            flags,
+            frozenColumns);
   }
 
   /**

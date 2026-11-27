@@ -2141,6 +2141,11 @@ public final class ApplicationController
     }
   }
 
+  @Override
+  public void showText(String title, String text) {
+    view.showText(title, text);
+  }
+
   // Always on Top.
 
   /**

@@ -33,8 +33,9 @@ class HighlightFileTest {
             new HighlightRule(
                 "BLOCKTERM", MatchMode.LITERAL, false, true, Rgb.of(0x112233), null, 255, 0, true),
             new HighlightRule(
-                "ID-(\\d{3})",
-                MatchMode.REGEX, true, false, null, Rgb.of(0xffeedd), 128, 20, false)));
+                    "ID-(\\d{3})",
+                    MatchMode.REGEX, true, false, null, Rgb.of(0xffeedd), 128, 20, false)
+                .withColumn("Level")));
   }
 
   @Test
@@ -50,6 +51,8 @@ class HighlightFileTest {
     assertEquals(List.of("b"), settings.active());
     Properties properties = new Properties();
     HighlightFile.store(settings, properties);
+    assertEquals("Level", properties.getProperty("highlight.set.0.rule.1.column"));
+    assertNull(properties.getProperty("highlight.set.0.rule.0.column"));
     assertEquals(settings, HighlightFile.load(properties));
     assertEquals(HighlightSettings.DEFAULTS, HighlightFile.load(new Properties()));
   }

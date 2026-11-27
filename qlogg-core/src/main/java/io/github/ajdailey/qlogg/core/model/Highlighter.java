@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
 import io.github.ajdailey.qlogg.core.text.BoundedChars;
@@ -25,6 +26,12 @@ import java.util.zip.CRC32;
  * for that line, and a line matcher stops coloring after {@link #BLOCK_STEPS} chars, so a
  * backtracking pattern bounds the cost of a read instead of stalling it. A line keeps at most
  * {@link #MAX_SPANS} spans; later spans are dropped.
+ *
+ * <p>In column view ({@link LineMatcher#spans(CellRecord, ColumnLayout, int[], long, long, long)})
+ * a whole-line rule tests the raw record, or its column's value when it names a column; a
+ * match-only rule matches inside each cell's value, or only in its column's cells. A rule naming a
+ * column the format lacks, and any column rule on a record that did not parse, colors nothing. In
+ * text view every rule tests the whole line.
  */
 public final class Highlighter {
   /** No rules. */
@@ -233,6 +240,11 @@ public final class Highlighter {
     private final Spans spans = new Spans();
     private int[] columns = new int[256];
     private long budget = BLOCK_STEPS;
+    private long frozenEnd;
+    private long from;
+    private long to;
+    private ColumnSchema resolved;
+    private int[] ruleColumns;
 
     LineMatcher(List<HighlightRule> rules, List<Pattern> patterns) {
       this.rules = rules;
@@ -256,8 +268,9 @@ public final class Highlighter {
         return HighlightSpans.NONE;
       }
       mapColumns(text);
-      long from = firstColumn;
-      long to = firstColumn + windowColumns;
+      frozenEnd = 0;
+      from = firstColumn;
+      to = firstColumn + windowColumns;
       spans.clear();
       int lineForeground = 0;
       int lineBackground = 0;
@@ -281,7 +294,7 @@ public final class Highlighter {
               spans.clear();
             }
           } else {
-            matchOnly(rule, matcher, text, from, to);
+            matchOnly(rule, matcher, text, 0, Long.MAX_VALUE);
           }
         } catch (BoundedChars.LimitReached | StackOverflowError e) {
           // This rule is abandoned for this line; spans it added so far stay. A deeply
@@ -292,18 +305,123 @@ public final class Highlighter {
       return spans.freeze(lineForeground, lineBackground);
     }
 
+    /**
+     * Colors a column-view row, clipped to its frozen columns {@code [0, frozenEnd)} and the
+     * scrolled window {@code [windowFrom, windowTo)}.
+     *
+     * @param record the record, read by the {@link CellReader} calling
+     * @param layout the cells
+     * @param shown per cell, the columns of its value shown
+     * @param frozenEnd composed columns that do not scroll
+     * @param windowFrom first composed column of the scrolled window
+     * @param windowTo the composed column after it
+     * @return the spans; {@link HighlightSpans#NONE} once the matcher's budget is spent
+     */
+    HighlightSpans spans(
+        CellRecord record,
+        ColumnLayout layout,
+        int[] shown,
+        long frozenEnd,
+        long windowFrom,
+        long windowTo) {
+      if (rules.isEmpty() || budget <= 0) {
+        return HighlightSpans.NONE;
+      }
+      this.frozenEnd = frozenEnd;
+      from = windowFrom;
+      to = windowTo;
+      resolve(record.schema());
+      chars.reset("", 0);
+      spans.clear();
+      int lineForeground = 0;
+      int lineBackground = 0;
+      for (int r = 0; r < rules.size() && budget > 0; r++) {
+        Matcher matcher = matchers[r];
+        int column = ruleColumns[r];
+        if (matcher == null || column < -1 || (column >= 0 && !record.parsed())) {
+          continue;
+        }
+        HighlightRule rule = rules.get(r);
+        try {
+          if (rule.wholeLine()) {
+            if (find(matcher, column < 0 ? record.text() : record.value(column))) {
+              if (rule.foreground() != null) {
+                lineForeground = argb(rule.foreground(), 255);
+              }
+              if (rule.background() != null && rule.alpha() > 0) {
+                lineBackground = argb(rule.background(), rule.alpha());
+              }
+              spans.clear();
+            }
+          } else if (!record.parsed()) {
+            reset(matcher, record.text());
+            matchOnly(rule, matcher, record.text(), 0, Long.MAX_VALUE);
+          } else {
+            for (int cell = 0; cell < layout.count() && budget > 0; cell++) {
+              if (column < 0 || layout.column(cell) == column) {
+                CharSequence value = record.value(layout.column(cell));
+                reset(matcher, value);
+                matchOnly(
+                    rule, matcher, value, layout.start(cell), layout.start(cell) + shown[cell]);
+              }
+            }
+          }
+        } catch (BoundedChars.LimitReached | StackOverflowError e) {
+          // As in the text-view method: this rule is abandoned for this row.
+        }
+      }
+      charge();
+      return spans.freeze(lineForeground, lineBackground);
+    }
+
+    /** Resolves each rule's column in a schema: -1 for the row, -2 for a column it lacks. */
+    private void resolve(ColumnSchema schema) {
+      if (schema == resolved) {
+        return;
+      }
+      ruleColumns = new int[rules.size()];
+      for (int r = 0; r < ruleColumns.length; r++) {
+        String name = rules.get(r).column();
+        int index = name.isEmpty() ? -1 : schema.columnIndex(name);
+        ruleColumns[r] = name.isEmpty() || index >= 0 ? index : -2;
+      }
+      resolved = schema;
+    }
+
+    /** Points a matcher at a text's bounded chars and charges what it reads to the budget. */
+    private void reset(Matcher matcher, CharSequence text) {
+      charge();
+      mapColumns(text);
+      matcher.reset(chars.reset(text, Math.min(BoundedChars.lineLimit(text), budget)));
+    }
+
+    /** Charges the chars read since the last reset and zeroes the count. */
+    private void charge() {
+      budget -= chars.used();
+      chars.reset("", 0);
+    }
+
+    private boolean find(Matcher matcher, CharSequence text) {
+      reset(matcher, text);
+      return matcher.find();
+    }
+
+    /**
+     * Adds a span per match, each moved right by {@code offset} composed columns and cut at {@code
+     * limit}.
+     */
     private void matchOnly(
-        HighlightRule rule, Matcher matcher, CharSequence text, long from, long to) {
+        HighlightRule rule, Matcher matcher, CharSequence text, long offset, long limit) {
       int groups = matcher.groupCount();
       int at = 0;
       while (!spans.full() && at <= text.length() && matcher.find(at)) {
         if (groups == 0) {
-          add(rule, text, matcher.start(), matcher.end(), from, to);
+          add(rule, text, matcher.start(), matcher.end(), offset, limit);
         } else {
           for (int g = 1; g <= groups && !spans.full(); g++) {
             int start = matcher.start(g);
             if (start >= 0) {
-              add(rule, text, start, matcher.end(g), from, to);
+              add(rule, text, start, matcher.end(g), offset, limit);
             }
           }
         }
@@ -312,13 +430,16 @@ public final class Highlighter {
     }
 
     private void add(
-        HighlightRule rule, CharSequence text, int start, int end, long from, long to) {
+        HighlightRule rule, CharSequence text, int start, int end, long offset, long limit) {
       if (end <= start) {
         return;
       }
-      long a = Math.max(columns[start], from);
-      long b = Math.min(columns[end], to);
-      if (b <= a) {
+      long a = offset + columns[start];
+      long b = Math.min(offset + columns[end], limit);
+      long frozenTo = Math.min(b, frozenEnd);
+      long scrolledFrom = Math.max(a, from);
+      long scrolledTo = Math.min(b, to);
+      if (frozenTo <= a && scrolledTo <= scrolledFrom) {
         return;
       }
       Rgb foreground = rule.foreground();
@@ -328,7 +449,14 @@ public final class Highlighter {
         foreground = foreground == null ? null : vary(foreground, matched, rule.variance());
         background = background == null ? null : vary(background, matched, rule.variance());
       }
-      spans.paint((int) a, (int) b, argb(foreground, 255), argb(background, rule.alpha()));
+      int fore = argb(foreground, 255);
+      int back = argb(background, rule.alpha());
+      if (frozenTo > a) {
+        spans.paint((int) a, (int) frozenTo, fore, back);
+      }
+      if (scrolledTo > scrolledFrom) {
+        spans.paint((int) scrolledFrom, (int) scrolledTo, fore, back);
+      }
     }
 
     /** Fills {@code columns[i]} with the display column of char i, and of the end at length. */

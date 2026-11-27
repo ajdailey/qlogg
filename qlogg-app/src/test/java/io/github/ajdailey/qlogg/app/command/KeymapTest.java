@@ -15,6 +15,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 class KeymapTest {
+  /** Column commands without a key until the column menus give them one. */
+  private static final Set<CommandId> COLUMN_COMMANDS =
+      Set.of(
+          CommandId.TOGGLE_COLUMNS,
+          CommandId.COPY_RAW_LINES,
+          CommandId.COPY_CELL,
+          CommandId.SHOW_RECORD);
+
   private final Keymap keymap = Keymap.defaults();
 
   /** Returns the macOS or the Linux defaults. */
@@ -49,7 +57,7 @@ class KeymapTest {
     for (CommandId command : CommandId.values()) {
       assertFalse(command.title().isEmpty());
       // Toggle Columns runs only through ApplicationController.execute.
-      if (command.group() == CommandGroup.LOG_VIEW && command != CommandId.TOGGLE_COLUMNS) {
+      if (command.group() == CommandGroup.LOG_VIEW && !COLUMN_COMMANDS.contains(command)) {
         assertFalse(keymap.bindingsFor(command).isEmpty(), command + " has no key");
       }
       KeyStroke accelerator = keymap.accelerator(command);

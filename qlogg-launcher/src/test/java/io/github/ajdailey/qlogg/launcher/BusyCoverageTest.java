@@ -59,6 +59,8 @@ class BusyCoverageTest {
 
   static {
     String[] wrapped = {
+      "controller.CellCommands#selectedCell",
+      "controller.CellCommands#showRecord",
       "controller.DerivedTabs#create",
       "controller.DocumentController#toggleMarks",
       "controller.LineViewController#copy",

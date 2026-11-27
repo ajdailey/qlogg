@@ -47,6 +47,9 @@ class CommandStatesTest {
     // The rows the menu bar recorded, plus the push items CommandStates enables.
     row(CommandId.RELOAD, "-- -e -e");
     row(CommandId.TOGGLE_COLUMNS, "-- -- --");
+    row(CommandId.COPY_RAW_LINES, "-- -- --");
+    row(CommandId.COPY_CELL, "-- -- --");
+    row(CommandId.SHOW_RECORD, "-- -- --");
     row(CommandId.COPY_PATH, "-- -e -e");
     row(CommandId.COPY_FILE_NAME, "-- -e -e");
     row(CommandId.OPEN_FOLDER, "-- -e -e");

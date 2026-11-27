@@ -3,7 +3,8 @@
 The controllers of one document's two views in `app.controller` of
 [qlogg-app](../README.md): `LineViewController`, `DocumentController` (the main
 view), `FilteredController`, `FoldController`, the column classes
-(`ColumnController`, `ColumnFeatures`, `ColumnRows`, `RecordScanner`), the
+(`ColumnController`, `ColumnFeatures`, `ColumnRows`, `RecordScanner`,
+`CellCommands`, `RecordText`), the
 filter tab classes (`DerivedTabs`, `Derivation`, `DerivedRows`),
 `TextExporter`, `MarksListController` and `TabDataModel`.
 
@@ -82,12 +83,29 @@ line separator between them (LF within a block). An empty selection, and Copy
 This Line, copy the caret's row. Copy with line numbers puts each source line's
 number and a tab before it.
 
+In column view a request carries a `RecordText.Columns` and `RecordText`
+builds each whole row from its record:
+
+| Form | Text of a row |
+|---|---|
+| `COLUMNS` (Copy, save by default) | The shown cells' full values joined by tabs; a tab, LF or backslash inside a value is written `\t`, `\n` or `\\`; a record that did not parse is one value |
+| `LINES` (Copy Raw Lines, `saveLines(file, true)`) | Every line of the record as in the file |
+| `CELL` (Copy Cell) | One cell's full value, unescaped |
+
+With line numbers, the record's first line number comes first. Save takes the
+form through `saveLines(Path, boolean)` and `saveAll(Path, boolean)`; the save
+dialog's choice is not built yet.
+
 ### Charges
 
 | Operation | `COPY` charge per selected file byte | Released |
 |---|---|---|
 | Copy, `selectedText` | 4 bytes (builder and string, up to 2 bytes per char each) | On the UI thread once the text is on the clipboard, refused or canceled |
 | Save | 7 bytes (the text plus its UTF-8 bytes) | Once the file is written, refused or canceled |
+
+A column-view copy is charged on `RecordText.bytes`: each row's record bytes,
+twice over for `COLUMNS` and `CELL` (escapes, the Time cell), plus 32 bytes
+per shown cell; text that outgrows that size is refused as too large.
 
 A selection the share cannot hold is refused with a notice naming both sizes.
 The builder is sized once, because a doubling builder peaks above the charge.
@@ -274,9 +292,10 @@ only around the visible rows.
 ## Columns
 
 `ColumnController` (`DocumentController.columns()`) holds a tab's column
-format (`ColumnSchema`, null for none) and whether column view shows. The
-column view's painting, header and menus are not built yet; the state drives
-the rows and searches below.
+format (`ColumnSchema`, null for none), whether column view shows and the
+cells (`ColumnLayout`, `ColumnLayout.of` for a new format; `setLayout`
+re-reads the rows). The column view's painting, header and menus are not
+built yet; the state drives the rows, copies and searches below.
 
 `ColumnFeatures.configure` sets a new tab's state after its time state:
 
@@ -323,6 +342,31 @@ through `changeRows`, which keeps the top line and the selection on their
 lines, as a fold change does. Folding is off while records show; the fold
 rules and collapsed entries stay for text view. A filter tab keeps its
 `DerivedRows` and reads its parent's records for its searches.
+
+### Rows and commands
+
+In column view `ColumnController.read()` returns the `ColumnRead` both views
+pass to a `CellReader` in place of the text read: each row is the record
+holding its line, composed into cells (core
+[Column-view rows](../../qlogg-core/docs/columns.md#column-view-rows)). A
+filter tab row on a continuation line therefore shows its record. Text wrap,
+a wrapped line and whitespace markers do not apply. The instance stays the
+same until the layout, the time settings, the records snapshot or the
+repeated headers change, so the reader's row cache survives vertical
+scrolling; a change of the time offset or zone re-reads the rows.
+
+| Command | Column view | Text view |
+|---|---|---|
+| Copy, Copy with Line Numbers, `selectionText` | The selected rows' shown cells, tab-separated ([Copy and save](#copy-and-save)) | Lines |
+| Copy Raw Lines (`COPY_RAW_LINES`) | Every line of each selected row's record | Disabled |
+| Copy Cell (`COPY_CELL`) | The full value of the caret's cell | Disabled |
+| Show Record (`SHOW_RECORD`) | `Name: value` per column of the caret's record, hidden ones included, in a text window (`DocumentHost.showText`) | Disabled |
+| `selectedText` | The full value of the cell at the selection start | The selected chars |
+
+The current cell is the cell holding the caret's composed column
+(`ColumnLayout.cellAt`). The three new commands have no key and no menu item
+yet. Show Record and the cell read run in `CellCommands` on a `qlogg-read-`
+worker inside a document entry, with the busy cursor.
 
 ## Filter tabs
 

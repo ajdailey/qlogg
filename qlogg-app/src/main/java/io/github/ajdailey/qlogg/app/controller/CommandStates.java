@@ -169,6 +169,7 @@ public final class CommandStates {
       case WRAP_LINE -> document != null && !document.wrap();
       // Columns.
       case TOGGLE_COLUMNS -> document != null && document.columns().schema() != null;
+      case COPY_RAW_LINES, COPY_CELL, SHOW_RECORD -> document != null && document.columns().shown();
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }

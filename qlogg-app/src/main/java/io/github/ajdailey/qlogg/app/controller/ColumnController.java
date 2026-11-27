@@ -2,7 +2,10 @@ package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.core.columns.ColumnFormat;
 import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
+import io.github.ajdailey.qlogg.core.columns.TimeCell;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.model.ColumnLayout;
+import io.github.ajdailey.qlogg.core.model.ColumnRead;
 import io.github.ajdailey.qlogg.core.model.RecordRows;
 import io.github.ajdailey.qlogg.core.search.ColumnSearch;
 import io.github.ajdailey.qlogg.core.search.LineSet;
@@ -23,6 +26,10 @@ import io.github.ajdailey.qlogg.core.time.TimestampFormat;
  *
  * <p>Search: in column view a search tests the format's columns ({@link #search}); on a multi-line
  * format the record is the search unit. Text view searches lines and has no columns.
+ *
+ * <p>Rows: in column view the views read each row as the record holding its line, composed into the
+ * cells of {@link #layout} ({@link #read}), so a filter tab's continuation line shows its record. A
+ * new format starts at {@link ColumnLayout#of}.
  */
 public final class ColumnController {
   private static final LineSet NO_HEADERS = new SortedLines(new long[0]);
@@ -33,6 +40,9 @@ public final class ColumnController {
   private boolean shown;
   private RecordScanner scanner;
   private RecordRows rows;
+  private ColumnLayout layout;
+  private RecordLines readRecords;
+  private ColumnRead lastRead;
 
   ColumnController(DocumentController owner) {
     this.owner = owner;
@@ -66,6 +76,9 @@ public final class ColumnController {
     if (scanner != null && !sameRecords(scanner.schema(), next)) {
       scanner.detach();
       scanner = null;
+    }
+    if (next != schema) {
+      layout = next == null ? null : ColumnLayout.of(next);
     }
     schema = next;
     if (scanner == null && next != null && next.format().multiLine() && owner.ownsDocument()) {
@@ -109,6 +122,68 @@ public final class ColumnController {
   /** True in column view on a multi-line format, where a record is the unit. */
   private boolean recordView() {
     return shown && schema != null && schema.format().multiLine();
+  }
+
+  /**
+   * Returns the cells of column view.
+   *
+   * @return the layout, or null without a format
+   */
+  public ColumnLayout layout() {
+    return layout;
+  }
+
+  /**
+   * Sets the cells of column view; the rows are read again.
+   *
+   * @param next a layout of the tab's schema
+   * @throws IllegalArgumentException for another schema's layout
+   */
+  public void setLayout(final ColumnLayout next) {
+    if (schema == null || next.schema() != schema) {
+      throw new IllegalArgumentException("a layout of the tab's format");
+    }
+    owner.changeRows(
+        new Runnable() {
+          @Override
+          public void run() {
+            layout = next;
+          }
+        });
+  }
+
+  /**
+   * Returns what the views read in column view: the cells, the time display, the records and the
+   * repeated headers. The same instance returns while none of them changed.
+   *
+   * @return the read, or null in text view
+   */
+  public ColumnRead read() {
+    if (!shown || schema == null) {
+      return null;
+    }
+    RecordLines records = null;
+    if (schema.format().multiLine()) {
+      RecordLines newest = rows != null ? rows.records() : records();
+      if (readRecords == null
+          || newest.end() != readRecords.end()
+          || newest.lines() != readRecords.lines()) {
+        readRecords = newest;
+      }
+      records = readRecords;
+    }
+    TimeController time = owner.time();
+    ColumnRead next =
+        new ColumnRead(
+            layout,
+            time.context(),
+            new TimeCell(time.displayZone(), time.offset()),
+            records,
+            headers());
+    if (!next.equals(lastRead)) {
+      lastRead = next;
+    }
+    return lastRead;
   }
 
   /** The timestamp format changed: a {@link ColumnFormat#TIME} format takes the new one. */

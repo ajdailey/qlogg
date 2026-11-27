@@ -300,14 +300,17 @@ public final class LineReader {
     return decode(index, line);
   }
 
-  /**
-   * Puts the window {@code [from, to)} of a line into out and its boxes into cells; returns the
-   * line's width.
-   */
+  /** Clears out and cells and runs {@link #appendWindow}. */
   private static long cut(
       CharBuffer text, long from, long to, StringBuilder out, ControlCells cells) {
     out.setLength(0);
     cells.reset();
+    return appendWindow(text, from, to, out, cells);
+  }
+
+  /** Appends a line's window {@code [from, to)} to out, its boxes to cells; returns its width. */
+  static long appendWindow(
+      CharBuffer text, long from, long to, StringBuilder out, ControlCells cells) {
     long column = 0;
     for (int k = text.position(); k < text.limit(); k++) {
       char c = text.get(k);
@@ -461,6 +464,11 @@ public final class LineReader {
       }
       column = next;
     }
+  }
+
+  /** True while ANSI SGR sequences are removed at decode. */
+  boolean hidesAnsi() {
+    return hideAnsi.getAsBoolean();
   }
 
   /** Decodes a line, at most {@link #MAX_LINE_BYTES} of it, into the char scratch buffer. */

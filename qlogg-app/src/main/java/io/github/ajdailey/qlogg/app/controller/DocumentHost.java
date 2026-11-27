@@ -75,4 +75,12 @@ public interface DocumentHost {
    * @param line the 0-based line it matched
    */
   void followStoppedByTrigger(DocumentController document, String rule, long line);
+
+  /**
+   * Shows read-only text in a window, as Show Record does.
+   *
+   * @param title the window title
+   * @param text the text
+   */
+  void showText(String title, String text);
 }

@@ -437,9 +437,15 @@ public enum CommandId {
   EXTEND_BLOCK_RIGHT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_RIGHT, false, false),
   /**
    * Switch the tab between text view and its column format; no key or menu item, so it runs only
-   * through {@code ApplicationController.execute}.
+   * through {@code ApplicationController.execute}, as the three column commands after it do.
    */
-  TOGGLE_COLUMNS(CommandGroup.LOG_VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, false);
+  TOGGLE_COLUMNS(CommandGroup.LOG_VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, false),
+  /** Copy every line of each selected record, as in the file. */
+  COPY_RAW_LINES(CommandGroup.LOG_VIEW, UiText.COMMAND_COPY_RAW_LINES, false, false),
+  /** Copy the full value of the caret's cell. */
+  COPY_CELL(CommandGroup.LOG_VIEW, UiText.COMMAND_COPY_CELL, false, false),
+  /** Show the caret's record, a column per line, in a text window. */
+  SHOW_RECORD(CommandGroup.LOG_VIEW, UiText.COMMAND_SHOW_RECORD, false, false);
 
   private final CommandGroup group;
   private final UiText label;

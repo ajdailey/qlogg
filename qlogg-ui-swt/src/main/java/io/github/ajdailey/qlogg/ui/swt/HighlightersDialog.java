@@ -344,7 +344,8 @@ final class HighlightersDialog {
                 stopFollow.getSelection(),
                 setMark.getSelection(),
                 commentTemplate.getText(),
-                quiet.getSelection()));
+                quiet.getSelection()),
+            editor.rules(s).get(r).column());
     commentTemplate.setEnabled(setMark.getSelection());
     String invalid = editor.setRule(s, r, rule);
     ruleList.setItem(r, label(rule));
