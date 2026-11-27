@@ -110,9 +110,9 @@ uninstaller started unelevated starts `uninstall.exe` again the same way.
 Silent `/MACHINE` from an unelevated caller, install or uninstall, exits 5
 and writes the reason to standard error (the inherited handle, else the
 calling console). Without elevation the default choice is an existing
-per-user install, then an existing all-users one, then the current user;
-elevated, an existing all-users install comes first and all users is the
-default.
+per-user install, then an existing all-users one (not for `/S`), then the
+current user; elevated, an existing all-users install, then a per-user one,
+then all users (the current user for `/S`).
 
 | Choice | Folder | Writes |
 |---|---|---|

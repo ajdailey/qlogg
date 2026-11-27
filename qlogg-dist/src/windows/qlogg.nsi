@@ -295,8 +295,9 @@ Function .onInit
     StrCpy $Elevated 1
   ${EndIf}
 
-  ; The default choice: an existing install, preferring the one this process
-  ; can write without elevation; otherwise all users when elevated, else the
+  ; The default choice: an existing install, the all-users one first when
+  ; elevated and the per-user one first otherwise; with neither, all users
+  ; when elevated, else the current user. Silent and unelevated, always the
   ; current user.
   ${If} $Mode == ""
     ReadRegStr $0 HKLM "${UNINSTKEY}" "InstallLocation"
