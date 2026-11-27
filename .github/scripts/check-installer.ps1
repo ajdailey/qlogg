@@ -56,13 +56,22 @@ public static class Assoc {
 }
 '@
 
-# Throws unless the default verb's command for .log and .txt equals the one read before any
-# install and is no QLogg command: the verb under * must not become a type's default.
+# The default verb's command for .log and .txt, as Explorer runs it on a double-click.
+function Get-DefaultVerbs {
+  @{ '.log' = [Assoc]::Command('.log'); '.txt' = [Assoc]::Command('.txt') }
+}
+
+# Throws unless the default verb's command for .log and .txt is the one read before any install,
+# or OpenWith.exe, and is no QLogg command. A type with no UserChoice whose OpenWithProgids gains
+# QLogg.File resolves to OpenWith.exe, Windows' app picker (measured on windows-2025 for .log);
+# the verb under * changes neither, which the /NOEXPLORERMENU step checks.
 function Assert-DefaultVerbs([string] $What) {
+  $now = Get-DefaultVerbs
+  Write-Output "default verbs after $What`: .log [$($now['.log'])] .txt [$($now['.txt'])]"
   foreach ($ext in @('.log', '.txt')) {
-    $command = [Assoc]::Command($ext)
-    if ($command -ne $defaultVerbs[$ext]) { throw "$What changed the $ext default verb from [$($defaultVerbs[$ext])] to [$command]" }
+    $command = $now[$ext]
     if ($command -like '*qlogg*') { throw "$What made QLogg the $ext default verb: $command" }
+    if ($command -ne $defaultVerbs[$ext] -and $command -notlike '*\OpenWith.exe*') { throw "$What changed the $ext default verb from [$($defaultVerbs[$ext])] to [$command]" }
   }
 }
 
@@ -128,8 +137,7 @@ function Wait-Until([scriptblock] $Condition, [string] $Message) {
   }
 }
 
-$defaultVerbs = @{ '.log' = [Assoc]::Command('.log'); '.txt' = [Assoc]::Command('.txt') }
-& .github\scripts\diag-verbs.ps1
+$defaultVerbs = Get-DefaultVerbs
 Write-Output "default verbs before any install: .log [$($defaultVerbs['.log'])] .txt [$($defaultVerbs['.txt'])]"
 
 function Test-Scope([string] $Scope) {
@@ -230,21 +238,26 @@ Test-Scope 'machine'
 Test-Scope 'user'
 
 # /NOEXPLORERMENU clears the Explorer menu component: an install over one with the verb
-# removes it and keeps Open With.
+# removes it and keeps Open With, and the default verbs read the same with and without it.
 $dir = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
 $code = Invoke-Setup @('/S', '/USER')
 if ($code -ne 0) { throw "per-user setup exited $code" }
 Assert-Verb 'HKCU:\Software\Classes' "$dir\qlogg.exe" 'per-user install'
+$withVerb = Get-DefaultVerbs
 $code = Invoke-Setup @('/S', '/USER', '/NOEXPLORERMENU')
 if ($code -ne 0) { throw "per-user setup with /NOEXPLORERMENU exited $code" }
 foreach ($hive in @('HKLM:', 'HKCU:')) {
   if (Test-Verb $hive) { throw "per-user install with /NOEXPLORERMENU left $hive\$verbKey" }
 }
 if ($null -eq (Get-ItemProperty 'HKCU:\Software\Classes\.log\OpenWithProgids').'QLogg.File') { throw 'per-user install with /NOEXPLORERMENU dropped Open With' }
+$withoutVerb = Get-DefaultVerbs
+foreach ($ext in @('.log', '.txt')) {
+  if ($withVerb[$ext] -ne $withoutVerb[$ext]) { throw "the verb changed the $ext default verb: [$($withVerb[$ext])] with it, [$($withoutVerb[$ext])] without" }
+}
 Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
 Wait-Until { -not (Test-Path $dir) } "per-user uninstall left $dir"
 Wait-Until { -not (Test-Path "HKCU:\$uninstallKey") } 'per-user uninstall left the Installed apps entry'
-Write-Output 'PASS: /NOEXPLORERMENU over a per-user install removed the Explorer menu verb and kept Open With'
+Write-Output 'PASS: /NOEXPLORERMENU over a per-user install removed the Explorer menu verb, kept Open With, and left the default verbs as they were with the verb'
 
 # Portable: portable.txt, nothing registered, settings in the folder.
 $portable = Join-Path $work 'QLogg Portable'
