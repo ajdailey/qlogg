@@ -153,10 +153,15 @@ from the Ubuntu archive when the runner image lacks them.
 
 CI keeps the JDK archives, `rcodesign`, `nfpm` and NSIS in
 `~/.cache/qlogg-build`, cached by the `package` and `release` jobs and keyed
-on `qlogg-dist/src/build/dist.xml`; the Maven cache holds no JDK. Only the full `test` jobs save the Maven cache;
-`package`, `release` and `test-gtk4` restore it, since a Linux cache saved by a
-job that skips `verify` or builds part of the reactor would lack plugins and
-send every later job to Maven Central for them.
+on `qlogg-dist/src/build/dist.xml`. The Maven cache (`~/.m2/repository` and
+`~/.m2/wrapper`, no JDK) has one entry per OS and architecture, keyed on every
+`pom.xml` and `maven-wrapper.properties`; a key miss restores the newest entry
+with the same OS and architecture, so a pom change downloads only what changed.
+Only the full `test` jobs save it, and `test linux-x86_64` also resolves the
+CycloneDX plugin for `package`. `package`, `release` and `test-gtk4` only
+restore it: a cache saved by a job that skips `verify` or builds part of the
+reactor would lack plugins and send every later job to Maven Central for them.
+Maven logs each download, so a job log shows what came from Central.
 
 #### Releases
 
