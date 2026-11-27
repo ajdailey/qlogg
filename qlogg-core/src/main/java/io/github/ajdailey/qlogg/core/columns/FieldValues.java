@@ -1,25 +1,32 @@
 package io.github.ajdailey.qlogg.core.columns;
 
+import io.github.ajdailey.qlogg.core.format.JsonStrings;
+import io.github.ajdailey.qlogg.core.format.XmlReferences;
+import java.nio.CharBuffer;
+
 /**
- * The column values of the record a {@link FieldParser} read last: one reused char buffer and a
- * span in it per column. Spans need not follow column order. The next parse overwrites the buffer,
- * the spans and every view {@link #value} returned. Not thread-safe.
+ * The column values of the record a {@link FieldParser} read last: one reused char array and a span
+ * in it per column. Spans need not follow column order. The next parse overwrites the array, the
+ * spans and every view {@link #value} returned. Not thread-safe.
  */
 public final class FieldValues {
   /** Chars the buffer holds after each value is written; the rest of the value is dropped. */
   public static final int MAX_CHARS = 1 << 20;
 
-  private final StringBuilder buffer = new StringBuilder(256);
+  private char[] buffer = new char[256];
+  private int length;
+  private final StringBuilder unescaped = new StringBuilder(64);
+  private final Chars chars = new Chars(-1);
   private final int[] starts;
   private final int[] ends;
-  private final Value[] views;
+  private final Chars[] views;
   private int count;
   private boolean truncated;
 
   FieldValues(int columns) {
     starts = new int[columns];
     ends = new int[columns];
-    views = new Value[columns];
+    views = new Chars[columns];
   }
 
   /**
@@ -37,7 +44,7 @@ public final class FieldValues {
    * @return the chars, valid until the next parse
    */
   public CharSequence chars() {
-    return buffer;
+    return chars;
   }
 
   /**
@@ -67,9 +74,9 @@ public final class FieldValues {
    * @return the chars, valid until the next parse
    */
   public CharSequence value(int column) {
-    Value view = views[column];
+    Chars view = views[column];
     if (view == null) {
-      view = new Value(column);
+      view = new Chars(column);
       views[column] = view;
     }
     return view;
@@ -86,7 +93,8 @@ public final class FieldValues {
 
   /** Starts a parsed record with every column empty. */
   void reset() {
-    buffer.setLength(0);
+    length = 0;
+    unescaped.setLength(0);
     count = starts.length;
     truncated = false;
     for (int i = 0; i < count; i++) {
@@ -101,46 +109,105 @@ public final class FieldValues {
     count = 0;
   }
 
-  /** Returns the buffer for appending; call {@link #limit} after each append. */
-  StringBuilder builder() {
-    return buffer;
-  }
-
   /** Returns the buffer length, the start of the next value. */
   int mark() {
-    return buffer.length();
+    return length;
   }
 
   /**
-   * Cuts the buffer to {@link #MAX_CHARS}.
+   * Reports whether the buffer is below {@link #MAX_CHARS}.
    *
    * @return true when room is left
    */
-  boolean limit() {
-    if (buffer.length() >= MAX_CHARS) {
-      if (buffer.length() > MAX_CHARS) {
-        buffer.setLength(MAX_CHARS);
-        truncated = true;
-      }
-      return false;
-    }
-    return true;
+  boolean room() {
+    return length < MAX_CHARS;
   }
 
-  /** Appends {@code text[from, to)}, cut at {@link #MAX_CHARS}. */
+  /**
+   * Appends {@code text[from, to)} with JSON string escapes replaced, cut at {@link #MAX_CHARS}.
+   */
+  void appendJson(CharSequence text, int from, int to) {
+    if (indexOf(text, '\\', from, to) < 0) {
+      append(text, from, to);
+    } else {
+      JsonStrings.unescape(text, from, to, unescaped);
+      moveUnescaped();
+    }
+  }
+
+  /** Appends {@code text[from, to)} with XML references replaced, cut at {@link #MAX_CHARS}. */
+  void appendXml(CharSequence text, int from, int to) {
+    if (indexOf(text, '&', from, to) < 0) {
+      append(text, from, to);
+    } else {
+      XmlReferences.unescape(text, from, to, unescaped);
+      moveUnescaped();
+    }
+  }
+
+  private static int indexOf(CharSequence text, char c, int from, int to) {
+    for (int i = from; i < to; i++) {
+      if (text.charAt(i) == c) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private void moveUnescaped() {
+    int moved = Math.min(unescaped.length(), MAX_CHARS - length);
+    if (moved < unescaped.length()) {
+      truncated = true;
+    }
+    ensure(length + moved);
+    unescaped.getChars(0, moved, buffer, length);
+    length += moved;
+    unescaped.setLength(0);
+  }
+
+  /**
+   * Appends {@code text[from, to)}, cut at {@link #MAX_CHARS}. A String or an array-backed {@link
+   * CharBuffer} is copied in bulk.
+   */
   void append(CharSequence text, int from, int to) {
-    int room = MAX_CHARS - buffer.length();
+    int room = MAX_CHARS - length;
     if (to - from > room) {
       to = from + Math.max(0, room);
       truncated = true;
     }
-    buffer.append(text, from, to);
+    ensure(length + to - from);
+    if (text instanceof String string) {
+      string.getChars(from, to, buffer, length);
+      length += to - from;
+    } else if (text instanceof CharBuffer chars && chars.hasArray()) {
+      int offset = chars.arrayOffset() + chars.position();
+      System.arraycopy(chars.array(), offset + from, buffer, length, to - from);
+      length += to - from;
+    } else {
+      for (int i = from; i < to; i++) {
+        buffer[length++] = text.charAt(i);
+      }
+    }
+  }
+
+  /** Appends {@code chars[from, to)}, cut at {@link #MAX_CHARS}. */
+  void append(char[] chars, int from, int to) {
+    int n = Math.min(to - from, MAX_CHARS - length);
+    if (n < to - from) {
+      truncated = true;
+    }
+    ensure(length + n);
+    System.arraycopy(chars, from, buffer, length, n);
+    length += n;
   }
 
   /** Appends a char unless the buffer is full. */
   void append(char c) {
-    if (buffer.length() < MAX_CHARS) {
-      buffer.append(c);
+    if (length < MAX_CHARS) {
+      if (length == buffer.length) {
+        ensure(length + 1);
+      }
+      buffer[length++] = c;
     } else {
       truncated = true;
     }
@@ -148,37 +215,55 @@ public final class FieldValues {
 
   /** Copies the buffer's own {@code [from, to)} to its end, cut at {@link #MAX_CHARS}. */
   void copy(int from, int to) {
-    for (int i = from; i < to; i++) {
-      if (buffer.length() >= MAX_CHARS) {
-        truncated = true;
-        return;
-      }
-      buffer.append(buffer.charAt(i));
+    int n = to - from;
+    if (n > MAX_CHARS - length) {
+      n = MAX_CHARS - length;
+      truncated = true;
     }
+    ensure(length + n);
+    System.arraycopy(buffer, from, buffer, length, n);
+    length += n;
   }
 
   /** Sets a column's span. */
   void set(int column, int start, int end) {
-    starts[column] = Math.min(start, buffer.length());
-    ends[column] = Math.min(end, buffer.length());
+    starts[column] = Math.min(start, length);
+    ends[column] = Math.min(end, length);
   }
 
   /** Sets a column's span from {@code start} to the buffer's end. */
   void close(int column, int start) {
-    set(column, start, buffer.length());
+    set(column, start, length);
   }
 
-  /** One column's chars in the buffer. */
-  private final class Value implements CharSequence {
+  /** Grows the buffer to hold {@code needed} chars, doubling up to {@link #MAX_CHARS}. */
+  private void ensure(int needed) {
+    if (needed > buffer.length) {
+      int size = buffer.length;
+      while (size < needed) {
+        size = Math.min(MAX_CHARS, size * 2);
+      }
+      char[] grown = new char[size];
+      System.arraycopy(buffer, 0, grown, 0, length);
+      buffer = grown;
+    }
+  }
+
+  /** One column's chars, or with column -1 the whole buffer. */
+  private final class Chars implements CharSequence {
     private final int column;
 
-    Value(int column) {
+    Chars(int column) {
       this.column = column;
+    }
+
+    private int from() {
+      return column < 0 ? 0 : starts[column];
     }
 
     @Override
     public int length() {
-      return ends[column] - starts[column];
+      return column < 0 ? length : ends[column] - starts[column];
     }
 
     @Override
@@ -186,17 +271,20 @@ public final class FieldValues {
       if (index < 0 || index >= length()) {
         throw new IndexOutOfBoundsException(index);
       }
-      return buffer.charAt(starts[column] + index);
+      return buffer[from() + index];
     }
 
     @Override
     public CharSequence subSequence(int start, int end) {
-      return buffer.subSequence(starts[column] + start, starts[column] + end);
+      if (start < 0 || end > length() || start > end) {
+        throw new IndexOutOfBoundsException(start + ".." + end);
+      }
+      return new String(buffer, from() + start, end - start);
     }
 
     @Override
     public String toString() {
-      return buffer.substring(starts[column], ends[column]);
+      return new String(buffer, from(), length());
     }
   }
 }

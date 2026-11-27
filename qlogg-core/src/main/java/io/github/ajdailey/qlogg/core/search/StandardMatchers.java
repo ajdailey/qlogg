@@ -332,7 +332,7 @@ public final class StandardMatchers implements MatcherFactory {
   }
 
   /** True where a byte match at a unit-aligned offset is a character match. */
-  private static boolean byteAligned(TextEncoding enc) {
+  static boolean byteAligned(TextEncoding enc) {
     Charset charset = enc.charset();
     if (!charset.canEncode()) {
       return false;
@@ -457,6 +457,16 @@ public final class StandardMatchers implements MatcherFactory {
         }
       }
       return false;
+    }
+
+    /** Returns the encoded pattern, ASCII letters lowercase when {@link #folds}; do not modify. */
+    byte[] pattern() {
+      return pattern;
+    }
+
+    /** Reports whether a byte matches the pattern byte after {@link #lower}. */
+    boolean folds() {
+      return fold;
     }
 
     private boolean equalAt(ByteBuffer bytes, int at) {

@@ -98,6 +98,22 @@ class RecordScanTest {
   }
 
   @Test
+  void quotesAtEveryBlockBoundaryEqualTheReference() throws Exception {
+    Random random = new Random(9);
+    String[] pieces = {"\"", "\"\"", ",", "a", "bc", "\n", "\r\n", "\"\n"};
+    StringBuilder text = new StringBuilder("time,level\n");
+    for (int i = 0; i < 600; i++) {
+      text.append(pieces[random.nextInt(pieces.length)]);
+    }
+    text.append('\n');
+    int[] blocks = new int[79];
+    for (int i = 0; i < blocks.length; i++) {
+      blocks[i] = 2 + i;
+    }
+    assertScans(text.toString(), schema(ColumnFormat.CSV), StandardCharsets.UTF_8, blocks);
+  }
+
+  @Test
   void growthInPiecesEqualsOnePass() throws Exception {
     Random random = new Random(5);
     ColumnFormat[] formats = {ColumnFormat.CSV, ColumnFormat.LOG4J_XML};

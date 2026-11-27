@@ -11,6 +11,7 @@ import io.github.ajdailey.qlogg.core.io.ReadBuffers;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 
 /**
@@ -33,10 +34,12 @@ import java.nio.charset.Charset;
  *
  * <p>The pass reads the source by positional reads into one buffer from the caller's pool, a block
  * of whole lines at a time. A CSV block with no quote byte, starting outside a quoted field, is
- * counted at byte-search speed: every line in it starts a record. A line whose leading blanks fill
- * a block does not start a log4j record. The scanner compares encoded units; in a charset where the
- * quote, delimiter, space, tab or {@code <log4j:event} do not encode to one unit per char, every
- * line is a record and nothing is read.
+ * counted at byte-search speed: every line in it starts a record. In other one-byte CSV blocks a
+ * line whose last quote follows a byte other than a quote or the delimiter ends outside quotes, so
+ * only the other lines with quotes run the quote rules char by char. A line whose leading blanks
+ * fill a block does not start a log4j record. The scanner compares encoded units; in a charset
+ * where the quote, delimiter, space, tab or {@code <log4j:event} do not encode to one unit per
+ * char, every line is a record and nothing is read.
  *
  * <p>Memory: the set reserves from {@link MemoryShare#RESULTS}. A refusal stops the scan for good
  * ({@link #refused}); lines from the refused entry on stay unclassified, each a record of its own.
@@ -213,8 +216,12 @@ public final class RecordScan {
         }
         if (events) {
           events(buffer, usable);
+        } else if (width == 1
+            && usable >= Long.BYTES
+            && buffer.order() == ByteOrder.LITTLE_ENDIAN) {
+          delimitedLines(buffer, usable);
         } else {
-          delimited(buffer, usable);
+          delimited(buffer, 0, usable);
         }
         offset += usable;
         flush();
@@ -240,9 +247,12 @@ public final class RecordScan {
     }
   }
 
-  /** CSV and TSV: tracks the quote state and adds each line that starts inside a quoted field. */
-  private void delimited(ByteBuffer buffer, int n) {
-    int pos = 0;
+  /**
+   * CSV and TSV over {@code [from, n)}: tracks the quote state and adds each line that starts
+   * inside a quoted field.
+   */
+  private void delimited(ByteBuffer buffer, int from, int n) {
+    int pos = from;
     while (pos < n) {
       if (atLineStart) {
         startDelimitedLine();
@@ -283,6 +293,78 @@ public final class RecordScan {
         pos = hit + width;
       }
     }
+  }
+
+  /**
+   * As {@link #delimited} for one-byte units in a little-endian buffer, a line at a time. A line
+   * whose last quote follows a byte other than a quote or the delimiter ends outside quotes,
+   * whatever the state it started in: that quote is literal outside a quoted field and closes one
+   * inside. A line without quotes keeps its state. Any other line, and a line the block starts
+   * inside, runs through {@link #delimited}.
+   */
+  private void delimitedLines(ByteBuffer buffer, int n) {
+    int from = 0;
+    if (!atLineStart) {
+      int feed = ByteScan.indexOf(buffer, 0, n, lineFeed[0]);
+      from = feed < 0 ? n : feed + 1;
+      delimited(buffer, 0, from);
+    }
+    if (from >= n) {
+      return;
+    }
+    startDelimitedLine();
+    if (state == OUTSIDE && ByteScan.indexOf(buffer, from, n, quote[0]) < 0) {
+      plain(buffer, from, n);
+      return;
+    }
+    long quotes = ByteScan.repeat(quote[0]);
+    long feeds = ByteScan.repeat(lineFeed[0]);
+    int lineFrom = from;
+    int lastQuote = -1;
+    int at = from;
+    while (at < n) {
+      int base = Math.min(at, n - Long.BYTES);
+      long skip = -1L << ((at - base) << 3);
+      long word = buffer.getLong(base);
+      long quoteFlags = ByteScan.flags(word, quotes) & skip;
+      long feedFlags = ByteScan.flags(word, feeds) & skip;
+      while (feedFlags != 0) {
+        int feedBit = Long.numberOfTrailingZeros(feedFlags) & ~7;
+        long before = quoteFlags & ((1L << feedBit) - 1);
+        if (before != 0) {
+          lastQuote = base + ((63 - Long.numberOfLeadingZeros(before)) >>> 3);
+        }
+        int feed = base + (feedBit >>> 3);
+        endDelimitedLine(buffer, lineFrom, lastQuote, feed);
+        lineFrom = feed + 1;
+        lastQuote = -1;
+        if (lineFrom < n) {
+          startDelimitedLine();
+        }
+        quoteFlags &= (-1L << feedBit) << 8;
+        feedFlags &= feedFlags - 1;
+      }
+      if (quoteFlags != 0) {
+        lastQuote = base + ((63 - Long.numberOfLeadingZeros(quoteFlags)) >>> 3);
+      }
+      at = base + Long.BYTES;
+    }
+    if (lineFrom < n) {
+      delimited(buffer, lineFrom, n);
+    }
+  }
+
+  /** Ends the line {@code [from, feed]} whose last quote is at {@code lastQuote}, or -1. */
+  private void endDelimitedLine(ByteBuffer buffer, int from, int lastQuote, int feed) {
+    if (lastQuote >= 0) {
+      byte before = lastQuote > from ? buffer.get(lastQuote - 1) : delimiter[0];
+      if (before == quote[0] || before == delimiter[0]) {
+        delimited(buffer, from, feed + 1);
+        return;
+      }
+      state = OUTSIDE;
+    }
+    endLine(feed);
   }
 
   /** Decides the line at {@link #lineStart}: a continuation inside quotes, else a record start. */

@@ -61,7 +61,7 @@ import org.openjdk.jmh.annotations.Warmup;
  * SyntheticRecords#RARE}; {@code column} searches that literal in one verbatim column, so the
  * prefilter skips the parse of most records; {@code columnEveryLine} and {@code
  * columnEveryLineOneThread} search a regex with no required literal, so every record is parsed, on
- * every CPU and on one.
+ * every CPU and on one; {@code columnParseOneThread} searches it in a short column on one CPU.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
@@ -251,6 +251,19 @@ public class RecordProbe {
   @Benchmark
   public long columnEveryLineOneThread() throws Exception {
     return run(oneThread, "message:\"[f]lagword\"", MatchMode.REGEX, columns);
+  }
+
+  /**
+   * As {@link #columnEveryLineOneThread} on a short column (CSV count, else Level), so the parse
+   * outweighs the regex.
+   *
+   * @return match count
+   * @throws Exception when the search fails
+   */
+  @Benchmark
+  public long columnParseOneThread() throws Exception {
+    String name = schema.format() == ColumnFormat.CSV ? "count" : "level";
+    return run(oneThread, name + ":\"[f]lagword\"", MatchMode.REGEX, columns);
   }
 
   private long run(SearchEngine with, String typed, MatchMode mode, ColumnSearch search)

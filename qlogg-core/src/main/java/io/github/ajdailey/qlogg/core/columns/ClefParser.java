@@ -177,8 +177,7 @@ final class ClefParser extends FieldParser {
         values.append(' ');
       }
       nameStart[properties] = values.mark();
-      JsonStrings.unescape(text, reserved ? from + 1 : from, to, values.builder());
-      values.limit();
+      values.appendJson(text, reserved ? from + 1 : from, to);
       nameEnd[properties] = values.mark();
       values.append('=');
       propertyStart[properties] = value(m);
@@ -199,7 +198,7 @@ final class ClefParser extends FieldParser {
     int start = values.mark();
     int tokens = 0;
     int i = from;
-    while (i < to && values.limit()) {
+    while (i < to && values.room()) {
       char c = chars.charAt(i);
       if ((c == '{' || c == '}') && i + 1 < to && chars.charAt(i + 1) == c) {
         values.append(c);
@@ -251,8 +250,7 @@ final class ClefParser extends FieldParser {
     FieldValues values = values();
     int start = values.mark();
     if (string[member]) {
-      JsonStrings.unescape(text, valueStart[member], valueEnd[member], values.builder());
-      values.limit();
+      values.appendJson(text, valueStart[member], valueEnd[member]);
     } else {
       values.append(text, valueStart[member], valueEnd[member]);
     }

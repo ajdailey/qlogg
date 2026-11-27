@@ -86,7 +86,7 @@ no cancel; the caller bounds the input.
 | `PrettyPrint` | `json` and `xml` change only the whitespace between tokens: two spaces per level, LF breaks. Strings, comments, element text, mixed content, `xml:space="preserve"` content, CDATA, PIs and the DOCTYPE stay verbatim. Output past `maxChars` throws `TOO_LONG` |
 | `JsonStrings` | `unescape` reads RFC 8259 escapes in a string's content without its quotes; a malformed escape or a surrogate escape without its escaped pair throws. The range overload appends to a `StringBuilder` and copies such an escape as written |
 | `XmlEntities` | `unescape` replaces the five XML entities, the 252 HTML 4.01 names and decimal and hex references; anything else stays as written |
-| `XmlReferences` | `unescape` over a char range, as `XmlEntities.unescape`, appending to a `StringBuilder`; a reference cut by the range end stays as written |
+| `XmlReferences` | `unescape` over a char range, as `XmlEntities.unescape`, appending to a `StringBuilder`; a reference cut by the range end stays as written. `codePoint` returns the code point a reference body names |
 
 Refusals throw `FormatException` with a `Reason`, the offset and its 1-based
 line and column (`\n`, `\r\n` and `\r` end a line; a column counts chars).

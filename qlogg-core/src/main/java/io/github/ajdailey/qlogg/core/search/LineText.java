@@ -32,6 +32,7 @@ public final class LineText {
 
   private final CharsetDecoder decoder;
   private final ByteOrder utf16;
+  private final boolean ascii;
   private final CancellationToken token;
   private final boolean hideAnsi;
   private final Chars chars = new Chars();
@@ -41,6 +42,7 @@ public final class LineText {
   private int start;
   private int end;
   private char[] scratch = new char[256];
+  private CharBuffer view;
   private int length;
   private boolean decoded;
   private int calls;
@@ -79,6 +81,10 @@ public final class LineText {
     } else {
       utf16 = null;
     }
+    ascii =
+        charset.equals(StandardCharsets.UTF_8)
+            || charset.equals(StandardCharsets.US_ASCII)
+            || charset.equals(StandardCharsets.ISO_8859_1);
   }
 
   /**
@@ -138,6 +144,22 @@ public final class LineText {
     return chars;
   }
 
+  /**
+   * Returns the decoded line as an array-backed buffer without cancellation checks, for a read that
+   * takes time linear in the line, such as a {@link
+   * io.github.ajdailey.qlogg.core.columns.FieldParser} parse.
+   *
+   * @return the chars from position 0 to the limit, valid until the next {@link #set}
+   */
+  CharBuffer charBuffer() {
+    chars();
+    if (view == null || view.array() != scratch) {
+      view = CharBuffer.wrap(scratch);
+    }
+    view.clear().limit(length);
+    return view;
+  }
+
   /** Drops a char scratch grown past {@link #KEPT_CHARS} by a long line. */
   void trim() {
     if (scratch.length > KEPT_CHARS) {
@@ -152,6 +174,9 @@ public final class LineText {
    */
   private void decode() {
     if (utf16 != null && decodeUtf16()) {
+      return;
+    }
+    if (ascii && decodeAscii()) {
       return;
     }
     int bytes = end - start;
@@ -170,6 +195,26 @@ public final class LineText {
       }
       need = (int) Math.min(Integer.MAX_VALUE - 8L, scratch.length * 2L);
     }
+  }
+
+  /**
+   * Widens ASCII bytes to chars, which UTF-8, US-ASCII and ISO-8859-1 decode to themselves. Returns
+   * false, leaving the line to the decoder, at a byte of 0x80 or more.
+   */
+  private boolean decodeAscii() {
+    int bytes = end - start;
+    if (scratch.length < bytes) {
+      scratch = new char[bytes];
+    }
+    for (int i = 0; i < bytes; i++) {
+      byte b = buffer.get(start + i);
+      if (b < 0) {
+        return false;
+      }
+      scratch[i] = (char) b;
+    }
+    length = hideAnsi ? AnsiCodes.strip(scratch, bytes) : bytes;
+    return true;
   }
 
   /**

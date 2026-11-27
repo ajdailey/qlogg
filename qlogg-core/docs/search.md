@@ -188,9 +188,9 @@ parsed once (`FieldParser`), by the first column term that needs its values.
   has empty values.
 - Prefilter: on a `ColumnSchema.verbatim` column, a term whose every match
   holds a literal (the literal itself, or a case-sensitive regex's
-  `requiredPrefix` of any length) is parsed only when the line's bytes hold
-  that literal or one of the format's `ColumnSchema.escapes`. Without them the
-  value is a run of the line's chars, so it cannot hold the literal either.
+  `requiredPrefix` of any length) is parsed only when the line's bytes can put
+  that literal in a value (`RecordEscapes.mayHold`; the rules per format are
+  in [Column search](columns.md#column-search)).
 - `StandardMatchers.create` throws `ColumnException`, a
   `PatternSyntaxException` at index -1, when the query has no
   `ColumnSearch` (`NO_COLUMNS`: text view, Search in Folder), the schema has

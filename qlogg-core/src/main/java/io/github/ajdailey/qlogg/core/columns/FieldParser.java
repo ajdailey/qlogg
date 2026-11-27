@@ -22,7 +22,8 @@ public abstract class FieldParser {
    * Parses a record. A record that does not parse shows its raw text across all columns.
    *
    * @param record the record's chars, a CR before each line feed included; read through {@code
-   *     charAt}, so a cancelable sequence cancels the parse
+   *     charAt}, so a cancelable sequence cancels the parse, except that the CSV and TSV parser
+   *     reads an array-backed {@link java.nio.CharBuffer} from its array
    * @return true when it parsed; {@link #values} then has every column
    */
   public final boolean parse(CharSequence record) {

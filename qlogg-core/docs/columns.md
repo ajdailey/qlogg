@@ -36,6 +36,9 @@ every view `FieldValues.value` returned.
 
 - A parser reads each record char a bounded number of times through `charAt`,
   so a cancelable `CharSequence` cancels it, and grows only its reused buffers.
+  The CSV and TSV parser reads an array-backed `CharBuffer` from its array,
+  and copies any other record into a reused array first; a search hands every
+  parser the decoded record as such a buffer (`LineText.charBuffer`).
 - Values stop at `FieldValues.MAX_CHARS` (1 Mi chars); `truncated()` reports
   the cut.
 - A newline inside a value stays in the value.
@@ -89,8 +92,11 @@ it from where it stopped as the index grows. Its `MutableLineSet` charges
   record.
 - The scan reads blocks of whole lines into one buffer from the caller's
   `ReadBuffers`. A CSV block with no quote byte, starting outside quotes, is
-  counted with `ByteScan` alone. A line whose leading blanks fill a block is
-  not an event start.
+  counted with `ByteScan` alone. Otherwise, in a one-byte encoding, quotes
+  and LFs are read 8 bytes at a time and a line whose last quote follows a
+  byte other than a quote or the delimiter ends outside quotes, whatever state
+  it started in; only the other lines with quotes run the quote rules char by
+  char. A line whose leading blanks fill a block is not an event start.
 - A partial last line is left for the next pass. A `RESULTS` refusal stops the
   scan for good (`refused()`); lines from the refused entry on stay
   unclassified.
@@ -109,14 +115,23 @@ continuation set, with the `rowOf`, `lineAt` and `cursor` calls `FoldMap` has.
 ## Column search
 
 A column term tests one column's value; see
-[Column terms](search.md#column-terms). The prefilter skips a parse only where
-the value is a run of the record's own chars whenever the record holds none of
-`ColumnSchema.escapes()`:
+[Column terms](search.md#column-terms). On a verbatim column the prefilter
+(`RecordEscapes.mayHold`) parses a record only when its bytes can put the
+term's literal in a value. A CSV, TSV or log4j value is a run of the record's
+chars with markup removed or replaced, so an occurrence of the literal that the
+bytes lack spans such markup, and its chars before the first one are the
+bytes right before it:
 
-| Format | Escapes | Columns not verbatim |
+| Format | Parsed when the record holds the literal or | Columns not verbatim |
 |---|---|---|
-| CSV, TSV | `"` | None |
-| `clf` | None | None |
+| CSV, TSV | A quote right after a proper prefix of the literal | None |
+| `clf` | Nothing else | None |
 | `clef` | `\` | Level (defaulted), Message (rendered from `@mt`), Properties |
-| `log4j-xml` | `&`, `<![CDATA[` | Location, Properties |
-| `time` | None | None |
+| `log4j-xml` | `<![CDATA[`, `]]>` or a reference `&...;` right after a proper prefix of the literal; a reference whose char starts the literal | Location, Properties |
+| `time` | Nothing else | None |
+
+The CSV and log4j tests find the literal and the markup in one pass, 8 bytes
+at a time, in a byte-aligned, ASCII-compatible encoding. In any other encoding
+a record is parsed when it holds the literal or any of
+`ColumnSchema.escapes()` (`"` for CSV and TSV; `&` and `<![CDATA[` for
+`log4j-xml`).
