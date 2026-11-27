@@ -53,10 +53,12 @@ import java.util.regex.PatternSyntaxException;
  * part of it. Partitioning cannot change the result: the state passes from chunk to chunk.
  *
  * <p>A restricted search ({@link SearchQuery#restriction}) tests member lines only. A chunk starts
- * at a member and ends at the last member that keeps it within {@code chunkLines} lines and {@code
- * chunkBytes} bytes, or before a member that starts more than {@code gapBytes} after the previous
- * member's end; such a gap is never read. The worker walks the chunk's lines at LF and tests the
- * members.
+ * at a member and ends at the last member within {@code chunkLines} lines and {@code chunkBytes}
+ * bytes. A chunk of more than one line is read on a {@code qlogg-search-} virtual thread, so
+ * several chunks' reads are in flight at once, as runs: spans of whole lines from a member to a
+ * member, each one positional read into the chunk's buffer. A run takes the next member when it
+ * starts at most {@code gapBytes} after the previous member's end; a longer gap is not read. The
+ * worker walks each run's lines at LF and tests the members.
  *
  * <p>A regex that overflows the worker's stack on a line ends the search {@code FAILED} with a
  * {@link PatternTooComplexException} naming that line; the pool thread survives.
@@ -190,19 +192,30 @@ public final class SearchEngine {
         < (long) settings.maxChunksInFlight() * settings.chunkBytes();
   }
 
-  /** One chunk's bytes and, once matched, its matching lines. */
+  /**
+   * One chunk's lines, runs and bytes and, once matched, its matching lines. A restricted chunk of
+   * more than one line has no runs until its reader sets them.
+   */
   private static final class Chunk {
     final long firstLine;
-    final int lines;
+    final long lines;
     final ByteBuffer buffer;
     final boolean pooled;
     final long reservedBytes;
     final CountDownLatch done = new CountDownLatch(1);
+    ChunkRuns runs;
     volatile Matched matched;
 
-    Chunk(long firstLine, int lines, ByteBuffer buffer, boolean pooled, long reservedBytes) {
+    Chunk(
+        long firstLine,
+        long stop,
+        ChunkRuns runs,
+        ByteBuffer buffer,
+        boolean pooled,
+        long reservedBytes) {
       this.firstLine = firstLine;
-      this.lines = lines;
+      this.lines = stop - firstLine;
+      this.runs = runs;
       this.buffer = buffer;
       this.pooled = pooled;
       this.reservedBytes = reservedBytes;
@@ -274,7 +287,7 @@ public final class SearchEngine {
       this.lineFeed = encoding.lineFeed();
       this.carriageReturn = encoding.carriageReturn();
       this.open = query.rangeOpen();
-      this.tested = SearchedLines.of(query, index, settings.gapBytes());
+      this.tested = SearchedLines.of(query, index, settings.gapBytes(), lineFeed.length);
       this.last = tested.last(end);
     }
 
@@ -402,22 +415,26 @@ public final class SearchEngine {
         finish = index.lineEnd(stop - 1);
       }
       long span = finish - start;
-      int lines = (int) (stop - line);
       if (span <= chunkBytes) {
         ByteBuffer buffer = inFlight.isEmpty() ? buffers.acquire(token) : buffers.tryAcquire();
         if (buffer == null) {
           return null;
         }
+        if (query.restriction() != null && stop - line > 1) {
+          return new Chunk(line, stop, null, buffer, true, 0);
+        }
         boolean filled = false;
         try {
+          buffer.clear();
           fill(buffer, start, (int) span);
+          buffer.flip();
           filled = true;
         } finally {
           if (!filled) {
             buffers.release(buffer);
           }
         }
-        return new Chunk(line, lines, buffer, true, 0);
+        return new Chunk(line, stop, oneRun(line, stop, start, finish), buffer, true, 0);
       }
       long cost = span * LONG_LINE_BYTES_PER_BYTE;
       if (span > MAX_LINE_BYTES || !reserveLong(cost)) {
@@ -428,12 +445,18 @@ public final class SearchEngine {
         ByteBuffer heap = ByteBuffer.allocate((int) span);
         fillLong(heap, start);
         filled = true;
-        return new Chunk(line, lines, heap, false, cost);
+        return new Chunk(line, stop, oneRun(line, stop, start, finish), heap, false, cost);
       } finally {
         if (!filled) {
           settings.budget().release(MemoryShare.IO_BUFFERS, cost);
         }
       }
+    }
+
+    private ChunkRuns oneRun(long line, long stop, long start, long finish) {
+      ChunkRuns runs = new ChunkRuns();
+      runs.add(line, stop - 1, start, finish);
+      return runs;
     }
 
     /** Reserves a long line's buffer, trimming the pool once before refusing. */
@@ -445,14 +468,15 @@ public final class SearchEngine {
       return buffers.trim() > 0 && budget.reserve(MemoryShare.IO_BUFFERS, cost);
     }
 
+    /** Reads {@code length} bytes at {@code position} into the buffer at its position. */
     private void fill(ByteBuffer buffer, long position, int length) throws IOException {
-      buffer.clear().limit(length);
+      int from = buffer.position();
+      buffer.limit(from + length);
       while (buffer.hasRemaining()) {
-        if (source.read(position + buffer.position(), buffer) < 0) {
+        if (source.read(position + buffer.position() - from, buffer) < 0) {
           throw new IOException("File is shorter than its line index");
         }
       }
-      buffer.flip();
     }
 
     /** Reads a long line through a pooled direct buffer, slice by slice. */
@@ -462,8 +486,9 @@ public final class SearchEngine {
         while (heap.hasRemaining()) {
           token.check();
           int length = Math.min(slice.capacity(), heap.remaining());
+          slice.clear();
           fill(slice, position + heap.position(), length);
-          heap.put(slice);
+          heap.put(slice.flip());
         }
         heap.flip();
       } finally {
@@ -474,17 +499,65 @@ public final class SearchEngine {
     private void submit(final Chunk chunk) {
       inFlight.add(chunk);
       try {
-        workers.executeCpu(
-            new Runnable() {
-              @Override
-              public void run() {
-                match(chunk);
-              }
-            });
+        if (chunk.runs != null) {
+          matchOnCpu(chunk);
+        } else {
+          workers.start(
+              Workers.Kind.SEARCH,
+              new Runnable() {
+                @Override
+                public void run() {
+                  fillRuns(chunk);
+                }
+              });
+        }
       } catch (RejectedExecutionException e) {
         recycle(chunk);
         chunk.done.countDown();
         throw e;
+      }
+    }
+
+    private void matchOnCpu(final Chunk chunk) {
+      workers.executeCpu(
+          new Runnable() {
+            @Override
+            public void run() {
+              match(chunk);
+            }
+          });
+    }
+
+    /**
+     * Runs on a {@code qlogg-search-} virtual thread: splits a restricted chunk into runs and reads
+     * them into its buffer, then hands it to a CPU worker, so the reads of several chunks are in
+     * flight at once.
+     */
+    private void fillRuns(Chunk chunk) {
+      boolean handed = false;
+      try {
+        ChunkRuns runs = tested.runs(chunk.firstLine, chunk.firstLine + chunk.lines);
+        chunk.runs = runs;
+        ByteBuffer buffer = chunk.buffer;
+        buffer.clear();
+        for (int run = 0; run < runs.count(); run++) {
+          token.check();
+          fill(buffer, runs.start(run), runs.length(run));
+        }
+        buffer.flip();
+        matchOnCpu(chunk);
+        handed = true;
+      } catch (IOException e) {
+        chunk.matched = new Matched(null, 0, null, 0, new UncheckedIOException(e));
+      } catch (CancellationException e) {
+        chunk.matched = new Matched(null, 0, null, 0, e);
+      } catch (RejectedExecutionException e) {
+        chunk.matched = new Matched(null, 0, null, 0, new CancellationException("Workers closed"));
+      } finally {
+        if (!handed) {
+          recycle(chunk);
+          chunk.done.countDown();
+        }
       }
     }
 
@@ -518,7 +591,7 @@ public final class SearchEngine {
 
     private Matched scan(Chunk chunk, Worker worker) {
       ByteBuffer bytes = chunk.buffer;
-      int length = bytes.limit();
+      ChunkRuns runs = chunk.runs;
       int unit = lineFeed.length;
       LineText text = worker.text();
       LineMatcher matcher = worker.matcher();
@@ -528,53 +601,60 @@ public final class SearchEngine {
       long[] ends = closer == null ? null : new long[16];
       int endCount = 0;
       int position = 0;
+      int walked = 0;
       long member = chunk.firstLine;
-      for (int i = 0; i < chunk.lines; i++) {
-        if (i % CHECK_LINES == 0) {
-          token.check();
-        }
-        int lineEnd = length;
-        int next = length;
-        if (i < chunk.lines - 1) {
-          lineEnd = findUnit(bytes, position, length, lineFeed);
-          if (lineEnd < 0) {
-            throw new UncheckedIOException(new IOException("File changed after it was indexed"));
+      for (int run = 0; run < runs.count(); run++) {
+        long firstLine = runs.firstLine(run);
+        int lines = runs.lineCount(run);
+        int length = position + runs.length(run);
+        for (int i = 0; i < lines; i++) {
+          if (walked++ % CHECK_LINES == 0) {
+            token.check();
           }
-          next = lineEnd + unit;
-        }
-        if (chunk.firstLine + i != member) {
+          int lineEnd = length;
+          int next = length;
+          if (i < lines - 1) {
+            lineEnd = findUnit(bytes, position, length, lineFeed);
+            if (lineEnd < 0) {
+              throw new UncheckedIOException(new IOException("File changed after it was indexed"));
+            }
+            next = lineEnd + unit;
+          }
+          long line = firstLine + i;
+          if (line != member) {
+            position = next;
+            continue;
+          }
+          member = tested.next(member);
+          int textEnd = lineEnd;
+          if (lineEnd - position >= unit && unitAt(bytes, lineEnd - unit, carriageReturn)) {
+            textEnd = lineEnd - unit;
+          }
+          text.set(bytes, position, textEnd);
+          boolean hit;
+          boolean closes = false;
+          try {
+            hit = matcher.matches(text);
+            if (closer != null) {
+              closes = closer.matches(text);
+            }
+          } catch (StackOverflowError e) {
+            throw new PatternTooComplexException(line);
+          }
+          if (hit) {
+            if (count == hits.length) {
+              hits = Arrays.copyOf(hits, count * 2);
+            }
+            hits[count++] = line;
+          }
+          if (closes) {
+            if (endCount == ends.length) {
+              ends = Arrays.copyOf(ends, endCount * 2);
+            }
+            ends[endCount++] = line;
+          }
           position = next;
-          continue;
         }
-        member = tested.next(member);
-        int textEnd = lineEnd;
-        if (lineEnd - position >= unit && unitAt(bytes, lineEnd - unit, carriageReturn)) {
-          textEnd = lineEnd - unit;
-        }
-        text.set(bytes, position, textEnd);
-        boolean hit;
-        boolean closes = false;
-        try {
-          hit = matcher.matches(text);
-          if (closer != null) {
-            closes = closer.matches(text);
-          }
-        } catch (StackOverflowError e) {
-          throw new PatternTooComplexException(chunk.firstLine + i);
-        }
-        if (hit) {
-          if (count == hits.length) {
-            hits = Arrays.copyOf(hits, count * 2);
-          }
-          hits[count++] = chunk.firstLine + i;
-        }
-        if (closes) {
-          if (endCount == ends.length) {
-            ends = Arrays.copyOf(ends, endCount * 2);
-          }
-          ends[endCount++] = chunk.firstLine + i;
-        }
-        position = next;
       }
       return new Matched(hits, count, ends, endCount, null);
     }
@@ -636,7 +716,7 @@ public final class SearchEngine {
       long[] ends = found.ends();
       boolean inverse = query.inverse();
       long stop = chunk.firstLine + chunk.lines;
-      long[] lines = new long[chunk.lines];
+      long[] lines = new long[chunk.runs.lines()];
       int n = 0;
       int s = 0;
       int e = 0;

@@ -51,9 +51,10 @@ import org.openjdk.jmh.annotations.Warmup;
  * Line sets of a derived view: {@code copy}, {@link MutableLineSet#copy} of a set of 10^7 lines
  * every {@code spacing} lines (2 fills bitmap buckets, 20 array buckets); and {@code search}, a
  * regex search of a generated {@code ascii-short} log restricted to the lines of a literal search
- * or every 50th line ({@code none} searches every line), at a {@code gapBytes} setting. Each set's
- * size and retained bytes, and the bytes one search reads, print once per trial. The file is
- * written once to {@code -Dqlogg.bench.dir} and reused; the cache is warm.
+ * or every 5th or 50th line ({@code none} searches every line), at a {@code gapBytes} setting, with
+ * a warm page cache or one dropped before each search. Each set's size and retained bytes, and the
+ * bytes one search reads, print once per trial. The file is written once to {@code
+ * -Dqlogg.bench.dir} and reused.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -100,15 +101,24 @@ public class DerivedSetProbe {
     public int fileMib;
 
     /**
-     * Literal whose matches restrict the search, {@code every50} for every 50th line, or {@code
-     * none}.
+     * Literal whose matches restrict the search, {@code every5} or {@code every50} for every 5th or
+     * 50th line, or {@code none}.
      */
-    @Param({"none", LogGenerator.RARE_TOKEN, "every50", LogGenerator.COMMON_TOKEN})
+    @Param({"none", LogGenerator.RARE_TOKEN, "every50", "every5", LogGenerator.COMMON_TOKEN})
     public String restriction;
 
     /** {@code SearchSettings.gapBytes}. */
-    @Param({"65536"})
+    @Param({"16384"})
     public int gapBytes;
+
+    /**
+     * {@code warm} page cache, or {@code cold}: the file is dropped from it before each search with
+     * GNU {@code dd iflag=nocache count=0} (Linux only).
+     */
+    @Param({"warm", "cold"})
+    public String cache;
+
+    private Path file;
 
     private Workers workers;
     private SearchEngine engine;
@@ -129,7 +139,7 @@ public class DerivedSetProbe {
       if (dir == null) {
         throw new IOException("Set -Dqlogg.bench.dir to a scratch directory");
       }
-      Path file = Path.of(dir).resolve("ascii-short-" + fileMib + "m.log");
+      file = Path.of(dir).resolve("ascii-short-" + fileMib + "m.log");
       if (!Files.exists(file)) {
         new LogGenerator(LogGenerator.Profile.ASCII_SHORT, 1).write(file, (long) fileMib << 20);
       }
@@ -190,11 +200,12 @@ public class DerivedSetProbe {
         throw new IOException("Indexing did not finish");
       }
       counted = counting(document, bytesRead);
-      if (restriction.equals("every50")) {
+      if (restriction.startsWith("every")) {
+        int spacing = Integer.parseInt(restriction.substring("every".length()));
         members = new MutableLineSet();
         long[] batch = new long[4096];
         int n = 0;
-        for (long line = 0; line < document.index().lineCount(); line += 50) {
+        for (long line = 0; line < document.index().lineCount(); line += spacing) {
           batch[n++] = line;
           if (n == batch.length) {
             members.addSorted(batch, n);
@@ -217,6 +228,27 @@ public class DerivedSetProbe {
       bytesRead.set(0);
       search(SearchQuery.of(REGEX, MatchMode.REGEX).restrictedTo(members));
       System.out.println("search.bytesRead=" + bytesRead.get());
+    }
+
+    /**
+     * Drops the file from the page cache for {@code cache=cold}.
+     *
+     * @throws IOException when {@code dd} cannot run or fails
+     * @throws InterruptedException when interrupted while waiting for it
+     */
+    @Setup(Level.Invocation)
+    public void evict() throws IOException, InterruptedException {
+      if (!"cold".equals(cache)) {
+        return;
+      }
+      Process dd =
+          new ProcessBuilder("dd", "if=" + file, "iflag=nocache", "count=0")
+              .redirectErrorStream(true)
+              .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+              .start();
+      if (dd.waitFor() != 0) {
+        throw new IOException("dd iflag=nocache failed");
+      }
     }
 
     /** Closes the document and the workers. */
@@ -325,6 +357,7 @@ public class DerivedSetProbe {
    * @throws InterruptedException when interrupted
    */
   @Benchmark
+  @BenchmarkMode(Mode.SingleShotTime)
   public long search(Document document) throws InterruptedException {
     SearchQuery query = SearchQuery.of(REGEX, MatchMode.REGEX).restrictedTo(document.members);
     return document.search(query).size();

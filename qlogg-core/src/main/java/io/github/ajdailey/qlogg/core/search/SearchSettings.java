@@ -10,7 +10,8 @@ import io.github.ajdailey.qlogg.core.util.Checks;
  * @param chunkBytes most bytes in a chunk and the size of a pooled read buffer, at least 1; a
  *     longer line is a chunk of its own in a buffer sized to it
  * @param gapBytes for a restricted search, the most bytes between one member line's end and the
- *     next member line's start inside one chunk, at least 0; a longer gap ends the chunk
+ *     next member line's start that are read with them in one positional read, at least 0; a longer
+ *     gap is not read
  * @param maxChunksInFlight chunks read but not yet merged, at least 1
  * @param maxResults the result count that stops a search, or 0 for no limit
  * @param budget read buffers reserve from its {@code IO_BUFFERS} share
@@ -28,8 +29,8 @@ public record SearchSettings(
   /** Default bytes per chunk: 4 MiB. */
   public static final int DEFAULT_CHUNK_BYTES = 4 * 1024 * 1024;
 
-  /** Default gap between member lines inside a restricted chunk: 64 KiB. */
-  public static final int DEFAULT_GAP_BYTES = 64 * 1024;
+  /** Default gap read between member lines of a restricted search: 16 KiB. */
+  public static final int DEFAULT_GAP_BYTES = 16 * 1024;
 
   /** Checks the components. */
   public SearchSettings {
@@ -58,7 +59,7 @@ public record SearchSettings(
   }
 
   /**
-   * Returns the defaults: 10,000 lines or 4 MiB per chunk, a 64 KiB gap, three chunks in flight per
+   * Returns the defaults: 10,000 lines or 4 MiB per chunk, a 16 KiB gap, three chunks in flight per
    * CPU thread, no result limit.
    *
    * @param cpuThreads the CPU pool size
