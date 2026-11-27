@@ -39,7 +39,9 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 | Windows, Linux, no install | `qlogg-<version>-windows-<arch>-portable.zip`, `qlogg-<version>-linux-<arch>-portable.tar.gz` | Extract it and run `qlogg.exe` or `bin/qlogg`. The folder holds `portable.txt`, so QLogg keeps its settings, logs and cache there; extracting a newer version over it keeps the settings. On Windows, `register-associations.cmd` in the folder adds Open With and Open in QLogg for your account, and `register-associations /u` removes them |
 | macOS | `qlogg-<version>-macos-<arch>.zip` | Extract it and run `QLogg.app`; settings are per user |
 
-Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
+Running a newer setup or package upgrades QLogg in place. On Windows,
+Installed apps lists an install for all users as QLogg and one for you only
+as QLogg (current user); each uninstalls only itself. Uninstalling keeps
 your settings, and an upgrade of a portable copy keeps the settings in its
 folder. Installing QLogg does not set it as the default program for any file
 type. Where `.log` files have no default program chosen, Windows asks which
