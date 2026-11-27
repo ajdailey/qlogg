@@ -24,12 +24,14 @@ import java.util.zip.CRC32C;
  * or its digests match several files. The roll-over is in place when every loaded member keeps its
  * rank in the new order, every member before the last keeps its size, and the last holds at least
  * its indexed bytes: renamed members are re-pointed and newer files join after the last member once
- * one of them has bytes. A last member found truncated beside a file holding its indexed bytes is a
- * copy-truncate: the copy takes the member's place and the truncated file joins. A newer file whose
- * bytes start as the last member's do, an empty file included, while that member has not truncated
- * is a copy in progress, ignored until its size holds for two rescans. Anything else changes line
- * numbers: the plan carries a {@link LineMap}, with the line counts of the new order counted from
- * the files where the loaded indexes do not cover them. Not thread-safe; the set's watch calls it.
+ * one of them has bytes. A last member found holding fewer than its indexed bytes beside another
+ * file holding them is a copy-truncate or a rename: that file takes the member's place and the
+ * short file joins. Without file keys, this settles a rename where each new file starts with the
+ * same line and the member's digests still cover that line alone. A newer file whose bytes start as
+ * the last member's do, an empty file included, while that member has not truncated is a copy in
+ * progress, ignored until its size holds for two rescans. Anything else changes line numbers: the
+ * plan carries a {@link LineMap}, with the line counts of the new order counted from the files
+ * where the loaded indexes do not cover them. Not thread-safe; the set's watch calls it.
  */
 final class RollOver {
   private static final int READ_BYTES = 64 * 1024;
@@ -62,6 +64,7 @@ final class RollOver {
   private final SafePaths.HeldLock held;
   private final BooleanSupplier closing;
   private final Map<Path, long[]> copies = new HashMap<Path, long[]>();
+  private final boolean fileKeys;
 
   /**
    * Creates the planner for one set.
@@ -71,9 +74,24 @@ final class RollOver {
    * @param closing true once the set closes, which ends a line count
    */
   RollOver(TextEncoding encoding, SafePaths.HeldLock held, BooleanSupplier closing) {
+    this(encoding, held, closing, true);
+  }
+
+  /**
+   * Creates the planner for one set.
+   *
+   * @param encoding the set's encoding
+   * @param held the instance lock, or null
+   * @param closing true once the set closes, which ends a line count
+   * @param fileKeys false to match members by content alone, with creation times that decide
+   *     nothing, as on Windows after NTFS tunneling
+   */
+  RollOver(
+      TextEncoding encoding, SafePaths.HeldLock held, BooleanSupplier closing, boolean fileKeys) {
     this.encoding = encoding;
     this.held = held;
     this.closing = closing;
+    this.fileKeys = fileKeys;
   }
 
   /**
@@ -104,8 +122,9 @@ final class RollOver {
     SetMember tail = members.get(last);
     long tailIndexed = tail.index().snapshot().indexedBytes();
     if (at[last] >= 0 && found.get(at[last]).size() < tailIndexed) {
-      claimed[at[last]] = false;
+      int shorter = at[last];
       at[last] = copyOf(tail, paths, claimed);
+      claimed[shorter] = false;
       if (at[last] >= 0) {
         claimed[at[last]] = true;
       }
@@ -170,8 +189,8 @@ final class RollOver {
   }
 
   /** The member's position by identity, else by name when its digests decide nothing. */
-  private static int locate(SetMember member, List<Path> paths, boolean[] claimed) {
-    MemberIdentity identity = member.memberIdentity();
+  private int locate(SetMember member, List<Path> paths, boolean[] claimed) {
+    MemberIdentity identity = identity(member);
     if (identity != null) {
       MemberIdentity.Match match = identity.find(unclaimed(paths, claimed));
       if (match.outcome() == MemberIdentity.Outcome.FOUND) {
@@ -185,9 +204,12 @@ final class RollOver {
     return byName >= 0 && !claimed[byName] ? byName : -1;
   }
 
-  /** An unclaimed file holding the member's indexed bytes, compared by content alone. */
-  private static int copyOf(SetMember member, List<Path> paths, boolean[] claimed) {
-    MemberIdentity identity = member.memberIdentity();
+  /**
+   * An unclaimed file holding the member's indexed bytes, compared by content alone. The caller
+   * keeps the short file claimed: it can match digests recorded before the last indexing pass.
+   */
+  private int copyOf(SetMember member, List<Path> paths, boolean[] claimed) {
+    MemberIdentity identity = identity(member);
     if (identity == null) {
       return -1;
     }
@@ -196,11 +218,21 @@ final class RollOver {
   }
 
   /** True when a member matched by file key does not hold its indexed bytes. */
-  private static boolean rewritten(SetMember member, Path file) {
-    MemberIdentity identity = member.memberIdentity();
+  private boolean rewritten(SetMember member, Path file) {
+    MemberIdentity identity = identity(member);
     return identity != null
         && identity.fileKey() != null
         && identity.byContent().find(List.of(file)).outcome() != MemberIdentity.Outcome.FOUND;
+  }
+
+  /** The member's recorded identity; without file keys, its content alone. */
+  private MemberIdentity identity(SetMember member) {
+    MemberIdentity recorded = member.memberIdentity();
+    if (fileKeys || recorded == null) {
+      return recorded;
+    }
+    return new MemberIdentity(
+        null, -1, recorded.indexedBytes(), recorded.headDigest(), recorded.tailDigest());
   }
 
   private static List<Path> unclaimed(List<Path> paths, boolean[] claimed) {

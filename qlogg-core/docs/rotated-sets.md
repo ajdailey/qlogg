@@ -61,6 +61,12 @@ files, the newest is last.
 - `byContent()` drops the file key, so `find` compares digests: a copy of the
   member matches, and the member itself only while it holds the indexed
   bytes.
+- `FileCheck` records the digests after each indexing pass, so they extend
+  with the member. An indexing pass publishes before it records, and a record
+  keeps the previous digests while the file at the member's name is shorter
+  than the indexed bytes. Right after a rename, the digests of a member whose
+  files all start with the same line (a CSV header, a banner) can cover that
+  line alone and match the new file as well; `RollOver` settles that case.
 
 ## RotatedBytes
 
@@ -142,7 +148,7 @@ match several files.
 | Listing | Action | Line numbers |
 |---|---|---|
 | Every member keeps its rank, members before the last keep their size, the last holds its indexed bytes | Renamed members re-pointed; newer files join once one has bytes (`APPENDED`); until then growth of the renamed last member is an append | Kept |
-| Last member truncated, an unmatched file holds its indexed bytes | Copy-truncate: the copy takes the member's place, the truncated file joins | Kept |
+| Last member found holding fewer than its indexed bytes, another unmatched file holds them | Copy-truncate, or a rename where the new file at the name matched the same digests: the other file takes the member's place, the short file joins | Kept |
 | An unmatched file before the last member starts with its bytes, the last member not truncated | Copy in progress: ignored until its size holds for two rescans | - |
 | Last member gone, nothing in its place | `MISSING` once; the content stays readable and the checks go on | Kept |
 | Anything else: a member gone, compressed or past the cap, a member before the last grown or shrunk, the order changed, the last member rewritten | `ROLLED` once, with `lineMap()`; the checks stop until the owner's reopen fails | Mapped |
