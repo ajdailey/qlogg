@@ -376,6 +376,8 @@ Section "QLogg"
   ${EndIf}
 
   ; Open With for .log and .txt; the extensions' default handler is untouched.
+  ; Never a script type: a ProgID in .cmd or .bat OpenWithProgids stops
+  ; ShellExecute running batch files.
   WriteRegStr SHCTX "Software\Classes\${PROGID}" "" "Log file"
   WriteRegStr SHCTX "Software\Classes\${PROGID}\DefaultIcon" "" "$INSTDIR\qlogg.exe,0"
   WriteRegStr SHCTX "Software\Classes\${PROGID}\shell\open\command" "" '"$INSTDIR\qlogg.exe" "%1"'
