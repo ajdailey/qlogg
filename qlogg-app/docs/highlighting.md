@@ -171,7 +171,7 @@ schemes from `SchemeStore` ([Settings](settings.md#color-scheme-files)).
 | `selectionText` | `selection` | 4.5 |
 | Default color label text, or `text` for the gray label | The label background | 4.5 |
 | `NEW_RULE_FOREGROUND` | `NEW_RULE_BACKGROUND` | 4.5 |
-| `lineNumbers` | `gutter` | 3 |
+| `lineNumbers` | `gutter`, `background` | 4.5 |
 | `matchMarker`, `markMarker` | `gutter`, `overview`, `currentLine` | 3 |
 | `overviewFrame` | `overview` | 3 |
 | Tab dots, `spreadPause`, `spreadActivity` | `overview`, `gutter`, `background` | 3 |
@@ -184,8 +184,9 @@ only, except the warning (`escape`) color of Sandstone and Nightwater, an
 orange kept apart from the error red. Error, warning and info are three
 distinct colors in every built-in scheme.
 A color below its floor moves toward black or white only as far as the floor
-needs. The text moves against `background`, `currentLine` and `gutter`; the
-other row colors move against the text.
+needs. `lineNumbers` changes lightness only, to 4.75 or more on `gutter` and
+`background`, a margin over its floor. The text moves against `background`,
+`currentLine` and `gutter`; the other row colors move against the text.
 
 A palette change recolors every tab's match highlight, whose default color is
 the palette's, and the color labels (`ColorLabel.forPalette`): on a dark

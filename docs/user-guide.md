@@ -651,7 +651,8 @@ scheme. A change applies at once.
 
 Text in every listed scheme reaches a contrast of 4.5:1 on each row color,
 the match highlight and the default color labels; each syntax color reaches
-4.5:1 on the view, the caret's line, context lines and filtered rows.
+4.5:1 on the view, the caret's line, context lines and filtered rows, and line
+numbers reach 4.5:1 on the gutter and the view.
 
 To add a scheme, put a file named `<id>.properties` in the `colors` folder of
 the settings directory ([Settings directory](#settings-directory)); QLogg reads

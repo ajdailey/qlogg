@@ -22,8 +22,8 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Contrast floors for every listed scheme, Light and Dark included: text 4.5:1 on every row ground,
  * selected text 4.5:1 on the selection, the default color labels and a new highlighter rule 4.5:1,
- * and line numbers, markers, dots and time-spread colors 3:1 on what they are drawn over. With
- * {@code -Dqlogg.qc.contrast=true} each palette's lowest ratio is printed.
+ * token colors and line numbers 4.5:1, and markers, dots and time-spread colors 3:1 on what they
+ * are drawn over. With {@code -Dqlogg.qc.contrast=true} each palette's lowest ratio is printed.
  */
 class ColorSchemesTest {
   private static final double TEXT = 4.5;
@@ -49,7 +49,6 @@ class ColorSchemesTest {
         floor.check("text", p.text(), ground, TEXT);
       }
       floor.check("selectionText", p.selectionText(), p.selection(), TEXT);
-      floor.check("lineNumbers", p.lineNumbers(), p.gutter(), GRAPHIC);
       for (Rgb marker : new Rgb[] {p.matchMarker(), p.markMarker()}) {
         floor.check("marker", marker, p.gutter(), GRAPHIC);
         floor.check("marker", marker, p.overview(), GRAPHIC);
@@ -86,10 +85,11 @@ class ColorSchemesTest {
 
   /**
    * Every token color reads at 4.5:1 on the background, the current line, a context row and a
-   * result row.
+   * result row, and line numbers at 4.5:1 on the gutter and the background, where the views also
+   * draw whitespace marks, group rules and fold rules in that color.
    */
   @Test
-  void everyTokenColorMeetsTheTextFloor() {
+  void tokensAndTextAreReadableOnEveryBackground() {
     List<String> faults = new ArrayList<String>();
     for (ColorScheme scheme : ColorSchemes.NONE.all()) {
       Palette p = scheme.palette();
@@ -100,9 +100,13 @@ class ColorSchemesTest {
           floor.check(TokenColors.key(kind), p.tokens().color(kind), ground, TEXT);
         }
       }
+      for (Rgb ground : new Rgb[] {p.gutter(), p.background()}) {
+        floor.check("lineNumbers", p.lineNumbers(), ground, TEXT);
+      }
       if (Boolean.getBoolean("qlogg.qc.contrast")) {
         System.out.printf(
-            "QC %s tokens lowest %.2f (%s)%n", scheme.id(), floor.lowest, floor.where);
+            "QC %s tokens and line numbers lowest %.2f (%s)%n",
+            scheme.id(), floor.lowest, floor.where);
       }
     }
     assertTrue(faults.isEmpty(), String.join("\n", faults));
