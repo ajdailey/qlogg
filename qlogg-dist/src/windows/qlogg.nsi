@@ -422,13 +422,34 @@ Function un.onInit
   ${EndIf}
 FunctionEnd
 
+; Deletes the shortcut named on the stack, retrying for up to 10 s: a desktop
+; link can be open for a moment without delete sharing, and Delete then fails.
+Function un.DeleteShortcut
+  Exch $0
+  Push $1
+  StrCpy $1 0
+  ${Do}
+    Delete "$0"
+    ${IfNot} ${FileExists} "$0"
+    ${OrIf} $1 >= 50
+      ${Break}
+    ${EndIf}
+    IntOp $1 $1 + 1
+    Sleep 200
+  ${Loop}
+  Pop $1
+  Pop $0
+FunctionEnd
+
 ; Removes what the install wrote. Settings live outside $INSTDIR and stay.
 Section "Uninstall"
   !insertmacro QLOGG_UNINSTALL_FILES
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
-  Delete "$SMPROGRAMS\QLogg.lnk"
-  Delete "$DESKTOP\QLogg.lnk"
+  Push "$SMPROGRAMS\QLogg.lnk"
+  Call un.DeleteShortcut
+  Push "$DESKTOP\QLogg.lnk"
+  Call un.DeleteShortcut
 
   DeleteRegKey SHCTX "Software\Classes\${PROGID}"
   DeleteRegKey SHCTX "${APPKEY}"
