@@ -197,23 +197,37 @@ final class RotatedTabs {
    */
   static long setLine(LogDocument document, Path file, long memberLine) {
     LineIndex index = document.index();
-    SetFiles files = document.files();
-    if (!(index instanceof RotatedIndex rotated) || files == null) {
+    int member = memberOf(document, file);
+    if (!(index instanceof RotatedIndex rotated) || member < 0) {
       return -1;
-    }
-    int member = -1;
-    for (int i = 0; i < files.members().size() && member < 0; i++) {
-      Path path = files.members().get(i).path();
-      Path name = path.getFileName();
-      if (path.equals(file)
-          || (name != null && document.realPath().resolveSibling(name).equals(file))) {
-        member = i;
-      }
     }
     for (long start : rotated.memberStarts()) {
       if (rotated.memberOf(start) == member) {
         long line = start + memberLine;
         return line < rotated.lineCount() && rotated.memberOf(line) == member ? line : -1;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns the member of a set that a file is.
+   *
+   * @param document the document
+   * @param file a path, as opened or in the set's real directory
+   * @return the member number, or -1 when the file is not a loaded member or the document no set
+   */
+  static int memberOf(LogDocument document, Path file) {
+    SetFiles files = document.files();
+    if (files == null) {
+      return -1;
+    }
+    for (int i = 0; i < files.members().size(); i++) {
+      Path path = files.members().get(i).path();
+      Path name = path.getFileName();
+      if (path.equals(file)
+          || (name != null && document.realPath().resolveSibling(name).equals(file))) {
+        return i;
       }
     }
     return -1;

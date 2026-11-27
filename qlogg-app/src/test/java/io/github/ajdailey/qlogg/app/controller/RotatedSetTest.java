@@ -19,6 +19,8 @@ import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -117,6 +119,14 @@ class RotatedSetTest {
     assertEquals("app.log.3.gz  (compressed, not shown)", tip[3]);
     assertTrue(fixture.view.notices.contains("app.log: 1 compressed files not shown"));
     assertTrue(StatusText.notes(set.state()).contains("1 compressed files not shown"));
+    final DocumentController shown = set;
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return shown.viewport().lineCount() == 9;
+          }
+        });
     set.setFollowing(false);
     set.select(Selection.caretAt(new TextPosition(4, 0)));
     assertEquals("app.log.1:2", set.caretMember());
@@ -278,6 +288,66 @@ class RotatedSetTest {
     search.open(hits, 0);
     assertEquals(1, fixture.application.documents().size());
     assertEquals(4, set.selection().caret().line());
+  }
+
+  /**
+   * A folder search line in a member the set has not indexed yet lands on its text once indexing
+   * reaches it, not on the member line read as a set line.
+   */
+  @Test
+  void aFolderSearchLineInAMemberNotYetIndexedLandsOnItsText() throws Exception {
+    Path dir = Files.createDirectories(temp.resolve("logs"));
+    Path oldest = dir.resolve("app.log.2");
+    byte[] line = "padding line of an old file\n".getBytes(StandardCharsets.US_ASCII);
+    try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(oldest), 1 << 16)) {
+      for (int i = 0; i < 1_200_000; i++) {
+        out.write(line);
+      }
+    }
+    Files.setLastModifiedTime(oldest, FileTime.fromMillis(NOW - 300_000));
+    write("app.log.1", "one a\nhit one b\n", 200);
+    Path base = write("app.log", "zero a\n", 0);
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    final FolderSearchController search = fixture.application.folderSearch();
+    search.run(new FolderRequest(dir.toString(), NamePattern.DEFAULT, false, "hit", LITERAL, ""));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return search.state().phase() != FolderSearchState.Phase.RUNNING;
+          }
+        });
+    FileHits hits = null;
+    for (FileHits file : search.files()) {
+      if (file.path().getFileName().toString().equals("app.log.1")) {
+        hits = file;
+      }
+    }
+    assertNotNull(hits, search.files().toString());
+    assertEquals("hit one b", hits.text(0));
+    fixture.application.open(List.of(new FileRequest(base, 0, true)));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.application.activeDocument() != null;
+          }
+        });
+    final DocumentController set = fixture.application.activeDocument();
+    assertEquals(
+        -1,
+        RotatedTabs.setLine(set.document(), hits.path(), hits.line(0)),
+        "app.log.1 is not indexed yet");
+    search.open(hits, 0);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return !set.state().indexing() && "app.log.1:2".equals(set.caretMember());
+          }
+        });
+    assertEquals(1_200_001, set.selection().caret().line());
+    assertEquals(1, fixture.application.documents().size());
   }
 
   @Test

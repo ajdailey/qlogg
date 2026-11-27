@@ -297,7 +297,8 @@ The upper table lists each file with its matches; selecting a file lists its
 matching lines below, with a control character shown as its code, such as
 `<1B>` for ESC. Double-click a line, or press Enter, to open the file at
 that line, or to go there in the tab that already shows it; a line of a file
-in an open rotated set goes to that line in the set's tab. Compressed or
+in an open rotated set goes to that line in the set's tab, once the set has
+loaded that far. Compressed or
 binary files show Not text, and files that cannot be read show why, such as
 Access denied for a folder or file your account cannot read. When
 the matching lines fill the memory set aside for results, the oldest unpinned

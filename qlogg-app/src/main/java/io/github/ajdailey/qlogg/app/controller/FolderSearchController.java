@@ -80,6 +80,7 @@ public final class FolderSearchController {
   private FolderResultSet running;
   private FileHits stepFile;
   private int stepHit = -1;
+  private final SetJump setJump = new SetJump();
 
   FolderSearchController(
       FolderSearchHost host,
@@ -386,10 +387,11 @@ public final class FolderSearchController {
 
   /**
    * Shows a listed line: selects the tab that shows the file, by the path searched or its real
-   * path, or the rotated set tab that loads it at the member's first line plus the line, or opens
-   * the file in a new tab, and goes to the line. The next step starts there. While the file opens,
-   * a later line of the same file replaces the line the new tab goes to instead of opening the file
-   * again, for {@link #OPEN_WAIT_NANOS} or until that open fails.
+   * path, or the rotated set tab that loads it at the member's first line plus the line (once the
+   * set's index reaches it, {@link SetJump}), or opens the file in a new tab, and goes to the line.
+   * The next step starts there. While the file opens, a later line of the same file replaces the
+   * line the new tab goes to instead of opening the file again, for {@link #OPEN_WAIT_NANOS} or
+   * until that open fails.
    *
    * @param file a listed file
    * @param hit the listed line, from 0 to {@link FileHits#size} - 1
@@ -399,13 +401,13 @@ public final class FolderSearchController {
     stepHit = hit;
     long line = file.line(hit) + 1;
     Path path = file.path();
+    setJump.cancel();
     for (DocumentController document : host.documents()) {
       if (document.document().files() != null) {
-        long at = RotatedTabs.setLine(document.document(), path, line - 1);
-        if (at >= 0 && document.ownsDocument()) {
+        if (document.ownsDocument() && RotatedTabs.memberOf(document.document(), path) >= 0) {
           opening = null;
           host.activate(document);
-          document.goToLine(at + 1);
+          setJump.go(document, path, line - 1);
           return;
         }
       } else if (path.equals(document.document().path())

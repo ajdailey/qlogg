@@ -236,7 +236,10 @@ the status note of compressed files, the notices for files left out (over the
 (`DocumentController.caretMember`). `DocumentController.startsGroup` answers
 true at each member's first line after the first, so the log view draws its
 group rule there. `FolderSearchController.open` shows a listed line of a set's
-member in the set's tab at the member's first line plus the line. A set records
+member in the set's tab at the member's first line plus the line. While indexing
+has not reached that line, `SetJump` waits on the tab's state changes and goes
+there once the index holds it; it never applies a member line as a set line. A
+later jump or the tab closing drops the wait. A set records
 no position and opens following; the session keeps its marks per member
 ([settings](settings.md#position-and-session-stores)).
 
