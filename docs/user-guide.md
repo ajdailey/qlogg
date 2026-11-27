@@ -620,7 +620,9 @@ Follow theme, the default, uses the theme's light or dark colors. Light and
 Dark use those colors whatever the theme, so the log views can be dark in
 light chrome and the reverse. A named scheme keeps its colors through every
 theme change, including a system appearance change; menus, dialogs and other
-controls keep following the theme. A change applies at once.
+controls keep following the theme. On Windows under Dark, the toolbar, search
+row, quick find bar and status bar are the gray of the title bar under every
+scheme. A change applies at once.
 
 ![View colors in Tools > Preferences, View](images/guide/options-view-colors.png)
 

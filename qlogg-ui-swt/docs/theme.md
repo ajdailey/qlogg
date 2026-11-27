@@ -22,7 +22,7 @@ platform as below, so a light scheme can sit in dark chrome and the reverse.
 |---|---|
 | `LogCanvas` (main and filtered), gutter, `OverviewBar`, `TabDots`, the main, results and scratchpad tab strips, `TabStripButtons` and their icons' ink, the empty log and results areas | The palette |
 | Toolbars, search row, status bar, sash, dialogs, `MarksWindow` table, the scratchpad's text | Native, `ui.theme`; `ToolIcons` inks from the native background |
-| Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors` from `Palette.DARK` while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
+| Top row, search row, quick find bar, status bar, sash and their fields on win32 | `Win32ChromeColors`, the neutral grays of `Win32DialogColors`, while `ui.theme` resolves to dark; see [Chrome colors](#chrome-colors) |
 | `CocoaChrome` shell, list and header colors | The pinned side, `ui.theme`; skips `PALETTE_COLORED` controls |
 | Dialogs and tool windows on win32 under the dark side | `Win32DialogColors`, `Win32DialogTabs`; see [Dialog colors](#dialog-colors) |
 
@@ -129,7 +129,7 @@ scroll position within a section is not kept.
   a light page cannot show. Every check box therefore comes from
   `DialogColors.check` (through `Dialogs.check`): `Win32DialogColors` creates it
   with the theme off, except in a dialog it colors, whose page is dark. On the quick find bar
-  `Win32ChromeColors` gives an enabled box's label the palette text under dark.
+  `Win32ChromeColors` gives an enabled box's label the dark chrome text.
 - cocoa: pin the application appearance only together with `CocoaChrome`.
   cocoa SWT caches its widget colors under the system appearance at Display
   creation, and a pinned appearance that differs draws native text over the
@@ -194,17 +194,30 @@ leaves a `ToolBar`, `Composite`, `Label`, `Link` and every field light, and
 | `dispose()` | Removes the `SWT.Skin` listener | Nothing |
 
 While `ui.theme` resolves to dark (`ThemeController.dark`, reported by
-`PaletteListener.themeChanged`), every control under a surface takes
-`Palette.DARK.gutter` (`#162638`, the tab strip's background) and
-`Palette.DARK.text` (`#dce6f0`, 12.15:1 on it); a `Link` takes the system link
-color raised to 4.5:1 (`Contrast.readable`); each composite takes `SWT.INHERIT_DEFAULT`,
-so native push buttons show no light corners. A `Text` and an editable `Combo`
-take `Palette.DARK.background` (`#1b2e44`, text 10.9:1) and `Palette.DARK.text`, and
-so does a read-only `Combo`: the dark native theme draws its closed field and
-leaves its drop-down list white unless the combo has colors. Under light
-the colors are null and composites take `SWT.INHERIT_NONE`. Both directions
-apply live. The colors follow `ui.theme`, not the `view.colors` scheme, as
-native controls do.
+`PaletteListener.themeChanged`), every control under a surface takes the
+neutral grays of `Win32DialogColors` whatever the `view.colors` scheme, as
+native controls do: `BODY` `#202020` with `TEXT` `#ffffff` (16.29:1). A `Link`
+takes the system link color raised to 4.5:1 (`Contrast.readable`); each
+composite takes `SWT.INHERIT_DEFAULT`, so native push buttons show no light
+corners. A `Text` and an editable `Combo` take `FIELD` `#2b2b2b` (14.16:1), and
+a read-only `Combo` the push button face `FACE` `#333333` (12.63:1): the dark
+native theme draws its closed field and leaves its drop-down list white unless
+the combo has colors. Under light the colors are null and composites take
+`SWT.INHERIT_NONE`. Both directions apply live.
+
+The grays match what win32 draws under the dark preference (measured,
+`windows-2025` at 100%, probe run 45937830962; on `windows-11-arm` the screen
+read returns the first-run page):
+
+| Native surface | Color |
+|---|---|
+| Title bar | `#202020` |
+| Push button face, closed read-only combo | `#333333`, white text |
+| Scroll bar track, thumb, corner | `#171717`, `#959595`, `#383838` |
+| Bordered field frame | `#646464` |
+| Uncolored `Text` and editable combo field | `#ffffff`: the dark preference leaves edit fields light |
+
+`FIELD` lies between the title bar and the button face.
 
 `Win32ChromeColors` reads `DialogColors.nativeDark` at its first `apply` and
 keeps it, one instance per window: the side the window's controls were created
@@ -213,10 +226,12 @@ side is dark, a field holding text keeps the dark colors under light: the
 dark native field draws near-black under any light colors. A switch rebuilds
 the window, so this holds only under a fixed `view.colors` scheme. An empty
 `Text` takes the system list colors, set explicitly, because a field with no
-colors draws the dark native field; `Win32EmptyField` fills it in its system
-background while it is empty and unfocused, because the dark native field
-draws `#212121` there under any colors (measured in QCaret on Windows 11; not
-yet measured in QLogg). An empty editable `Combo` takes the system colors. A
+colors draws the dark native field. While a `Text` is empty and unfocused,
+`Win32EmptyField` fills it in its background on either side, the system one
+under light and `FIELD` under dark, with any hint in `Win32DialogColors.HINT`
+(`#9a9a9a`, 5.03:1) under dark, because the dark native field draws
+`#212121` there under any colors (measured in QCaret on Windows 11; not yet
+measured in QLogg). An empty editable `Combo` takes the system colors. A
 field is colored again on the `SWT.Modify` that empties it or gives it text.
 
 `MainWindow` registers the top row, the search row, the quick find bar, the
@@ -394,10 +409,20 @@ the palette on every platform, at creation and on each palette change.
 reads them once, so an uncolored strip keeps them through a theme change
 (black on `#2c2c2c` under Dark on a light GTK desktop).
 
-- The selection background shows only while focus is inside the folder;
-  elsewhere the selected tab has the strip's background and keeps the
-  selection foreground. That foreground is therefore `text`, not
-  `selectionText`.
+| Tab | Background | Label and close button |
+|---|---|---|
+| Selected, focus inside the folder | `background` | `text` |
+| Selected, focus elsewhere | `gutter` | `text` |
+| Unselected | `gutter` | `text` |
+
+- `CTabFolder` draws the selection background only while focus is inside the
+  folder and keeps one selection foreground for both cases, so that
+  foreground must read on `gutter` and on the selection background. `text` on
+  `background` and `gutter` reads at 4.5:1 or more in every bundled scheme.
+  `selectionText` on `selection` does not pair with it: Sandstone, Garden
+  Light, Legal Pad, Paper and Phosphor put a light `selectionText` on a
+  saturated `selection`, 1.11:1 to 1.26:1 on their gutter, and `text` on
+  `selection` falls to 1.13:1 (Sandstone).
 - The strips follow the palette, not `ui.theme`: a fixed scheme keeps them
   through a theme change.
 - `colorTabs` sets `ChromeColors.PALETTE_COLORED`, and `CocoaChrome` leaves such
@@ -433,9 +458,9 @@ disabled menu item on a dark background shows a copy at 40% opacity
 `fadeDisabled(true)` gives every tool item of a set the same faded copy through
 `setDisabledImage`; `Win32ChromeColors` turns it on under dark, where SWT's
 disabled copy maps the light ink to a gray brighter than the enabled ink.
-Measured under Xvfb, GTK 3, on `#162638` over every icon (SWT 3.135.0 uses the
-same `IMAGE_DISABLE` transform on win32): enabled 9.06:1 or more, SWT's disabled
-copy 10.14:1 or more, the faded copy 2.63:1 to 2.87:1. `fadeDisabled(false)`
+Measured on `#202020` over every icon by `ChromeColorsTest` on `windows-2025`
+and `windows-11-arm`: enabled 9.64:1 or more, SWT's disabled copy 10.88:1 or
+more, the faded copy 2.67:1 to 2.92:1. `fadeDisabled(false)`
 returns SWT's own disabled image. A set
 created with `ToolIcons(Control, boolean)` keeps that ink; `MenuIcons` uses it
 on win32 with the side pop-up menus show (`Win32MenuThemes.shownDark`). Menu

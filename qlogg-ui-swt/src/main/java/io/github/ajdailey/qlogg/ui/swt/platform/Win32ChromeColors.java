@@ -1,7 +1,5 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
-import io.github.ajdailey.qlogg.app.theme.Palette;
-import io.github.ajdailey.qlogg.core.model.Rgb;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.swt.SWT;
@@ -28,21 +26,21 @@ import org.eclipse.swt.widgets.Tree;
 /**
  * The main window's rows on win32, where the dark native theme leaves a {@code ToolBar}, {@code
  * Composite}, {@code Label}, {@code Link} and every field light. While {@code ui.theme} resolves to
- * dark, each control under a surface takes {@link Palette#DARK}'s gutter, the tab strip's
- * background, and its text; a {@link Link} takes its link color raised to 4.5 contrast, and each
- * composite passes its background to push button corners ({@code SWT.INHERIT_DEFAULT}). A {@link
- * Text} or an editable {@link Combo} takes {@link Palette#DARK}'s background and text, and so does
- * a read-only {@code Combo}, whose drop-down list draws in those colors while the dark native theme
- * draws its closed field. While it resolves to light every such color is null and composites take
- * {@code SWT.INHERIT_NONE}. Both directions apply live.
+ * dark, each control under a surface takes {@link #BACKGROUND} and {@link #TEXT}, the neutral grays
+ * of {@link Win32DialogColors}, whatever the {@code view.colors} scheme; a {@link Link} takes its
+ * link color raised to 4.5 contrast, and each composite passes its background to push button
+ * corners ({@code SWT.INHERIT_DEFAULT}). A {@link Text} or an editable {@link Combo} takes {@link
+ * #FIELD}, and a read-only {@code Combo} {@link #FACE}, whose drop-down list draws in those colors
+ * while the dark native theme draws its closed field. While it resolves to light every such color
+ * is null and composites take {@code SWT.INHERIT_NONE}. Both directions apply live.
  *
  * <p>While native controls are dark ({@link DialogColors#nativeDark}) a field holding text keeps
  * the dark colors on the light side until its window is rebuilt, because the dark native field
  * draws near-black under any light colors. An empty field takes the system list colors, set
  * explicitly, since a field with no colors draws the dark native field; {@link Win32EmptyField}
- * paints an empty {@link Text} while unfocused, since the dark native field draws {@code #212121}
- * there under any colors. A field is colored again when it becomes empty or takes text ({@code
- * SWT.Modify}).
+ * paints an empty {@link Text} in its background while unfocused, on either side, since the dark
+ * native field draws {@code #212121} there under any colors. A field is colored again when it
+ * becomes empty or takes text ({@code SWT.Modify}).
  *
  * <p>Push and arrow buttons, lists, tables, trees, spinners, progress bars, a {@link StyledText}, a
  * {@link Browser}, a {@link CTabFolder} and a control with {@link #PALETTE_COLORED} keep their
@@ -55,17 +53,17 @@ import org.eclipse.swt.widgets.Tree;
  * under the light one, so a checked item takes the light ink only under the dark native theme.
  */
 final class Win32ChromeColors implements ChromeColors {
-  /** Background of every surface under dark. */
-  static final Rgb BACKGROUND = Palette.DARK.gutter();
+  /** Background of every surface under dark: {@link Win32DialogColors#BODY}. */
+  static final Color BACKGROUND = Win32DialogColors.BODY;
 
-  /** Text under dark. */
-  static final Rgb TEXT = Palette.DARK.text();
+  /** Text and field text under dark: {@link Win32DialogColors#TEXT}. */
+  static final Color TEXT = Win32DialogColors.TEXT;
 
-  /** Field background under dark. */
-  static final Rgb FIELD = Palette.DARK.background();
+  /** Text field and editable combo background under dark: {@link Win32DialogColors#FIELD}. */
+  static final Color FIELD = Win32DialogColors.FIELD;
 
-  /** Field text under dark. */
-  static final Rgb FIELD_TEXT = Palette.DARK.text();
+  /** Read-only combo background under dark: {@link Win32DialogColors#FACE}. */
+  static final Color FACE = Win32DialogColors.FACE;
 
   /** Control data key: set on a field once it follows {@code SWT.Modify}. */
   private static final String FOLLOWED = Win32ChromeColors.class.getName() + ".followed";
@@ -85,14 +83,18 @@ final class Win32ChromeColors implements ChromeColors {
       };
 
   /**
-   * The light side under the dark native setting: {@link Win32EmptyField} fills an empty field with
-   * its system background and draws a hint in the system gray raised to {@link Contrast#LINK}.
+   * {@link Win32EmptyField} fills an empty field with its background: under dark with a hint in
+   * {@link Win32DialogColors#HINT}; on the light side under the dark native setting with a hint in
+   * the system gray raised to {@link Contrast#LINK}.
    */
-  private final Win32EmptyField.Ink lightInk =
+  private final Win32EmptyField.Ink ink =
       new Win32EmptyField.Ink() {
         @Override
         public Color hint(Text text) {
-          if (dark || !nativeDark()) {
+          if (dark) {
+            return Win32DialogColors.HINT;
+          }
+          if (!nativeDark()) {
             return null;
           }
           RGB gray = display.getSystemColor(SWT.COLOR_WIDGET_DISABLED_FOREGROUND).getRGB();
@@ -185,8 +187,8 @@ final class Win32ChromeColors implements ChromeColors {
   private void walk(Control control) {
     // Read-only combo list.
     if (control instanceof Combo && !field(control)) {
-      control.setBackground(dark ? color(FIELD) : null);
-      control.setForeground(dark ? color(FIELD_TEXT) : null);
+      control.setBackground(dark ? FACE : null);
+      control.setForeground(dark ? TEXT : null);
       return;
     }
     if (keeps(control)) {
@@ -196,8 +198,8 @@ final class Win32ChromeColors implements ChromeColors {
       colorField(control);
       return;
     }
-    control.setBackground(dark ? color(BACKGROUND) : null);
-    control.setForeground(dark ? color(TEXT) : null);
+    control.setBackground(dark ? BACKGROUND : null);
+    control.setForeground(dark ? TEXT : null);
     if (control instanceof Link link) {
       link.setLinkForeground(dark ? linkColor(display) : null);
     }
@@ -216,14 +218,14 @@ final class Win32ChromeColors implements ChromeColors {
     boolean listColors = nativeDark && field instanceof Text;
     Color light = listColors ? display.getSystemColor(SWT.COLOR_LIST_BACKGROUND) : null;
     Color lightText = listColors ? display.getSystemColor(SWT.COLOR_LIST_FOREGROUND) : null;
-    field.setBackground(darkField ? color(FIELD) : light);
-    field.setForeground(darkField ? color(FIELD_TEXT) : lightText);
+    field.setBackground(darkField ? FIELD : light);
+    field.setForeground(darkField ? TEXT : lightText);
     if (field.getData(FOLLOWED) != null) {
       return;
     }
     field.setData(FOLLOWED, Boolean.TRUE);
     if (field instanceof Text text) {
-      Win32EmptyField.draw(text, lightInk);
+      Win32EmptyField.draw(text, ink);
     }
     field.addListener(
         SWT.Modify,
@@ -291,10 +293,6 @@ final class Win32ChromeColors implements ChromeColors {
    */
   static Color linkColor(Display display) {
     RGB theme = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND).getRGB();
-    return new Color(Contrast.readable(theme, color(BACKGROUND).getRGB()));
-  }
-
-  private static Color color(Rgb rgb) {
-    return new Color(rgb.red(), rgb.green(), rgb.blue());
+    return new Color(Contrast.readable(theme, BACKGROUND.getRGB()));
   }
 }
