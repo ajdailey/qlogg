@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.File;
 import java.io.IOException;
@@ -63,7 +64,8 @@ class DocumentOpenerTest {
               public boolean getAsBoolean() {
                 return false;
               }
-            });
+            },
+            OsTraits.current());
   }
 
   @AfterEach
@@ -202,9 +204,9 @@ class DocumentOpenerTest {
   void reloadCopiesTheMarksAndAChangeOnDiskDoesNot() throws Exception {
     DocumentController old = fixture.open(fixture.lines("app.log", 20));
     old.document().marks().add(4);
-    assertTrue(opener.reopen(old, null, services));
+    assertTrue(opener.reopen(old, null, false, services));
     runUntilDelivered(1);
-    assertTrue(opener.reopen(old, FileChange.MODIFIED, services));
+    assertTrue(opener.reopen(old, FileChange.MODIFIED, false, services));
     runUntilDelivered(2);
     assertTrue(recorder.documents.get(0).marks().contains(4));
     assertEquals(0, recorder.documents.get(1).marks().size());
@@ -265,7 +267,7 @@ class DocumentOpenerTest {
   void closingDuringAReloadClosesTheReopenedFile() throws Exception {
     DocumentController old = fixture.open(latin1("a.log"));
     gate.arm();
-    assertTrue(opener.reopen(old, null, services));
+    assertTrue(opener.reopen(old, null, false, services));
     closeWhileHeld();
   }
 
@@ -308,7 +310,7 @@ class DocumentOpenerTest {
     opener.close();
     opener.open(List.of(request(latin1("a.log"))), false, false, services);
     opener.paste("Clipboard 1", "text\n", 1024, services);
-    assertFalse(opener.reopen(old, null, services));
+    assertFalse(opener.reopen(old, null, false, services));
     fixture.ui.runPending();
     assertEquals(0, gate.opens());
     assertTrue(recorder.events.isEmpty());
@@ -412,10 +414,13 @@ class DocumentOpenerTest {
 
     @Override
     public void reopened(
-        DocumentController old, LogDocument document, FileChange change, boolean complete) {
+        DocumentController old,
+        LogDocument document,
+        FileChange change,
+        LineCarry.Carried carried) {
       events.add("reopened " + document.name());
       documents.add(document);
-      marksComplete.add(complete);
+      marksComplete.add(carried.marksComplete());
     }
 
     @Override

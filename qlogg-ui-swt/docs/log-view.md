@@ -21,7 +21,8 @@ current line and the selection.
   rows carry no match bullet.
 - With context lines on, a context row (`LineViewController.contextRow`) is
   shaded, and a rule in the line-number color is drawn across the text area on
-  top of each row that starts a group (`startsGroup`).
+  top of each row that starts a group (`startsGroup`). In a rotated set's main
+  view the same rule marks each member's first line after the first.
 - A collapsed entry's row has a triangle at the gutter's right edge and a rule
   under it.
 - The first paint in the process that draws a loaded line logs `First paint of

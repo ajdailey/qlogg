@@ -243,7 +243,8 @@ public final class ApplicationController
               public boolean getAsBoolean() {
                 return preferences.get().follow().keepClosed();
               }
-            });
+            },
+            view.system());
     this.help = new HelpController(set, view, this::isShuttingDown);
     this.paths = new PathCommands(workers, ui, view, help, this::isShuttingDown);
     this.openPath =
@@ -727,6 +728,10 @@ public final class ApplicationController
     }
     if (shown != null) {
       closeOnWorker(document);
+      if (document.files() != null && shown.document().files() == null) {
+        // A rotated open of a file shown alone turns its tab into the set.
+        reopen(shown, null, true);
+      }
     } else {
       shown = create(document);
       documents.add(shown);
@@ -743,6 +748,9 @@ public final class ApplicationController
       remembered.rememberRecent(document);
       shown.time().setOffset(opening.timeOffset());
       set.timeSync().restore(opening.syncGroup(), shown);
+      for (String notice : RotatedTabs.leftOutNotices(document)) {
+        view.showNotice(notice);
+      }
     }
     // A burst builds the views for its last tab only, and for its first in an empty window.
     present(shown, line, follow, active == null || opening.last());
@@ -782,8 +790,20 @@ public final class ApplicationController
 
     @Override
     public void reopened(
-        DocumentController old, LogDocument document, FileChange change, boolean marksComplete) {
-      ApplicationController.this.reopened(old, document, change, marksComplete);
+        DocumentController old,
+        LogDocument document,
+        FileChange change,
+        LineCarry.Carried carried) {
+      ApplicationController.this.reopened(old, document, change, carried);
+    }
+
+    @Override
+    public void marksLeftOut(Path path, long marks) {
+      DocumentController controller = find(path);
+      if (controller != null) {
+        view.showNotice(
+            UiText.NOTICE_SET_MARKS_NOT_RESTORED.format(controller.state().title(), marks));
+      }
     }
 
     @Override
@@ -823,6 +843,8 @@ public final class ApplicationController
       activate(shown);
     }
     boolean following = follow || preferences.get().follow().onLoad();
+    // A set has no remembered position: its line numbers move at every roll-over.
+    following |= line <= 0 && document.files() != null;
     if (line > 0) {
       shown.jumpToLine(line);
     } else if (!following && !document.inMemory()) {
@@ -1294,8 +1316,27 @@ public final class ApplicationController
     reopen(document, change);
   }
 
+  /**
+   * Reopens a tab's file as its rotated set, or a set as its newest file alone (File > Include
+   * Rotated Files); marks, comments and the caret move to the same text.
+   *
+   * @param document an open document's controller
+   */
+  public void toggleRotated(DocumentController document) {
+    DocumentController root = set.derivedTabs().root(document);
+    ApplicationController holder = set.derivedTabs().holder(root);
+    if (holder != null) {
+      holder.reopen(root, null, root.document().files() == null);
+    }
+  }
+
+  private void reopen(DocumentController old, FileChange change) {
+    reopen(old, change, old.document().files() != null);
+  }
+
   /** Reopens on a worker; {@code change} is null for a reload. */
-  private void reopen(final DocumentController old, final FileChange change) {
+  private void reopen(
+      final DocumentController old, final FileChange change, final boolean rotated) {
     if (shuttingDown || old.isClosed() || reopening.contains(old) || !documents.contains(old)) {
       return;
     }
@@ -1304,7 +1345,7 @@ public final class ApplicationController
       return;
     }
     reopening.add(old);
-    if (!opener.reopen(old, change, set.services())) {
+    if (!opener.reopen(old, change, rotated, set.services())) {
       reopening.remove(old);
     }
   }
@@ -1317,7 +1358,7 @@ public final class ApplicationController
   }
 
   private void reopened(
-      DocumentController old, LogDocument document, FileChange change, boolean marksComplete) {
+      DocumentController old, LogDocument document, FileChange change, LineCarry.Carried carried) {
     reopening.remove(old);
     int index = documents.indexOf(old);
     if (index < 0) {
@@ -1329,12 +1370,16 @@ public final class ApplicationController
     boolean rerun = rerun(old, change);
     boolean follow = old.following();
     long timeOffset = old.time().offset();
-    long caret = Math.max(0, old.sourceLine(old.selection().caret().line()));
+    // A roll-over keeps what a reload keeps, moved through the set's line map.
+    boolean kept = change == null || change == FileChange.ROLLED;
+    long caret =
+        LineCarry.line(carried.map(), Math.max(0, old.sourceLine(old.selection().caret().line())));
     LabelState labels = old.labels();
     takeTab(old, replacement, index);
-    if (change == null) {
+    replacement.mapHistory(carried.map());
+    if (kept) {
       replacement.restore(labels, document.marks().size() > 0);
-      if (!marksComplete) {
+      if (!carried.marksComplete()) {
         view.showNotice(UiText.NOTICE_MARKS_NOT_KEPT.text());
       }
     }
@@ -1347,10 +1392,14 @@ public final class ApplicationController
     replacement.time().setOffset(timeOffset);
     if (follow) {
       replacement.setFollowing(true);
-    } else if (change == null) {
+    } else if (kept) {
       replacement.keepLine(caret + 1);
     }
-    if (rerun) {
+    if (change == FileChange.ROLLED) {
+      view.showNotice(
+          RotatedTabs.rolledNotice(
+              replacement.state().title(), carried.map(), carried.droppedMarks()));
+    } else if (rerun) {
       view.showNotice(UiText.NOTICE_FILE_SEARCH_RERUN.format(replacement.state().title()));
     } else if (change != null) {
       UiText notice =
@@ -1499,6 +1548,11 @@ public final class ApplicationController
           reload(active);
         }
       }
+      case INCLUDE_ROTATED -> {
+        if (active != null) {
+          toggleRotated(active);
+        }
+      }
       case NEXT_TAB -> showNeighbor(1);
       case PREVIOUS_TAB -> showNeighbor(-1);
       case FOLLOW_ON_LOAD -> {
@@ -1581,8 +1635,11 @@ public final class ApplicationController
       case MARKS_LIST -> view.showMarks();
       case EDIT_MARK_COMMENT -> editMarkComment();
       // Open All, Recently Closed and the command palette.
-      case OPEN_ALL_RECENT -> recent.openAll(preferences.get().state().recentFiles());
-      case OPEN_ALL_CLOSED -> recent.openAll(preferences.get().state().closedFiles());
+      case OPEN_ALL_RECENT ->
+          recent.openAll(preferences.get().state().recentFiles(), List.<String>of());
+      case OPEN_ALL_CLOSED ->
+          recent.openAll(
+              preferences.get().state().closedFiles(), preferences.get().state().closedSets());
       case CLEAR_CLOSED -> recent.clearClosed();
       // Clear Recent Files.
       case CLEAR_RECENT -> recent.clearRecent();
@@ -2249,8 +2306,22 @@ public final class ApplicationController
    * @param text the path
    */
   public void openListed(String text) {
+    openListed(text, false);
+  }
+
+  /**
+   * Opens a path from Recently Closed on a worker, as a rotated set when it closed as one.
+   *
+   * @param text the path
+   */
+  public void openClosed(String text) {
+    openListed(text, preferences.get().state().closedSets().contains(text));
+  }
+
+  @Override
+  public void openListed(String text, boolean rotated) {
     try {
-      openFile(Path.of(text), 0);
+      open(List.of(new FileRequest(Path.of(text), 0, rotated)), false);
     } catch (InvalidPathException e) {
       view.showError(
           UiText.OPEN_FAILED_TITLE.text(), UiText.OPEN_INVALID_PATH.format(e.getReason()));

@@ -155,6 +155,72 @@ class HandoffTest {
   }
 
   @Test
+  void rotatedFilesReachThePrimaryAsRotated() throws Exception {
+    startPrimary();
+    List<FileRequest> sent = new ArrayList<FileRequest>();
+    for (FileRequest file : files("a.log", "b.log")) {
+      sent.add(new FileRequest(file.path(), file.line(), true));
+    }
+    InstanceClient.handOff(temp, sent, true);
+    assertEquals(List.of(sent), received);
+  }
+
+  /**
+   * A primary that predates rotated sets answers ERR to the {@code ROTATED} line; the client then
+   * fails, which makes the launch open its own window.
+   */
+  @Test
+  void aPrimaryWithoutRotatedSetsRefusesTheRotatedLine() throws Exception {
+    final byte[] token = Protocol.secret();
+    try (ServerSocketChannel old = ServerSocketChannel.open()) {
+      old.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
+      int port = ((InetSocketAddress) old.getLocalAddress()).getPort();
+      new Endpoint(port, token).write(temp);
+      final List<String> seen = new CopyOnWriteArrayList<String>();
+      workers.start(
+          Workers.Kind.IPC,
+          new Runnable() {
+            @Override
+            public void run() {
+              try (LineChannel line =
+                  LineChannel.accepted(old.accept(), System.nanoTime() + BOUND.toNanos())) {
+                byte[] nonceC = Protocol.decode(line.readLine().substring(Protocol.HELLO.length()));
+                byte[] nonceS = Protocol.secret();
+                line.writeLine(
+                    Protocol.PROOF
+                        + Protocol.encode(nonceS)
+                        + " "
+                        + Protocol.encode(Protocol.proof(token, "server", nonceC, nonceS)));
+                line.readLine();
+                seen.add(line.readLine());
+                String next = line.readLine();
+                seen.add(next);
+                if (!next.startsWith(Protocol.OPEN) && !next.equals(Protocol.END)) {
+                  while (!Protocol.END.equals(line.readLine())) {
+                    // Skipped up to END, as the server does.
+                  }
+                  line.writeLine(Protocol.ERR);
+                }
+              } catch (IOException e) {
+                seen.add("closed");
+              }
+            }
+          });
+      final List<FileRequest> sent = new ArrayList<FileRequest>();
+      sent.add(new FileRequest(temp.resolve("a.log").toAbsolutePath(), 0, true));
+      assertThrows(
+          IOException.class,
+          new Executable() {
+            @Override
+            public void execute() throws Throwable {
+              InstanceClient.handOff(temp, sent, false);
+            }
+          });
+      assertEquals(List.of(Protocol.FOLLOW + "0", Protocol.ROTATED), seen.subList(0, 2));
+    }
+  }
+
+  @Test
   void aLaunchWithoutFilesStillHandsOff() throws Exception {
     startPrimary();
     InstanceClient.handOff(temp, List.of(), false);

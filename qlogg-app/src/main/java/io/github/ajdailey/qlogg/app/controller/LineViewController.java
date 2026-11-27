@@ -851,7 +851,8 @@ public abstract class LineViewController {
    * Reports whether a gap in the listed lines lies above a line's row, for the group rule.
    *
    * @param line a listed 0-based line
-   * @return true when the row starts a group of results with context; the main view has none
+   * @return true when the row starts a group of results with context, or in the main view a member
+   *     of a rotated set
    */
   public boolean startsGroup(long line) {
     return false;

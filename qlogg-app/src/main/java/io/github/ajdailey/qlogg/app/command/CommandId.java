@@ -14,6 +14,8 @@ public enum CommandId {
   OPEN(CommandGroup.FILE, UiText.COMMAND_OPEN, false, false),
   /** Open the clipboard's text in a new tab. */
   OPEN_CLIPBOARD(CommandGroup.FILE, UiText.COMMAND_OPEN_CLIPBOARD, false, false),
+  /** Show the tab's file with its rotated files as one view, or the newest file alone. */
+  INCLUDE_ROTATED(CommandGroup.FILE, UiText.COMMAND_INCLUDE_ROTATED, false, true),
   /** Open every recent file. */
   OPEN_ALL_RECENT(
       CommandGroup.FILE, UiText.COMMAND_OPEN_ALL_RECENT, true, false, UiText.MENU_RECENT_FILES),

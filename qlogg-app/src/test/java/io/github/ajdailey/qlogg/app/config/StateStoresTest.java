@@ -324,6 +324,52 @@ class StateStoresTest {
   }
 
   @Test
+  void aRotatedTabRoundTripsItsMemberMarksUnderTheirDigests() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session.MemberMarks old =
+        new Session.MemberMarks(
+            0xfedcba9876543210L,
+            new long[] {0, 2, 5, 5},
+            List.of(new MarkComments.Comment(5, "flagword seen")));
+    Session.MemberMarks active = new Session.MemberMarks(0x2aL, new long[] {1, 1}, List.of());
+    Session.Tab tab =
+        new Session.Tab(
+            "/mock/app.log", "", true, new long[0], List.of(), 0, 0, true, List.of(old, active));
+    assertTrue(store.save(new Session(List.of(tab), 0)));
+    String text = Files.readString(temp.resolve(SessionStore.FILE), StandardCharsets.ISO_8859_1);
+    assertTrue(text.contains("window.0.tab.0.rotated=1"), text);
+    assertTrue(text.contains("window.0.tab.0.rmarks.0=fedcba9876543210 0-2,5"), text);
+    assertTrue(text.contains("window.0.tab.0.rcomment.0=fedcba9876543210 5 flagword seen"), text);
+    Session.Tab loaded = new SessionStore(location()).load().tabs().get(0);
+    assertTrue(loaded.rotated());
+    assertEquals(2, loaded.members().size());
+    assertEquals(old.digest(), loaded.members().get(0).digest());
+    assertArrayEquals(old.marks(), loaded.members().get(0).marks());
+    assertEquals(old.comments(), loaded.members().get(0).comments());
+    assertArrayEquals(active.marks(), loaded.members().get(1).marks());
+    Session.Tab plain = new Session.Tab("/mock/b.log", "", false, new long[] {1, 1});
+    assertTrue(store.save(new Session(List.of(plain), 0)));
+    assertFalse(new SessionStore(location()).load().tabs().get(0).rotated());
+  }
+
+  @Test
+  void recentlyClosedKeepsWhichFilesClosedAsSets() {
+    UiState state =
+        UiState.DEFAULTS
+            .addClosed("/mock/a.log", true)
+            .addClosed("/mock/b.log")
+            .addClosed("/mock/c.log", true);
+    assertEquals(List.of("/mock/a.log", "/mock/c.log"), state.closedSets());
+    ConfigStore store = new ConfigStore(location());
+    assertTrue(store.save(Preferences.DEFAULTS, Preferences.DEFAULTS.withState(state)));
+    UiState loaded = new ConfigStore(location()).load().state();
+    assertEquals(List.of("/mock/c.log", "/mock/b.log", "/mock/a.log"), loaded.closedFiles());
+    assertEquals(List.of("/mock/c.log", "/mock/a.log"), loaded.closedSets());
+    assertEquals(List.of("/mock/a.log"), loaded.removeClosed("/mock/c.log").closedSets());
+    assertEquals(List.of("/mock/c.log"), loaded.addClosed("/mock/a.log").closedSets());
+  }
+
+  @Test
   void eachWindowKeepsItsOwnTabs() {
     SessionStore store = new SessionStore(location());
     Session first = new Session(List.of(new Session.Tab("/mock/a.log", "", false, new long[0])), 0);

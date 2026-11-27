@@ -33,6 +33,7 @@ import io.github.ajdailey.qlogg.core.model.MarkToggle;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
@@ -40,6 +41,7 @@ import io.github.ajdailey.qlogg.core.text.DetectionReason;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -506,6 +508,21 @@ public final class DocumentController extends LineViewController {
     return rows.rowOf(line);
   }
 
+  /** Draws the group rule above each member of a rotated set after the first, in a file tab. */
+  @Override
+  public boolean startsGroup(long line) {
+    return ownsDocument() && RotatedTabs.startsMember(document, line);
+  }
+
+  /**
+   * Names the caret line's member of a rotated set and the line's number in it.
+   *
+   * @return for example {@code app.log.2:1,204}, or empty for one file
+   */
+  public String caretMember() {
+    return RotatedTabs.member(document, sourceLine(selection().caret().line()));
+  }
+
   @Override
   public RowCursor rows() {
     return rows.cursor(document.index().lineCount());
@@ -941,6 +958,16 @@ public final class DocumentController extends LineViewController {
    */
   void takeHistory(DocumentController old) {
     history.takeOver(old.history);
+    navigationChanged();
+  }
+
+  /**
+   * Moves the navigation history through a rotated set's line map, after {@link #takeHistory}.
+   *
+   * @param map the map, or null to keep it
+   */
+  void mapHistory(LineMap map) {
+    history.map(map);
     navigationChanged();
   }
 
@@ -1390,7 +1417,7 @@ public final class DocumentController extends LineViewController {
 
   private DocumentViewState buildState(DocumentStatus status) {
     return new DocumentViewState(
-        document.name(),
+        RotatedTabs.title(document),
         document.inMemory() ? "" : document.path().toString(),
         document.encoding().charset().name(),
         document.detection().reason() == DetectionReason.FORCED,
@@ -1404,6 +1431,8 @@ public final class DocumentController extends LineViewController {
         status.missing(),
         status.loadingStopped(),
         status.reopenWaiting(),
-        failure);
+        failure,
+        RotatedTabs.tooltip(document, ZoneId.systemDefault()),
+        RotatedTabs.note(document));
   }
 }

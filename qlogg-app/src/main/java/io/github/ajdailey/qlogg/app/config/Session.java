@@ -29,6 +29,9 @@ public record Session(
    * @param comments the marks' comments, ascending by line
    * @param timeOffset the tab's time offset in nanoseconds
    * @param syncGroup the tab's time sync group number, or 0
+   * @param rotated true when the tab showed the rotated set of {@code path}
+   * @param members a rotated tab's marks and comments per member; {@code marks} and {@code
+   *     comments} are then empty
    */
   public record Tab(
       String path,
@@ -37,13 +40,38 @@ public record Session(
       long[] marks,
       List<MarkComments.Comment> comments,
       long timeOffset,
-      int syncGroup) {
-    /** Checks the components and copies the comments. */
+      int syncGroup,
+      boolean rotated,
+      List<MemberMarks> members) {
+    /** Checks the components and copies the lists. */
     public Tab {
       if (path == null || name == null || marks == null || marks.length % 2 != 0) {
         throw new IllegalArgumentException("path, name and paired marks are required");
       }
       comments = List.copyOf(comments);
+      members = List.copyOf(members);
+    }
+
+    /**
+     * Creates a tab of one file.
+     *
+     * @param path the file's path
+     * @param name the name set by Rename Tab, or empty
+     * @param follow true when the tab followed its file
+     * @param marks marked line ranges as pairs of first and last 0-based line, ascending
+     * @param comments the marks' comments, ascending by line
+     * @param timeOffset the tab's time offset in nanoseconds
+     * @param syncGroup the tab's time sync group number, or 0
+     */
+    public Tab(
+        String path,
+        String name,
+        boolean follow,
+        long[] marks,
+        List<MarkComments.Comment> comments,
+        long timeOffset,
+        int syncGroup) {
+      this(path, name, follow, marks, comments, timeOffset, syncGroup, false, List.of());
     }
 
     /**
@@ -94,6 +122,24 @@ public record Session(
      */
     public Tab(String path, String name, boolean follow, long[] marks) {
       this(path, name, follow, marks, List.of(), 0);
+    }
+  }
+
+  /**
+   * One member's marks in a rotated tab, keyed by the member's content so they find the member
+   * after a roll-over renames it.
+   *
+   * @param digest CRC32C of the member's first 4 KiB ({@code SetFiles.Loaded#headDigest})
+   * @param marks ranges as pairs of first and last 0-based line in the member, ascending
+   * @param comments the marks' comments, lines in the member, ascending
+   */
+  public record MemberMarks(long digest, long[] marks, List<MarkComments.Comment> comments) {
+    /** Checks the ranges and copies the comments. */
+    public MemberMarks {
+      if (marks == null || marks.length % 2 != 0) {
+        throw new IllegalArgumentException("paired marks are required");
+      }
+      comments = List.copyOf(comments);
     }
   }
 

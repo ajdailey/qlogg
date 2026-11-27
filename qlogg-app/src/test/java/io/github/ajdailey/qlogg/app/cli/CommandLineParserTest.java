@@ -36,6 +36,36 @@ class CommandLineParserTest {
   }
 
   @Test
+  void rotatedMarksEveryFileAndAPlainOpenDoesNot() throws Exception {
+    CommandLine plain = parse("-f", "app.log", "+line:3", "b.log");
+    assertEquals(
+        List.of(
+            new FileRequest(CWD.resolve("app.log"), 0), new FileRequest(CWD.resolve("b.log"), 3)),
+        plain.request().files());
+    CommandLine rotated = parse("--rotated", "-f", "app.log", "+line:3", "b.log");
+    assertEquals(
+        List.of(
+            new FileRequest(CWD.resolve("app.log"), 0, true),
+            new FileRequest(CWD.resolve("b.log"), 3, true)),
+        rotated.request().files());
+    assertTrue(rotated.request().follow());
+  }
+
+  @Test
+  void rotatedIsLongOnlyAndTakesNoValue() {
+    for (final String arg : List.of("--rotated=1", "-r")) {
+      assertThrows(
+          CommandLineException.class,
+          new Executable() {
+            @Override
+            public void execute() throws Throwable {
+              parse(arg, "app.log");
+            }
+          });
+    }
+  }
+
+  @Test
   void compactedFlags() throws Exception {
     CommandLine line = parse("-mf", "a.log");
     assertTrue(line.request().multi());
@@ -194,6 +224,7 @@ class CommandLineParserTest {
     for (String option : List.of("--log", "--follow", "--window-width", "--window-height")) {
       assertTrue(usage.contains(option), option);
     }
+    assertTrue(usage.contains("--rotated"));
   }
 
   // A Windows launcher hands a name outside the ANSI code page over with ? in place of those

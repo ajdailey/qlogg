@@ -47,7 +47,8 @@ import org.slf4j.LoggerFactory;
  * at most {@link #MAX_CONNECTIONS} at once; further launches wait in the socket backlog of {@link
  * #BACKLOG}. Authentication and the request run within {@link #EXCHANGE_BOUND}. A peer that fails
  * authentication gets no reply and no file is opened. Each path must be absolute; the {@link
- * Receiver} opens it like a command-line path. A malformed request gets {@code ERR} once the rest
+ * Receiver} opens it like a command-line path; {@code ROTATED 1} before the first {@code OPEN}
+ * marks every file {@link FileRequest#rotated}. A malformed request gets {@code ERR} once the rest
  * of it is read, up to {@code END}.
  *
  * <p>Until {@link #deliverTo} names the {@link Receiver}, each authenticated request stays on its
@@ -418,8 +419,13 @@ public final class InstanceServer implements AutoCloseable {
     if (!follow.equals(Protocol.FOLLOW + "0") && !follow.equals(Protocol.FOLLOW + "1")) {
       return null;
     }
+    boolean rotated = false;
     while (true) {
       String next = line.readLine();
+      if (next.equals(Protocol.ROTATED) && !rotated && files.isEmpty()) {
+        rotated = true;
+        continue;
+      }
       if (next.equals(Protocol.END)) {
         return new Request(follow.endsWith("1"));
       }
@@ -430,7 +436,7 @@ public final class InstanceServer implements AutoCloseable {
       if (request == null) {
         return null;
       }
-      files.add(request);
+      files.add(rotated ? new FileRequest(request.path(), request.line(), true) : request);
     }
   }
 

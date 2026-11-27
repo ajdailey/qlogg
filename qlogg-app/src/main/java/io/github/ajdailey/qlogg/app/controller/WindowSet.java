@@ -716,14 +716,28 @@ public final class WindowSet implements RememberedStateHost {
       for (DraftTab draft : window.tabs()) {
         long[] marks = new long[0];
         List<MarkComments.Comment> tabComments = List.of();
+        boolean rotated = draft.document().files() != null;
+        List<Session.MemberMarks> members = List.of();
         if (draft.document().enter()) {
           try {
-            marks =
-                SessionStore.ranges(
-                    draft.document().marks(), SessionStore.MAX_MARK_RANGES - ranges);
-            tabComments =
-                draft.document().markComments().list(0, SessionStore.MAX_COMMENTS - comments);
-            dropped += draft.document().markComments().size() - tabComments.size();
+            if (rotated) {
+              SetSessions.Saved saved =
+                  SetSessions.save(
+                      draft.document(),
+                      SessionStore.MAX_MARK_RANGES - ranges,
+                      SessionStore.MAX_COMMENTS - comments);
+              members = saved.members();
+              ranges += saved.ranges();
+              comments += saved.comments();
+              dropped += saved.droppedComments();
+            } else {
+              marks =
+                  SessionStore.ranges(
+                      draft.document().marks(), SessionStore.MAX_MARK_RANGES - ranges);
+              tabComments =
+                  draft.document().markComments().list(0, SessionStore.MAX_COMMENTS - comments);
+              dropped += draft.document().markComments().size() - tabComments.size();
+            }
           } finally {
             draft.document().exit();
           }
@@ -738,7 +752,9 @@ public final class WindowSet implements RememberedStateHost {
                 marks,
                 tabComments,
                 draft.timeOffset(),
-                draft.syncGroup()));
+                draft.syncGroup(),
+                rotated,
+                members));
       }
       sessions.add(new Session(tabs, window.active(), dropped, window.onTop(), window.window()));
     }

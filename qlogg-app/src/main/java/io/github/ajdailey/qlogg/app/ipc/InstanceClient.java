@@ -37,7 +37,8 @@ public final class InstanceClient {
    * Hands files to the primary instance.
    *
    * @param directory the settings directory
-   * @param files absolute paths, at most {@link Protocol#MAX_OPEN}
+   * @param files absolute paths, at most {@link Protocol#MAX_OPEN}; a {@code rotated} first file
+   *     sends {@code ROTATED 1}, which a primary without rotated sets answers with ERR
    * @param follow {@code -f}
    * @throws IOException when any step fails or the primary answers ERR; the files are then not
    *     known to have reached it
@@ -51,7 +52,8 @@ public final class InstanceClient {
    * Hands files to the primary instance.
    *
    * @param directory the settings directory
-   * @param files absolute paths, at most {@link Protocol#MAX_OPEN}
+   * @param files absolute paths, at most {@link Protocol#MAX_OPEN}; a {@code rotated} first file
+   *     sends {@code ROTATED 1}, which a primary without rotated sets answers with ERR
    * @param follow {@code -f}
    * @param bound the longest exchange
    * @throws IOException when any step fails or the primary answers ERR; the files are then not
@@ -86,6 +88,9 @@ public final class InstanceClient {
           Protocol.AUTH
               + Protocol.encode(Protocol.proof(endpoint.token(), "client", nonceS, nonceC)));
       line.writeLine(Protocol.FOLLOW + (follow ? "1" : "0"));
+      if (!files.isEmpty() && files.get(0).rotated()) {
+        line.writeLine(Protocol.ROTATED);
+      }
       for (FileRequest file : files) {
         line.writeLine(
             Protocol.OPEN

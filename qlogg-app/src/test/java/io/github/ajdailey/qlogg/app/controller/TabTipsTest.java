@@ -47,6 +47,14 @@ class TabTipsTest {
   }
 
   @Test
+  void aSetListsItsFilesAfterThePath() {
+    String members = "app.log.1  2 KiB  2026-11-26 10:00:00\napp.log  1 KiB  2026-11-27 10:00:00";
+    assertEquals(
+        PATH + "\n" + members + "\nNew lines",
+        TabTips.text(PATH, members, TabDataState.NEW_LINES, 0));
+  }
+
+  @Test
   void everyAmpersandInTheFinalTextIsDoubled() {
     assertEquals("a&&b && c.log", TabTips.text("a&b & c.log", TabDataState.NONE, 0));
     assertEquals(

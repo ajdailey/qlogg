@@ -4,13 +4,16 @@ import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.function.BooleanSupplier;
 
 /**
  * The file state behind a {@link LogDocument}: the bytes, the line index, background indexing, the
@@ -18,7 +21,8 @@ import java.time.Duration;
  * the bytes enters. {@link SingleFileContent} holds one file or pasted text, {@link RotatedContent}
  * a rotated set. {@link LogDocument} keeps the marks, the reader settings, the listeners and the
  * close sequence, and checks its own closed state before it calls {@link #startIndexing} or {@link
- * #startWatching}. Thread-safe; every method except {@link #close} returns without I/O.
+ * #startWatching}. Thread-safe; every method except {@link #close} and {@link #memberBases} returns
+ * without I/O.
  */
 interface DocumentContent {
   /**
@@ -115,6 +119,22 @@ interface DocumentContent {
    * @return the map, or null before one and for content that never reports it
    */
   LineMap lineMap();
+
+  /**
+   * Returns a rotated set's files.
+   *
+   * @return the files, or null for one file
+   */
+  SetFiles files();
+
+  /**
+   * Counts the lines of every member but the last as the set's index will. Blocking.
+   *
+   * @param closing true ends the count with an {@link IOException}
+   * @return each member's first line, member 0 first; {@code {0}} for one file
+   * @throws IOException when a read fails or {@code closing} is true
+   */
+  long[] memberBases(BooleanSupplier closing) throws IOException;
 
   /**
    * Returns the current state.

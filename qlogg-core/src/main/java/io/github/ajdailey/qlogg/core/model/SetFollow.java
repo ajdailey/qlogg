@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.core.model;
 
 import io.github.ajdailey.qlogg.core.rotate.LeftOut;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.rotate.Member;
 import io.github.ajdailey.qlogg.core.rotate.MemberNames;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
@@ -47,6 +48,7 @@ final class SetFollow {
   private final AtomicBoolean started = new AtomicBoolean();
   private volatile DocumentListener events;
   private volatile List<LeftOut> leftOut;
+  private volatile List<Member> listed;
   private volatile LineMap lineMap;
   private volatile long fileBytes;
   private volatile long modifiedMillis;
@@ -87,6 +89,7 @@ final class SetFollow {
     this.ignoreCase = ignoreCase;
     this.keepClosed = keepClosed;
     this.leftOut = set.leftOut();
+    this.listed = set.members();
     this.rollOver =
         new RollOver(
             detection.encoding(),
@@ -165,6 +168,11 @@ final class SetFollow {
     return leftOut;
   }
 
+  /** Returns the members of the last listing, with their sizes and modification times. */
+  List<Member> listed() {
+    return listed;
+  }
+
   private void check() {
     if (stale || !operations.enter()) {
       return;
@@ -228,6 +236,7 @@ final class SetFollow {
             ignoreCase,
             detection);
     leftOut = now.leftOut();
+    listed = now.members();
     RollOver.Plan plan = rollOver.plan(bytes.layout().members(), content.indexedMembers(), now);
     switch (plan.kind()) {
       case ROLLED -> {

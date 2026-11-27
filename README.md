@@ -31,6 +31,7 @@ plugins.
 | Large files | Any size and line count; content stays on disk while indexing runs in the background, and the first lines show at once | [Opening files](docs/user-guide.md#opening-files) |
 | Opening | Command line, File > Open, Recent Files and Recently Closed with Open All, Reopen Closed Tab, Favorites, drop on the window, clipboard text (up to 16 MiB, in memory); reload keeps marks and labels | [Opening files](docs/user-guide.md#opening-files), [Recent files](docs/user-guide.md#sessions-recent-files-and-favorites) |
 | Following | Follow a growing file; reopen by name after truncation, replacement, rotation or a retargeted link, with retries; Keep file closed, on by default on Windows, for writers that rename over the file | [Following a growing file](docs/user-guide.md#following-a-growing-file) |
+| Rotated files | A log and its rotated files (`app.log.1`, dated names) as one tab that follows the log through rotation, from File > Include Rotated Files or `--rotated` | [Rotated files](docs/user-guide.md#rotated-files) |
 | Encodings | Detection (BOM, UTF-16, UTF-8, windows-1252 fallback) and a forced charset per file | [Opening files](docs/user-guide.md#opening-files) |
 | Search | Regex or literal, match case, whole word, inverse, combined expressions, in selection, start and end lines, auto-refresh, history, predefined filters, search with the selection, quick find, search all open files, search the files of a folder without opening them (exclude globs, ten kept result sets with pin, `F4` steps) | [Search](docs/user-guide.md#search-and-the-filtered-view) |
 | Filtered view | Matches, marks or both, with source line numbers, kept result tabs, context lines and range filters; an overview bar of matches and marks | [Search](docs/user-guide.md#search-and-the-filtered-view) |
@@ -363,13 +364,14 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `-m`, `--multi` | Run as an independent instance: no handoff, and it never replaces the saved session |
 | `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on |
 | `-f`, `--follow` | Follow the files given |
+| `--rotated` | Open each file with its rotated files (`app.log.1`, `app-2026-11-25.log`) as one tab, oldest first; without it a file opens alone |
 | `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; without them, the size at the last exit, else 1024 x 768 |
 | `--window-x <px>`, `--window-y <px>` | Window position; ignored on Wayland, where the compositor places windows, and under GTK 4, which cannot move a window |
 | `--settings <dir>` | Settings directory, created owner-only when missing; holds `qlogg.conf` and QLogg's SWT native cache |
 | `+line:N` | Open the next file at line N, once indexing reaches it; a line past the end goes to the last line |
 | `--gtk4` | `bin/qlogg` only: sets `SWT_GTK4=1` for the experimental GTK 4 backend and is not passed to Java, so `qlogg.jar`, `qlogg.exe` and `qlogg.cmd` reject it |
 | `--` | End of options |
-| `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f` and `+line:N` |
+| `file` | Files to open, a tab each; the last one is shown. Without `-m`, they go to the running instance for the same settings directory, with `-f`, `--rotated` and `+line:N`; a running instance without rotated sets refuses `--rotated`, and the launch opens its own window |
 
 Options combine: `-mf`, `--opt=value`, `-d2`. A command-line error prints a
 message to stderr. Exit statuses:

@@ -489,7 +489,7 @@ final class MainMenuBar {
     List<String> closed = controller.preferences().state().closedFiles();
     int at = 0;
     for (String path : closed) {
-      listedItem(closedMenu, at++, path);
+      listedItem(closedMenu, at++, path, true);
     }
     if (closed.isEmpty()) {
       MenuItem none = new MenuItem(closedMenu, SWT.PUSH, at++);
@@ -537,7 +537,12 @@ final class MainMenuBar {
     }
   }
 
-  private void listedItem(Menu menu, int index, final String path) {
+  private void listedItem(Menu menu, int index, String path) {
+    listedItem(menu, index, path, false);
+  }
+
+  /** Adds a listed path; a Recently Closed item opens a file closed as a rotated set as one. */
+  private void listedItem(Menu menu, int index, final String path, final boolean closed) {
     MenuItem item = new MenuItem(menu, SWT.PUSH, index);
     item.setText(path.replace("&", "&&"));
     item.setData(LISTED);
@@ -546,7 +551,11 @@ final class MainMenuBar {
         new Listener() {
           @Override
           public void handleEvent(Event event) {
-            controller.openListed(path);
+            if (closed) {
+              controller.openClosed(path);
+            } else {
+              controller.openListed(path);
+            }
           }
         });
   }

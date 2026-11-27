@@ -8,8 +8,8 @@ import java.util.Locale;
 
 /**
  * The document fields: file size, its tooltip's modification time and encoding for the top row, and
- * the indexing, follow, missing-file, stopped-loading, sparse-index and failure notes for the
- * status bar.
+ * the indexing, follow, missing-file, stopped-loading, sparse-index, rotated-set and failure notes
+ * for the status bar.
  */
 public final class StatusText {
   /** Separates the notes. */
@@ -69,6 +69,9 @@ public final class StatusText {
     }
     if (state.sparseIndex()) {
       note(text, UiText.STATUS_SPARSE_INDEX.text());
+    }
+    if (!state.setNote().isEmpty()) {
+      note(text, state.setNote());
     }
     if (state.error() != null) {
       note(text, state.error());

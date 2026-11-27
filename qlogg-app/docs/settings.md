@@ -95,7 +95,7 @@ Two settings can hold text taken from a log:
 | `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors`, `view.columns.auto` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab`, `tabs.closeShowsLastUsed` | `OptionsFile` |
-| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
+| `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `closed.N.rotated`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
 
 `FoldRulesText.parse` checks the Preferences Folding tab's text. Blank lines are
 dropped and other lines kept as typed. Every pattern must compile; at most 64
@@ -135,6 +135,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `recent.count` | 1 to 50: files File > Recent Files keeps | 20 | Tools > Preferences, General |
 | `recent.N` | Recent file paths, most recent first ([saved paths](#saved-paths)) | none | Each opened file; File > Recent Files > Clean Up, Clear Recent Files |
 | `closed.N` | Closed file paths, most recent first, at most 20 ([saved paths](#saved-paths)) | none | Each closed tab; File > Recently Closed > Clear Recently Closed |
+| `closed.N.rotated` | `1`: `closed.N` closed as a rotated set and reopens as one | none | Each closed set tab |
 | `favorite.N` | Favorite file paths, at most 100 ([saved paths](#saved-paths)) | none | File > Favorites |
 | `monitor.pollMillis`, `monitor.watchService` | 100 to 60000 ms between checks of a file; also check on directory change events | 1000; `false` on macOS, `true` elsewhere | Tools > Preferences, File |
 | `encoding.default` | The charset detection falls back to; one that can encode | `windows-1252` | Tools > Preferences, File |
@@ -185,7 +186,7 @@ last saved file stays, so a load never finds a file over its cap.
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose, and the column choices (`.columns`: a format id or `none`; `.header`: `1` or `0`), each written only once chosen (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known, kept from before View > Full Screen; malformed reads as unknown), `.maximized` (when on, or on before full screen); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known, kept from before View > Full Screen; malformed reads as unknown), `.maximized` (when on, or on before full screen); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group), `.rotated` (`1` for a rotated set), `.rmarks.K` and `.rcomment.K` (a set's marks and comments per member, below); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.
@@ -195,6 +196,17 @@ written empty and atomically (`AtomicFiles`) on the UI thread when `UiFailures`
 quits, and rewritten as the line `noticeShown` once a launch shows the notice.
 Other content reads as not shown. `SettingsFile` does not handle it, so it is
 written even after a session or position store disabled saving.
+
+A rotated set's tab keeps no `.marks` or `.comment.K`: `SetSessions` splits its
+marks by member, keyed by the CRC32C of the member's first 4 KiB in hex, since
+a rotation between sessions renames every member. `.rmarks.K` holds the digest,
+a space and the member's ranges in member lines; `.rcomment.K` the digest, the
+member line and the text. A restore counts the members' lines before indexing
+and adds each key's marks at its member's first line; a key no member has is
+dropped, and one notice counts its marks. Both caps count these entries.
+`PositionStore` keeps no position for a set, whose line numbers move at every
+roll-over; the forced charset and timestamp format stay in the base file's
+entry.
 
 A session's marks go into `MutableLineSet`s charged to the `RESULTS` share. A
 refusal keeps the earlier marks and shows a notice.

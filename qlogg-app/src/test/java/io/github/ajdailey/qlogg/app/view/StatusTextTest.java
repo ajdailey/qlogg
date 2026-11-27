@@ -25,7 +25,9 @@ class StatusTextTest {
         missing,
         stopped,
         false,
-        null);
+        null,
+        "",
+        "");
   }
 
   @Test

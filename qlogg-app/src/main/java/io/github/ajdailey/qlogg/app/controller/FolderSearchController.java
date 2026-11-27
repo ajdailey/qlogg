@@ -386,9 +386,10 @@ public final class FolderSearchController {
 
   /**
    * Shows a listed line: selects the tab that shows the file, by the path searched or its real
-   * path, or opens the file in a new tab, and goes to the line. The next step starts there. While
-   * the file opens, a later line of the same file replaces the line the new tab goes to instead of
-   * opening the file again, for {@link #OPEN_WAIT_NANOS} or until that open fails.
+   * path, or the rotated set tab that loads it at the member's first line plus the line, or opens
+   * the file in a new tab, and goes to the line. The next step starts there. While the file opens,
+   * a later line of the same file replaces the line the new tab goes to instead of opening the file
+   * again, for {@link #OPEN_WAIT_NANOS} or until that open fails.
    *
    * @param file a listed file
    * @param hit the listed line, from 0 to {@link FileHits#size} - 1
@@ -399,7 +400,16 @@ public final class FolderSearchController {
     long line = file.line(hit) + 1;
     Path path = file.path();
     for (DocumentController document : host.documents()) {
-      if (path.equals(document.document().path()) || path.equals(document.document().realPath())) {
+      if (document.document().files() != null) {
+        long at = RotatedTabs.setLine(document.document(), path, line - 1);
+        if (at >= 0 && document.ownsDocument()) {
+          opening = null;
+          host.activate(document);
+          document.goToLine(at + 1);
+          return;
+        }
+      } else if (path.equals(document.document().path())
+          || path.equals(document.document().realPath())) {
         opening = null;
         host.activate(document);
         document.goToLine(line);

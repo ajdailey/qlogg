@@ -29,6 +29,7 @@ final class OptionsFile {
   static final String RECENT = "recent.";
   // Recently Closed.
   static final String CLOSED = "closed.";
+  private static final String ROTATED = ".rotated";
   static final String POLL = "monitor.pollMillis";
   static final String WATCH = "monitor.watchService";
   static final String ENCODING = "encoding.default";
@@ -181,6 +182,7 @@ final class OptionsFile {
         dialogs.put(name, new UiState.Size(width, height));
       }
     }
+    List<String> closed = list(p, CLOSED, UiState.MAX_CLOSED, paths);
     return new UiState(
         window,
         split,
@@ -190,7 +192,8 @@ final class OptionsFile {
         paths.read(p.getProperty(OPEN_DIRECTORY, "")),
         list(p, RECENT, Options.MAX_RECENT, paths),
         dialogs,
-        list(p, CLOSED, UiState.MAX_CLOSED, paths),
+        closed,
+        closedSets(p, paths),
         folderSearch(p, file, paths));
   }
 
@@ -267,6 +270,11 @@ final class OptionsFile {
     p.setProperty(OPEN_DIRECTORY, paths.write(state.openDirectory()));
     storeList(p, RECENT, state.recentFiles(), paths);
     storeList(p, CLOSED, state.closedFiles(), paths);
+    for (int i = 0; i < state.closedFiles().size(); i++) {
+      if (state.closedSets().contains(state.closedFiles().get(i))) {
+        p.setProperty(CLOSED + i + ROTATED, "1");
+      }
+    }
     for (Map.Entry<String, UiState.Size> entry : state.dialogs().entrySet()) {
       p.setProperty(DIALOG + entry.getKey() + ".width", Integer.toString(entry.getValue().width()));
       p.setProperty(
@@ -314,6 +322,18 @@ final class OptionsFile {
     }
     p.setProperty(key, paths.write(paths.read(value)));
     return true;
+  }
+
+  /** The {@code closed.N} entries with {@code closed.N.rotated=1}. */
+  private static List<String> closedSets(Properties p, InstallPaths paths) {
+    List<String> sets = new ArrayList<String>();
+    for (int i = 0; i < UiState.MAX_CLOSED && p.getProperty(CLOSED + i) != null; i++) {
+      String value = p.getProperty(CLOSED + i);
+      if (!value.isEmpty() && "1".equals(p.getProperty(CLOSED + i + ROTATED, "").strip())) {
+        sets.add(paths.read(value));
+      }
+    }
+    return sets;
   }
 
   private static List<String> list(Properties p, String prefix, int max, InstallPaths paths) {

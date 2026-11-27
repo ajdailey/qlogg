@@ -14,6 +14,7 @@ import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -57,12 +58,25 @@ final class DocumentOpener {
     /** Pasted text did not open. */
     void pasteFailed(String message);
 
-    /** A tab's file reopened; the listener owns the document and must close it. */
+    /**
+     * A tab's file reopened; the listener owns the document and must close it.
+     *
+     * @param old the tab's controller
+     * @param document the reopened document
+     * @param change the change on disk, or null for a reload
+     * @param carried how the marks reached the document; its map moves the caret and history
+     */
     void reopened(
-        DocumentController old, LogDocument document, FileChange change, boolean marksComplete);
+        DocumentController old, LogDocument document, FileChange change, LineCarry.Carried carried);
 
     /** A tab's file did not reopen; {@code change} is null for a reload. */
     void reopenFailed(DocumentController old, FileChange change, String message);
+
+    /**
+     * A restored rotated set left out marks whose member is no longer in the set; called after the
+     * tab's {@link #opened}.
+     */
+    default void marksLeftOut(Path path, long marks) {}
 
     /** A restored tab carries a Rename Tab name. */
     void restoredName(Path path, String name);
@@ -118,6 +132,14 @@ final class DocumentOpener {
   private final ConfigStore config;
   private final OpenListener listener;
   private final BooleanSupplier keepClosed;
+  private final boolean ignoreCase;
+  private final BooleanSupplier closing =
+      new BooleanSupplier() {
+        @Override
+        public boolean getAsBoolean() {
+          return closed;
+        }
+      };
   private final Set<LogDocument> unclaimed = ConcurrentHashMap.newKeySet();
   // Set on the UI thread before the close sweep; read by workers after adding to unclaimed.
   private volatile boolean closed;
@@ -130,14 +152,17 @@ final class DocumentOpener {
    * @param config the settings store; its {@code PositionStore} holds forced encodings
    * @param listener receives the opened documents
    * @param keepClosed read at each open: true opens the file only for each read
+   * @param os the platform; its file name case rule finds a rotated set's files
    */
   DocumentOpener(
       Workers workers,
       UiDispatcher ui,
       ConfigStore config,
       OpenListener listener,
-      BooleanSupplier keepClosed) {
+      BooleanSupplier keepClosed,
+      OsTraits os) {
     this.keepClosed = keepClosed;
+    this.ignoreCase = os.fileNamesIgnoreCase();
     this.workers = workers;
     this.ui = ui;
     this.config = config;
@@ -207,12 +232,10 @@ final class DocumentOpener {
                           request.line(),
                           follow,
                           null,
-                          null,
-                          0,
-                          0,
                           services,
                           handed,
-                          last);
+                          last,
+                          request.rotated());
                   if (document != null) {
                     delivered = document;
                     lastDelivered = last;
@@ -274,37 +297,43 @@ final class DocumentOpener {
 
   /**
    * Reopens a tab's file on a worker. A reload ({@code change} null) copies the old document's
-   * marks and their comments into the new one on the worker.
+   * marks and their comments into the new one on the worker; a roll-over ({@code ROLLED}) and a
+   * change of {@code rotated} copy them through a {@link LineCarry} map.
    *
    * @param old the tab's controller
    * @param change the change on disk, or null for a reload
+   * @param rotated true to open the rotated set, false for one file
    * @param services the services the document opens with
    * @return false when no worker started, so no listener call follows
    */
   boolean reopen(
-      final DocumentController old, final FileChange change, final DocumentServices services) {
+      final DocumentController old,
+      final FileChange change,
+      final boolean rotated,
+      final DocumentServices services) {
     if (closed) {
       return false;
     }
-    final Path path = old.document().path();
+    final boolean toggled = rotated != (old.document().files() != null);
+    final Path path = LineCarry.reopenPath(old.document(), toggled);
     return workers.tryStart(
         Workers.Kind.INDEX,
         new Runnable() {
           @Override
           public void run() {
             try {
-              final LogDocument document = openRemembered(path, services);
+              final LogDocument document = openRemembered(path, services, rotated);
               if (!register(document)) {
                 return;
               }
-              final boolean marksComplete =
-                  change != null || copyMarksAndComments(old.document(), document);
+              final LineCarry.Carried carried =
+                  LineCarry.carry(old.document(), document, change, toggled, closing);
               deliver(
                   document,
                   new Runnable() {
                     @Override
                     public void run() {
-                      listener.reopened(old, document, change, marksComplete);
+                      listener.reopened(old, document, change, carried);
                     }
                   });
             } catch (IOException e) {
@@ -359,19 +388,16 @@ final class DocumentOpener {
                 LogDocument delivered = null;
                 for (int i = 0; i < tabs.size() && !closed; i++) {
                   Session.Tab tab = tabs.get(i);
-                  long[] marks = tab.marks().length > 0 ? tab.marks() : null;
                   LogDocument document =
                       load(
                           paths.get(i),
                           0,
                           tab.follow(),
-                          marks,
-                          tab.comments(),
-                          tab.timeOffset(),
-                          tab.syncGroup(),
+                          tab,
                           services,
                           false,
-                          false);
+                          false,
+                          tab.rotated());
                   if (document != null) {
                     delivered = document;
                   }
@@ -453,13 +479,11 @@ final class DocumentOpener {
   }
 
   /**
-   * Opens a file and adds session marks and their comments; runs on a worker.
+   * Opens a file and adds a restored tab's marks and their comments; runs on a worker.
    *
-   * @param marks session mark ranges, or null
-   * @param comments the marks' comments, or null
-   * @param timeOffset the restored tab's time offset, or 0
-   * @param syncGroup the restored tab's time sync group number, or 0
+   * @param tab the restored tab, or null
    * @param last the delivered {@link Opening#last}
+   * @param rotated true to open the rotated set
    * @return the document, or null when it did not open or the window closed
    */
   @WorkerThread
@@ -467,25 +491,40 @@ final class DocumentOpener {
       Path path,
       long line,
       boolean follow,
-      long[] marks,
-      List<MarkComments.Comment> comments,
-      long timeOffset,
-      int syncGroup,
+      Session.Tab tab,
       DocumentServices services,
       boolean handed,
-      boolean last) {
+      boolean last,
+      boolean rotated) {
     try {
-      final LogDocument document = openRemembered(path, services);
+      final LogDocument document = openRemembered(path, services, rotated);
       if (!register(document)) {
         return null;
       }
-      boolean marksComplete = marks == null || SessionStore.addRanges(marks, document.marks());
-      if (marks != null && comments != null) {
-        marksComplete &= document.markComments().addAll(comments, document.marks());
+      boolean copied = false;
+      boolean marksComplete = true;
+      long leftOut = 0;
+      if (tab != null && tab.marks().length > 0) {
+        copied = true;
+        marksComplete = SessionStore.addRanges(tab.marks(), document.marks());
+        marksComplete &= document.markComments().addAll(tab.comments(), document.marks());
+      }
+      if (tab != null && !tab.members().isEmpty()) {
+        copied = true;
+        SetSessions.Restored restored = SetSessions.restore(document, tab.members(), closing);
+        marksComplete &= restored.complete();
+        leftOut = restored.droppedMarks();
       }
       final Opening opening =
           new Opening(
-              line, follow, marks != null, marksComplete, handed, timeOffset, syncGroup, last);
+              line,
+              follow,
+              copied,
+              marksComplete,
+              handed,
+              tab == null ? 0 : tab.timeOffset(),
+              tab == null ? 0 : tab.syncGroup(),
+              last);
       deliver(
           document,
           new Runnable() {
@@ -494,6 +533,17 @@ final class DocumentOpener {
               listener.opened(document, opening);
             }
           });
+      if (leftOut > 0) {
+        final Path shown = document.path();
+        final long marks = leftOut;
+        post(
+            new Runnable() {
+              @Override
+              public void run() {
+                listener.marksLeftOut(shown, marks);
+              }
+            });
+      }
       return document;
     } catch (IOException e) {
       LOG.warn("Cannot open {}: {}", LogText.oneLine(path), LogText.oneLine(e.getMessage()));
@@ -587,16 +637,27 @@ final class DocumentOpener {
   }
 
   /**
-   * Opens a file with its remembered encoding override; a remembered timestamp format skips the
-   * format detection.
+   * Opens a file, or the rotated set it belongs to, with its remembered encoding override; a
+   * remembered timestamp format skips the format detection. A set reads the base file's entry.
    */
   @WorkerThread
-  private LogDocument openRemembered(Path path, DocumentServices services) throws IOException {
+  private LogDocument openRemembered(Path path, DocumentServices services, boolean rotated)
+      throws IOException {
+    Path key = rotated ? RotatedTabs.base(path, ignoreCase) : path;
     PositionStore.Entry entry;
     try {
-      entry = config.positions().get(SafePaths.logPath(path, services.heldLock()).given());
+      entry = config.positions().get(SafePaths.logPath(key, services.heldLock()).given());
     } catch (IOException e) {
       entry = PositionStore.Entry.NONE;
+    }
+    if (rotated) {
+      return LogDocument.openRotated(
+          path,
+          forcedEncoding(key, entry),
+          services,
+          entry.timeFormat().isEmpty(),
+          keepClosed.getAsBoolean(),
+          ignoreCase);
     }
     return LogDocument.open(
         path,

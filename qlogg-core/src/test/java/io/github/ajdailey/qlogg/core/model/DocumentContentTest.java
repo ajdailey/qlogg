@@ -20,6 +20,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.rotate.SetFiles;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
@@ -39,6 +40,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -216,6 +218,16 @@ class DocumentContentTest {
     @Override
     public LineMap lineMap() {
       return map;
+    }
+
+    @Override
+    public SetFiles files() {
+      return null;
+    }
+
+    @Override
+    public long[] memberBases(BooleanSupplier closing) {
+      return new long[] {0};
     }
 
     @Override

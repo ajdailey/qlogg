@@ -96,6 +96,7 @@ C: QLOGG 1 HELLO nonceC
 S: QLOGG 1 PROOF nonceS HMAC(token, "server" nonceC nonceS)
 C: AUTH HMAC(token, "client" nonceS nonceC)
 C: FOLLOW 0|1
+C: ROTATED 1                            (only with --rotated)
 C: OPEN base64url(UTF-8 path) line      (repeated, at most 256; line 0 = none)
 C: END
 S: OK | ERR
@@ -107,6 +108,9 @@ S: OK | ERR
   without the token. The server sends nothing after a wrong `AUTH`.
 - Lines are printable ASCII up to 16 KiB, at most 1 MiB per connection. Each
   path must be absolute.
+- `ROTATED 1` marks every file of the request `FileRequest.rotated`. A primary
+  that predates it reads it as a malformed line and answers `ERR`, so the
+  launch opens its own window.
 - A malformed request (a bad `FOLLOW` or `OPEN` line, more than 256 `OPEN`
   lines) gets `ERR` after the server reads its remaining lines up to `END`: a
   socket closed with unread bytes sends a reset, and on Windows the reset
