@@ -129,6 +129,7 @@ function Wait-Until([scriptblock] $Condition, [string] $Message) {
 }
 
 $defaultVerbs = @{ '.log' = [Assoc]::Command('.log'); '.txt' = [Assoc]::Command('.txt') }
+& .github\scripts\diag-verbs.ps1
 Write-Output "default verbs before any install: .log [$($defaultVerbs['.log'])] .txt [$($defaultVerbs['.txt'])]"
 
 function Test-Scope([string] $Scope) {
