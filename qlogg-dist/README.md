@@ -212,8 +212,11 @@ release date):
   with `SOURCE_DATE_EPOCH` set, which cannot reach `ld` inside the Maven JVM.
 
 The jlink runtimes and the ad-hoc rcodesign signature hold no build time.
-jlink runs under `LC_ALL=C.UTF-8`: under a non-UTF-8 locale it writes a
-different `lib/modules`. `.github/scripts/check-reproducible.sh` builds twice,
+jlink runs under `LC_ALL=C.UTF-8` and `-J-Xshare:off`: under a non-UTF-8 locale,
+or with another CDS archive in the build JDK, it writes a different
+`lib/modules`. The CDS archive decides whether the classes jlink generates
+carry a `SourceFile` attribute, and the Temurin container image's
+`classes.jsa` differs from the release archive's. `.github/scripts/check-reproducible.sh` builds twice,
 the second time under another time zone, umask and locale, and compares the SHA-256 of every archive,
 `qlogg.exe` and module jar. The version is part of the output: two builds
 compare equal only with the same `-Drevision`, so the `release` job passes the
