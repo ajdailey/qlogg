@@ -298,7 +298,8 @@ public static class TokenInfo {
     IntPtr buffer = Marshal.AllocHGlobal(256);
     try {
       int returned;
-      if (!GetTokenInformation(token, infoClass, buffer, 256, out returned)) { throw new Win32Exception(); }
+      // TokenElevation takes exactly its DWORD's length.
+      if (!GetTokenInformation(token, infoClass, buffer, infoClass == 25 ? 256 : 4, out returned)) { throw new Win32Exception(); }
       if (infoClass != 25) { return Marshal.ReadInt32(buffer); }
       IntPtr sid = Marshal.ReadIntPtr(buffer);
       int count = Marshal.ReadByte(GetSidSubAuthorityCount(sid));
