@@ -295,8 +295,10 @@ The all-users and current-user installs add a Start menu shortcut, Open With
 for `.log` and `.txt` (never the default program) and an Installed apps entry,
 Open in QLogg on the Explorer right-click menu of every file unless the
 components page clears it (on Windows 11 under Show more options), and a
-desktop shortcut when chosen on the finish page. Uninstalling removes them and
-keeps the settings in `%APPDATA%\QLogg`. Running setup again upgrades
+desktop shortcut when chosen on the finish page. Installed apps lists an
+all-users install as QLogg and a current-user install as QLogg (current
+user). Uninstalling removes them and keeps the settings in `%APPDATA%\QLogg`.
+Running setup again upgrades
 in place, release candidates included; over a portable folder it keeps
 `portable.txt` and the settings. A regular install refuses a folder holding
 `portable.txt` or `qlogg.conf`. Setup starts without administrator rights, and
@@ -309,7 +311,8 @@ Silent setup takes `/S` with `/MACHINE`, `/USER` or `/PORTABLE`, `/DESKTOP`
 for the desktop shortcut (ignored for portable), `/NOEXPLORERMENU` to leave out
 Open in QLogg, and `/D=<folder>` last and
 unquoted; `/S` alone installs for the current user. It never starts QLogg. It
-exits 2 when the folder is refused. `/MACHINE` needs an elevated caller, such
+exits 2 when the folder is refused, and 3 for the current user when Windows
+gives the account no `%LOCALAPPDATA%`. `/MACHINE` needs an elevated caller, such
 as an administrator command prompt; otherwise setup exits 5 and writes the
 reason to standard error, without a UAC prompt. `"<folder>\uninstall.exe" /S`
 uninstalls silently, with the same rule for an all-users install.

@@ -14,13 +14,18 @@
 # adds Open With and the verb under HKCU, the verb on two selected files hands both to the
 # running QLogg, and /u removes every key. Setup and its uninstaller request asInvoker. A
 # standard local user installs for itself silently at medium integrity, is refused /MACHINE
-# with exit 5 and a message, and uninstalls. No uninstall or /u leaves a Software\Classes\*
-# or *\shell key that was absent before. Run from the repository root with no QLogg installed.
+# with exit 5 and a message, and uninstalls; with its caller's profile variables setup gets no
+# LOCALAPPDATA and refuses a per-user install with exit 3. Both scopes installed side by side
+# give two Installed apps keys, QLogg and QLogg.User, with distinct names, and each uninstaller
+# removes only its own; a per-user install deletes the HKCU QLogg key an earlier version wrote.
+# No uninstall or /u leaves a Software\Classes\* or *\shell key that was absent before. Run from
+# the repository root with no QLogg installed.
 $ErrorActionPreference = 'Stop'
 
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
 $version = (Split-Path -Leaf $setup) -replace '^qlogg-', '' -replace "-$env:TARGET-setup\.exe$", ''
 $uninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
+$userUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg.User'
 $commonDesktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'QLogg.lnk'
 $userDesktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'QLogg.lnk'
 $verbKey = 'Software\Classes\*\shell\QLogg.Open'
@@ -175,6 +180,8 @@ function Test-Scope([string] $Scope) {
     $dir = Join-Path $env:ProgramFiles 'QLogg'
     $shortcut = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'
     $switch = '/MACHINE'
+    $key = $uninstallKey
+    $name = 'QLogg'
     $desktop = $commonDesktop
     $otherDesktop = $userDesktop
   } else {
@@ -182,6 +189,8 @@ function Test-Scope([string] $Scope) {
     $dir = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
     $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'
     $switch = '/USER'
+    $key = $userUninstallKey
+    $name = 'QLogg (current user)'
     $desktop = $userDesktop
     $otherDesktop = $commonDesktop
   }
@@ -192,7 +201,11 @@ function Test-Scope([string] $Scope) {
   $code = Invoke-Setup @('/S', $switch)
   if ($code -ne 0) { throw "$Scope setup exited $code" }
   Assert-NotRunning $dir "silent $Scope setup"
-  $entry = Get-ItemProperty "$hive\$uninstallKey"
+  $entry = Get-ItemProperty "$hive\$key"
+  if ($entry.DisplayName -ne $name) { throw "$Scope DisplayName is $($entry.DisplayName), expected $name" }
+  foreach ($other in @("HKLM:\$uninstallKey", "HKLM:\$userUninstallKey", "HKCU:\$uninstallKey", "HKCU:\$userUninstallKey")) {
+    if ($other -ne "$hive\$key" -and (Test-Path $other)) { throw "$Scope install wrote $other" }
+  }
   if ($entry.InstallLocation -ne $dir) { throw "$Scope InstallLocation is $($entry.InstallLocation), expected $dir" }
   if ($entry.DisplayVersion -ne $version) { throw "$Scope DisplayVersion is $($entry.DisplayVersion), expected $version" }
   if ($entry.DisplayIcon -ne "$dir\qlogg.exe,0") { throw "$Scope DisplayIcon is $($entry.DisplayIcon)" }
@@ -245,7 +258,7 @@ function Test-Scope([string] $Scope) {
   # The uninstaller runs from a copy in %TEMP% and returns at once.
   Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
   Wait-Until { -not (Test-Path $dir) } "$Scope uninstall left $dir"
-  Wait-Until { -not (Test-Path "$hive\$uninstallKey") } "$Scope uninstall left the Installed apps entry"
+  Wait-Until { -not (Test-Path "$hive\$key") } "$Scope uninstall left the Installed apps entry"
   Show-Extensions "after $Scope uninstall:"
   Wait-Until { -not (Test-Path $shortcut) } "$Scope uninstall left $shortcut"
   Wait-Until { -not (Test-Path $desktop) } "$Scope uninstall left $desktop"
@@ -268,6 +281,35 @@ function Test-Scope([string] $Scope) {
 
 Test-Scope 'machine'
 Test-Scope 'user'
+
+# Both scopes side by side, over the HKCU QLogg key a per-user install of an earlier version
+# wrote: the per-user install deletes it, the two entries have distinct names, and each
+# uninstaller removes only its own install and key.
+$machineDir = Join-Path $env:ProgramFiles 'QLogg'
+$userDir = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
+$code = Invoke-Setup @('/S', '/MACHINE')
+if ($code -ne 0) { throw "all-users setup beside a per-user one exited $code" }
+New-Item -Path "HKCU:\$uninstallKey" -Force | Out-Null
+New-ItemProperty -Path "HKCU:\$uninstallKey" -Name 'DisplayName' -Value 'QLogg' | Out-Null
+New-ItemProperty -Path "HKCU:\$uninstallKey" -Name 'InstallLocation' -Value $userDir | Out-Null
+$code = Invoke-Setup @('/S', '/USER')
+if ($code -ne 0) { throw "per-user setup beside an all-users one exited $code" }
+if (Test-Path "HKCU:\$uninstallKey") { throw "per-user setup left the earlier version's HKCU:\$uninstallKey" }
+$machineEntry = Get-ItemProperty "HKLM:\$uninstallKey"
+$userEntry = Get-ItemProperty "HKCU:\$userUninstallKey"
+if ($machineEntry.DisplayName -ne 'QLogg' -or $machineEntry.InstallLocation -ne $machineDir) { throw "side by side, the all-users entry is [$($machineEntry.DisplayName)] at [$($machineEntry.InstallLocation)]" }
+if ($userEntry.DisplayName -ne 'QLogg (current user)' -or $userEntry.InstallLocation -ne $userDir) { throw "side by side, the per-user entry is [$($userEntry.DisplayName)] at [$($userEntry.InstallLocation)]" }
+Start-Process -FilePath (Join-Path $machineDir 'uninstall.exe') -ArgumentList '/S' -Wait
+Wait-Until { -not (Test-Path $machineDir) } "all-users uninstall beside a per-user install left $machineDir"
+Wait-Until { -not (Test-Path "HKLM:\$uninstallKey") } 'all-users uninstall beside a per-user install left its entry'
+if (-not (Test-Path (Join-Path $userDir 'qlogg.exe'))) { throw "all-users uninstall removed the per-user install in $userDir" }
+if ((Get-ItemProperty "HKCU:\$userUninstallKey" -ErrorAction SilentlyContinue).InstallLocation -ne $userDir) { throw 'all-users uninstall removed the per-user entry' }
+Assert-Verb 'HKCU:\Software\Classes' "$userDir\qlogg.exe" 'per-user install after the all-users uninstall'
+Start-Process -FilePath (Join-Path $userDir 'uninstall.exe') -ArgumentList '/S' -Wait
+Wait-Until { -not (Test-Path $userDir) } "per-user uninstall left $userDir"
+Wait-Until { -not (Test-Path "HKCU:\$userUninstallKey") } 'per-user uninstall left its entry'
+Assert-NoNewStarKeys 'side-by-side uninstalls'
+Write-Output "PASS: side by side, the entries QLogg and QLogg (current user) each removed only their own install, and the per-user install deleted the earlier version's HKCU QLogg key"
 
 # A standard user runs standard.ps1 from a folder it can write: setup /S /USER, whose token
 # it reads while setup runs; setup /S /MACHINE with standard error captured; the uninstaller.
@@ -311,8 +353,17 @@ public static class TokenInfo {
   }
 }
 "@
-  # Start-Process -Credential passes the caller's environment; point the profile variables
-  # at this user's profile so setup and the checks use its folders.
+  # Start-Process -Credential passes the caller's environment. With the caller's profile
+  # variables Windows gives setup no LOCALAPPDATA, which a per-user install refuses.
+  $err = Join-Path $PSScriptRoot 'noappdata.err'
+  $process = Start-Process -FilePath (Join-Path $PSScriptRoot 'setup.exe') -ArgumentList '/S', '/USER' -RedirectStandardError $err -PassThru
+  $null = $process.Handle
+  $process.WaitForExit()
+  $result.noAppDataExit = $process.ExitCode
+  $result.noAppDataError = (Get-Content -LiteralPath $err -Raw)
+  $result.noAppDataEntry = Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg.User'
+  $result.noAppDataDir = Test-Path (Join-Path $env:SystemDrive 'Programs\QLogg')
+  # Point the profile variables at this user's profile so setup and the checks use its folders.
   $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
   $userHome = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid").ProfileImagePath
   $env:USERPROFILE = $userHome
@@ -326,7 +377,7 @@ public static class TokenInfo {
   $result.localAppData = $env:LOCALAPPDATA
   $setup = Join-Path $PSScriptRoot 'setup.exe'
   $installed = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
-  $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
+  $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg.User'
   $stars = @('HKCU:\Software\Classes\*', 'HKCU:\Software\Classes\*\shell')
   $result.starBefore = @($stars | Where-Object { Test-Path -LiteralPath $_ })
   $result.callerLevel = [TokenInfo]::Query([Diagnostics.Process]::GetCurrentProcess().Handle, 25)
@@ -379,6 +430,9 @@ try {
   Write-Output "standard user result: $(Get-Content -LiteralPath $resultFile -Raw)"
   $result = Get-Content -LiteralPath $resultFile -Raw | ConvertFrom-Json
   if ($result.error) { throw "the standard user script failed: $($result.error)" }
+  if ($result.noAppDataExit -ne 3) { throw "standard user setup /S /USER without LOCALAPPDATA exited $($result.noAppDataExit), expected 3" }
+  if ("$($result.noAppDataError)" -notlike '*no local application data folder*') { throw "standard user setup /S /USER without LOCALAPPDATA wrote [$($result.noAppDataError)] to standard error" }
+  if ($result.noAppDataEntry -or $result.noAppDataDir) { throw 'standard user setup /S /USER without LOCALAPPDATA wrote its entry or \Programs\QLogg' }
   if ($result.callerLevel -ne 0x2000) { throw "the standard user's shell runs at integrity $($result.callerLevel), expected 0x2000" }
   if ($result.setupLevel -ne 0x2000 -or $result.setupElevation -ne 0) { throw "standard user setup ran at integrity $($result.setupLevel), elevation $($result.setupElevation)" }
   if ($result.userExit -ne 0) { throw "standard user setup /S /USER exited $($result.userExit)" }
@@ -398,7 +452,7 @@ try {
     Remove-CimInstance -ErrorAction SilentlyContinue
   Remove-Item -Recurse -Force $shared -ErrorAction SilentlyContinue
 }
-Write-Output 'PASS: a standard user installed for itself at medium integrity without elevation, setup /S /MACHINE exited 5 with its message, and the uninstall left no new * or *\shell key'
+Write-Output 'PASS: a standard user installed for itself at medium integrity without elevation, setup /S /USER with no LOCALAPPDATA exited 3 and /S /MACHINE exited 5 with their messages, and the uninstall left no new * or *\shell key'
 
 # /NOEXPLORERMENU clears the Explorer menu component: an install over one with the verb
 # removes it and keeps Open With, and the default verbs read the same with and without it.
@@ -420,7 +474,7 @@ foreach ($ext in @('.log', '.txt')) {
 }
 Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
 Wait-Until { -not (Test-Path $dir) } "per-user uninstall left $dir"
-Wait-Until { -not (Test-Path "HKCU:\$uninstallKey") } 'per-user uninstall left the Installed apps entry'
+Wait-Until { -not (Test-Path "HKCU:\$userUninstallKey") } 'per-user uninstall left the Installed apps entry'
 Write-Output 'PASS: /NOEXPLORERMENU over a per-user install removed the Explorer menu verb, kept Open With, and left the default verbs as they were with the verb'
 
 # Portable: portable.txt, nothing registered, settings in the folder.
@@ -436,6 +490,7 @@ if (Test-Path $conf) { throw 'portable install wrote qlogg.conf' }
 if (Test-Path (Join-Path $portable 'uninstall.exe')) { throw 'portable install wrote uninstall.exe' }
 foreach ($hive in @('HKLM:', 'HKCU:')) {
   if (Test-Path "$hive\$uninstallKey") { throw "portable install wrote $hive\$uninstallKey" }
+  if (Test-Path "$hive\$userUninstallKey") { throw "portable install wrote $hive\$userUninstallKey" }
   if (Test-Path "$hive\Software\Classes\QLogg.File") { throw "portable install wrote $hive\Software\Classes\QLogg.File" }
 }
 foreach ($shortcut in @((Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\QLogg.lnk'), $commonDesktop, $userDesktop)) {
@@ -473,7 +528,7 @@ New-Item -ItemType File -Path (Join-Path $legacy 'qlogg.conf') | Out-Null
 foreach ($folder in @($portable, $legacy)) {
   $code = Invoke-Setup @('/S', '/USER', "/D=$folder")
   if ($code -ne 2) { throw "a per-user install into $folder exited $code, expected 2" }
-  if (Test-Path "HKCU:\$uninstallKey") { throw "the refused per-user install into $folder wrote its Installed apps entry" }
+  if (Test-Path "HKCU:\$userUninstallKey") { throw "the refused per-user install into $folder wrote its Installed apps entry" }
 }
 if (Test-Path (Join-Path $legacy 'qlogg.exe')) { throw "the refused per-user install wrote into $legacy" }
 $refused = Join-Path $env:ProgramFiles 'QLogg Portable'
