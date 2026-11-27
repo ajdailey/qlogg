@@ -93,6 +93,8 @@ public enum CommandId {
   // Clear Results.
   /** Cancel the shown tab's search and empty its results; kept sets stay. */
   CLEAR_RESULTS(CommandGroup.SEARCH, UiText.COMMAND_CLEAR_RESULTS, false, false),
+  /** Open the shown result set as a filter tab that lists its lines and grows with the file. */
+  FILTER_TO_TAB(CommandGroup.SEARCH, UiText.COMMAND_FILTER_TO_TAB, false, false),
   /** Run the search in every open file. */
   SEARCH_ALL_FILES(CommandGroup.SEARCH, UiText.COMMAND_SEARCH_ALL_FILES, false, false),
   /** Search the files of a folder without opening them. */
@@ -184,6 +186,8 @@ public enum CommandId {
   GO_BACK(CommandGroup.GO, UiText.COMMAND_GO_BACK, true, false),
   /** Go forward to the line Go Back left. */
   GO_FORWARD(CommandGroup.GO, UiText.COMMAND_GO_FORWARD, false, false),
+  /** Show a filter tab's caret line in its parent tab. */
+  LOCATE_SOURCE(CommandGroup.GO, UiText.COMMAND_LOCATE_SOURCE, false, false),
   /** Mark or unmark the selected lines. */
   TOGGLE_MARK(CommandGroup.GO, UiText.COMMAND_TOGGLE_MARK, true, false),
   /** Go to the next mark. */

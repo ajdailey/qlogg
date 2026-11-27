@@ -5,11 +5,13 @@ import java.nio.file.Path;
 /** Receives application events on the UI thread. */
 public interface ApplicationListener {
   /**
-   * A document opened in a new tab after the existing tabs.
+   * A document opened in a new tab: a file tab after the existing tabs, a filter tab right of its
+   * parent and the parent's other filter tabs.
    *
    * @param document its controller
+   * @param index its tab position, 0 first
    */
-  void documentOpened(DocumentController document);
+  void documentOpened(DocumentController document, int index);
 
   /**
    * A document closed; its tab is removed.

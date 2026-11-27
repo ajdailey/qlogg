@@ -182,17 +182,22 @@ modes in table order:
 | Visibility | Rows |
 |---|---|
 | `MARKS_AND_MATCHES` | The matches plus an `Extras` snapshot of the marks that were not matches when it was built; a row's line is a binary search over line values on the sum of the two ranks |
-| `MARKS` | `select` and `rank` on the marks; no context lines |
+| `MARKS` | `select` and `rank` on the marks, or with a domain on a snapshot of the marks in it; no context lines |
 | `MATCHES` | `select` and `rank` on the matches |
 
 ### Extras snapshot
 
 The `Extras` snapshot is a `MutableLineSet` that reserves from `RESULTS`; it is
-partial when the share refuses.
+partial when the share refuses. A view built with a domain (a filter tab's
+rows) lists only the marks among the domain's lines, and its `MARKS` rows are a
+snapshot too.
 
-- `buildExtras` walks the marks in batches (`MutableLineSet.fill`) on a
-  worker; `installExtras` puts it in place and releases the previous one.
-- `extrasStale` reports a change of the marks' `version()` or the matches.
+- `MarkSnapshots.build` walks the marks in batches (`MutableLineSet.fill`) on
+  a worker, leaving out `extrasBasis()` (the matches, none in `MARKS` mode) and
+  the marks outside the domain; `installExtras` puts it in place and releases
+  the previous one.
+- `extrasStale` reports a change of the marks' `version()`, the matches or the
+  domain's size.
 - Until the next snapshot is installed, marks toggled meanwhile are not listed
   and a mark the matches gained meanwhile counts twice.
 

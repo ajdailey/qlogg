@@ -114,8 +114,13 @@ before full screen, so `window.*` and `window.W.*` save the normal bounds.
 ## Tabs
 
 `activate`, `moveDocument`, `closeDocument(document)` and `closeAll` change the
-tabs. Listeners get `documentOpened`, `documentClosed`,
+tabs. `WindowTabs` holds the order, the place of a new tab and the Rename Tab
+names. Listeners get `documentOpened` (with the tab's index), `documentClosed`,
 `activeDocumentChanged`, `documentReplaced` and `tabRenamed`.
+
+- A file tab opens after the last tab. A filter tab opens right of its parent,
+  after the parent's filter tabs at every depth in that window, or last when
+  the parent is in another window.
 
 - Closing the shown tab shows the one after it, else the one before. With
   `tabs.closeShowsLastUsed` on, `TabUse` shows the open tab shown most
@@ -134,8 +139,10 @@ tabs. Listeners get `documentOpened`, `documentClosed`,
   ([Filter tabs](document-views.md#chains-and-closing)).
 - `Ctrl+PageDown` and `Ctrl+PageUp` show the next and previous tab.
 - The tab context menu calls `closeOthers`, `closeSide`, `renameTab`,
-  `resetTabName` and, through `pathCommands()`, the path commands. A tab
-  name is kept per path for the session and saved with it. File > Close
+  `resetTabName` and, through `pathCommands()`, the path commands. A file
+  tab's name is kept per path for the session and saved with it; a filter
+  tab's name is kept per tab, moves to the tab derived again, and is saved
+  with it. File > Close
   Multiple Tabs calls `closeOthers` and `closeSide` on the active tab.
 - Window > Switch to File (`Ctrl+Shift+O`) calls `MainView.showOpenedFiles`.
 
@@ -335,6 +342,9 @@ state, read from an `ApplicationController` on every call, on the UI thread.
 | Recent Files > Open All, Clear Recent Files; Recently Closed > Open All, Clear Recently Closed | - | The list is not empty |
 | Reopen Closed Tab | - | Recently Closed is not empty |
 | Clear Results | - | The shown document's search is not `IDLE` |
+| Filter to Tab | - | The shown set's search ran to its end (`shownRan`) |
+| Locate Source Line | - | The shown tab is a filter tab |
+| Toggle Fold, Fold All, Unfold All | - | The shown tab is a file tab |
 
 `CommandStates` also lists the highlighter sets (`highlightSets`), the open
 files (`openedFiles`) and a tab menu's enabled items (`tabItems`). An ArchUnit

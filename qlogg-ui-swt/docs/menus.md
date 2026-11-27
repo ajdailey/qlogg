@@ -42,7 +42,7 @@ Favorites, Search > Search Options, View > Folding).
   `LOG_VIEW_CASCADES` (`LogCanvas`), `TAB_MENU` (`TabStrip.showTabMenu`),
   `PATH_MENU` (`MainWindow.pathMenu`), `SEARCH_FIELD_MENU` (`SearchBar`) and
   `RESULT_TAB_MENU` (`ResultTabMenu`, a results tab's Close, Close Others and
-  Close All, then Keep Results as a check item).
+  Close All, then Keep Results as a check item and Filter to Tab).
 - Showing a top menu syncs that menu's items and listed entries, no other
   menu's.
 - `syncEnablement` applies every item's enablement on each document open,

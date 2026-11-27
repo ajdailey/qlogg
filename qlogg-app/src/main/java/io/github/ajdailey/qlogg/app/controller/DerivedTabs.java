@@ -24,9 +24,16 @@ final class DerivedTabs {
   private final WindowSet set;
   private final Map<DocumentController, Derivation> derived =
       new LinkedHashMap<DocumentController, Derivation>();
+  private final SessionFilterTabs sessions;
 
   DerivedTabs(WindowSet set) {
     this.set = set;
+    this.sessions = new SessionFilterTabs(this, set);
+  }
+
+  /** Returns the filter tabs' session save and restore. */
+  SessionFilterTabs sessions() {
+    return sessions;
   }
 
   /**
@@ -65,7 +72,7 @@ final class DerivedTabs {
    * @param parent the tab
    */
   void create(final ApplicationController window, final DocumentController parent) {
-    final SearchController.Ran ran = parent.search().shownRan();
+    final RanSearch ran = parent.search().shownRan();
     if (ran == null || parent.isClosed()) {
       window.showNotice(UiText.NOTICE_FILTER_TAB_NOT_DONE.text());
       return;
@@ -87,10 +94,7 @@ final class DerivedTabs {
   }
 
   private void copied(
-      ApplicationController window,
-      DocumentController parent,
-      SearchController.Ran ran,
-      MutableLineSet copy) {
+      ApplicationController window, DocumentController parent, RanSearch ran, MutableLineSet copy) {
     ApplicationController holder = holder(parent);
     if (copy == null) {
       window.showNotice(UiText.NOTICE_FILTER_TAB_MEMORY.text());
@@ -101,8 +105,9 @@ final class DerivedTabs {
       return;
     }
     holder.openDerived(
-        new Derivation(this, parent, ran, copy, set.services().search(), set.ui()),
-        parent.document());
+        new Derivation(this, parent, ran.over(copy), set.services().search(), set.ui()),
+        parent.document(),
+        true);
   }
 
   /**
@@ -176,21 +181,21 @@ final class DerivedTabs {
   }
 
   /**
-   * Shows a filter tab's caret line in its immediate parent: the parent's tab is shown, its window
-   * raised when it is another one, and the move recorded as a jump of the parent's history.
+   * Shows a filter tab's line in its immediate parent: the parent's tab is shown, its window raised
+   * when it is another one, and the move recorded as a jump of the parent's history.
    *
    * @param window the window the command ran in
    * @param tab the filter tab
-   * @return false for a file tab, which has no parent
+   * @param line the root line, the caret line of its main view or filtered view
+   * @return false for a file tab, which has no parent, or no line
    */
-  boolean locate(ApplicationController window, DocumentController tab) {
+  boolean locate(ApplicationController window, DocumentController tab, long line) {
     Derivation link = derived.get(tab);
     if (link == null) {
       return false;
     }
     DocumentController parent = link.parent();
     ApplicationController holder = holder(parent);
-    long line = tab.sourceLine(tab.selection().caret().line());
     if (holder == null || line < 0) {
       return false;
     }
@@ -201,6 +206,24 @@ final class DerivedTabs {
     parent.recordJump();
     parent.showLine(line);
     return true;
+  }
+
+  /**
+   * Reports whether a tab is a filter tab of another at any depth.
+   *
+   * @param tab a tab
+   * @param ancestor another tab
+   * @return true when {@code ancestor} is on {@code tab}'s chain
+   */
+  boolean descends(DocumentController tab, DocumentController ancestor) {
+    Derivation link = derived.get(tab);
+    while (link != null) {
+      if (link.parent() == ancestor) {
+        return true;
+      }
+      link = derived.get(link.parent());
+    }
+    return false;
   }
 
   /** Returns the window holding a tab, or null. */

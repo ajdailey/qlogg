@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.time.ScanProgress;
 import io.github.ajdailey.qlogg.core.time.Stamp;
@@ -41,8 +42,9 @@ import org.slf4j.LoggerFactory;
  * inconsistent bisection ends in the same scan and out-of-order notice. A refused charge leaves the
  * order unknown: the scan runs without that notice. A newer request, {@code Esc} ({@link #cancel})
  * and {@link #detach} cancel the running one, and a result whose generation is not the newest is
- * dropped. The found line turns follow off and shows through {@link DocumentController#showLine};
- * the filtered view's caret moves to the row of that line or the next listed one.
+ * dropped. The found line turns follow off and shows through {@link DocumentController#showLine},
+ * in a filter tab as the last row at or before it, else the first row; the filtered view's caret
+ * moves to the row of that line or the next listed one.
  *
  * <p>{@link #syncTo} is the same search for a move another tab caused: it does not report to the
  * {@link SyncListener}, shows no position or progress notice, and ends when the tab's caret moves
@@ -657,12 +659,19 @@ public final class TimeController {
       if (!quiet) {
         document.recordJump();
       }
-      document.showLine(found.line());
+      document.showLine(rowLine(found.line()));
       document.filtered().showNearest(found.line());
       quiet = false;
     }
     if (found.notice() != null && !request.sync()) {
       document.notifications().showNotice(found.notice().text());
     }
+  }
+
+  /** Returns the found line, or in a filter tab the last row at or before it. */
+  private long rowLine(long line) {
+    LineSet rows = document.rowMap().members();
+    long before = rows == null ? line : rows.floor(line);
+    return before < 0 ? line : before;
   }
 }

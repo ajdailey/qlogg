@@ -70,8 +70,8 @@ public final class StatusText {
     if (state.sparseIndex()) {
       note(text, UiText.STATUS_SPARSE_INDEX.text());
     }
-    if (!state.setNote().isEmpty()) {
-      note(text, state.setNote());
+    if (!state.note().isEmpty()) {
+      note(text, state.note());
     }
     if (state.error() != null) {
       note(text, state.error());

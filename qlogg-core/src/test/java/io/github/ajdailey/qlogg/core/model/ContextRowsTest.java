@@ -172,7 +172,7 @@ class ContextRowsTest {
     if (view.extrasStale()) {
       assertTrue(
           view.installExtras(
-              FilteredView.buildExtras(view.rows(), marks, budget, new CancellationToken())));
+              MarkSnapshots.build(view.rows(), marks, null, budget, new CancellationToken())));
     }
     List<Long> lines = new ArrayList<Long>();
     for (long row = 0; row < view.size(); row++) {

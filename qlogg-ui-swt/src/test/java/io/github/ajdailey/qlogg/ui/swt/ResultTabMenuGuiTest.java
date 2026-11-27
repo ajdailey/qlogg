@@ -89,6 +89,7 @@ class ResultTabMenuGuiTest {
     }
     labels.add(null);
     labels.add(CommandId.TOGGLE_KEEP_RESULTS.label());
+    labels.add(CommandId.FILTER_TO_TAB.label());
     MenuItem[] items = open(pane, pane.sets().getItem(1));
     List<String> shown = new ArrayList<String>();
     for (MenuItem item : items) {
@@ -117,6 +118,26 @@ class ResultTabMenuGuiTest {
     assertEquals(0, document.search().kept().size());
     assertEquals(1, pane.sets().getItemCount());
     assertFalse(open(pane, pane.sets().getItem(0))[2].isEnabled(), "nothing left to close");
+
+    // Filter to Tab on a kept set that is not shown opens a tab of that set's lines.
+    search("line b");
+    controller.execute(CommandId.TOGGLE_KEEP_RESULTS);
+    search("mock");
+    assertEquals(2, pane.sets().getItemCount());
+    select(open(pane, pane.sets().getItem(1))[5]);
+    assertTrue(
+        windows.await(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                DocumentController shown = controller.activeDocument();
+                return controller.documents().size() == 2
+                    && shown != document
+                    && shown.viewport().lineCount() == 1
+                    && shown.sourceLine(0) == 1;
+              }
+            }),
+        "filter tab of the kept set");
   }
 
   /** Shows the menu for a tab and hides it before any dispatch. */

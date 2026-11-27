@@ -363,6 +363,38 @@ class RotatedSetTest {
   }
 
   @Test
+  void aFilterTabOfASetDerivesAgainAfterARollOver() throws Exception {
+    Path base = series();
+    final DocumentController set = openSet(base, "app.log +2");
+    set.search().run("a", LITERAL);
+    fixture.runUntilEnded(set.search());
+    fixture.application.filterToTab(set);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController tab = fixture.application.activeDocument();
+            return tab != set && ControllerFixture.rows(tab).equals(List.of(0L, 3L, 5L));
+          }
+        });
+    final DocumentController tab = fixture.application.activeDocument();
+    assertEquals("app.log +2: a", tab.state().title());
+    // The oldest file leaves: every line moves up 3, and the tab derives again over the new set.
+    Files.delete(base.resolveSibling("app.log.2"));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            List<DocumentController> open = fixture.application.documents();
+            return open.size() == 2
+                && tab.isClosed()
+                && open.get(1).state().title().equals("app.log +1: a")
+                && ControllerFixture.rows(open.get(1)).equals(List.of(0L, 2L));
+          }
+        });
+  }
+
+  @Test
   void sessionMarksFollowTheirFileAcrossARotation() throws Exception {
     Path base = series();
     DocumentController set = openSet(base, "app.log +2");

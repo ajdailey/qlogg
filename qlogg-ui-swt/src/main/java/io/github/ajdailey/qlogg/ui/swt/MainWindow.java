@@ -234,7 +234,7 @@ public final class MainWindow implements MainView, ApplicationListener {
         public void stateChanged(DocumentViewState state) {
           showStatus(state);
           syncToolBar();
-          if (!state.members().isEmpty() && canvas != null) {
+          if (!state.details().isEmpty() && canvas != null) {
             tabStrip.showSet((DocumentController) canvas.document());
           }
         }
@@ -1244,8 +1244,8 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   @Override
-  public void documentOpened(DocumentController document) {
-    tabStrip.add(document, tabStrip.tabs().getItemCount());
+  public void documentOpened(DocumentController document, int index) {
+    tabStrip.add(document, index);
     syncToolBar();
     syncEnablement();
   }

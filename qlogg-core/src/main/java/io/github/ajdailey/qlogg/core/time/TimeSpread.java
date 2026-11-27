@@ -41,7 +41,23 @@ public record TimeSpread(SpreadMode mode, byte[] levels) {
    * @return the levels
    */
   public static TimeSpread of(TimeSamples samples, long[] lines, SpreadMode mode) {
-    if (lines.length != samples.count() || mode == SpreadMode.OFF) {
+    return of(samples, lines, lines, mode);
+  }
+
+  /**
+   * Computes the levels, counting {@link SpreadMode#ACTIVITY}'s units apart from the sampled lines,
+   * as a filter tab counts its rows.
+   *
+   * @param samples one stamp per row boundary, so one more than the rows
+   * @param lines the line at each row boundary, ascending, as many as the samples
+   * @param counts the units before each row boundary, ascending, as many as the samples
+   * @param mode {@link SpreadMode#ACTIVITY} or {@link SpreadMode#PAUSES}
+   * @return the levels
+   */
+  public static TimeSpread of(TimeSamples samples, long[] lines, long[] counts, SpreadMode mode) {
+    if (lines.length != samples.count()
+        || counts.length != lines.length
+        || mode == SpreadMode.OFF) {
       throw new IllegalArgumentException(lines.length + " lines, " + mode);
     }
     byte[] levels = new byte[lines.length - 1];
@@ -54,7 +70,7 @@ public record TimeSpread(SpreadMode mode, byte[] levels) {
           levels[y] = DISORDER;
         } else {
           time += span(samples, y);
-          counted += lines[y + 1] - lines[y];
+          counted += counts[y + 1] - counts[y];
           rows++;
         }
       }
@@ -66,7 +82,7 @@ public record TimeSpread(SpreadMode mode, byte[] levels) {
           double ratio =
               mode == SpreadMode.PAUSES
                   ? span * rows / time
-                  : (lines[y + 1] - lines[y]) * time / (span * counted);
+                  : (counts[y + 1] - counts[y]) * time / (span * counted);
           levels[y] = level(ratio);
         }
       }

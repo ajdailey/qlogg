@@ -130,8 +130,9 @@ public final class MainWindowSlot implements MainView {
     built.onCloseRequest(controller::closeWindow);
     built.setTitle(old.shell().getText());
     state.place(built);
-    for (DocumentController document : controller.documents()) {
-      built.documentOpened(document);
+    List<DocumentController> open = controller.documents();
+    for (int i = 0; i < open.size(); i++) {
+      built.documentOpened(open.get(i), i);
     }
     built.activeDocumentChanged(controller.activeDocument());
     state.open(built);

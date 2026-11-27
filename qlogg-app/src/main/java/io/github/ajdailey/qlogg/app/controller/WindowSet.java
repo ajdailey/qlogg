@@ -630,14 +630,27 @@ public final class WindowSet implements RememberedStateHost {
   /** A window's session tabs, Always on Top flag and bounds captured on the UI thread. */
   record WindowDraft(List<DraftTab> tabs, int active, boolean onTop, WindowState window) {}
 
-  /** A session tab captured on the UI thread; its marks are read on the worker. */
+  /**
+   * A session tab captured on the UI thread; a file tab's marks are read on the worker.
+   *
+   * @param tab the tab's controller
+   * @param derived a filter tab's definition once {@link SessionFilterTabs#link} gave it its
+   *     parent, else null
+   */
   record DraftTab(
       String path,
       String name,
       boolean follow,
       long timeOffset,
       int syncGroup,
-      LogDocument document) {}
+      LogDocument document,
+      DocumentController tab,
+      Session.Derived derived) {
+    /** Returns this tab with a filter tab's definition. */
+    DraftTab withDerived(Session.Derived definition) {
+      return new DraftTab(path, name, follow, timeOffset, syncGroup, document, tab, definition);
+    }
+  }
 
   private SaveSnapshot capture() {
     long sequence = ++captured;
@@ -653,7 +666,7 @@ public final class WindowSet implements RememberedStateHost {
     for (ApplicationController window : windows) {
       drafts.add(placements.draft(window));
     }
-    return new SaveSnapshot(sequence, saved, drafts);
+    return new SaveSnapshot(sequence, saved, derivedTabs.sessions().link(drafts));
   }
 
   /** Writes a snapshot. */
@@ -716,9 +729,10 @@ public final class WindowSet implements RememberedStateHost {
       for (DraftTab draft : window.tabs()) {
         long[] marks = new long[0];
         List<MarkComments.Comment> tabComments = List.of();
-        boolean rotated = draft.document().files() != null;
+        boolean rotated = draft.document().files() != null && draft.derived() == null;
         List<Session.MemberMarks> members = List.of();
-        if (draft.document().enter()) {
+        // A filter tab's marks are its root's.
+        if (draft.derived() == null && draft.document().enter()) {
           try {
             if (rotated) {
               SetSessions.Saved saved =
@@ -754,7 +768,8 @@ public final class WindowSet implements RememberedStateHost {
                 draft.timeOffset(),
                 draft.syncGroup(),
                 rotated,
-                members));
+                members,
+                draft.derived()));
       }
       sessions.add(new Session(tabs, window.active(), dropped, window.onTop(), window.window()));
     }

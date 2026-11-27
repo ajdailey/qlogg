@@ -18,11 +18,13 @@ import java.util.Properties;
  * not saved. Each mark comment is {@code window.W.tab.N.comment.K}, its 0-based line, a space and
  * the text, numbered from 0 without gaps; at most {@link #MAX_COMMENTS} over all tabs are kept. A
  * rotated tab writes {@code .rotated=1} and its marks per member ({@link MemberMarksFile}); both
- * caps count them. {@code droppedComments}, written when not 0, sums the windows' {@link
- * Session#droppedComments} and loads on the first window; a missing, malformed or negative value
- * reads as 0. {@code window.W.onTop} is written when true; {@code window.W.x}, {@code .y}, {@code
- * .width} and {@code .height} each when known (a malformed value reads as unknown), and {@code
- * .maximized} when true. Tab paths pass through {@link InstallPaths}. Blocking; workers call it.
+ * caps count them. A filter tab writes its root's path, name and follow state and its definition
+ * ({@link DerivedTabFile}), no marks. {@code droppedComments}, written when not 0, sums the
+ * windows' {@link Session#droppedComments} and loads on the first window; a missing, malformed or
+ * negative value reads as 0. {@code window.W.onTop} is written when true; {@code window.W.x},
+ * {@code .y}, {@code .width} and {@code .height} each when known (a malformed value reads as
+ * unknown), and {@code .maximized} when true. Tab paths pass through {@link InstallPaths}.
+ * Blocking; workers call it.
  */
 public final class SessionStore {
   /** The file name in the settings directory. */
@@ -118,7 +120,8 @@ public final class SessionStore {
                 offset(p.getProperty(key + "timeOffset", "0")),
                 syncGroup(p.getProperty(key + "syncGroup", "0")),
                 rotated,
-                members));
+                members,
+                DerivedTabFile.read(p, key)));
       }
       int active = -1;
       try {
@@ -220,6 +223,9 @@ public final class SessionStore {
         if (tab.rotated()) {
           p.setProperty(key + "rotated", "1");
           comments += MemberMarksFile.write(p, key, tab.members(), MAX_COMMENTS - comments);
+        }
+        if (tab.derived() != null) {
+          DerivedTabFile.write(p, key, tab.derived());
         }
       }
       count += tabs;

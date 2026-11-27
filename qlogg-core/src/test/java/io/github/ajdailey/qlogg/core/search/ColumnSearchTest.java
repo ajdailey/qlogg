@@ -185,11 +185,27 @@ class ColumnSearchTest {
     return Pattern.compile(source, flags).matcher(text).find();
   }
 
+  /**
+   * The records a query matches; with {@code held} set, the restriction is the records holding one
+   * of its lines ({@link RecordStarts}), checked against the records' own bounds.
+   */
   private static List<Long> expected(
-      List<Expected> records, ColumnSchema schema, SearchQuery query, TextEncoding encoding) {
+      List<Expected> records,
+      ColumnSchema schema,
+      SearchQuery query,
+      TextEncoding encoding,
+      LineSet held) {
     List<Long> hits = new ArrayList<Long>();
-    for (Expected record : records) {
+    for (int i = 0; i < records.size(); i++) {
+      Expected record = records.get(i);
       long first = record.first();
+      if (held != null) {
+        long next = i + 1 < records.size() ? records.get(i + 1).first() : Long.MAX_VALUE;
+        long member = held.ceiling(first);
+        if (member < 0 || member >= next) {
+          continue;
+        }
+      }
       if (first == 0 && schema.header() && query.records() != null) {
         continue;
       }
@@ -197,7 +213,7 @@ class ColumnSearchTest {
           && (first < query.scope().first() || first >= query.scope().end())) {
         continue;
       }
-      if (query.restriction() != null && !query.restriction().contains(first)) {
+      if (held == null && query.restriction() != null && !query.restriction().contains(first)) {
         continue;
       }
       if (evaluate(query.expression(), record, schema, query, encoding) != query.inverse()) {
@@ -281,6 +297,11 @@ class ColumnSearchTest {
     ColumnSearch columns = new ColumnSearch(schema, CONTEXT, recordLines);
     Random random = new Random(seed);
     List<LineSet> restrictions = restrictions(lines.size(), random);
+    // A filter tab of lines inside records: the records holding them.
+    LineSet held = restrictions.get(1);
+    if (recordLines != null) {
+      restrictions.add(new RecordStarts(held, recordLines));
+    }
     for (MatchMode mode : MatchMode.values()) {
       for (String typed : queries(format, mode)) {
         SearchExpression expression = ExpressionParser.parse(typed, mode, true);
@@ -291,7 +312,13 @@ class ColumnSearchTest {
               new SearchQuery(expression, flags[0], flags[1], flags[2], scope).withColumns(columns);
           for (LineSet restriction : restrictions) {
             SearchQuery query = base.restrictedTo(restriction);
-            List<Long> want = expected(records, schema, query, source.encoding());
+            List<Long> want =
+                expected(
+                    records,
+                    schema,
+                    query,
+                    source.encoding(),
+                    restriction instanceof RecordStarts ? held : null);
             int[] size = sizes[random.nextInt(sizes.length)];
             RecordReference.assertSameStarts(
                 want,

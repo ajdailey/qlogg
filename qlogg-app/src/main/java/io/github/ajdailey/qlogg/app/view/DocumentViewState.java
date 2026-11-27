@@ -3,7 +3,8 @@ package io.github.ajdailey.qlogg.app.view;
 /**
  * What the status bar shows for a document.
  *
- * @param title the file name; a rotated set's base name and its other files' count
+ * @param title the file name; a rotated set's base name and its other files' count; a filter tab's
+ *     root file name and search
  * @param path the full path, or empty for a document with no file
  * @param encodingName the charset name
  * @param encodingForced true when the user chose the encoding, false when it was detected
@@ -18,8 +19,12 @@ package io.github.ajdailey.qlogg.app.view;
  * @param loadingStopped true after stop loading, until the file is reloaded
  * @param reopenWaiting true while a failed reopen waits for the next check of the file
  * @param error a one-line failure message, or null
- * @param members a rotated set's files for the tab tooltip, one per line, or empty
- * @param setNote a rotated set's status bar note about files it does not show, or empty
+ * @param details the tab tooltip's lines after the path: a rotated set's files, or a filter tab's
+ *     searches from its root down; empty for neither
+ * @param note the status bar note: a rotated set's files it does not show, or a filter tab's row
+ *     count; empty for neither
+ * @param rowCount the rows the main view lists: the line count in a file tab, the rows of a filter
+ *     tab
  */
 public record DocumentViewState(
     String title,
@@ -37,8 +42,9 @@ public record DocumentViewState(
     boolean loadingStopped,
     boolean reopenWaiting,
     String error,
-    String members,
-    String setNote) {
+    String details,
+    String note,
+    long rowCount) {
   /**
    * Reports whether a file backs the document, as opposed to pasted text.
    *

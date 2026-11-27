@@ -37,11 +37,12 @@ import org.slf4j.LoggerFactory;
  * the UI thread.
  *
  * <p>With a {@link SpreadMode} other than off and a timestamp format, the same computation samples
- * a stamp at each row boundary after the bins and shades the rows ({@link TimeSpread}). The samples
- * are charged to {@link MemoryShare#HIGHLIGHT} while they are read and the levels while they are
- * kept; a refusal or a read failure shows no spread. A new height, mode, format or zone recomputes
- * at the next computation; growth or a fold change, which shifts the rows' lines, recomputes no
- * sooner than {@link #GROWTH_MILLIS} after the previous spread.
+ * a stamp at each row boundary after the bins and shades the rows ({@link TimeSpread}); activity
+ * counts lines in a file tab and rows in a filter tab. The samples are charged to {@link
+ * MemoryShare#HIGHLIGHT} while they are read and the levels while they are kept; a refusal or a
+ * read failure shows no spread. A new height, mode, format or zone recomputes at the next
+ * computation; growth or a fold change, which shifts the rows' lines, recomputes no sooner than
+ * {@link #GROWTH_MILLIS} after the previous spread.
  */
 public final class OverviewController {
   /** Least interval between spreads computed for growth. */
@@ -203,6 +204,7 @@ public final class OverviewController {
     final LineSet marks = owner.marks();
     final long lineCount = owner.viewport().lineCount();
     final long[] lines = pixelLines(lineCount, height);
+    final long[] counts = pixelCounts(lineCount, height, lines);
     final SpreadRequest sampling = spreadRequest(lineCount);
     final long started = ++generation;
     final CancellationToken token = new CancellationToken();
@@ -212,7 +214,7 @@ public final class OverviewController {
             new Runnable() {
               @Override
               public void run() {
-                compute(matches, marks, lines, token, started, sampling);
+                compute(matches, marks, lines, counts, token, started, sampling);
               }
             });
     if (inFlight) {
@@ -234,6 +236,22 @@ public final class OverviewController {
     }
     lines[pixels] = owner.endOfRow(rows - 1);
     return lines;
+  }
+
+  /**
+   * Returns the units {@link SpreadMode#ACTIVITY} counts before each pixel row's boundary: its line
+   * in a file tab, its row in a filter tab, whose rows are not consecutive lines.
+   */
+  private long[] pixelCounts(long rows, int pixels, long[] lines) {
+    if (rows == 0 || owner.rowMap().members() == null) {
+      return lines;
+    }
+    long[] counts = new long[pixels + 1];
+    for (int y = 0; y < pixels; y++) {
+      counts[y] = OverviewBins.lineAt(y, rows, pixels);
+    }
+    counts[pixels] = rows;
+    return counts;
   }
 
   /** Returns what to sample in this computation, or null when the spread stands. */
@@ -265,6 +283,7 @@ public final class OverviewController {
       LineSet matches,
       LineSet marks,
       long[] lines,
+      long[] counts,
       CancellationToken token,
       final long started,
       final SpreadRequest sampling) {
@@ -275,7 +294,7 @@ public final class OverviewController {
       if (admitted) {
         result = OverviewBins.compute(matches, marks, lines, token);
         if (sampling != null) {
-          levels = sample(sampling, lines, token);
+          levels = sample(sampling, lines, counts, token);
         }
       }
     } catch (CancellationException e) {
@@ -298,7 +317,8 @@ public final class OverviewController {
 
   /** Runs inside the document; a refusal or a read failure returns null. */
   @WorkerThread
-  private TimeSpread sample(SpreadRequest request, long[] lines, CancellationToken token) {
+  private TimeSpread sample(
+      SpreadRequest request, long[] lines, long[] counts, CancellationToken token) {
     long bytes = TimeSamples.bytesFor(lines.length);
     if (!budget.reserve(MemoryShare.HIGHLIGHT, bytes)) {
       return null;
@@ -311,7 +331,7 @@ public final class OverviewController {
               request.index(),
               lines,
               token);
-      return TimeSpread.of(samples, lines, request.mode());
+      return TimeSpread.of(samples, lines, counts, request.mode());
     } catch (IOException | UncheckedIOException e) {
       LOG.debug("Cannot read the time spread: {}", LogText.oneLine(e.getMessage()));
       return null;

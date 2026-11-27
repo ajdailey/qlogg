@@ -17,9 +17,10 @@ import org.eclipse.swt.widgets.MenuItem;
 
 /**
  * A results tab's context menu ({@link MenuTable#RESULT_TAB_MENU}): Close, Close Others and Close
- * All act on the closable tabs as each tab's close button does ({@link ResultsPane#closeTab}), and
- * Keep Results runs {@link CommandId#TOGGLE_KEEP_RESULTS}. One menu serves every tab; each show
- * replaces its items, and the pane's disposal disposes it. Created and used on the UI thread.
+ * All act on the closable tabs as each tab's close button does ({@link ResultsPane#closeTab}), Keep
+ * Results runs {@link CommandId#TOGGLE_KEEP_RESULTS}, and Filter to Tab shows the tab's set and
+ * runs {@link CommandId#FILTER_TO_TAB}. One menu serves every tab; each show replaces its items,
+ * and the pane's disposal disposes it. Created and used on the UI thread.
  */
 final class ResultTabMenu {
   private final ResultsPane pane;
@@ -110,6 +111,20 @@ final class ResultTabMenu {
           @Override
           public void handleEvent(Event event) {
             application.execute(CommandId.TOGGLE_KEEP_RESULTS);
+          }
+        });
+    MenuItem filter = new MenuItem(menu, SWT.PUSH);
+    filter.setText(CommandId.FILTER_TO_TAB.label());
+    filter.addListener(
+        SWT.Selection,
+        new Listener() {
+          @Override
+          public void handleEvent(Event event) {
+            if (!item.isDisposed()) {
+              pane.sets().setSelection(item);
+              pane.sets().notifyListeners(SWT.Selection, new Event());
+              application.filterToTab(document);
+            }
           }
         });
     menu.setLocation(x, y);

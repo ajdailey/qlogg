@@ -73,8 +73,25 @@ public final class ResultTabs {
         shown < 0 ? resultCount : kept.get(shown).lineCount());
   }
 
-  /** A search's text, with a range search's end after it. */
-  private static String label(String text, SearchOptions options) {
+  /**
+   * Returns a search's text as a tab shows it, cut to {@link #MAX_TAB_CHARS}; not mnemonic-escaped.
+   *
+   * @param text the search text
+   * @param options the search's toggles
+   * @return the text, with a range search's end after it
+   */
+  static String shortText(String text, SearchOptions options) {
+    return shorten(label(text, options));
+  }
+
+  /**
+   * Returns a search's text in full, with a range search's end after it; not mnemonic-escaped.
+   *
+   * @param text the search text
+   * @param options the search's toggles
+   * @return the text
+   */
+  static String label(String text, SearchOptions options) {
     return options.range() ? UiText.RESULTS_RANGE.format(text, options.rangeEnd()) : text;
   }
 

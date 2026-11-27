@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -14,6 +15,7 @@ import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import java.io.File;
@@ -24,6 +26,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -31,8 +34,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Filter tabs: rows in root lines, growth along a chain, marks, closing, deriving again after a
- * reload or a change on disk, and Locate Source Line.
+ * Filter tabs: rows in root lines, placement, title and tooltip, growth along a chain, marks,
+ * closing, deriving again after a reload or a change on disk, sessions, command states and Locate
+ * Source Line.
  */
 class FilterTabTest {
   private static final SearchOptions LITERAL =
@@ -97,7 +101,7 @@ class FilterTabTest {
     return found;
   }
 
-  private void waitForRows(final DocumentController tab, final List<Long> rows) throws Exception {
+  private void waitForRows(final LineViewController tab, final List<Long> rows) throws Exception {
     fixture.runUntil(
         new BooleanSupplier() {
           @Override
@@ -298,5 +302,165 @@ class FilterTabTest {
     assertSame(root, fixture.application.activeDocument());
     assertEquals(line, root.sourceLine(root.selection().caret().line()));
     assertFalse(fixture.application.locateSource(root));
+  }
+
+  @Test
+  void aFilterTabOpensRightOfItsParentAfterTheParentsFilterTabs() throws Exception {
+    DocumentController root = open(100);
+    DocumentController other = fixture.open(fixture.lines("other.log", 10));
+    fixture.application.activate(root);
+    DocumentController first = derive(root, "hit");
+    fixture.application.activate(root);
+    DocumentController second = derive(root, "1");
+    DocumentController nested = derive(first, "5");
+    assertEquals(List.of(root, first, nested, second, other), fixture.application.documents());
+  }
+
+  @Test
+  void theTitleTooltipStatusNoteAndRowCountDescribeTheTab() throws Exception {
+    DocumentController root = open(100);
+    DocumentController first = derive(root, "hit");
+    DocumentController second = derive(first, "5");
+    assertEquals("tab.log: hit", first.state().title());
+    assertEquals("tab.log: 5", second.state().title());
+    assertEquals("Search: hit\nSearch: 5", second.state().details());
+    assertEquals(matching("hit").size(), first.state().rowCount());
+    assertEquals(UiText.FILTER_TAB_ROWS.format(matching("hit").size()), first.state().note());
+    assertEquals(100, root.state().rowCount());
+    assertEquals("", root.state().details());
+    root.search().setSearchEnd(49);
+    DocumentController scoped = derive(root, "hit");
+    assertEquals("Search: hit\n" + UiText.FILTER_TAB_NO_GROWTH.text(), scoped.state().details());
+  }
+
+  @Test
+  void aBackgroundTabTakesNewLinesWhenItsRowsGrow() throws Exception {
+    DocumentController root = open(100);
+    final DocumentController tab = derive(root, "hit");
+    fixture.application.activate(root);
+    append("hit 100\n");
+    waitForRows(tab, matching("hit"));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.application.tabData().state(tab) == TabDataState.NEW_LINES;
+          }
+        });
+  }
+
+  @Test
+  void theFilteredPaneListsOnlyTheMarksAmongTheRows() throws Exception {
+    DocumentController root = open(100);
+    final DocumentController tab = derive(root, "hit");
+    tab.filtered().viewportResized(5, 80);
+    for (long line : new long[] {5, 17, 20, 24}) {
+      root.document().marks().add(line);
+    }
+    tab.filtered().setVisibility(Visibility.MARKS);
+    waitForRows(tab.filtered(), List.of(17L, 24L));
+    tab.search().run("1", LITERAL);
+    fixture.runUntilEnded(tab.search());
+    tab.filtered().setVisibility(Visibility.MARKS_AND_MATCHES);
+    TreeSet<Long> listed = new TreeSet<Long>(matching("hit", "1"));
+    listed.add(17L);
+    listed.add(24L);
+    waitForRows(tab.filtered(), new ArrayList<Long>(listed));
+  }
+
+  @Test
+  void commandStatesFollowTheTabKind() throws Exception {
+    DocumentController root = open(100);
+    CommandStates states = new CommandStates(fixture.application);
+    assertFalse(states.enabled(CommandId.FILTER_TO_TAB));
+    assertFalse(states.enabled(CommandId.LOCATE_SOURCE));
+    assertTrue(states.enabled(CommandId.TOGGLE_FOLD));
+    DocumentController tab = derive(root, "hit");
+    assertTrue(states.enabled(CommandId.LOCATE_SOURCE));
+    assertFalse(states.enabled(CommandId.TOGGLE_FOLD));
+    assertFalse(states.enabled(CommandId.COLLAPSE_ALL_FOLDS));
+    assertFalse(states.enabled(CommandId.EXPAND_ALL_FOLDS));
+    assertFalse(states.enabled(CommandId.FILTER_TO_TAB));
+    tab.search().run("5", LITERAL);
+    fixture.runUntilEnded(tab.search());
+    assertTrue(states.enabled(CommandId.FILTER_TO_TAB));
+    fixture.application.activate(root);
+    assertTrue(states.enabled(CommandId.FILTER_TO_TAB));
+    root.search()
+        .run(
+            "[", new SearchOptions(MatchMode.REGEX, true, false, false, false, false, true, false));
+    fixture.runUntilEnded(root.search());
+    assertFalse(states.enabled(CommandId.FILTER_TO_TAB));
+  }
+
+  @Test
+  void aSessionKeepsTheChainAndDerivesItAgain() throws Exception {
+    DocumentController root = open(100);
+    fixture.application.restoreSession(Session.EMPTY);
+    DocumentController first = derive(root, "hit");
+    DocumentController second = derive(first, "5");
+    fixture.application.setTabName(second, "mock name");
+    fixture.close();
+    List<Session> saved = ApplicationControllerTest.config(temp).sessions().loadWindows();
+    List<Session.Tab> tabs = saved.get(0).tabs();
+    assertEquals(3, tabs.size());
+    assertEquals(null, tabs.get(0).derived());
+    assertEquals(0, tabs.get(1).derived().parentTab());
+    assertEquals("hit", tabs.get(1).derived().text());
+    assertEquals(1, tabs.get(2).derived().parentTab());
+    assertEquals("mock name", tabs.get(2).name());
+    assertEquals(2, saved.get(0).active());
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    fixture.application.restoreSession(saved.get(0));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            List<DocumentController> open = fixture.application.documents();
+            return open.size() == 3
+                && fixture.application.activeDocument() == open.get(2)
+                && !open.get(0).state().indexing();
+          }
+        });
+    List<DocumentController> open = fixture.application.documents();
+    waitForRows(open.get(1), matching("hit"));
+    waitForRows(open.get(2), matching("hit", "5"));
+    assertSame(open.get(1), tabs().derivation(open.get(2)).parent());
+    assertEquals("mock name", fixture.application.tabTitle(open.get(2)));
+  }
+
+  @Test
+  void rangeGrowthAtTheSecondLevelMatchesADerivationFromScratch() throws Exception {
+    DocumentController root = open(100);
+    DocumentController first = derive(root, "hit");
+    SearchOptions range =
+        new SearchOptions(
+            MatchMode.LITERAL, true, false, false, false, false, true, false, true, "5", 0, 0);
+    first.search().run("1", range);
+    fixture.runUntilEnded(first.search());
+    final List<Long> ranged = ControllerFixture.toList(first.search().results());
+    fixture.application.filterToTab(first);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController shown = fixture.application.activeDocument();
+            return !shown.ownsDocument()
+                && tabs().derivation(shown).parent() != null
+                && !tabs().derivation(shown).parent().ownsDocument()
+                && ControllerFixture.rows(shown).equals(ranged);
+          }
+        });
+    DocumentController second = fixture.application.activeDocument();
+    StringBuilder more = new StringBuilder();
+    for (int i = 100; i < 400; i++) {
+      more.append(i % 7 == 3 ? "hit " : "line ").append(i).append('\n');
+    }
+    append(more.toString());
+    waitForRows(first, matching("hit"));
+    // From scratch: the same range search over the grown first level.
+    first.search().run("1", range);
+    fixture.runUntilEnded(first.search());
+    waitForRows(second, ControllerFixture.toList(first.search().results()));
   }
 }

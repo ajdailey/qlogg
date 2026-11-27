@@ -120,6 +120,9 @@ public final class Keymap {
     sequence(b, CommandId.PREVIOUS_MARK, ',');
     // Mark comments.
     view(b, CommandId.EDIT_MARK_COMMENT, 0, 'M');
+    // Filter tabs.
+    view(b, CommandId.LOCATE_SOURCE, 0, 'L');
+    sequence(b, CommandId.LOCATE_SOURCE, 'l');
     b.add(
         new Binding(
             CommandId.KEYBOARD_SHORTCUTS,

@@ -67,7 +67,7 @@ public final class MarksListController {
   private final ApplicationListener applicationListener =
       new ApplicationListener() {
         @Override
-        public void documentOpened(DocumentController opened) {
+        public void documentOpened(DocumentController opened, int index) {
           // The shown tab changes through activeDocumentChanged.
         }
 

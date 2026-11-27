@@ -13,11 +13,12 @@ import java.util.Map;
 /**
  * Each tab's {@link TabDataState} in one window. Confined to the UI thread.
  *
- * <p>A tab that is not shown takes {@code NEW_LINES} when its document's line count grows and
- * {@code NEW_MATCHES} when its search's match count grows within one generation from {@code DONE}
- * to {@code DONE}, which only the auto-refresh of appended lines does. A higher state replaces a
- * lower one, never the reverse; showing the tab sets {@code NONE}. Lines indexed before the
- * document's first indexing pass ends are not growth. A reloaded or reopened document keeps the
+ * <p>A tab that is not shown takes {@code NEW_LINES} when its row count grows (a file tab's line
+ * count, a filter tab's rows; {@link io.github.ajdailey.qlogg.app.view.DocumentViewState#rowCount})
+ * and {@code NEW_MATCHES} when its search's match count grows within one generation from {@code
+ * DONE} to {@code DONE}, which only the auto-refresh of appended lines does. A higher state
+ * replaces a lower one, never the reverse; showing the tab sets {@code NONE}. Lines indexed before
+ * the document's first indexing pass ends are not growth. A reloaded or reopened document keeps the
  * tab's state and, while not shown, takes {@code NEW_LINES} when its first pass ends with at least
  * one line. A run of a new search starts a new generation and never sets a state.
  *
@@ -96,7 +97,7 @@ public final class TabDataModel implements ApplicationListener {
   }
 
   @Override
-  public void documentOpened(DocumentController document) {
+  public void documentOpened(DocumentController document, int index) {
     // Attached at started, before indexing starts.
   }
 
@@ -173,7 +174,7 @@ public final class TabDataModel implements ApplicationListener {
       }
       attached = true;
       settled = indexed;
-      lines = document.state().lineCount();
+      lines = document.state().rowCount();
       takeSearch(document.search().state());
       document.addListener(this);
       document.search().addListener(this);
@@ -207,7 +208,7 @@ public final class TabDataModel implements ApplicationListener {
 
     @Override
     public void stateChanged(DocumentViewState viewState) {
-      long count = viewState.lineCount();
+      long count = viewState.rowCount();
       if (!settled) {
         if (!viewState.indexing()) {
           settled = true;

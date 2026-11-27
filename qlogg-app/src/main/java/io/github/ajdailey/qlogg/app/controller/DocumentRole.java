@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.core.watch.FileChange;
+import java.time.ZoneId;
 
 /**
  * What a tab does with its document: {@link OwnedDocument} for a file tab, which indexes, reopens
@@ -40,6 +41,36 @@ interface DocumentRole {
    * @return true for a file tab
    */
   boolean owns();
+
+  /**
+   * Returns the tab's title.
+   *
+   * @return the file name or a rotated set's title; a filter tab's root title and search
+   */
+  String title();
+
+  /**
+   * Returns the tab tooltip's lines after the path.
+   *
+   * @param zone the zone file times show in
+   * @return a rotated set's files, a filter tab's searches, or empty
+   */
+  String details(ZoneId zone);
+
+  /**
+   * Returns the status bar note.
+   *
+   * @return a rotated set's left-out files, a filter tab's row count, or empty
+   */
+  String note();
+
+  /**
+   * Counts the rows the main view lists, as the tab data dot measures growth.
+   *
+   * @param lineCount the document's line count
+   * @return the line count for a file tab, the rows for a filter tab
+   */
+  long rowCount(long lineCount);
 
   /** The tab detached; stops the role's background work. */
   void detached();

@@ -446,7 +446,7 @@ public final class FolderSearchController {
    */
   private final class Opened implements ApplicationListener {
     @Override
-    public void documentOpened(final DocumentController document) {
+    public void documentOpened(final DocumentController document, int index) {
       Opening started = opening;
       if (started == null
           || !(started.path().equals(document.document().path())

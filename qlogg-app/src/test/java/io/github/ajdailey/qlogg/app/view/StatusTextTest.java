@@ -27,7 +27,8 @@ class StatusTextTest {
         false,
         null,
         "",
-        "");
+        "",
+        1234);
   }
 
   @Test

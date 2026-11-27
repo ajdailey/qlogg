@@ -1499,6 +1499,20 @@ public enum UiText {
   NOTICE_FILTER_TAB_RESULT_LIMIT,
   /** Notice: a filter tab stopped growing at the memory limit: its row count. */
   NOTICE_FILTER_TAB_MEMORY_LIMIT,
+  /** Search menu item: open the shown result set as a filter tab. */
+  COMMAND_FILTER_TO_TAB,
+  /** Go menu item: show a filter tab's caret line in its parent tab. */
+  COMMAND_LOCATE_SOURCE,
+  /** Filter tab title: the root tab's title and the search. */
+  FILTER_TAB_TITLE,
+  /** Filter tab tooltip line: one search of the chain from the root down. */
+  FILTER_TAB_SEARCH,
+  /** Filter tab tooltip line: a result limit, a memory limit or search limits stop its growth. */
+  FILTER_TAB_NO_GROWTH,
+  /** Status bar note of a filter tab: its row count. */
+  FILTER_TAB_ROWS,
+  /** Notice: a restored filter tab whose search does not parse was left out: the text. */
+  NOTICE_FILTER_TAB_NOT_RESTORED,
   // Rotated sets.
   /** File menu check item: show the tab's file with its rotated files as one view. */
   COMMAND_INCLUDE_ROTATED,

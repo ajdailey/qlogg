@@ -186,7 +186,7 @@ last saved file stays, so a load never finds a file over its cap.
 | Store | File | Contents | Limits |
 |---|---|---|---|
 | `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose, and the column choices (`.columns`: a format id or `none`; `.header`: `1` or `0`), each written only once chosen (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
-| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known, kept from before View > Full Screen; malformed reads as unknown), `.maximized` (when on, or on before full screen); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group), `.rotated` (`1` for a rotated set), `.rmarks.K` and `.rcomment.K` (a set's marks and comments per member, below); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
+| `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known, kept from before View > Full Screen; malformed reads as unknown), `.maximized` (when on, or on before full screen); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group), `.rotated` (`1` for a rotated set), `.rmarks.K` and `.rcomment.K` (a set's marks and comments per member, below), `.derived.*` (a filter tab, below); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
 no I/O, so the UI thread calls them; `load` and `save` block.
@@ -207,6 +207,14 @@ dropped, and one notice counts its marks. Both caps count these entries.
 `PositionStore` keeps no position for a set, whose line numbers move at every
 roll-over; the forced charset and timestamp format stay in the base file's
 entry.
+
+A filter tab's entry has its root's `.path`, its `.name` and `.follow`, no
+marks, and its definition under `.derived.`: `parent` (`W.N` of the parent's
+entry), `text`, the toggles under the `searchOption.*` names, `scope` (first
+and end root line, when the search had one) and `column` (when set; stored and
+restored only). A malformed `parent` or `scope`, or an empty `text`, leaves
+the entry a tab of the root's file, which the root's own entry opens already
+([filter tab sessions](document-views.md#filter-tab-sessions)).
 
 A session's marks go into `MutableLineSet`s charged to the `RESULTS` share. A
 refusal keeps the earlier marks and shows a notice.

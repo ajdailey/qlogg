@@ -183,4 +183,17 @@ class TimeSpreadTest {
     }
     assertEquals(null, SpreadMode.byId("sideways"));
   }
+
+  @Test
+  void activityCountsTheGivenUnitsRatherThanTheLines() {
+    // Equal row spans and lines; the units (a filter tab's rows) crowd into the second row.
+    TimeSamples samples = spans(10, 10, 10, 10);
+    long[] lines = evenLines(samples.count());
+    long[] counts = {0, 1, 41, 42, 43};
+    assertArrayEquals(new byte[4], TimeSpread.of(samples, lines, SpreadMode.ACTIVITY).levels());
+    byte[] levels = TimeSpread.of(samples, lines, counts, SpreadMode.ACTIVITY).levels();
+    // 40 of 43 units in a quarter of the time: a ratio of about 3.7.
+    assertEquals(1, levels[1]);
+    assertEquals(0, levels[0]);
+  }
 }

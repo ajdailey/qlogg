@@ -169,6 +169,11 @@ public final class CommandStates {
       case CLEAR_RESULTS ->
           document != null && document.search().state().phase() != SearchViewState.Phase.IDLE;
       case WRAP_LINE -> document != null && !document.wrap();
+      // Filter tabs: folding is off in a filter tab.
+      case FILTER_TO_TAB -> document != null && document.search().shownRan() != null;
+      case LOCATE_SOURCE -> document != null && !document.ownsDocument();
+      case TOGGLE_FOLD, COLLAPSE_ALL_FOLDS, EXPAND_ALL_FOLDS ->
+          document != null && document.ownsDocument();
       // Columns.
       case TOGGLE_COLUMNS -> document != null && document.columns().schema() != null;
       case COPY_RAW_LINES, COPY_CELL, SHOW_RECORD -> document != null && document.columns().shown();

@@ -285,6 +285,36 @@ class CellViewTest {
   }
 
   @Test
+  void aColumnSearchInATabOfContinuationLinesFindsTheirRecords() throws Exception {
+    final DocumentController parent = open("lines.csv", CSV);
+    scanned(parent);
+    fixture.application.execute(CommandId.TOGGLE_COLUMNS);
+    parent.search().run("second", LITERAL.withCombining(false));
+    fixture.runUntilEnded(parent.search());
+    assertEquals(List.of(2L), ControllerFixture.toList(parent.search().results()));
+    fixture.application.filterToTab(parent);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController shown = fixture.application.activeDocument();
+            return shown != parent && ControllerFixture.rows(shown).equals(List.of(2L));
+          }
+        });
+    DocumentController tab = fixture.application.activeDocument();
+    tab.viewportResized(10, 80);
+    if (!tab.columns().shown()) {
+      fixture.application.execute(CommandId.TOGGLE_COLUMNS);
+    }
+    tab.search().run("message:\"second\"", LITERAL);
+    fixture.runUntilEnded(tab.search());
+    assertEquals(List.of(1L), ControllerFixture.toList(tab.search().results()));
+    tab.search().run("level:WARN", LITERAL);
+    fixture.runUntilEnded(tab.search());
+    assertEquals(List.of(), ControllerFixture.toList(tab.search().results()));
+  }
+
+  @Test
   void theTopRowHoldsItsLineWhileTheScanExtends() throws Exception {
     StringBuilder text = new StringBuilder();
     for (int i = 0; i < 40; i++) {
