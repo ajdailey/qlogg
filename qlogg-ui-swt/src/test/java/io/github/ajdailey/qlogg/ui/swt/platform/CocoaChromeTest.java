@@ -15,6 +15,7 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -31,7 +32,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-/** {@link CocoaChrome} on any platform: the colors it sets per appearance and what it leaves. */
+/**
+ * {@link CocoaChrome} on any platform: the colors it sets per appearance and what it leaves. A
+ * read-only {@link Combo} keeps its default foreground.
+ */
 @Tag("swt")
 class CocoaChromeTest {
   private static final RGB DARK_LIST = new RGB(0x1e, 0x1e, 0x1e);
@@ -133,6 +137,24 @@ class CocoaChromeTest {
     pump();
     assertEquals(cached, after.getBackground().getRGB());
     shell.dispose();
+  }
+
+  @Test
+  void aReadOnlyComboKeepsItsDefaultForeground() {
+    Shell shell = new Shell(display);
+    Combo readOnly = new Combo(shell, SWT.READ_ONLY);
+    Combo editable = new Combo(shell, SWT.DROP_DOWN);
+    RGB before = readOnly.getForeground().getRGB();
+    CocoaChrome chrome = new CocoaChrome(display, false, new SwtUiDispatcher(display));
+    try {
+      chrome.apply(true);
+      assertEquals(before, readOnly.getForeground().getRGB());
+      assertEquals(DARK_LIST, editable.getBackground().getRGB());
+      assertEquals(new RGB(0xff, 0xff, 0xff), editable.getForeground().getRGB());
+    } finally {
+      chrome.apply(false);
+      shell.dispose();
+    }
   }
 
   /** Runs pending events, the {@link SWT#Skin} events of new controls among them. */
