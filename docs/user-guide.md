@@ -42,13 +42,16 @@ modifiers in GTK's order, `Shift+Ctrl+T` for `Ctrl+Shift+T`.
 Running a newer setup or package upgrades QLogg in place. Uninstalling keeps
 your settings, and an upgrade of a portable copy keeps the settings in its
 folder. Installing QLogg does not set it as the default program for any file
-type.
+type. Where `.log` files have no default program chosen, Windows asks which
+app to open them with the next time you open one.
 
 Open in QLogg opens the file in the running QLogg. With several files
 selected, each opens in its own tab of one window. On Windows 11 it is under
 Show more options.
 
 ![Windows setup: installation type](images/guide/installer-type.png)
+
+![Windows setup: components page with Add to Explorer right-click menu](images/guide/installer-components.png)
 
 ![Windows setup: install folder](images/guide/installer-folder.png)
 
