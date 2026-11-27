@@ -1,11 +1,11 @@
 # Installs the $env:TARGET setup from dist\ silently for all users and then for the current
 # user. Each time it checks the Installed apps entry, the Start menu shortcut, no desktop
-# shortcut, Open With for .log and .txt with their default handlers unchanged, that the folder
-# holds no qlogg.conf or portable.txt and that no QLogg process starts; runs check-bundle.ps1 against the
-# installed folder; installs again with /DESKTOP over a stale runtime file, which the upgrade
+# shortcut, Open With for .log and .txt with their default handlers unchanged, that a .cmd
+# still runs through ShellExecute, that the folder holds no qlogg.conf or portable.txt and that
+# no QLogg process starts; runs check-bundle.ps1 against the installed folder; installs again with /DESKTOP over a stale runtime file, which the upgrade
 # removes, and checks the desktop shortcut on that scope's desktop only; then uninstalls
 # silently and checks that every file, shortcut and registry entry is gone and the per-user
-# settings stay. A portable install with /DESKTOP then gets portable.txt and no qlogg.conf, no
+# settings stay and a .cmd still runs. A portable install with /DESKTOP then gets portable.txt and no qlogg.conf, no
 # registry entry and no shortcut, starts with its settings in the folder, and an install over it
 # keeps both files. Setup refuses a portable folder under Program Files and a regular install into
 # a folder holding portable.txt or qlogg.conf. Run from the repository root with no QLogg installed.
@@ -58,6 +58,18 @@ function Assert-NotRunning([string] $Dir, [string] $What) {
 
 function Get-ShortcutTarget([string] $Path) {
   (New-Object -ComObject WScript.Shell).CreateShortcut($Path).TargetPath
+}
+
+# Throws unless ShellExecute runs a batch file: QLogg.File in .cmd OpenWithProgids makes it
+# fail.
+function Assert-CmdRuns([string] $What) {
+  $cmd = Join-Path $work 'ran.cmd'
+  $out = Join-Path $work 'ran.txt'
+  Set-Content -LiteralPath $cmd -Value "@echo ran>`"%~dp0ran.txt`""
+  Remove-Item -LiteralPath $out -ErrorAction SilentlyContinue
+  $process = Start-Process -FilePath $cmd -PassThru
+  if (-not $process.WaitForExit(30000)) { throw "$What`: ran.cmd did not exit within 30 s" }
+  if (-not (Test-Path $out)) { throw "$What`: ShellExecute did not run ran.cmd" }
 }
 
 # Waits up to 120 s for $Condition to hold; throws $Message otherwise.
@@ -114,7 +126,8 @@ function Test-Scope([string] $Scope) {
   }
   $command = (Get-Item "$classes\QLogg.File\shell\open\command").GetValue('')
   if ($command -ne "`"$dir\qlogg.exe`" `"%1`"") { throw "$Scope QLogg.File opens with $command" }
-  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut and Open With, no desktop shortcut, and no QLogg started"
+  Assert-CmdRuns "$Scope install"
+  Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut and Open With, no desktop shortcut, a .cmd that still runs, and no QLogg started"
 
   $env:QLOGG_HOME = $dir
   try { & .github\scripts\check-bundle.ps1 } finally { Remove-Item Env:QLOGG_HOME }
@@ -155,7 +168,8 @@ function Test-Scope([string] $Scope) {
   }
   if (-not (Test-Path $marker)) { throw "$Scope uninstall removed the per-user settings" }
   Remove-Item -Recurse -Force $settings
-  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry and kept the settings"
+  Assert-CmdRuns "$Scope uninstall"
+  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry, kept the settings, and a .cmd still runs"
 }
 
 Test-Scope 'machine'
