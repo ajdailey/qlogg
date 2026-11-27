@@ -18,14 +18,11 @@ import org.junit.jupiter.api.Test;
 class UserGuidePageTest {
   private static final Pattern ID = Pattern.compile("<a id=\"([^\"]+)\"></a>");
   private static final Pattern TARGET = Pattern.compile("href=\"#([^\"]*)\"");
+  private static final Pattern SOURCE = Pattern.compile("src=\"([^\"]*)\"");
 
   @Test
   void everyPageLinkNamesAHeadingAnchor() throws IOException {
-    String page;
-    try (InputStream in = UserGuide.class.getResourceAsStream(UserGuide.RESOURCE)) {
-      assertNotNull(in, UserGuide.RESOURCE);
-      page = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-    }
+    String page = page();
     Set<String> ids = new HashSet<String>();
     Matcher id = ID.matcher(page);
     while (id.find()) {
@@ -42,11 +39,37 @@ class UserGuidePageTest {
   }
 
   @Test
+  void thePageCarriesThePolicyAndEmbedsEveryImage() throws IOException {
+    String page = page();
+    int policy =
+        page.indexOf(
+            "<meta charset=\"UTF-8\">\n<meta http-equiv=\"Content-Security-Policy\" content=\""
+                + UserGuide.POLICY
+                + "\">");
+    assertTrue(policy > 0, "the policy meta follows the charset meta");
+    assertTrue(policy < page.indexOf("<style>"), "the policy precedes the styles");
+    Matcher source = SOURCE.matcher(page);
+    int images = 0;
+    while (source.find()) {
+      images++;
+      assertTrue(source.group(1).startsWith("data:image/png;base64,"), source.group(1));
+    }
+    assertTrue(images > 0, "images are embedded");
+  }
+
+  @Test
   void linuxShowsTheGuideEmbeddedOnlyInPerUserMode() {
     assertTrue(UserGuide.embedded(SettingsMode.PER_USER, OsTraits.of("Linux")));
     assertFalse(UserGuide.embedded(SettingsMode.PORTABLE, OsTraits.of("Linux")));
     assertFalse(UserGuide.embedded(SettingsMode.EXPLICIT, OsTraits.of("Linux")));
     assertTrue(UserGuide.embedded(SettingsMode.PORTABLE, OsTraits.of("Windows 11")));
     assertTrue(UserGuide.embedded(SettingsMode.EXPLICIT, OsTraits.of("Mac OS X")));
+  }
+
+  private static String page() throws IOException {
+    try (InputStream in = UserGuide.class.getResourceAsStream(UserGuide.RESOURCE)) {
+      assertNotNull(in, UserGuide.RESOURCE);
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    }
   }
 }

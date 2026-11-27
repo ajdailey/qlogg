@@ -24,11 +24,15 @@ import org.commonmark.renderer.html.HtmlRenderer;
 
 /**
  * Converts the user guide's markdown to one self-contained HTML page: each image becomes a {@code
- * data:} URI, each heading gets the id its GitHub anchor has, and a link that leaves the page fails
- * the build, so the page loads nothing. Run at build time with the source launcher: {@code java -cp
+ * data:} URI, each heading gets the id its GitHub anchor has, a link that leaves the page fails the
+ * build, and a content security policy blocks every other load, raw HTML included. Run at build time with the source launcher: {@code java -cp
  * commonmark.jar:tables.jar GuideRenderer.java <guide.md> <guide.html>}.
  */
 public final class GuideRenderer {
+  /** {@code UserGuide.POLICY}, which this script cannot load. */
+  private static final String POLICY =
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
+
   private static final String STYLE =
       """
       :root { color-scheme: light dark; }
@@ -74,7 +78,9 @@ public final class GuideRenderer {
     String body = HtmlRenderer.builder().extensions(extensions).build().render(document);
     String page =
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n"
-            + "<title>"
+            + "<meta http-equiv=\"Content-Security-Policy\" content=\""
+            + POLICY
+            + "\">\n<title>"
             + inliner.title
             + "</title>\n<style>\n"
             + STYLE
