@@ -344,7 +344,8 @@ $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 're
 '@
 
 $account = 'qloggstd'
-$password = 'Qa1!' + [Guid]::NewGuid().ToString('N')
+# net user asks for confirmation of a password over 14 characters.
+$password = 'Qa1!' + [Guid]::NewGuid().ToString('N').Substring(0, 10)
 $shared = Join-Path $env:SystemDrive 'qlogg-standard'
 if (Test-Path $shared) { Remove-Item -Recurse -Force $shared }
 New-Item -ItemType Directory -Path $shared | Out-Null
