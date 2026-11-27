@@ -166,4 +166,9 @@ final class TabHost
   public void followStoppedByTrigger(DocumentController document, String rule, long line) {
     window.followStoppedByTrigger(document, rule, line);
   }
+
+  @Override
+  public void showText(String title, String text) {
+    view.showText(title, text);
+  }
 }

@@ -37,8 +37,9 @@ pattern.
 
 `HighlightRule` is one highlighter: pattern, regex or literal, case, whole line
 or matched text, text and background colors (either null for none), background
-opacity 0-255, color variance 0-50, enabled, and a `RuleTrigger` (`NONE` by
-default). `HighlightSet` is a named, ordered list of at most 1,000 rules with
+opacity 0-255, color variance 0-50, enabled, a `RuleTrigger` (`NONE` by
+default) and a column name (empty for the whole row; used in column view only,
+see [Column-view rows](columns.md#column-view-rows)). `HighlightSet` is a named, ordered list of at most 1,000 rules with
 an id.
 
 `Highlighter.of(rules)` takes rules in apply order: each paints over the ones

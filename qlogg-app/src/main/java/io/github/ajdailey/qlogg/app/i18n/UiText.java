@@ -745,6 +745,14 @@ public enum UiText {
   COMMAND_EXTEND_BLOCK_RIGHT,
   /** Command label. */
   COMMAND_TOGGLE_COLUMNS,
+  /** Command label. */
+  COMMAND_COPY_RAW_LINES,
+  /** Command label. */
+  COMMAND_COPY_CELL,
+  /** Command label. */
+  COMMAND_SHOW_RECORD,
+  /** Show Record window title: {@code %d} is the record's first line number. */
+  SHOW_RECORD_TITLE,
   /** Notice: no multi-line entry at the current line. */
   NOTICE_NO_FOLD,
   /** Notice: the fold share is full. */

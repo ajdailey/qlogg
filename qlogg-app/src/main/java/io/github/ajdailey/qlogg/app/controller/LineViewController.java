@@ -16,6 +16,8 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.model.CellReader;
+import io.github.ajdailey.qlogg.core.model.ColumnRead;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import io.github.ajdailey.qlogg.core.model.LineReader;
@@ -94,6 +96,7 @@ public abstract class LineViewController {
   private final Viewport viewport = new Viewport();
   private final List<DocumentViewListener> listeners = new ArrayList<DocumentViewListener>();
   private final LineReader reader;
+  private final CellReader cellReader;
   private LineBlock lines = LineBlock.EMPTY;
   private long spanCharge;
   private Highlighter highlighter = Highlighter.NONE;
@@ -147,6 +150,7 @@ public abstract class LineViewController {
     this.activity = activity;
     this.budget = budget;
     this.reader = document.newReader();
+    this.cellReader = new CellReader(document.newReader());
     this.caretTimes = new CaretTimes(this, workers, ui);
     this.selectedChars = new SelectedChars(this, workers, ui);
   }
@@ -401,6 +405,12 @@ public abstract class LineViewController {
       case EXTEND_BLOCK_LEFT -> extendBlock(0, -1);
       case EXTEND_BLOCK_RIGHT -> extendBlock(0, 1);
       case WRAP_LINE -> toggleLineWrap(selection.caret().line());
+      case COPY_RAW_LINES -> copyColumns(RecordText.Form.LINES, selection);
+      case COPY_CELL ->
+          copyColumns(
+              RecordText.Form.CELL,
+              Selection.caretAt(new TextPosition(selection.caret().line(), 0)));
+      case SHOW_RECORD -> CellCommands.showRecord(this);
       default -> {
         // Window and document commands run in ApplicationController and DocumentController.
       }
@@ -961,7 +971,20 @@ public abstract class LineViewController {
    * share cannot hold is refused with a notice.
    */
   public void copySelection() {
-    copy(new Request(selection, blockSelected, Output.CLIPBOARD, null), null);
+    copy(new Request(selection, blockSelected, Output.CLIPBOARD, null, columnCopy()), null);
+  }
+
+  /** In column view, the shown cells of each row; else null. */
+  private RecordText.Columns columnCopy() {
+    return CellCommands.columns(this, RecordText.Form.COLUMNS);
+  }
+
+  /** Copies a column-view form of the rows a selection covers; nothing in text view. */
+  private void copyColumns(RecordText.Form form, Selection rows) {
+    RecordText.Columns columns = CellCommands.columns(this, form);
+    if (columns != null) {
+      copy(new Request(rows, false, Output.CLIPBOARD, null, columns), null);
+    }
   }
 
   /** Copies the caret's row. */
@@ -971,13 +994,14 @@ public abstract class LineViewController {
             Selection.caretAt(new TextPosition(selection.caret().line(), 0)),
             false,
             Output.CLIPBOARD,
-            null),
+            null,
+            columnCopy()),
         null);
   }
 
   /** Copies the selection, or the caret's row, each line after its source line number and a tab. */
   public void copyWithLineNumbers() {
-    copy(new Request(selection, blockSelected, Output.NUMBERED, null), null);
+    copy(new Request(selection, blockSelected, Output.NUMBERED, null, columnCopy()), null);
   }
 
   /**
@@ -987,7 +1011,7 @@ public abstract class LineViewController {
    * @param listener receives the text
    */
   public void selectionText(TextListener listener) {
-    copy(new Request(selection, blockSelected, Output.LISTENER, null), listener);
+    copy(new Request(selection, blockSelected, Output.LISTENER, null, columnCopy()), listener);
   }
 
   /**
@@ -998,13 +1022,24 @@ public abstract class LineViewController {
    * @param file the validated target
    */
   public void saveLines(Path file) {
+    saveLines(file, false);
+  }
+
+  /**
+   * Writes the selected rows as {@link #saveLines(Path)} does; in column view, as the shown cells
+   * tab-separated as Copy takes them, or as the records' lines.
+   *
+   * @param file the validated target
+   * @param original true for the records' lines in column view
+   */
+  public void saveLines(Path file, boolean original) {
     Selection lines =
         blockSelected
             ? selection
             : new Selection(
                 new TextPosition(selection.start().line(), 0),
                 new TextPosition(selection.end().line(), Long.MAX_VALUE));
-    copy(new Request(lines, blockSelected, Output.FILE, file), null);
+    copy(new Request(lines, blockSelected, Output.FILE, file, saveForm(original)), null);
   }
 
   /**
@@ -1013,6 +1048,16 @@ public abstract class LineViewController {
    * @param file the validated target
    */
   public void saveAll(Path file) {
+    saveAll(file, false);
+  }
+
+  /**
+   * Writes every row of the view to a file, as {@link #saveLines(Path, boolean)} does.
+   *
+   * @param file the validated target
+   * @param original true for the records' lines in column view
+   */
+  public void saveAll(Path file, boolean original) {
     long count = viewport.lineCount();
     if (count == 0) {
       notifications.showNotice(UiText.NOTICE_NOTHING_TO_SAVE.text());
@@ -1023,8 +1068,13 @@ public abstract class LineViewController {
             new Selection(new TextPosition(0, 0), new TextPosition(count - 1, Long.MAX_VALUE)),
             false,
             Output.FILE,
-            file),
+            file,
+            saveForm(original)),
         null);
+  }
+
+  private RecordText.Columns saveForm(boolean original) {
+    return CellCommands.columns(this, original ? RecordText.Form.LINES : RecordText.Form.COLUMNS);
   }
 
   private void copy(final Request request, final TextListener listener) {
@@ -1075,6 +1125,9 @@ public abstract class LineViewController {
    * @param listener receives the text on the UI thread
    */
   public void selectedText(final TextListener listener) {
+    if (CellCommands.selectedCell(this, listener)) {
+      return;
+    }
     final long row = selection.start().line();
     if (selection.isEmpty() || row != selection.end().line()) {
       notifications.showNotice(UiText.SELECT_TEXT_FIRST.text());
@@ -1218,6 +1271,9 @@ public abstract class LineViewController {
     if (reread) {
       caretTimes.reread();
     }
+    if (owner().columns().shown()) {
+      requestLines();
+    }
     fireTime();
   }
 
@@ -1287,26 +1343,28 @@ public abstract class LineViewController {
       return;
     }
     final LineIndex index = document.index();
+    final ColumnRead cells = owner().columns().read();
+    final boolean wrapping = wrap && cells == null;
     final long top = viewport.topLine();
-    final long from = fitsLines() ? firstRowMeasured(top, screenRows) : top;
+    final long from = fitsLines() && cells == null ? firstRowMeasured(top, screenRows) : top;
     final int above = (int) (top - from);
-    final long firstColumn = wrap ? 0 : viewport.firstColumn();
+    final long firstColumn = wrapping ? 0 : viewport.firstColumn();
     final int wrapColumns =
         (int) Math.min(MAX_WRAP_COLUMNS, (long) viewport.columns() * screenRows);
-    final int columns = wrap ? wrapColumns : viewport.columns() + COLUMN_MARGIN;
+    final int columns = wrapping ? wrapColumns : viewport.columns() + COLUMN_MARGIN;
     final long[] measured =
         visibleSourceLines(from, above + Math.max(viewport.rows(), screenRows) + 1);
     long row = -1;
-    for (int i = 0; i < measured.length && wrappedLine >= 0; i++) {
+    for (int i = 0; i < measured.length && wrappedLine >= 0 && cells == null; i++) {
       if (measured[i] == wrappedLine) {
         row = from + i;
         break;
       }
     }
     // With a line wrapped in place, only that line needs its height: the block starts at the top.
-    final long first = wrap ? from : top;
+    final long first = wrapping ? from : top;
     final long[] source =
-        wrap
+        wrapping
             ? measured
             : Arrays.copyOfRange(measured, Math.min(above, measured.length), measured.length);
     final Wrapped wrapped = new Wrapped(row, row < 0 ? -1 : wrappedLine, wrapColumns);
@@ -1319,7 +1377,14 @@ public abstract class LineViewController {
             new Runnable() {
               @Override
               public void run() {
-                read(index, first, source, firstColumn, columns, wrapped, colors, tokens, markers);
+                read(
+                    index,
+                    first,
+                    source,
+                    firstColumn,
+                    columns,
+                    wrapped,
+                    new Painting(colors, tokens, markers, cells));
               }
             });
   }
@@ -1334,6 +1399,16 @@ public abstract class LineViewController {
   private record Wrapped(long row, long line, int columns) {}
 
   /**
+   * How a read colors and composes its rows.
+   *
+   * @param colors the highlighter
+   * @param tokens true for syntax colors
+   * @param markers true for whitespace markers, in text view
+   * @param cells the column view's cells, or null in text view
+   */
+  private record Painting(Highlighter colors, boolean tokens, boolean markers, ColumnRead cells) {}
+
+  /**
    * Posts back on every outcome, so {@code readInFlight} always clears; an unexpected exception
    * still reaches the worker's uncaught-exception handler.
    */
@@ -1345,9 +1420,10 @@ public abstract class LineViewController {
       long firstColumn,
       int columns,
       Wrapped wrapped,
-      Highlighter colors,
-      boolean tokens,
-      boolean markers) {
+      Painting painting) {
+    Highlighter colors = painting.colors();
+    boolean tokens = painting.tokens();
+    boolean markers = painting.markers();
     LineBlock block = null;
     LineBlock alone = LineBlock.EMPTY;
     String error = null;
@@ -1360,8 +1436,19 @@ public abstract class LineViewController {
       Highlighter.LineMatcher matcher = colors.isEmpty() ? null : colors.matcher();
       LogTokens.LineMatcher kinds = tokens ? LogTokens.matcher() : null;
       block =
-          reader.readRows(
-              index, top, source, source.length, firstColumn, columns, matcher, kinds, markers);
+          painting.cells() != null
+              ? cellReader.readRows(
+                  index,
+                  top,
+                  source,
+                  source.length,
+                  firstColumn,
+                  columns,
+                  painting.cells(),
+                  colors,
+                  tokens)
+              : reader.readRows(
+                  index, top, source, source.length, firstColumn, columns, matcher, kinds, markers);
       if (wrapped.row() >= 0) {
         alone =
             reader.readRows(

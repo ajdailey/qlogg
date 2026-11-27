@@ -17,6 +17,12 @@ import java.util.regex.Pattern;
  * <p>Blocking; runs on a worker, in steps on the CPU pool when given {@link Workers}. The token is
  * checked every {@link #CHECK_LINES} lines and, through the chars the matcher reads, every {@link
  * #CHECK_CHARS} chars, so a regex that backtracks without end stops on cancel.
+ *
+ * <p>In column view ({@link #find(Workers, LineReader, ColumnRead, LineIndex, RowCursor, Pattern,
+ * long, long, boolean, CancellationToken)} with a {@link ColumnRead}) a row is the record holding
+ * its line, and the pattern runs over each shown cell's full value in cell order; a record that did
+ * not parse is searched as its raw text. A match is reported in composed columns, cut to the cell's
+ * shown columns: a match past them selects the cell's last shown column.
  */
 public final class LineFinder {
   /** Lines between cancellation checks. */
@@ -99,7 +105,47 @@ public final class LineFinder {
       boolean forward,
       CancellationToken token)
       throws IOException {
-    Scan scan = new Scan(reader, index, rows, pattern, line, column, forward, token);
+    Scan scan = new Scan(reader, null, null, index, rows, pattern, line, column, forward, token);
+    CpuSteps.run(cpu, scan);
+    if (scan.tooComplexAt >= 0) {
+      throw new PatternTooComplexException(scan.tooComplexAt);
+    }
+    return scan.match;
+  }
+
+  /**
+   * Finds as {@link #find(Workers, LineReader, LineIndex, RowCursor, Pattern, long, long, boolean,
+   * CancellationToken)} does, in the cells of column-view rows when given a view.
+   *
+   * @param cpu runs the steps ({@link CpuSteps#run}), or null to run them on the calling thread
+   * @param reader reads the lines
+   * @param view the cells, format and records, or null to search lines
+   * @param index the snapshot to search
+   * @param rows the lines to visit
+   * @param pattern the compiled pattern
+   * @param line the start line, or -1 to begin before the first listed line
+   * @param column the display column, or with a view the composed column, on the start line
+   * @param forward true to search toward the end
+   * @param token checked while searching
+   * @return the match, in composed columns with a view, or null when none is left in that direction
+   * @throws IOException on a read error
+   * @throws java.util.concurrent.CancellationException once the token is canceled
+   * @throws PatternTooComplexException when the pattern overflows the stack on a row
+   */
+  public static Match find(
+      Workers cpu,
+      LineReader reader,
+      ColumnRead view,
+      LineIndex index,
+      RowCursor rows,
+      Pattern pattern,
+      long line,
+      long column,
+      boolean forward,
+      CancellationToken token)
+      throws IOException {
+    CellReader cells = view == null ? null : new CellReader(reader);
+    Scan scan = new Scan(reader, cells, view, index, rows, pattern, line, column, forward, token);
     CpuSteps.run(cpu, scan);
     if (scan.tooComplexAt >= 0) {
       throw new PatternTooComplexException(scan.tooComplexAt);
@@ -110,6 +156,8 @@ public final class LineFinder {
   /** The scan's position between steps. */
   private static final class Scan implements CpuSteps.Steps {
     private final LineReader reader;
+    private final CellReader cells;
+    private final ColumnRead view;
     private final LineIndex index;
     private final RowCursor rows;
     private final long column;
@@ -126,6 +174,8 @@ public final class LineFinder {
 
     Scan(
         LineReader reader,
+        CellReader cells,
+        ColumnRead view,
         LineIndex index,
         RowCursor rows,
         Pattern pattern,
@@ -134,6 +184,8 @@ public final class LineFinder {
         boolean forward,
         CancellationToken token) {
       this.reader = reader;
+      this.cells = cells;
+      this.view = view;
       this.index = index;
       this.rows = rows;
       this.column = column;
@@ -158,25 +210,69 @@ public final class LineFinder {
         if (visited++ % CHECK_LINES == 0) {
           token.check();
         }
-        CharSequence text = reader.decodedLine(index, current);
-        chars.set(text);
-        matcher.reset(chars);
-        int limit = first ? charIndex(text, column) : (forward ? 0 : text.length() + 1);
-        int[] found;
         try {
-          found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+          match = view == null ? inLine() : inCells();
         } catch (StackOverflowError e) {
           tooComplexAt = current;
           return false;
         }
-        if (found.length == 2) {
-          match = new Match(current, columnOf(text, found[0]), columnOf(text, found[1]));
+        if (match != null) {
           return false;
         }
         first = false;
         current = forward ? rows.next(current) : rows.previous(current);
       }
       return true;
+    }
+
+    private Match inLine() throws IOException {
+      CharSequence text = reader.decodedLine(index, current);
+      return inText(text, first ? charIndex(text, column) : (forward ? 0 : text.length() + 1));
+    }
+
+    /** The match in a text whose start lies at or after, or before, char {@code limit}. */
+    private Match inText(CharSequence text, int limit) {
+      chars.set(text);
+      matcher.reset(chars);
+      int[] found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+      return found.length == 2
+          ? new Match(current, columnOf(text, found[0]), columnOf(text, found[1]))
+          : null;
+    }
+
+    private Match inCells() throws IOException {
+      CellRecord record = cells.record(index, current, view);
+      if (!record.parsed()) {
+        CharSequence text = record.text();
+        return inText(text, first ? charIndex(text, column) : (forward ? 0 : text.length() + 1));
+      }
+      ColumnLayout layout = view.layout();
+      for (int step = 0; step < layout.count(); step++) {
+        int cell = forward ? step : layout.count() - 1 - step;
+        long start = layout.start(cell);
+        long last = start + layout.width(cell) - 2;
+        CharSequence value = record.value(layout.column(cell));
+        int limit = forward ? 0 : value.length() + 1;
+        if (first && column <= start) {
+          limit = forward ? 0 : -1;
+        } else if (first && column <= last) {
+          limit = charIndex(value, column - start);
+        } else if (first) {
+          limit = value.length() + 1;
+        }
+        if (limit < 0 || (forward && limit > value.length())) {
+          continue;
+        }
+        chars.set(value);
+        matcher.reset(chars);
+        int[] found = forward ? firstFrom(matcher, limit) : lastBefore(matcher, limit);
+        if (found.length == 2) {
+          long a = start + Math.min(columnOf(value, found[0]), last - start);
+          long b = start + Math.min(columnOf(value, found[1]), last + 1 - start);
+          return new Match(current, a, Math.max(b, a + 1));
+        }
+      }
+      return null;
     }
   }
 

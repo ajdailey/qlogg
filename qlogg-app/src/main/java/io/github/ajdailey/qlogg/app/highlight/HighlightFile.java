@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.app.highlight;
 
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.search.FilterFile;
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
 import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
@@ -38,6 +39,9 @@ import org.slf4j.LoggerFactory;
  *       for none</td></tr>
  *   <tr><td>{@code highlight.set.N.rule.M.alpha}, {@code .variance}</td><td>0-255; 0 to
  *       {@link HighlightRule#MAX_VARIANCE}</td></tr>
+ *   <tr><td>{@code highlight.set.N.rule.M.column}</td><td>The column the rule tests in column
+ *       view, at most {@link ColumnSchema#MAX_NAME_CHARS} chars; absent or empty for the whole
+ *       row</td></tr>
  *   <tr><td>{@code highlight.set.N.rule.M.stopFollow}, {@code .setMark}, {@code .quiet},
  *       {@code .comment}</td><td>The rule's trigger: flags, and the comment template of at most
  *       {@link RuleTrigger#MAX_TEMPLATE_CHARS} chars; absent keys mean no action</td></tr>
@@ -194,6 +198,9 @@ public final class HighlightFile {
         properties.setProperty(key + ".alpha", Integer.toString(rule.alpha()));
         properties.setProperty(key + ".variance", Integer.toString(rule.variance()));
         properties.setProperty(key + ".enabled", Boolean.toString(rule.enabled()));
+        if (!rule.column().isEmpty()) {
+          properties.setProperty(key + ".column", rule.column());
+        }
         storeTrigger(rule.trigger(), key, properties);
       }
     }
@@ -282,7 +289,9 @@ public final class HighlightFile {
     int alpha = number(properties.getProperty(key + ".alpha", "255"), 255);
     int variance =
         number(properties.getProperty(key + ".variance", "0"), HighlightRule.MAX_VARIANCE);
+    String column = properties.getProperty(key + ".column", "");
     if (pattern == null
+        || column.length() > ColumnSchema.MAX_NAME_CHARS
         || pattern.length() > HighlightRule.MAX_PATTERN_CHARS
         || (regex | ignoreCase | wholeLine | enabled) < 0
         || fore == BAD_COLOR
@@ -301,7 +310,8 @@ public final class HighlightFile {
         alpha,
         variance,
         enabled == 1,
-        trigger(properties, key, malformed));
+        trigger(properties, key, malformed),
+        column);
   }
 
   // Keyword triggers.

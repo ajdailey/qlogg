@@ -129,6 +129,10 @@ bar's Match case box.
   (`StandardMatchers.regexFlags`) and runs `LineFinder` from a `qlogg-search-`
   worker over the view's `rows()`, 4,096 rows per CPU step (`CpuSteps`),
   holding the `ActivityIndicator` active.
+- In column view `LineFinder` searches each row's shown cells: the full value
+  of each cell in cell order, or the raw text of a record that did not parse.
+  The match is selected in composed columns, cut to the cell's shown columns,
+  so a match past them selects the cell's last shown column.
 - A newer find cancels the older one, and a result from an older generation is
   dropped.
 - The match becomes the view's selection. With no occurrence left in the

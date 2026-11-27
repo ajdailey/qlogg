@@ -9,6 +9,7 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
+import io.github.ajdailey.qlogg.core.model.ColumnRead;
 import io.github.ajdailey.qlogg.core.model.LineFinder;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
@@ -33,6 +34,8 @@ import java.util.regex.PatternSyntaxException;
  * quickFind.incremental} on, each change to the text searches forward again from where the caret
  * was when typing began. A match found is a jump of the document's navigation history; while
  * typing, only the first match is.
+ *
+ * <p>In column view a find searches each row's shown cells ({@link ColumnController#read}).
  *
  * <p>Each find compiles the pattern and scans on a {@code qlogg-search-} worker ({@link
  * LineFinder}) inside a document entry, holding the {@link ActivityIndicator} active until its
@@ -316,6 +319,7 @@ public final class QuickFindController {
     final RowCursor rows = target.rows();
     final LineIndex index = target.document().index();
     final LineReader reader = target.document().newReader();
+    final ColumnRead cells = target.owner().columns().read();
     final boolean regex = state.regex();
     final boolean ignoreCase = state.ignoreCase();
     publish(running(true));
@@ -330,6 +334,7 @@ public final class QuickFindController {
                 scan(
                     target,
                     reader,
+                    cells,
                     index,
                     rows,
                     text,
@@ -367,6 +372,7 @@ public final class QuickFindController {
   private static Scan scan(
       LineViewController target,
       LineReader reader,
+      ColumnRead cells,
       LineIndex index,
       RowCursor rows,
       String text,
@@ -385,7 +391,7 @@ public final class QuickFindController {
               regex ? text : Pattern.quote(text), StandardMatchers.regexFlags(!ignoreCase));
       return new Scan(
           LineFinder.find(
-              target.workers(), reader, index, rows, pattern, line, column, forward, token),
+              target.workers(), reader, cells, index, rows, pattern, line, column, forward, token),
           null,
           false);
     } catch (PatternSyntaxException e) {

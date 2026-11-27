@@ -92,7 +92,7 @@ it from where it stopped as the index grows. Its `MutableLineSet` charges
 - A record holds at most 10,000 lines (`MAX_RECORD_LINES`), and a line
   starting 1 MiB (`MAX_RECORD_BYTES`) or more after the record's first byte
   starts a new one, so a stray quote cannot make the rest of the file one
-  record.
+  record. `RecordBounds` applies these bounds and the forced starts below.
 - The scan reads blocks of whole lines into one buffer from the caller's
   `ReadBuffers`. A CSV block with no quote byte, starting outside quotes, is
   counted with `ByteScan` alone. Otherwise, in a one-byte encoding, quotes
@@ -142,3 +142,55 @@ at a time, in a byte-aligned, ASCII-compatible encoding. In any other encoding
 a record is parsed when it holds the literal or any of
 `ColumnSchema.escapes()` (`"` for CSV and TSV; `&` and `<![CDATA[` for
 `log4j-xml`).
+
+## Column-view rows
+
+`CellReader` (`core.model`) reads the column view's visible rows through a
+`LineReader`. A `ColumnRead` carries what it needs besides the lines:
+
+| Component | Content |
+|---|---|
+| `layout` | `ColumnLayout`: the schema columns shown, in order, each width in grid columns, and the frozen cell count. `ColumnLayout.of` shows every column not hidden by default: Time 24, Message, Text and Exception 100, the others 16 or their name's length plus one, at most 60 |
+| `context` | The zone and file date the parser reads stamps with |
+| `time` | `TimeCell`: the display zone and the tab's time offset |
+| `records` | The `RecordLines` of a multi-line format, or null when a line is a record |
+| `headers` | A rotated set's repeated member headers |
+
+- A row's line reads as the whole record holding it, from the record's first
+  line (`RecordLines.startOf`), its lines joined by LF and cut at
+  `LineReader.MAX_LINE_BYTES` chars, so a filter tab row on a continuation
+  line shows its record. `record(index, line, view)` returns that parse as a
+  `CellRecord`; copy, Show Record and quick find read through it.
+- A parsed record composes into cells: each value cut to its cell's width
+  less one column and padded, the last column left for the rule between
+  cells. A tab in a value shows as spaces to the cell's next tab stop and a
+  line feed as its control box. A record that does not parse shows its raw
+  text from column 0 across every cell, as wide as it is; CSV fields
+  past the last column are already joined into it by the parser.
+- The Time cell shows the parsed instant plus the offset in the display zone
+  (`TimeCell`), `yyyy-MM-dd HH:mm:ss.SSS` with more digits when the stamp
+  has them; a stamp that did not parse shows as written.
+- Row text holds the frozen cells, then the window of the scrolled cells;
+  `LineBlock.frozenColumns()` gives the split, `cellCount` and `cellStart` the
+  cells in composed columns (one array shared by every parsed row).
+  `unparsed`, `header` (line 0 of a file with a header line, and the repeated
+  headers) and `cut` flag a row. A record is cut, and shows the truncation
+  marker, when it reached `MAX_RECORD_LINES` lines or `MAX_RECORD_BYTES` bytes,
+  where the scan starts a new record whatever the content, or when its text
+  was cut.
+- Highlights: a whole-line rule tests the raw record, or the value of the
+  column it names; a match-only rule colors matches inside each shown cell's
+  value, or only in its column's cells. A rule naming a column the format
+  lacks colors nothing in column view. Syntax tokens run over each cell's
+  value. Spans are in composed columns, clipped to each cell's shown chars.
+- `LineFinder.find` with a `ColumnRead` searches each shown cell's full value
+  in cell order and reports the match in composed columns, cut to the cell's
+  shown columns.
+- Only the listed rows are read. Finished rows stay in a cache of at most 512
+  rows and 512 Ki chars of text and spans, not charged to a share. A row is
+  reused while its record has the same lines and byte range and the read has
+  the same `ColumnRead`, window, highlighter, syntax-color and ANSI settings;
+  any other read empties the cache.
+- Cost, measured with `ColumnProbe` (`compose`): see
+  [qlogg-bench](../../qlogg-bench/README.md).
+

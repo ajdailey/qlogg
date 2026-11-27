@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
 
 /**
@@ -19,6 +20,9 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
  * @param enabled false skips the rule
  * @param trigger what the rule does to appended lines it matches; {@link RuleTrigger#NONE} for
  *     nothing
+ * @param column in column view, the column the rule tests, by name or 1-based number as {@link
+ *     ColumnSchema#columnIndex} reads it; empty for the whole row. Text view and keyword triggers
+ *     test the whole line either way
  */
 public record HighlightRule(
     String pattern,
@@ -30,7 +34,8 @@ public record HighlightRule(
     int alpha,
     int variance,
     boolean enabled,
-    RuleTrigger trigger) {
+    RuleTrigger trigger,
+    String column) {
   /** Longest pattern. */
   public static final int MAX_PATTERN_CHARS = 4096;
 
@@ -39,8 +44,11 @@ public record HighlightRule(
 
   /** Checks the components. */
   public HighlightRule {
-    if (pattern == null || mode == null || trigger == null) {
-      throw new IllegalArgumentException("pattern, mode and trigger are required");
+    if (pattern == null || mode == null || trigger == null || column == null) {
+      throw new IllegalArgumentException("pattern, mode, trigger and column are required");
+    }
+    if (column.length() > ColumnSchema.MAX_NAME_CHARS) {
+      throw new IllegalArgumentException("column name is too long");
     }
     if (pattern.length() > MAX_PATTERN_CHARS) {
       throw new IllegalArgumentException("pattern is too long");
@@ -86,7 +94,47 @@ public record HighlightRule(
         alpha,
         variance,
         enabled,
-        RuleTrigger.NONE);
+        RuleTrigger.NONE,
+        "");
+  }
+
+  /**
+   * Creates a rule for the whole row.
+   *
+   * @param pattern the text or regular expression
+   * @param mode how the pattern is read
+   * @param caseSensitive false folds case
+   * @param wholeLine true colors the whole line of a match
+   * @param foreground text color, or null
+   * @param background background color, or null
+   * @param alpha opacity of the background, 0 to 255
+   * @param variance 0 to {@link #MAX_VARIANCE}
+   * @param enabled false skips the rule
+   * @param trigger what the rule does to appended lines it matches
+   */
+  public HighlightRule(
+      String pattern,
+      MatchMode mode,
+      boolean caseSensitive,
+      boolean wholeLine,
+      Rgb foreground,
+      Rgb background,
+      int alpha,
+      int variance,
+      boolean enabled,
+      RuleTrigger trigger) {
+    this(
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        trigger,
+        "");
   }
 
   /**
@@ -111,7 +159,17 @@ public record HighlightRule(
    */
   public HighlightRule withCaseSensitive(boolean value) {
     return new HighlightRule(
-        pattern, mode, value, wholeLine, foreground, background, alpha, variance, enabled, trigger);
+        pattern,
+        mode,
+        value,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        trigger,
+        column);
   }
 
   /**
@@ -132,7 +190,8 @@ public record HighlightRule(
         opacity,
         percent,
         enabled,
-        trigger);
+        trigger,
+        column);
   }
 
   /**
@@ -152,7 +211,8 @@ public record HighlightRule(
         alpha,
         variance,
         value,
-        trigger);
+        trigger,
+        column);
   }
 
   /**
@@ -172,6 +232,28 @@ public record HighlightRule(
         alpha,
         variance,
         enabled,
+        value,
+        column);
+  }
+
+  /**
+   * Returns a copy that tests another column.
+   *
+   * @param value a column name or number, or empty for the whole row
+   * @return the copy
+   */
+  public HighlightRule withColumn(String value) {
+    return new HighlightRule(
+        pattern,
+        mode,
+        caseSensitive,
+        wholeLine,
+        foreground,
+        background,
+        alpha,
+        variance,
+        enabled,
+        trigger,
         value);
   }
 }

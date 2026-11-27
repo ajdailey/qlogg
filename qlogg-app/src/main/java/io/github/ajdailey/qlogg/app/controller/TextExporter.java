@@ -35,6 +35,10 @@ import org.slf4j.LoggerFactory;
  * selected file byte, a save at {@link #SAVE_BYTES_PER_FILE_BYTE}; a selection the share cannot
  * hold is refused. The caller releases the charge the returned {@link Result} carries; an exception
  * thrown out of {@link #export} releases it first.
+ *
+ * <p>A request with {@link Request#columns} builds column-view text through {@link RecordText},
+ * sized and charged by {@link RecordText#bytes}; text that outgrows that size is refused as too
+ * large.
  */
 final class TextExporter {
   /**
@@ -73,8 +77,15 @@ final class TextExporter {
    * @param block true for the display columns between anchor and caret on every row
    * @param output where the text goes
    * @param file the validated target for {@link Output#FILE}, else null
+   * @param columns the column-view text taken, or null for the rows' lines and columns
    */
-  record Request(Selection selection, boolean block, Output output, Path file) {}
+  record Request(
+      Selection selection, boolean block, Output output, Path file, RecordText.Columns columns) {
+    /** Creates a request for text-view rows. */
+    Request(Selection selection, boolean block, Output output, Path file) {
+      this(selection, block, output, file, null);
+    }
+  }
 
   /**
    * The rows of a request in the view.
@@ -141,7 +152,11 @@ final class TextExporter {
     Result result = null;
     try {
       long last = index.lineCount() - 1;
-      long bytes = selectedBytes(index, rows, Math.min(rows.firstLine(), last), token);
+      RecordText.Columns columns = request.columns();
+      long bytes =
+          columns == null
+              ? selectedBytes(index, rows, Math.min(rows.firstLine(), last), token)
+              : RecordText.bytes(index, rows, columns, token);
       if (output == Output.NUMBERED) {
         bytes += (rows.last() - rows.first() + 1) * NUMBER_BYTES;
       }
@@ -156,8 +171,29 @@ final class TextExporter {
         charged = bytes * perByte;
         // Sized once: a doubling builder peaks above the charge.
         StringBuilder out = new StringBuilder((int) bytes);
-        Appending taken = new Appending(document.newReader(), index, rows, request, out, token);
-        CpuSteps.run(cpu, taken);
+        long taken;
+        long cut = 0;
+        if (columns == null) {
+          Appending appending =
+              new Appending(document.newReader(), index, rows, request, out, token);
+          CpuSteps.run(cpu, appending);
+          taken = appending.taken;
+          cut = appending.cut;
+        } else {
+          RecordText records =
+              new RecordText(
+                  document.newReader(),
+                  document.newReader(),
+                  index,
+                  rows,
+                  columns,
+                  output == Output.NUMBERED,
+                  out,
+                  bytes,
+                  token);
+          CpuSteps.run(cpu, records);
+          taken = records.taken();
+        }
         if (document.bytes().size() < index.indexedBytes()) {
           throw new IOException(UiText.EXPORT_FILE_SHORTER.text());
         }
@@ -175,8 +211,15 @@ final class TextExporter {
                   });
           AtomicFiles.writeUserFile(request.file(), encoded);
         }
-        result = new Result(text, null, charged, taken.taken, taken.cut);
+        result = new Result(text, null, charged, taken, cut);
       }
+    } catch (RecordText.TooLarge e) {
+      UiText pattern = output == Output.FILE ? UiText.SAVE_TOO_LARGE : UiText.COPY_TOO_LARGE;
+      String refusal =
+          pattern.format(
+              mebibytes(charged / perByte),
+              mebibytes(budget.available(MemoryShare.COPY) / perByte));
+      result = new Result(null, refusal, charged, 0);
     } catch (CancellationException | ClosedChannelException e) {
       result = new Result(null, null, charged, 0);
     } catch (IOException | UncheckedIOException e) {

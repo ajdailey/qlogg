@@ -79,12 +79,9 @@ public final class RecordScan {
   private long line;
   private long lineStart;
   private boolean atLineStart = true;
-  private long recordLine;
-  private long recordStart;
+  private final RecordBounds bounds = new RecordBounds();
   private int state = OUTSIDE;
   private boolean afterDelimiter;
-  private LineSet forced;
-  private long nextForced = -1;
   private volatile long classified;
   private volatile long scannedBytes;
   private volatile boolean refused;
@@ -175,16 +172,8 @@ public final class RecordScan {
   }
 
   /**
-   * Reads from where the last call stopped to the end of the index's last complete line. A call
-   * that ends with an exception leaves the scan where its last whole block left it.
-   *
-   * @param source the document's bytes; read with positional reads, not closed
-   * @param index a snapshot of the document's index, at least as long as the last call's
-   * @param buffers the pool one read buffer comes from
-   * @param token checked before each block
-   * @throws IOException when a read fails or the file is shorter than its index
-   * @throws InterruptedException when interrupted while waiting for a buffer
-   * @throws java.util.concurrent.CancellationException when the token is canceled
+   * Reads as {@link #scan(ByteSource, LineIndex, ReadBuffers, CancellationToken, LineSet)} does,
+   * with no forced starts.
    */
   public void scan(ByteSource source, LineIndex index, ReadBuffers buffers, CancellationToken token)
       throws IOException, InterruptedException {
@@ -192,8 +181,9 @@ public final class RecordScan {
   }
 
   /**
-   * Reads as {@link #scan(ByteSource, LineIndex, ReadBuffers, CancellationToken)} does, starting a
-   * record outside quotes at each line of {@code starts}.
+   * Reads from where the last call stopped to the end of the index's last complete line, starting a
+   * record outside quotes at each line of {@code starts}. A call that ends with an exception leaves
+   * the scan where its last whole block left it.
    *
    * @param source the document's bytes; read with positional reads, not closed
    * @param index a snapshot of the document's index, at least as long as the last call's
@@ -212,8 +202,7 @@ public final class RecordScan {
       CancellationToken token,
       LineSet starts)
       throws IOException, InterruptedException {
-    forced = starts;
-    nextForced = -1;
+    bounds.force(starts);
     long complete = index.lastLineComplete() ? index.lineCount() : index.lineCount() - 1;
     if (refused || complete <= 0) {
       return;
@@ -226,7 +215,7 @@ public final class RecordScan {
     if (offset < 0) {
       offset = index.lineStart(0);
       lineStart = offset;
-      recordStart = offset;
+      bounds.start(0, offset);
     }
     if (offset >= limit) {
       return;
@@ -400,12 +389,11 @@ public final class RecordScan {
   /** Decides the line at {@link #lineStart}: a continuation inside quotes, else a record start. */
   private void startDelimitedLine() {
     atLineStart = false;
-    if (line > 0 && state == QUOTED && withinBounds() && !forced()) {
+    if (line > 0 && state == QUOTED && bounds.joins(line, lineStart)) {
       add(line);
       return;
     }
-    recordLine = line;
-    recordStart = lineStart;
+    bounds.start(line, lineStart);
     state = OUTSIDE;
   }
 
@@ -419,8 +407,7 @@ public final class RecordScan {
       int last = lastUnit(buffer, n, lineFeed);
       line += count;
       lineStart = offset + last + 1;
-      recordLine = line;
-      recordStart = lineStart;
+      bounds.start(line, lineStart);
       atLineStart = last + 1 == n;
     }
     afterDelimiter = buffer.get(n - 1) == delimiter[0];
@@ -433,10 +420,9 @@ public final class RecordScan {
     while (pos < n) {
       if (atLineStart) {
         atLineStart = false;
-        if (line == 0 || !withinBounds() || forced() || leadsWithEvent(buffer, pos, n)) {
+        if (line == 0 || !bounds.joins(line, lineStart) || leadsWithEvent(buffer, pos, n)) {
           add(line);
-          recordLine = line;
-          recordStart = lineStart;
+          bounds.start(line, lineStart);
         }
       }
       int hit = SearchEngine.findUnit(buffer, pos, n, lineFeed);
@@ -458,23 +444,6 @@ public final class RecordScan {
       return false;
     }
     return SearchEngine.unitAt(buffer, at, eventStart);
-  }
-
-  /** True when the forced starts hold the line at {@link #lineStart}. */
-  private boolean forced() {
-    if (forced == null) {
-      return false;
-    }
-    if (nextForced < line) {
-      long next = forced.ceiling(line);
-      nextForced = next < 0 ? Long.MAX_VALUE : next;
-    }
-    return nextForced == line;
-  }
-
-  /** True when the line at {@link #lineStart} may join the record that started before it. */
-  private boolean withinBounds() {
-    return line - recordLine < MAX_RECORD_LINES && lineStart - recordStart < MAX_RECORD_BYTES;
   }
 
   /** Moves past the LF at buffer offset {@code hit} to the next line's start. */
