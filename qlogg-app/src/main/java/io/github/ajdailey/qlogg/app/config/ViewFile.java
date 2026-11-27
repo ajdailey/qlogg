@@ -27,6 +27,8 @@ final class ViewFile {
   static final String TIME_SPREAD_KEY = "view.timeSpread";
   // View colors.
   static final String COLORS_KEY = "view.colors";
+  // Columns.
+  static final String COLUMNS_AUTO_KEY = "view.columns.auto";
 
   /** Most continuation patterns read. */
   static final int MAX_CONTINUATION = 64;
@@ -84,7 +86,9 @@ final class ViewFile {
         selectors,
         spread(properties, defaults.timeSpread()),
         // View colors.
-        colors(properties, defaults.colors()));
+        colors(properties, defaults.colors()),
+        // Columns.
+        flag(properties, COLUMNS_AUTO_KEY, defaults.columnsAuto()));
   }
 
   /**
@@ -101,6 +105,8 @@ final class ViewFile {
     properties.setProperty(TIME_SPREAD_KEY, view.timeSpread().id());
     // View colors.
     properties.setProperty(COLORS_KEY, view.colors());
+    // Columns.
+    properties.setProperty(COLUMNS_AUTO_KEY, Boolean.toString(view.columnsAuto()));
     properties.setProperty(FOLD_START_KEY, view.folds().entryStart());
     List<String> continuation = view.folds().continuation();
     for (int i = 0; i < continuation.size() && i < MAX_CONTINUATION; i++) {

@@ -48,7 +48,8 @@ class KeymapTest {
   void everyMenuCommandHasALabelAndEveryBindingACommandInTheTable() {
     for (CommandId command : CommandId.values()) {
       assertFalse(command.title().isEmpty());
-      if (command.group() == CommandGroup.LOG_VIEW) {
+      // Toggle Columns runs only through ApplicationController.execute.
+      if (command.group() == CommandGroup.LOG_VIEW && command != CommandId.TOGGLE_COLUMNS) {
         assertFalse(keymap.bindingsFor(command).isEmpty(), command + " has no key");
       }
       KeyStroke accelerator = keymap.accelerator(command);

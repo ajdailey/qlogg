@@ -21,6 +21,11 @@ final class OwnedDocument implements DocumentRole {
   }
 
   @Override
+  public DocumentController parent() {
+    return null;
+  }
+
+  @Override
   public void flushed() {
     // Growth reaches this tab's search through the flush itself.
   }

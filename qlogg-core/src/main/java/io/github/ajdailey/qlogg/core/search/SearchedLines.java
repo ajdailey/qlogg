@@ -27,7 +27,13 @@ abstract sealed class SearchedLines {
    */
   static SearchedLines of(SearchQuery query, LineIndex index, int gapBytes, int lineFeedBytes) {
     if (query.records() != null) {
-      return new Records(query.restriction(), query.records(), index, gapBytes);
+      ColumnSearch columns = query.columns();
+      return new Records(
+          query.restriction(),
+          query.records(),
+          columns.schema().header() ? columns.headers() : null,
+          index,
+          gapBytes);
     }
     return query.restriction() == null
         ? new All(index)
@@ -224,21 +230,31 @@ abstract sealed class SearchedLines {
   }
 
   /**
-   * Records whose first line is in a set, or every record. A run starts at a tested record and
-   * takes each following tested record that starts at most {@code gapBytes} after the previous
-   * one's end, with the lines between them.
+   * Records whose first line is in a set, or every record, less the header records. A run starts at
+   * a tested record and takes each following tested record that starts at most {@code gapBytes}
+   * after the previous one's end, with the lines between them.
    */
   private static final class Records extends SearchedLines {
     private final LineSet set;
     private final RecordLines records;
+    private final LineSet headers;
     private final int gapBytes;
 
-    /** {@code set} null tests every record. */
-    Records(LineSet set, RecordLines records, LineIndex index, int gapBytes) {
+    /**
+     * {@code set} null tests every record; {@code headers} non-null leaves out the records starting
+     * at line 0 or at one of its lines.
+     */
+    Records(LineSet set, RecordLines records, LineSet headers, LineIndex index, int gapBytes) {
       super(index);
       this.set = set;
       this.records = records;
+      this.headers = headers;
       this.gapBytes = gapBytes;
+    }
+
+    /** Reports whether a record's first line is a header record's. */
+    private boolean header(long start) {
+      return headers != null && (start == 0 || headers.contains(start));
     }
 
     @Override
@@ -247,10 +263,14 @@ abstract sealed class SearchedLines {
         return end;
       }
       if (set == null) {
-        return Math.min(records.nextStart(line), end);
+        long start = records.nextStart(line);
+        while (start < end && header(start)) {
+          start = records.nextStart(start + 1);
+        }
+        return Math.min(start, end);
       }
       long member = set.ceiling(line);
-      while (member >= 0 && member < end && !records.starts(member)) {
+      while (member >= 0 && member < end && (!records.starts(member) || header(member))) {
         member = set.ceiling(member + 1);
       }
       return member < 0 ? end : Math.min(member, end);
@@ -259,7 +279,7 @@ abstract sealed class SearchedLines {
     @Override
     long next(long last) {
       if (set == null) {
-        return last + 1;
+        return header(last + 1) ? first(last + 1, Long.MAX_VALUE) : last + 1;
       }
       long next = first(last + 1, Long.MAX_VALUE);
       return next == Long.MAX_VALUE ? -1 : next;

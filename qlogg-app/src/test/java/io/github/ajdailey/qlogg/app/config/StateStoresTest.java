@@ -170,7 +170,7 @@ class StateStoresTest {
   }
 
   @Test
-  void positionsKeepTheTimestampChoices() throws Exception {
+  void positionsKeepTheTimestampAndColumnChoices() throws Exception {
     PositionStore store = new PositionStore(location());
     Path file = Path.of("/mock/t.log");
     store.setTimeFormat(file, "user:app");
@@ -178,11 +178,17 @@ class StateStoresTest {
     store.put(file, 4, 5, 6);
     store.setEncoding(file, StandardCharsets.UTF_8);
     store.setTimeFormat(Path.of("/mock/n.log"), TimeSettings.NO_FORMAT);
+    store.setColumns(file, "csv");
+    store.setHeader(file, false);
+    store.setColumns(Path.of("/mock/n.log"), PositionStore.NO_COLUMNS);
     assertTrue(store.save());
     PositionStore loaded = new PositionStore(location());
     loaded.load();
     assertEquals(
-        new PositionStore.Entry(4, 5, 6, "UTF-8", "user:app", "Europe/Berlin"), loaded.get(file));
+        new PositionStore.Entry(4, 5, 6, "UTF-8", "user:app", "Europe/Berlin", "csv", "0"),
+        loaded.get(file));
+    assertEquals(PositionStore.NO_COLUMNS, loaded.get(Path.of("/mock/n.log")).columns());
+    assertEquals("", loaded.get(Path.of("/mock/n.log")).header());
     assertEquals(TimeSettings.NO_FORMAT, loaded.get(Path.of("/mock/n.log")).timeFormat());
     assertEquals("", loaded.get(Path.of("/mock/n.log")).zone());
   }

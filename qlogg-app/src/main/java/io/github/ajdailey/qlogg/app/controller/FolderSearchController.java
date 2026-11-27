@@ -602,8 +602,7 @@ public final class FolderSearchController {
 
   private String failureText(Exception failure) {
     if (failure instanceof PatternSyntaxException syntax) {
-      return UiText.SEARCH_REGEX_ERROR.format(
-          Math.max(0, syntax.getIndex()) + 1, LogText.oneLine(syntax.getDescription()));
+      return SearchErrors.text(syntax);
     }
     String message = failure == null ? null : PathFormText.message(failure);
     return UiText.FOLDER_FAILED.format(

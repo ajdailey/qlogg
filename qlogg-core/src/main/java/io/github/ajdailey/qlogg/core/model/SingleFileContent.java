@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnDetector;
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.index.GrowableLineIndex;
@@ -13,6 +15,7 @@ import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.text.EncodingDetector;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
@@ -62,6 +65,8 @@ final class SingleFileContent implements DocumentContent {
   private final String name;
   private final EncodingDetection detection;
   private final BuiltInFormat timeFormat;
+  private final ByteBuffer head;
+  private final ColumnSchema columns;
   private final GrowableLineIndex index;
   private final FileCheck check;
   private final DocumentServices services;
@@ -78,6 +83,7 @@ final class SingleFileContent implements DocumentContent {
       ByteSource source,
       EncodingDetection detection,
       BuiltInFormat timeFormat,
+      ByteBuffer head,
       DocumentServices services,
       String name,
       long pastedBytes)
@@ -87,6 +93,8 @@ final class SingleFileContent implements DocumentContent {
     this.pastedBytes = pastedBytes;
     this.detection = detection;
     this.timeFormat = timeFormat;
+    this.head = head.asReadOnlyBuffer();
+    this.columns = detectColumns(head, detection, name, source.identity());
     this.index =
         new GrowableLineIndex(detection.encoding(), services.budget(), source, services.cache());
     this.services = services;
@@ -136,7 +144,7 @@ final class SingleFileContent implements DocumentContent {
       Path file = source.path().getFileName();
       String title = file == null ? source.path().toString() : file.toString();
       SingleFileContent content =
-          new SingleFileContent(source, detection, timeFormat, services, title, 0);
+          new SingleFileContent(source, detection, timeFormat, head, services, title, 0);
       opened = true;
       return content;
     } finally {
@@ -178,7 +186,7 @@ final class SingleFileContent implements DocumentContent {
       EncodingDetection detection = EncodingDetector.forced(StandardCharsets.UTF_8, head);
       BuiltInFormat timeFormat = detectTimeFormat(head, detection, source.identity());
       SingleFileContent content =
-          new SingleFileContent(source, detection, timeFormat, services, name, bytes.length);
+          new SingleFileContent(source, detection, timeFormat, head, services, name, bytes.length);
       opened = true;
       return content;
     } finally {
@@ -196,6 +204,16 @@ final class SingleFileContent implements DocumentContent {
       ByteBuffer head, EncodingDetection detection, FileIdentity identity) {
     return FormatDetector.detect(
         head, detection.encoding(), TimeContext.of(ZoneOffset.UTC, identity.modifiedMillis()));
+  }
+
+  /** Detects the column format of the head, with UTC standing in for the document zone. */
+  static ColumnSchema detectColumns(
+      ByteBuffer head, EncodingDetection detection, String fileName, FileIdentity identity) {
+    return ColumnDetector.detect(
+        head,
+        detection.encoding(),
+        fileName,
+        TimeContext.of(ZoneOffset.UTC, identity.modifiedMillis()));
   }
 
   /** Reads the first {@link EncodingDetector#SAMPLE_BYTES}, or the whole source when shorter. */
@@ -244,6 +262,21 @@ final class SingleFileContent implements DocumentContent {
   @Override
   public BuiltInFormat timeFormat() {
     return timeFormat;
+  }
+
+  @Override
+  public ByteBuffer head() {
+    return head.duplicate();
+  }
+
+  @Override
+  public ColumnSchema columns() {
+    return columns;
+  }
+
+  @Override
+  public LineSet memberStarts(LineIndex index) {
+    return null;
   }
 
   @Override

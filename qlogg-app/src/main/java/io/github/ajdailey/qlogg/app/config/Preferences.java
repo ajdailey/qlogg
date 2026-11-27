@@ -25,7 +25,7 @@ import java.util.List;
  * @param overview {@code view.overview}: the overview bar shows beside the main view
  * @param follow {@code follow.*}
  * @param view {@code view.wrapOnOpen}, {@code view.showWhitespace}, {@code view.hideAnsi}, {@code
- *     fold.*} and {@code highlight.selector.*}
+ *     view.columns.auto}, {@code fold.*} and {@code highlight.selector.*}
  * @param options font, recent-files count, monitoring, default encoding, session, shortcuts and
  *     favorites
  * @param state remembered UI state

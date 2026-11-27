@@ -73,6 +73,15 @@ public final class Indexer {
   }
 
   /**
+   * Returns the read buffer pool, which a scan of indexed lines may share.
+   *
+   * @return the pool
+   */
+  public ReadBuffers buffers() {
+    return buffers;
+  }
+
+  /**
    * Drops the pool's free buffers past {@link ReadBuffers#MIN_BUFFERS} and returns their {@code
    * IO_BUFFERS} reservation.
    *

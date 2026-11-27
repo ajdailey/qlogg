@@ -72,10 +72,10 @@ import org.slf4j.LoggerFactory;
  * DocumentHost}, which reopens it; a missing file keeps its content and shows a notice, unless a
  * failed reopen already showed one.
  *
- * <p>Rows map to lines through a {@link RowMap}: {@link FoldRows} in a file tab, which owns its
+ * <p>Rows map to lines through a {@link RowMap}: {@link ColumnRows} in a file tab, which owns its
  * document ({@link OwnedDocument}), and {@link DerivedRows} in a filter tab, which shares its root
- * tab's document and grows through its {@link Derivation}. Mark jumps step over marks that are not
- * rows ({@link MarkSteps}).
+ * tab's document and grows through its {@link Derivation}. The tab's {@link ColumnController} holds
+ * its column format and records. Mark jumps step over marks that are not rows ({@link MarkSteps}).
  *
  * <p>Folding ({@link FoldController}): a collapsed entry is one row, so rows map to lines through
  * the {@link FoldMap}. A fold change keeps the top line and the selection on their lines. Go to
@@ -132,6 +132,7 @@ public final class DocumentController extends LineViewController {
   private DocumentViewState state;
   // Rows, folding and the automatic highlighter set.
   private final FoldMap folds;
+  private final ColumnController columns;
   private final RowMap rows;
   private final DocumentRole role;
   private String autoSet;
@@ -202,8 +203,9 @@ public final class DocumentController extends LineViewController {
     this.document = document;
     this.time = new TimeController(this);
     this.folds = new FoldMap(budget);
+    this.columns = new ColumnController(this);
     if (derivation == null) {
-      this.rows = new FoldRows(this, folds);
+      this.rows = new ColumnRows(this, new FoldRows(this, folds));
       this.role = new OwnedDocument();
     } else {
       this.rows = derivation.rows();
@@ -463,6 +465,20 @@ public final class DocumentController extends LineViewController {
     return rows;
   }
 
+  /**
+   * Returns the column state and records.
+   *
+   * @return the controller
+   */
+  public ColumnController columns() {
+    return columns;
+  }
+
+  /** Returns the parent of a filter tab, or null for a file tab. */
+  DocumentController parentTab() {
+    return role.parent();
+  }
+
   /** The rows changed outside a document event; flushes them. */
   void rowsChanged() {
     updates.post();
@@ -555,11 +571,12 @@ public final class DocumentController extends LineViewController {
   }
 
   /**
-   * Applies a change to the fold map, keeping the top line and the selection on their lines.
+   * Applies a change to the row map, such as a fold or a new record snapshot, keeping the top line
+   * and the selection on their lines.
    *
    * @param change mutates the map
    */
-  void changeFolds(Runnable change) {
+  void changeRows(Runnable change) {
     long topLine = sourceLine(viewport().topLine());
     Selection current = selection();
     long anchor = sourceLine(current.anchor().line());
@@ -1279,6 +1296,7 @@ public final class DocumentController extends LineViewController {
 
   /** The time state changed; both views read or reformat their times. */
   void timeChanged(boolean reread) {
+    columns.timeFormatChanged();
     timeSettingsChanged(reread);
     filtered.timeSettingsChanged(reread);
     // Time spread.
@@ -1305,6 +1323,7 @@ public final class DocumentController extends LineViewController {
     updates.close();
     role.detached();
     rows.detach();
+    columns.detach();
     search.detach();
     filtered.detach();
     overview.detach();
@@ -1331,6 +1350,7 @@ public final class DocumentController extends LineViewController {
     // ended pairs with a complete index.
     DocumentStatus status = document.status();
     LineIndex index = document.index();
+    columns.flushed(status.indexing());
     viewport().setMaxColumns(Math.max(estimatedColumns(index), lines().maxWidth()));
     long count = rows.rowCount(index.lineCount());
     viewport().setLineCount(count);

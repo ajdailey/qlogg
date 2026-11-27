@@ -36,6 +36,7 @@ public final class LineText {
   private final CancellationToken token;
   private final boolean hideAnsi;
   private final Chars chars = new Chars();
+  private final Checked checked = new Checked();
   private final ByteBuffer window = ByteBuffer.allocate(WINDOW_BYTES);
   private ByteBuffer buffer = ByteBuffer.allocate(0);
   private ByteBuffer units;
@@ -160,6 +161,19 @@ public final class LineText {
     return view;
   }
 
+  /**
+   * Returns a value read from this line, such as a parsed column value, through a view that checks
+   * the cancellation token every {@link #CHECK_INTERVAL} {@code charAt} calls, as {@link #chars}
+   * does. The view is reused: the next call points it at another value.
+   *
+   * @param value the chars
+   * @return the checked view of {@code value}
+   */
+  CharSequence checked(CharSequence value) {
+    checked.value = value;
+    return checked;
+  }
+
   /** Drops a char scratch grown past {@link #KEPT_CHARS} by a long line. */
   void trim() {
     if (scratch.length > KEPT_CHARS) {
@@ -270,6 +284,35 @@ public final class LineText {
       if (last) {
         return decoder.flush(out);
       }
+    }
+  }
+
+  /** A value's chars, checking the token as a regex reads them. */
+  private final class Checked implements CharSequence {
+    private CharSequence value = "";
+
+    @Override
+    public int length() {
+      return value.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      if (++calls >= CHECK_INTERVAL) {
+        calls = 0;
+        token.check();
+      }
+      return value.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int from, int to) {
+      return value.subSequence(from, to).toString();
+    }
+
+    @Override
+    public String toString() {
+      return value.toString();
     }
   }
 

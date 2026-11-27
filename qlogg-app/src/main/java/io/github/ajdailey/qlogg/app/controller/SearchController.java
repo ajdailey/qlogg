@@ -63,10 +63,13 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Each search holds a {@link io.github.ajdailey.qlogg.core.model.LogDocument#enter} entry until
  * its {@code finished} call, so closing the document waits for it. With {@code autoRefresh} on,
- * {@link #appended} searches the lines a finished search did not cover, from its last line, which
- * may have grown, into the same set and generation. The refresh shows no progress and holds no
- * activity; the state stays {@code DONE} with the growing match count. A search that stopped at a
- * limit, or whose range ends before the end of the file, is not refreshed.
+ * {@link #appended} searches the lines a finished search did not cover, from its last line or that
+ * line's record, which may have grown, into the same set and generation. In column view a search
+ * tests the tab's columns, and on a multi-line format the record is the unit ({@link
+ * ColumnController}). A column term the view cannot test fails the search ({@link SearchErrors}).
+ * The refresh shows no progress and holds no activity; the state stays {@code DONE} with the
+ * growing match count. A search that stopped at a limit, or whose range ends before the end of the
+ * file, is not refreshed.
  *
  * <p>With {@code range} on, the field's text starts a range and {@code rangeEnd} ends it ({@link
  * SearchQuery#rangeEnd}). A refresh of a range search starts in the state the engine reported
@@ -608,7 +611,8 @@ public final class SearchController {
   /**
    * Starts the engine over the document's current snapshot inside a document entry, restricted to
    * the view's rows below their settled line ({@link RowMap#settledLines}), holding the rows as a
-   * reader until it ends.
+   * reader until it ends. In column view the query tests the tab's columns and newest records
+   * ({@link ColumnController#search}).
    *
    * @return false when the document is closing or the workers are closed
    */
@@ -618,6 +622,7 @@ public final class SearchController {
     }
     LineIndex index = document.document().index();
     final RowMap rows = document.rowMap();
+    SearchQuery searched = settled(query.withColumns(document.columns().search()), rows);
     long first = query.scope() == null ? 0 : Math.min(query.scope().first(), index.lineCount());
     AtomicBoolean discarded = new AtomicBoolean();
     Events events =
@@ -634,8 +639,7 @@ public final class SearchController {
             rows);
     rows.readerStarted();
     try {
-      OperationHandle handle =
-          engine.search(document.document(), index, settled(query, rows), results, events);
+      OperationHandle handle = engine.search(document.document(), index, searched, results, events);
       running = new Running(handle, active, discarded, refresh);
       return true;
     } catch (RejectedExecutionException e) {
@@ -661,13 +665,15 @@ public final class SearchController {
         query.hideAnsi(),
         query.rangeEnd(),
         query.rangeOpen(),
-        rows.members());
+        rows.members(),
+        query.columns());
   }
 
   /**
    * With {@code autoRefresh} on, searches the lines the file gained since the finished search, from
-   * its last line, into the same results. Does nothing while a search runs, after a limit stopped
-   * the last one, or when its range ends before the end of the file.
+   * its last line, or from that line's record in column view on a multi-line format once the
+   * records cover the new lines, into the same results. Does nothing while a search runs, after a
+   * limit stopped the last one, or when its range ends before the end of the file.
    */
   void appended() {
     if (closed
@@ -681,11 +687,14 @@ public final class SearchController {
     LineIndex index = document.document().index();
     RowMap rows = document.rowMap();
     long settled = Math.min(index.lineCount(), rows.settledLines());
-    if (rows.settledBytes(index) <= searchedBytes || settled == 0) {
+    if (rows.settledBytes(index) <= searchedBytes
+        || settled == 0
+        || !document.columns().recordsSettled(index)) {
       return;
     }
     long first = lastQuery.scope() == null ? 0 : lastQuery.scope().first();
-    long from = Math.max(first, searchedEnd - 1);
+    long last = searchedEnd - 1;
+    long from = Math.max(first, lastQuery.range() ? last : document.columns().recordStart(last));
     if (from >= settled) {
       return;
     }
@@ -699,7 +708,7 @@ public final class SearchController {
             new LineRange(from, Long.MAX_VALUE),
             lastQuery.hideAnsi(),
             lastQuery.rangeEnd(),
-            from == searchedEnd - 1 && searchedRangeOpen);
+            from == last && searchedRangeOpen);
     start(query, new AtomicBoolean(false), true);
   }
 
@@ -857,14 +866,15 @@ public final class SearchController {
     }
     final SearchQuery query =
         new SearchQuery(
-            start,
-            toggles.caseSensitive(),
-            toggles.wholeWord(),
-            false,
-            null,
-            document.document().hideAnsi(),
-            end,
-            false);
+                start,
+                toggles.caseSensitive(),
+                toggles.wholeWord(),
+                false,
+                null,
+                document.document().hideAnsi(),
+                end,
+                false)
+            .withColumns(document.columns().search());
     final long line = document.sourceLine(document.selection().caret().line());
     if (line < 0) {
       return;
@@ -1263,8 +1273,7 @@ public final class SearchController {
 
   private String failureText(Exception failure) {
     if (failure instanceof PatternSyntaxException syntax) {
-      return UiText.SEARCH_REGEX_ERROR.format(
-          Math.max(0, syntax.getIndex()) + 1, LogText.oneLine(syntax.getDescription()));
+      return SearchErrors.text(syntax);
     }
     if (failure instanceof PatternTooComplexException complex) {
       return UiText.SEARCH_PATTERN_TOO_COMPLEX.format(complex.line() + 1);

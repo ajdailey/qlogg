@@ -80,7 +80,7 @@ final class FoldController {
     long[] entry = map.collapsedEntry(line);
     if (entry != null) {
       final long start = entry[0];
-      owner.changeFolds(
+      owner.changeRows(
           new Runnable() {
             @Override
             public void run() {
@@ -107,7 +107,7 @@ final class FoldController {
     collapseAll = false;
     classifiedFrom = -1;
     classifiedTo = -1;
-    owner.changeFolds(
+    owner.changeRows(
         new Runnable() {
           @Override
           public void run() {
@@ -282,7 +282,7 @@ final class FoldController {
         classifiedFrom = Math.min(classifiedFrom, from);
         classifiedTo = Math.max(classifiedTo, to);
       }
-      owner.changeFolds(
+      owner.changeRows(
           new Runnable() {
             @Override
             public void run() {
@@ -303,7 +303,7 @@ final class FoldController {
       final long start = entries[i];
       final long end = entries[i + 1];
       if (line >= start && line < end) {
-        owner.changeFolds(
+        owner.changeRows(
             new Runnable() {
               @Override
               public void run() {

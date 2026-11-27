@@ -16,7 +16,7 @@ without a display. `qlogg-ui-swt` implements the view contracts and
 | `app.command` | `CommandId`, `CommandGroup`, `Binding`, `Keymap`, `KeySequencer`, `KeyStroke`, `MenuTable`, `ShortcutOverrides` | [Views and commands](docs/views-and-commands.md) |
 | `app.i18n` | `UiText`, `messages.properties` and `WindowTitles` | [Views and commands](docs/views-and-commands.md) |
 | `app.controller` | Windows, tabs, open, reload, close and quit | [Windows and tabs](docs/windows-and-tabs.md) |
-| `app.controller` | The main and filtered views of one document: rows, copy, save, marks, follow, folds | [Document views](docs/document-views.md) |
+| `app.controller` | The main and filtered views of one document: rows, copy, save, marks, follow, folds, column state and records | [Document views](docs/document-views.md) |
 | `app.controller`, `app.search` | Search, quick find, search across files, search in a folder, history and filters | [Search](docs/search.md) |
 | `app.controller`, `app.highlight`, `app.theme` | Highlighters, color labels, syntax colors, keyword triggers, palette | [Highlighting](docs/highlighting.md) |
 | `app.controller` | Timestamp formats, Go to Time, time sync, time spread | [Timestamps](docs/timestamps.md) |
@@ -54,7 +54,7 @@ Controllers run work on these `Workers` pools:
 
 | Thread prefix | Work |
 |---|---|
-| `qlogg-index-` | Open, paste, reload, reopen, session restore; indexing |
+| `qlogg-index-` | Open, paste, reload, reopen, session restore; indexing; record scans |
 | `qlogg-read-` | Row reads, copy, save and selected text, Open Path at Caret's line read and path check, caret times, the selected char count, the format editor's preview line, fold classification, first-line selector match, marks list |
 | `qlogg-search-` | Search, folder search, quick find, mark toggle, range selection, overview bins, time search, trigger scans, filtered-view snapshots |
 | `qlogg-cpu-N` | CPU steps (`CpuSteps`) of quick find, trigger scans, the linear time search, range matching, mark toggle, context rows, the marks snapshot, and the copy and save text; the worker above parks while a step runs |

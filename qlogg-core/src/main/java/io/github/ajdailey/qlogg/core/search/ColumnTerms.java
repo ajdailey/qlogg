@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
  * once, by the first column term that needs its values. A term tests its column's value, empty for
  * a line or record that does not parse, with a {@link Pattern}: a literal quoted, case folded as a
  * whole-line literal folds it ({@link StandardMatchers#foldsAsciiOnly} folds ASCII letters only),
- * whole word through {@link StandardMatchers#wholeWord}.
+ * whole word through {@link StandardMatchers#wholeWord}. The pattern reads the value through {@link
+ * LineText#checked}, so a cancel stops a regex that backtracks without end.
  *
  * <p>Prefilter: on a {@link ColumnSchema#verbatim} column, a term whose every match holds a literal
  * (the literal itself, or a case-sensitive regex's {@link StandardMatchers#requiredPrefix}) skips
@@ -69,7 +70,7 @@ final class ColumnTerms {
         }
         FieldValues values = values(line);
         CharSequence value = column < values.count() ? values.value(column) : "";
-        return matcher.reset(value).find();
+        return matcher.reset(line.checked(value)).find();
       }
     };
   }

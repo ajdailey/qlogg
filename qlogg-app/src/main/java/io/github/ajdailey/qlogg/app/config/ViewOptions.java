@@ -17,6 +17,8 @@ import java.util.List;
  * @param selectors {@code highlight.selector.N.*}, in match order
  * @param timeSpread {@code view.timeSpread}: the overview bar's time-spread layer
  * @param colors {@code view.colors}: the log views' scheme id, or {@link ColorSchemes#FOLLOW_THEME}
+ * @param columnsAuto {@code view.columns.auto}: a file whose column format is detected opens in
+ *     column view
  */
 public record ViewOptions(
     boolean wrapOnOpen,
@@ -28,10 +30,12 @@ public record ViewOptions(
     // Time spread.
     SpreadMode timeSpread,
     // View colors.
-    String colors) {
+    String colors,
+    // Columns.
+    boolean columnsAuto) {
   /**
-   * Syntax colors on, every other flag off, the default fold rules, no selectors and the theme's
-   * colors.
+   * Syntax colors and detected columns on, every other flag off, the default fold rules, no
+   * selectors and the theme's colors.
    */
   public static final ViewOptions DEFAULTS =
       new ViewOptions(
@@ -42,7 +46,8 @@ public record ViewOptions(
           FoldRules.DEFAULTS,
           List.of(),
           SpreadMode.OFF,
-          ColorSchemes.FOLLOW_THEME);
+          ColorSchemes.FOLLOW_THEME,
+          true);
 
   /** Checks and copies the components. */
   public ViewOptions {
@@ -63,7 +68,15 @@ public record ViewOptions(
    */
   public ViewOptions withWrapOnOpen(boolean value) {
     return new ViewOptions(
-        value, showWhitespace, hideAnsi, syntaxColors, folds, selectors, timeSpread, colors);
+        value,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   /**
@@ -74,7 +87,15 @@ public record ViewOptions(
    */
   public ViewOptions withShowWhitespace(boolean value) {
     return new ViewOptions(
-        wrapOnOpen, value, hideAnsi, syntaxColors, folds, selectors, timeSpread, colors);
+        wrapOnOpen,
+        value,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   /**
@@ -85,7 +106,15 @@ public record ViewOptions(
    */
   public ViewOptions withHideAnsi(boolean value) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, value, syntaxColors, folds, selectors, timeSpread, colors);
+        wrapOnOpen,
+        showWhitespace,
+        value,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   /**
@@ -96,7 +125,15 @@ public record ViewOptions(
    */
   public ViewOptions withSyntaxColors(boolean value) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, value, folds, selectors, timeSpread, colors);
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        value,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   /**
@@ -107,7 +144,15 @@ public record ViewOptions(
    */
   public ViewOptions withFolds(FoldRules rules) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, rules, selectors, timeSpread, colors);
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        rules,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   /**
@@ -118,7 +163,15 @@ public record ViewOptions(
    */
   public ViewOptions withSelectors(List<HighlightSelector> list) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, list, timeSpread, colors);
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        list,
+        timeSpread,
+        colors,
+        columnsAuto);
   }
 
   // Time spread.
@@ -131,7 +184,15 @@ public record ViewOptions(
    */
   public ViewOptions withTimeSpread(SpreadMode mode) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, selectors, mode, colors);
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        mode,
+        colors,
+        columnsAuto);
   }
 
   // View colors.
@@ -144,6 +205,35 @@ public record ViewOptions(
    */
   public ViewOptions withColors(String id) {
     return new ViewOptions(
-        wrapOnOpen, showWhitespace, hideAnsi, syntaxColors, folds, selectors, timeSpread, id);
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        id,
+        columnsAuto);
+  }
+
+  // Columns.
+
+  /**
+   * Returns a copy with another detected-columns flag.
+   *
+   * @param value the flag
+   * @return the copy
+   */
+  public ViewOptions withColumnsAuto(boolean value) {
+    return new ViewOptions(
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        value);
   }
 }

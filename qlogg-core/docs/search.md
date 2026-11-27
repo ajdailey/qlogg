@@ -67,6 +67,9 @@ lines (`SearchQuery.records()` is null).
 - A record is tested when its first line is in the scope and, for a restricted
   search, a member. A record that starts in the scope is read whole, past the
   scope's end if it runs on. A member that continues a record tests nothing.
+- With a `ColumnSchema.header`, the header records are not tested: line 0 and
+  the lines of `ColumnSearch.headers`, which repeat the header, such as a
+  rotated set's member starts.
 - `SearchedLines.cut` ends a chunk before a record start; a record longer than
   the chunk bounds is a chunk of its own, read as a long line is. A restricted
   chunk's runs cover whole records, and the gap rule measures from a record's
@@ -112,8 +115,9 @@ lines (`SearchQuery.records()` is null).
 ### Cancellation and runaway regexes
 
 Cancellation is checked before each chunk, every 1,024 lines in a worker, and
-every 4,096 `charAt` calls a regex makes on `LineText.chars()`, so a regex
-that backtracks without end stops on cancel.
+every 4,096 `charAt` calls a regex makes on `LineText.chars()` or on a column
+value (`LineText.checked`), so a regex that backtracks without end stops on
+cancel.
 
 A worker catches a `StackOverflowError` from a regex (`(a|b)*c` raises one on
 a 400,000-char line) and the search ends with `PatternTooComplexException`.

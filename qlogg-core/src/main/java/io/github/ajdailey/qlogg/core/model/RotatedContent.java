@@ -1,20 +1,25 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.index.IndexListener;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
+import io.github.ajdailey.qlogg.core.io.FileIdentity;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.rotate.LeftOut;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.rotate.Member;
 import io.github.ajdailey.qlogg.core.rotate.RotatedIndex;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
+import io.github.ajdailey.qlogg.core.search.LineSet;
+import io.github.ajdailey.qlogg.core.search.SortedLines;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -37,6 +42,8 @@ final class RotatedContent implements DocumentContent {
   private final Path realBase;
   private final EncodingDetection detection;
   private final BuiltInFormat timeFormat;
+  private final ByteBuffer head;
+  private final ColumnSchema columns;
   private final DocumentServices services;
   private final boolean keepClosed;
   private final SetBytes bytes;
@@ -50,6 +57,8 @@ final class RotatedContent implements DocumentContent {
       RotatedSet set,
       SetBytes bytes,
       BuiltInFormat timeFormat,
+      ByteBuffer head,
+      ColumnSchema columns,
       DocumentServices services,
       boolean keepClosed,
       boolean ignoreCase,
@@ -59,6 +68,8 @@ final class RotatedContent implements DocumentContent {
     this.realBase = SafePaths.logPath(base, services.heldLock()).real();
     this.detection = set.detection();
     this.timeFormat = timeFormat;
+    this.head = head.asReadOnlyBuffer();
+    this.columns = columns;
     this.services = services;
     this.keepClosed = keepClosed;
     this.bytes = bytes;
@@ -70,7 +81,8 @@ final class RotatedContent implements DocumentContent {
 
   /**
    * Discovers and opens the set a file belongs to, as {@link RotatedSet#discover} lists it, and
-   * detects the timestamp format from the newest member with bytes. Blocking.
+   * detects the column format and, when asked, the timestamp format from the newest member with
+   * bytes. Blocking.
    *
    * @param path any member's path, or the base path
    * @param forcedEncoding the charset to use, or null to detect it
@@ -110,21 +122,37 @@ final class RotatedContent implements DocumentContent {
           open.limit(open.file().size());
         }
       }
-      for (int i = members.size() - 1; detectTimeFormat && i >= 0; i--) {
+      ByteBuffer head = ByteBuffer.allocate(0);
+      ColumnSchema columns = null;
+      for (int i = members.size() - 1; i >= 0; i--) {
         Member member = set.members().get(i);
         if (member.size() > 0) {
-          timeFormat =
-              SingleFileContent.detectTimeFormat(
-                  SingleFileContent.readHead(members.get(i)),
-                  new EncodingDetection(member.encoding(), set.detection().reason()),
-                  members.get(i).identity());
+          head = SingleFileContent.readHead(members.get(i));
+          EncodingDetection detection =
+              new EncodingDetection(member.encoding(), set.detection().reason());
+          FileIdentity identity = members.get(i).identity();
+          if (detectTimeFormat) {
+            timeFormat = SingleFileContent.detectTimeFormat(head, detection, identity);
+          }
+          Path name = set.base().getFileName();
+          columns =
+              SingleFileContent.detectColumns(
+                  head, detection, name == null ? "" : name.toString(), identity);
           break;
         }
       }
       SetBytes stream = SetBytes.of(set.base(), set.encoding(), members);
       RotatedContent content =
           new RotatedContent(
-              set, stream, timeFormat, services, keepClosed, ignoreCase, forcedEncoding);
+              set,
+              stream,
+              timeFormat,
+              head,
+              columns,
+              services,
+              keepClosed,
+              ignoreCase,
+              forcedEncoding);
       opened = true;
       return content;
     } finally {
@@ -190,6 +218,21 @@ final class RotatedContent implements DocumentContent {
   @Override
   public BuiltInFormat timeFormat() {
     return timeFormat;
+  }
+
+  @Override
+  public ByteBuffer head() {
+    return head.duplicate();
+  }
+
+  @Override
+  public ColumnSchema columns() {
+    return columns;
+  }
+
+  @Override
+  public LineSet memberStarts(LineIndex index) {
+    return index instanceof RotatedIndex rotated ? new SortedLines(rotated.memberStarts()) : null;
   }
 
   @Override

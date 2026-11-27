@@ -23,6 +23,13 @@ interface DocumentRole {
    */
   void changed(DocumentController owner, FileChange change);
 
+  /**
+   * Returns the tab whose rows this tab's rows are drawn from.
+   *
+   * @return a filter tab's parent, or null for a file tab
+   */
+  DocumentController parent();
+
   /** The tab applied a flush of the document's progress. */
   void flushed();
 

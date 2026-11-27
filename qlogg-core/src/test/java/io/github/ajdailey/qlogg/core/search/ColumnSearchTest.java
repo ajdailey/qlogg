@@ -10,6 +10,7 @@ import io.github.ajdailey.qlogg.core.columns.FieldParser;
 import io.github.ajdailey.qlogg.core.columns.FieldValues;
 import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
+import io.github.ajdailey.qlogg.core.concurrent.OperationHandle;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.io.ReadBuffers;
 import io.github.ajdailey.qlogg.core.testkit.SyntheticRecords;
@@ -22,6 +23,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +36,8 @@ import org.junit.jupiter.api.Test;
  * value. Every format; multi-line records with quoted line feeds and log4j events; literal and
  * regex, case, whole word and inverse; combined column and whole-row terms; values with and without
  * the escape bytes the prefilter reads; chunk sizes that cut records; restricted, scoped and
- * unrestricted; UTF-16 and a sparse index.
+ * unrestricted; UTF-16 and a sparse index. A CSV or TSV header record is not searched; a column
+ * regex that backtracks without end ends on cancel.
  */
 class ColumnSearchTest {
   private static final MemoryBudget BUDGET = MemoryBudget.of(1L << 30);
@@ -186,6 +190,9 @@ class ColumnSearchTest {
     List<Long> hits = new ArrayList<Long>();
     for (Expected record : records) {
       long first = record.first();
+      if (first == 0 && schema.header() && query.records() != null) {
+        continue;
+      }
       if (query.scope() != null
           && (first < query.scope().first() || first >= query.scope().end())) {
         continue;
@@ -364,6 +371,82 @@ class ColumnSearchTest {
         new SearchQuery(known, true, false, false, null)
             .withColumns(new ColumnSearch(csv, CONTEXT, null)),
         ColumnException.Reason.LINES_ONLY);
+  }
+
+  @Test
+  void headerRecordsAreNotSearchedInColumnView() throws Exception {
+    String text = "id,level\n1,level one\n2,INFO\nid,level\n3,level\n";
+    RecordReference.Source source =
+        RecordReference.index(
+            fixture.workers, text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, BUDGET);
+    ColumnSchema csv = ColumnSchema.delimited(ColumnFormat.CSV, ',', List.of("id", "level"), true);
+    RecordLines records = RecordLines.continuations(new MutableLineSet(), 5);
+    SearchEngine engine = engine(SIZES[1]);
+    SearchQuery level = SearchQuery.of("level", MatchMode.LITERAL);
+    assertEquals(List.of(0L, 1L, 3L, 4L), search(engine, source, level));
+    SearchQuery shown = level.withColumns(new ColumnSearch(csv, CONTEXT, records));
+    assertEquals(List.of(1L, 3L, 4L), search(engine, source, shown));
+    ColumnSearch repeated =
+        new ColumnSearch(csv, CONTEXT, records, new SortedLines(new long[] {3}));
+    assertEquals(List.of(1L, 4L), search(engine, source, level.withColumns(repeated)));
+    assertEquals(
+        List.of(4L),
+        search(
+            engine,
+            source,
+            level.withColumns(repeated).restrictedTo(new SortedLines(new long[] {0, 3, 4}))));
+    SearchExpression column = ExpressionParser.parse("level:\"level\"", MatchMode.LITERAL, true);
+    assertEquals(
+        List.of(1L, 4L),
+        search(
+            engine,
+            source,
+            new SearchQuery(column, true, false, false, null).withColumns(repeated)));
+    ColumnSchema numbered =
+        ColumnSchema.delimited(ColumnFormat.CSV, ',', List.of("id", "level"), false);
+    assertEquals(
+        List.of(0L, 1L, 3L, 4L),
+        search(engine, source, level.withColumns(new ColumnSearch(numbered, CONTEXT, records))));
+  }
+
+  @Test
+  void cancelEndsACatastrophicColumnRegexWithinABound() throws Exception {
+    String text = "id,value\n1," + "a".repeat(60) + "\n";
+    RecordReference.Source source =
+        RecordReference.index(
+            fixture.workers, text.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, BUDGET);
+    ColumnSchema csv = ColumnSchema.delimited(ColumnFormat.CSV, ',', List.of("id", "value"), true);
+    final CountDownLatch matching = new CountDownLatch(1);
+    MatcherFactory gated =
+        new MatcherFactory() {
+          @Override
+          public LineMatcher create(
+              SearchQuery query, TextEncoding encoding, CancellationToken token) {
+            final LineMatcher inner = StandardMatchers.INSTANCE.create(query, encoding, token);
+            return new LineMatcher() {
+              @Override
+              public boolean matches(LineText line) {
+                matching.countDown();
+                return inner.matches(line);
+              }
+            };
+          }
+        };
+    SearchEngine engine =
+        new SearchEngine(fixture.workers, gated, SearchSettings.defaults(2, fixture.budget));
+    SearchExpression evil = ExpressionParser.parse("value:\"(.*a){25}x\"", MatchMode.REGEX, true);
+    SearchQuery query =
+        new SearchQuery(evil, true, false, false, null)
+            .withColumns(
+                new ColumnSearch(csv, CONTEXT, RecordLines.continuations(new MutableLineSet(), 2)));
+    SearchFixture.Recording recording = new SearchFixture.Recording();
+    OperationHandle handle = engine.search(source, query, new MutableLineSet(), recording);
+    assertTrue(matching.await(SearchFixture.BOUND.toMillis(), TimeUnit.MILLISECONDS));
+    long canceled = System.nanoTime();
+    handle.cancel();
+    assertTrue(handle.await(5000));
+    assertTrue(System.nanoTime() - canceled < 5_000_000_000L);
+    assertEquals(OperationOutcome.CANCELED, recording.outcome);
   }
 
   private void assertFails(

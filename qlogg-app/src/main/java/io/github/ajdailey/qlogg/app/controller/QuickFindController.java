@@ -389,11 +389,7 @@ public final class QuickFindController {
           null,
           false);
     } catch (PatternSyntaxException e) {
-      return new Scan(
-          null,
-          UiText.SEARCH_REGEX_ERROR.format(
-              Math.max(0, e.getIndex()) + 1, LogText.oneLine(e.getDescription())),
-          false);
+      return new Scan(null, SearchErrors.text(e), false);
     } catch (PatternTooComplexException e) {
       return new Scan(null, UiText.SEARCH_PATTERN_TOO_COMPLEX.format(e.line() + 1), false);
     } catch (CancellationException | ClosedChannelException e) {

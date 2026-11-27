@@ -400,7 +400,7 @@ inside the signed bundle; portable use there goes through `--settings`.
 |---|---|
 | `qlogg.conf` | Settings (Java properties, `version=1`); the keys are in [qlogg-app settings](qlogg-app/docs/settings.md#keys) |
 | `qlogg_session.conf` | The session: each window's tabs, position, size, maximized state and Always on Top |
-| `positions.conf` | Position, encoding override and timestamp choices of the last 500 files |
+| `positions.conf` | Position, encoding override, timestamp and column choices of the last 500 files |
 | `qlogg_error.flag` | Present after a run quit for UI-thread failures, until the next session restore skips the tabs; holds `noticeShown` once a launch showed the notice |
 | `instance.lock`, `instance.endpoint` | Single-instance lock and handoff endpoint |
 | `logs/` | Debug log files |

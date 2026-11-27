@@ -30,7 +30,9 @@ import java.nio.charset.Charset;
  *
  * <p>A record holds at most {@link #MAX_RECORD_LINES} lines, and a line starting {@link
  * #MAX_RECORD_BYTES} or more after its record's first byte starts a new record, so a stray quote
- * cannot join the rest of the file into one record. A partial last line is left for the next pass.
+ * cannot join the rest of the file into one record. A line in the forced starts a {@link #scan}
+ * call takes, a rotated set's member starts, always starts a record, outside quotes. A partial last
+ * line is left for the next pass.
  *
  * <p>The pass reads the source by positional reads into one buffer from the caller's pool, a block
  * of whole lines at a time. A CSV block with no quote byte, starting outside a quoted field, is
@@ -81,6 +83,8 @@ public final class RecordScan {
   private long recordStart;
   private int state = OUTSIDE;
   private boolean afterDelimiter;
+  private LineSet forced;
+  private long nextForced = -1;
   private volatile long classified;
   private volatile long scannedBytes;
   private volatile boolean refused;
@@ -184,6 +188,32 @@ public final class RecordScan {
    */
   public void scan(ByteSource source, LineIndex index, ReadBuffers buffers, CancellationToken token)
       throws IOException, InterruptedException {
+    scan(source, index, buffers, token, null);
+  }
+
+  /**
+   * Reads as {@link #scan(ByteSource, LineIndex, ReadBuffers, CancellationToken)} does, starting a
+   * record outside quotes at each line of {@code starts}.
+   *
+   * @param source the document's bytes; read with positional reads, not closed
+   * @param index a snapshot of the document's index, at least as long as the last call's
+   * @param buffers the pool one read buffer comes from
+   * @param token checked before each block
+   * @param starts lines that start a record whatever precedes them, or null; a later call's set
+   *     holds every line of an earlier call's set below the earlier index's line count
+   * @throws IOException when a read fails or the file is shorter than its index
+   * @throws InterruptedException when interrupted while waiting for a buffer
+   * @throws java.util.concurrent.CancellationException when the token is canceled
+   */
+  public void scan(
+      ByteSource source,
+      LineIndex index,
+      ReadBuffers buffers,
+      CancellationToken token,
+      LineSet starts)
+      throws IOException, InterruptedException {
+    forced = starts;
+    nextForced = -1;
     long complete = index.lastLineComplete() ? index.lineCount() : index.lineCount() - 1;
     if (refused || complete <= 0) {
       return;
@@ -370,7 +400,7 @@ public final class RecordScan {
   /** Decides the line at {@link #lineStart}: a continuation inside quotes, else a record start. */
   private void startDelimitedLine() {
     atLineStart = false;
-    if (line > 0 && state == QUOTED && withinBounds()) {
+    if (line > 0 && state == QUOTED && withinBounds() && !forced()) {
       add(line);
       return;
     }
@@ -403,7 +433,7 @@ public final class RecordScan {
     while (pos < n) {
       if (atLineStart) {
         atLineStart = false;
-        if (line == 0 || !withinBounds() || leadsWithEvent(buffer, pos, n)) {
+        if (line == 0 || !withinBounds() || forced() || leadsWithEvent(buffer, pos, n)) {
           add(line);
           recordLine = line;
           recordStart = lineStart;
@@ -428,6 +458,18 @@ public final class RecordScan {
       return false;
     }
     return SearchEngine.unitAt(buffer, at, eventStart);
+  }
+
+  /** True when the forced starts hold the line at {@link #lineStart}. */
+  private boolean forced() {
+    if (forced == null) {
+      return false;
+    }
+    if (nextForced < line) {
+      long next = forced.ceiling(line);
+      nextForced = next < 0 ? Long.MAX_VALUE : next;
+    }
+    return nextForced == line;
   }
 
   /** True when the line at {@link #lineStart} may join the record that started before it. */

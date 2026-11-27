@@ -150,6 +150,8 @@ public final class ApplicationController
   private final ViewFeatures features;
   // Timestamps.
   private final TimeFeatures time;
+  // Columns.
+  private final ColumnFeatures columns;
   // Tab data dot.
   private final TabDataModel tabData = new TabDataModel();
   // Recently Closed, Open All and the command palette.
@@ -228,6 +230,7 @@ public final class ApplicationController
     this.features =
         new ViewFeatures(this, new FolderSearchController(this, ui, view, view), workers, ui, view);
     this.time = new TimeFeatures(this, set.timeSync(), workers, ui, view, config);
+    this.columns = new ColumnFeatures(this, config);
     this.monitor = set.monitor();
     this.opener =
         new DocumentOpener(
@@ -1022,6 +1025,7 @@ public final class ApplicationController
             derivation);
     features.configure(created);
     time.configure(created);
+    columns.configure(created);
     UiState state = preferences.get().state();
     created.setLineNumbers(state.lineNumbers());
     created.filtered().setLineNumbers(state.filteredLineNumbers());
@@ -1602,7 +1606,7 @@ public final class ApplicationController
         }
       }
       default -> {
-        if (!features.execute(command) && !time.execute(command)) {
+        if (!features.execute(command) && !time.execute(command) && !columns.execute(command)) {
           documentCommand(command);
         }
       }
@@ -1629,6 +1633,20 @@ public final class ApplicationController
   public void setTimeFormat(DocumentController document, TimestampFormat format) {
     if (documents.contains(document)) {
       time.setFormat(document, format);
+    }
+  }
+
+  // Columns.
+
+  /**
+   * Makes a CSV or TSV document's first line its header, or a record, and records it for its file.
+   *
+   * @param document an open document
+   * @param header true for a header line
+   */
+  public void setColumnHeader(DocumentController document, boolean header) {
+    if (documents.contains(document)) {
+      columns.setHeader(document, header);
     }
   }
 

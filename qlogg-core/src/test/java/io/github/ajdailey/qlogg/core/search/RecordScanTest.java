@@ -184,6 +184,43 @@ class RecordScanTest {
   }
 
   @Test
+  void aForcedStartRestartsTheQuoteStateAndStartsAnEvent() throws Exception {
+    String csv = "id,level,message\n1,INFO,\"open\n2,INFO,next\n3,INFO,\"a\nb\"\n";
+    RecordReference.Source source =
+        RecordReference.index(
+            fixture.workers, csv.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, BUDGET);
+    ColumnSchema schema = schema(ColumnFormat.CSV);
+    for (int block : new int[] {8, 16, 61, 4096}) {
+      RecordScan plain = scan(schema, source, block, BUDGET);
+      assertEquals(
+          List.of(0L, 1L, 4L), RecordReference.snapshotStarts(plain.snapshot(), 5), "" + block);
+      RecordScan forced = new RecordScan(schema, source.encoding(), BUDGET);
+      forced.scan(
+          source.bytes(),
+          source.index(),
+          buffers(block),
+          new CancellationToken(),
+          new SortedLines(new long[] {2}));
+      assertEquals(
+          List.of(0L, 1L, 2L, 3L),
+          RecordReference.snapshotStarts(forced.snapshot(), 5),
+          "forced " + block);
+    }
+    String xml = "<log4j:event a=\"1\">\nx\ny\n<log4j:event a=\"2\">\n";
+    RecordReference.Source events =
+        RecordReference.index(
+            fixture.workers, xml.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, BUDGET);
+    RecordScan scan = new RecordScan(schema(ColumnFormat.LOG4J_XML), events.encoding(), BUDGET);
+    scan.scan(
+        events.bytes(),
+        events.index(),
+        buffers(61),
+        new CancellationToken(),
+        new SortedLines(new long[] {2}));
+    assertEquals(List.of(0L, 2L, 3L), RecordReference.snapshotStarts(scan.snapshot(), 4));
+  }
+
+  @Test
   void aResultsRefusalStopsTheScanWithTheClassifiedLinesCorrect() throws Exception {
     String text = new SyntheticRecords(ColumnFormat.LOG4J_XML, 14, false, 0).text(40_000);
     ColumnSchema schema = schema(ColumnFormat.LOG4J_XML);

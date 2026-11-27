@@ -2,9 +2,10 @@
 
 The controllers of one document's two views in `app.controller` of
 [qlogg-app](../README.md): `LineViewController`, `DocumentController` (the main
-view), `FilteredController`, `FoldController`, the filter tab classes
-(`DerivedTabs`, `Derivation`, `DerivedRows`), `TextExporter`,
-`MarksListController` and `TabDataModel`.
+view), `FilteredController`, `FoldController`, the column classes
+(`ColumnController`, `ColumnFeatures`, `ColumnRows`, `RecordScanner`), the
+filter tab classes (`DerivedTabs`, `Derivation`, `DerivedRows`),
+`TextExporter`, `MarksListController` and `TabDataModel`.
 
 ## Line view controller
 
@@ -270,6 +271,59 @@ only around the visible rows.
   A later press replaces a waiting one; Fold All, Unfold All or new rules
   drop it.
 
+## Columns
+
+`ColumnController` (`DocumentController.columns()`) holds a tab's column
+format (`ColumnSchema`, null for none) and whether column view shows. The
+column view's painting, header and menus are not built yet; the state drives
+the rows and searches below.
+
+`ColumnFeatures.configure` sets a new tab's state after its time state:
+
+| Remembered for the file (`positions.conf`) | Format | View |
+|---|---|---|
+| `.columns` a format id | That format, its schema built from `LogDocument.head()` | Column |
+| `.columns` `none` | The detected format (`LogDocument.columns()`) | Text |
+| Nothing | The detected format | Column when `view.columns.auto` is on |
+
+- `.header` (`1` or `0`) overrides the CSV and TSV header guess.
+- A tab whose format is `clef` or `log4j-xml`, with no timestamp format chosen
+  for the file, takes the built-in timestamp format of the same name.
+- Toggle Columns (`TOGGLE_COLUMNS`, no key and no menu item; enabled while the
+  tab has a format) switches between text and column view and records the
+  format id or `none` for the file. `ApplicationController.setColumnHeader`
+  rebuilds the schema and records `.header`. Pasted text records nothing.
+- A `time` format follows the tab's timestamp format; without one the tab has
+  no column format.
+
+### Records
+
+A file tab with a multi-line format (CSV, TSV, `log4j-xml`) runs a
+`RecordScanner`, in text view too, so a toggle and the filter tabs below it
+find the records read:
+
+- A pass runs after each indexing pass, on a `qlogg-index-` worker inside a
+  document entry, through `LogDocument.scanRecords`, and extends the scan over
+  growth. A `ROLLED` set or a reload opens a new controller, which scans from
+  the start.
+- While a pass runs, every 250 ms (`PROGRESS_MILLIS`) the rows flush and the
+  notice `Reading records: N%` shows.
+- A `RESULTS` refusal stops the scan for good with one notice; lines from the
+  refused one on stay one row each.
+- In a rotated set whose format has a header, a member's first line equal to
+  line 0 is a repeated header: searches in column view skip it, as they skip
+  line 0.
+- `detach` cancels the pass and empties the record set, on the pass's thread
+  when one runs.
+
+In column view on a multi-line format, `ColumnRows` maps a file tab's rows
+through `RecordRows`: a row is a record, shown at its first line, and lines
+past the scanned end are one row each. Each flush takes the newest snapshot
+through `changeRows`, which keeps the top line and the selection on their
+lines, as a fold change does. Folding is off while records show; the fold
+rules and collapsed entries stay for text view. A filter tab keeps its
+`DerivedRows` and reads its parent's records for its searches.
+
 ## Filter tabs
 
 A filter tab is a `DocumentController` over its root tab's `LogDocument` whose
@@ -285,7 +339,7 @@ callers never check the tab kind.
 
 | | File tab | Filter tab |
 |---|---|---|
-| `RowMap` | `FoldRows`: row n is line n unless folded | `DerivedRows`: row n is `select(n)`; a line's row is `rank(line)`, the next row for a line that is not one |
+| `RowMap` | `ColumnRows`: `FoldRows`, where row n is line n unless folded, or one row per record ([Columns](#columns)) | `DerivedRows`: row n is `select(n)`; a line's row is `rank(line)`, the next row for a line that is not one |
 | `DocumentRole` | `OwnedDocument`: indexes, reopens on a change, closes | `Derivation`: shares the document and grows the rows |
 | Folding, keyword triggers | On | Off |
 | Its search tests | Every line | Its rows below `settledLines` (`SearchQuery.restriction`) |
@@ -294,8 +348,9 @@ callers never check the tab kind.
 ### Growth
 
 `Derivation` searches the root lines from the rows' last searched line, which
-may have grown, to the parent's `settledLines`, restricted to the parent's
-rows. It runs whenever the parent's `settledBytes` passes the rows': a first
+may have grown, or from that line's record in the parent's record view, to the
+parent's `settledLines`, restricted to the parent's rows, with the parent's
+columns. It runs whenever the parent's `settledBytes` passes the rows': a first
 level on the document's flush, a deeper level when its parent's growth ends.
 Growth ignores the auto-refresh toggle and shows no progress.
 

@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationGate;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
@@ -10,8 +12,10 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.ReopeningByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.LineSource;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.search.RecordScan;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.text.TextEncoding;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
@@ -21,6 +25,7 @@ import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -297,6 +302,52 @@ public final class LogDocument implements LineSource, Closeable {
    */
   public BuiltInFormat timeFormat() {
     return content.timeFormat();
+  }
+
+  /**
+   * Returns the column format detected at open from {@link #head}.
+   *
+   * @return the schema, or null when no format matches
+   */
+  public ColumnSchema columns() {
+    return content.columns();
+  }
+
+  /**
+   * Returns the head the formats were detected from, for building a chosen format's schema: the
+   * file's first 64 KiB, or a rotated set's newest member's with bytes.
+   *
+   * @return a read-only buffer from offset 0, BOM included
+   */
+  public ByteBuffer head() {
+    return content.head();
+  }
+
+  /**
+   * Returns the lines of an index snapshot that start a member of a rotated set.
+   *
+   * @param index a snapshot of {@link #index}
+   * @return the lines, or null for one file
+   */
+  public LineSet memberStarts(LineIndex index) {
+    return content.memberStarts(index);
+  }
+
+  /**
+   * Extends a record scan over an index snapshot through the indexing read buffers; a rotated set's
+   * member starts start records. Blocking; call inside {@link #enter}.
+   *
+   * @param scan the scan
+   * @param index a snapshot of {@link #index}
+   * @param token checked before each block
+   * @throws IOException when a read fails
+   * @throws InterruptedException when interrupted while waiting for a buffer
+   * @throws java.util.concurrent.CancellationException when the token is canceled
+   */
+  public void scanRecords(RecordScan scan, LineIndex index, CancellationToken token)
+      throws IOException, InterruptedException {
+    scan.scan(
+        content.bytes(), index, services.indexer().buffers(), token, content.memberStarts(index));
   }
 
   /**

@@ -46,7 +46,7 @@ final class FoldRows implements RowMap {
   public long revealRow(long line) {
     if (folds.collapsedEntry(line) != null && !folds.isCollapsed(line)) {
       final long hidden = line;
-      owner.changeFolds(
+      owner.changeRows(
           new Runnable() {
             @Override
             public void run() {

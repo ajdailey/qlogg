@@ -26,12 +26,14 @@ import org.slf4j.LoggerFactory;
  * are the tab's {@link DerivedRows}. Confined to the UI thread.
  *
  * <p>Growth searches the root lines from the last searched line ({@code searchedEnd - 1}, which may
- * have grown) to the parent's {@link RowMap#settledLines}, restricted to the parent's members, into
- * the rows. It starts when the parent's {@link RowMap#settledBytes} passed the rows' and neither a
- * growth nor a reader holds the rows; while it runs it holds the parent as a reader. When it ends,
- * the tab's children grow. It runs on the engine's {@code qlogg-search-} threads inside a document
- * entry, shows no progress and holds no activity. A search stopped by a limit, or a scope ending
- * before the end of the file, ends growth: the first case shows a notice.
+ * have grown, or that line's record in the parent's record view) to the parent's {@link
+ * RowMap#settledLines}, restricted to the parent's members, with the parent's columns ({@link
+ * ColumnController#search}), into the rows. It starts when the parent's {@link RowMap#settledBytes}
+ * passed the rows' and neither a growth nor a reader holds the rows; while it runs it holds the
+ * parent as a reader. When it ends, the tab's children grow. It runs on the engine's {@code
+ * qlogg-search-} threads inside a document entry, shows no progress and holds no activity. A search
+ * stopped by a limit, or a scope ending before the end of the file, ends growth: the first case
+ * shows a notice.
  */
 final class Derivation implements DocumentRole {
   private static final Logger LOG = LoggerFactory.getLogger(Derivation.class);
@@ -118,8 +120,8 @@ final class Derivation implements DocumentRole {
     return rows;
   }
 
-  /** Returns the parent tab. */
-  DocumentController parent() {
+  @Override
+  public DocumentController parent() {
     return parent;
   }
 
@@ -205,7 +207,7 @@ final class Derivation implements DocumentRole {
       end = Math.min(end, query.scope().end());
     }
     long last = rows.searchedEnd() - 1;
-    long from = Math.max(first, last);
+    long from = Math.max(first, query.range() ? last : parent.columns().recordStart(last));
     if (from >= end || !document.enter()) {
       return;
     }
@@ -221,7 +223,8 @@ final class Derivation implements DocumentRole {
             query.hideAnsi(),
             query.rangeEnd(),
             from == last && rangeOpen,
-            source.members());
+            source.members(),
+            parent.columns().search());
     Growth events = new Growth(owner, rows.lines(), source, end, bytes);
     try {
       running = engine.search(document, index, growth, rows.lines(), events);

@@ -15,7 +15,7 @@ display.
 | `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
 | `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars`, `PathAtCaret` | [File access and text](docs/files-and-text.md) |
 | `core.index` | `GrowableLineIndex` (full and sparse), the parallel `Indexer` | [Line index](docs/line-index.md) |
-| `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet`; column terms and record search, `RecordScan` | [Search](docs/search.md), [Columns](docs/columns.md#records) |
+| `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet`; column terms and record search, `RecordScan`, `SortedLines` | [Search](docs/search.md), [Columns](docs/columns.md#records) |
 | `core.folder` | `FolderSearch`: search in a folder without opening its files | [Search](docs/search.md#search-in-a-folder) |
 | `core.time` | Timestamp formats and parsers, format detection, lookups by time, time spread | [Timestamps](docs/timestamps.md) |
 | `core.columns` | Column formats (CSV, TSV, Apache access log, Serilog CLEF, log4j XML, timestamp), their field parsers, format detection | [Columns](docs/columns.md) |

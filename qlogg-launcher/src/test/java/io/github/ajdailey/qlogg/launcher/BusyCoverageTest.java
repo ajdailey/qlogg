@@ -106,6 +106,7 @@ class BusyCoverageTest {
       "controller.LineViewController#requestLines",
       "controller.MarksListController#refresh",
       "controller.OverviewController#refresh",
+      "controller.RecordScanner#request",
       "controller.SelectedChars#request",
       "controller.TriggerController#start",
       "controller.ViewFeatures#chooseHighlightSet",

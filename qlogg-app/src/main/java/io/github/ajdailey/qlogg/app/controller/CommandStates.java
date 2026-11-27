@@ -167,6 +167,8 @@ public final class CommandStates {
       case CLEAR_RESULTS ->
           document != null && document.search().state().phase() != SearchViewState.Phase.IDLE;
       case WRAP_LINE -> document != null && !document.wrap();
+      // Columns.
+      case TOGGLE_COLUMNS -> document != null && document.columns().schema() != null;
       default -> !command.check() || APPLICATION_CHECKS.contains(command) || document != null;
     };
   }

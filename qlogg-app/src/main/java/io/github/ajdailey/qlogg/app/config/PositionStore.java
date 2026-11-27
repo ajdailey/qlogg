@@ -10,14 +10,15 @@ import java.util.Properties;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The remembered position, encoding override and timestamp choices per file, in {@code
+ * The remembered position, encoding override, timestamp and column choices per file, in {@code
  * positions.conf}: {@code pos.N.path}, {@code .top}, {@code .line}, {@code .column}, {@code
- * .encoding}, {@code .timeFormat} and {@code .zone}, most recently used first. Keys are canonical
- * paths; {@code pos.N.path} passes through {@link InstallPaths}, and a load that finds a value the
- * next save writes differently marks the store changed, so the first save rewrites it. At most
- * {@link #MAX_ENTRIES}; the least recently used goes first. Thread-safe: {@link #get}, {@link #put}
- * and the setters touch memory only under a lock held for no I/O, so the UI thread may call them;
- * {@link #load} and {@link #save} block and run on workers.
+ * .encoding}, {@code .timeFormat}, {@code .zone}, {@code .columns} and {@code .header}, most
+ * recently used first. Keys are canonical paths; {@code pos.N.path} passes through {@link
+ * InstallPaths}, and a load that finds a value the next save writes differently marks the store
+ * changed, so the first save rewrites it. At most {@link #MAX_ENTRIES}; the least recently used
+ * goes first. Thread-safe: {@link #get}, {@link #put} and the setters touch memory only under a
+ * lock held for no I/O, so the UI thread may call them; {@link #load} and {@link #save} block and
+ * run on workers.
  */
 public final class PositionStore {
   /** The file name in the settings directory. */
@@ -28,6 +29,9 @@ public final class PositionStore {
 
   /** Largest file read. */
   static final int MAX_BYTES = 1 << 20;
+
+  /** The {@code .columns} value of a file the user shows as text. */
+  public static final String NO_COLUMNS = "none";
 
   private static final String PREFIX = "pos.";
 
@@ -41,9 +45,20 @@ public final class PositionStore {
    * @param timeFormat the timestamp format id the user chose, {@link TimeSettings#NO_FORMAT}, or
    *     empty for detection
    * @param zone the time zone id the user chose, or empty for {@code time.zone}
+   * @param columns the column format id the user chose, {@link #NO_COLUMNS} for text, or empty for
+   *     detection
+   * @param header {@code 1} or {@code 0} when the user chose whether a CSV or TSV file's first line
+   *     is its header, or empty for the guess
    */
   public record Entry(
-      long top, long line, long column, String encoding, String timeFormat, String zone) {
+      long top,
+      long line,
+      long column,
+      String encoding,
+      String timeFormat,
+      String zone,
+      String columns,
+      String header) {
     /** No position and no override. */
     public static final Entry NONE = new Entry(0, 0, 0, "");
 
@@ -54,9 +69,26 @@ public final class PositionStore {
           || column < 0
           || encoding == null
           || timeFormat == null
-          || zone == null) {
+          || zone == null
+          || columns == null
+          || header == null) {
         throw new IllegalArgumentException("negative position or null text");
       }
+    }
+
+    /**
+     * Creates an entry without column choices.
+     *
+     * @param top the first visible line, 0-based
+     * @param line the caret's line, 0-based
+     * @param column the caret's column
+     * @param encoding the forced charset's name, or empty for detection
+     * @param timeFormat the timestamp format id, {@link TimeSettings#NO_FORMAT}, or empty
+     * @param zone the time zone id, or empty
+     */
+    public Entry(
+        long top, long line, long column, String encoding, String timeFormat, String zone) {
+      this(top, line, column, encoding, timeFormat, zone, "", "");
     }
 
     /**
@@ -116,7 +148,9 @@ public final class PositionStore {
                 Long.parseLong(properties.getProperty(PREFIX + i + ".column", "0").strip()),
                 properties.getProperty(PREFIX + i + ".encoding", "").strip(),
                 properties.getProperty(PREFIX + i + ".timeFormat", "").strip(),
-                properties.getProperty(PREFIX + i + ".zone", "").strip()));
+                properties.getProperty(PREFIX + i + ".zone", "").strip(),
+                properties.getProperty(PREFIX + i + ".columns", "").strip(),
+                header(properties.getProperty(PREFIX + i + ".header", "").strip())));
         keys.add(paths.read(path));
         stale = stale || paths.stale(path);
       } catch (IllegalArgumentException e) {
@@ -190,8 +224,19 @@ public final class PositionStore {
       if (!entry.zone().isEmpty()) {
         properties.setProperty(key + ".zone", entry.zone());
       }
+      if (!entry.columns().isEmpty()) {
+        properties.setProperty(key + ".columns", entry.columns());
+      }
+      if (!entry.header().isEmpty()) {
+        properties.setProperty(key + ".header", entry.header());
+      }
     }
     return properties;
+  }
+
+  /** Keeps {@code 0} and {@code 1}; any other header value reads as no choice. */
+  private static String header(String value) {
+    return value.equals("0") || value.equals("1") ? value : "";
   }
 
   private void markDirty() {
@@ -220,7 +265,7 @@ public final class PositionStore {
   }
 
   /**
-   * Records a file's position, keeping its encoding override and timestamp choices.
+   * Records a file's position, keeping its encoding override and timestamp and column choices.
    *
    * @param path the canonical path
    * @param top the first visible line
@@ -234,7 +279,17 @@ public final class PositionStore {
       if (old == null) {
         old = Entry.NONE;
       }
-      store(path, new Entry(top, line, column, old.encoding(), old.timeFormat(), old.zone()));
+      store(
+          path,
+          new Entry(
+              top,
+              line,
+              column,
+              old.encoding(),
+              old.timeFormat(),
+              old.zone(),
+              old.columns(),
+              old.header()));
     } finally {
       lock.unlock();
     }
@@ -261,7 +316,9 @@ public final class PositionStore {
               old.column(),
               charset == null ? "" : charset.name(),
               old.timeFormat(),
-              old.zone()));
+              old.zone(),
+              old.columns(),
+              old.header()));
     } finally {
       lock.unlock();
     }
@@ -284,7 +341,15 @@ public final class PositionStore {
       }
       store(
           path,
-          new Entry(old.top(), old.line(), old.column(), old.encoding(), formatId, old.zone()));
+          new Entry(
+              old.top(),
+              old.line(),
+              old.column(),
+              old.encoding(),
+              formatId,
+              old.zone(),
+              old.columns(),
+              old.header()));
     } finally {
       lock.unlock();
     }
@@ -305,7 +370,76 @@ public final class PositionStore {
       }
       store(
           path,
-          new Entry(old.top(), old.line(), old.column(), old.encoding(), old.timeFormat(), zoneId));
+          new Entry(
+              old.top(),
+              old.line(),
+              old.column(),
+              old.encoding(),
+              old.timeFormat(),
+              zoneId,
+              old.columns(),
+              old.header()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  // Columns.
+
+  /**
+   * Records the column format the user chose for a file, keeping the rest of its entry.
+   *
+   * @param path the canonical path
+   * @param formatId a column format id or {@link #NO_COLUMNS}
+   */
+  public void setColumns(Path path, String formatId) {
+    lock.lock();
+    try {
+      Entry old = entries.get(path.toString());
+      if (old == null) {
+        old = Entry.NONE;
+      }
+      store(
+          path,
+          new Entry(
+              old.top(),
+              old.line(),
+              old.column(),
+              old.encoding(),
+              old.timeFormat(),
+              old.zone(),
+              formatId,
+              old.header()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Records whether the user made a CSV or TSV file's first line its header, keeping the rest of
+   * its entry.
+   *
+   * @param path the canonical path
+   * @param header true for a header line
+   */
+  public void setHeader(Path path, boolean header) {
+    lock.lock();
+    try {
+      Entry old = entries.get(path.toString());
+      if (old == null) {
+        old = Entry.NONE;
+      }
+      store(
+          path,
+          new Entry(
+              old.top(),
+              old.line(),
+              old.column(),
+              old.encoding(),
+              old.timeFormat(),
+              old.zone(),
+              old.columns(),
+              header ? "1" : "0"));
     } finally {
       lock.unlock();
     }

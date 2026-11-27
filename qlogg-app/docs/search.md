@@ -24,6 +24,17 @@ field text and the toggles stay.
   below the line where they are decided.
 - A combined expression that does not parse fails at once with its column. A
   regex compiles on the search thread and fails there.
+- In column view ([columns](document-views.md#columns)) the search tests the
+  tab's columns (`ColumnController.search()`), so a `name:"term"` prefix
+  works; on a multi-line format the record is the unit, with the records the
+  scan read when the search starts, and the CSV and TSV header records are not
+  tested. Text view searches lines and has no columns.
+- A column term the view cannot test fails with its own message
+  (`SearchErrors`), not the regex one: `No column level in this view` for an
+  unknown column, text view or Search in Folder, and `Column level cannot be
+  searched in a range search on this format` for a range search or range
+  selection on a multi-line format. Quick find reports regex errors through the
+  same helper.
 - A search that starts sets the filtered view to marks and matches.
 - Each search searches one index snapshot and records its line count and
   indexed bytes.
@@ -56,7 +67,10 @@ of emptying it. A kept set stays charged to `RESULTS` until `removeKept` or
 
 With `autoRefresh` (`8`) on, `appended()` searches the lines a finished search
 did not cover into the same set and generation, starting at its last line,
-which may have grown; that line's result is removed first.
+which may have grown; that line's result is removed first. In column view on a
+multi-line format it starts at that line's record, and waits until the record
+scan covers the new lines (`ColumnController.recordsSettled`), or stopped at a
+refusal.
 
 - The refresh shows no progress and holds no activity. The state stays `DONE`
   with the new match count.

@@ -434,7 +434,12 @@ public enum CommandId {
   /** Extend a block selection left one column. */
   EXTEND_BLOCK_LEFT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_LEFT, false, false),
   /** Extend a block selection right one column. */
-  EXTEND_BLOCK_RIGHT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_RIGHT, false, false);
+  EXTEND_BLOCK_RIGHT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_RIGHT, false, false),
+  /**
+   * Switch the tab between text view and its column format; no key or menu item, so it runs only
+   * through {@code ApplicationController.execute}.
+   */
+  TOGGLE_COLUMNS(CommandGroup.LOG_VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, false);
 
   private final CommandGroup group;
   private final UiText label;

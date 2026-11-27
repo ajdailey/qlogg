@@ -2,10 +2,13 @@ package io.github.ajdailey.qlogg.core.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnFormat;
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
@@ -17,6 +20,7 @@ import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.io.MemoryByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -28,6 +32,7 @@ import io.github.ajdailey.qlogg.core.watch.FileChange;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -86,6 +91,9 @@ class DocumentContentTest {
     assertSame(content.detection, document.detection());
     assertSame(content.detection.encoding(), document.encoding());
     assertEquals(BuiltInFormat.ISO, document.timeFormat());
+    assertEquals(ColumnFormat.CLF, document.columns().format());
+    assertEquals(2, document.head().remaining());
+    assertNull(document.memberStarts(null));
     assertSame(content.map, document.lineMap());
     assertEquals(42, document.openedModifiedMillis());
     assertTrue(document.keepsFileClosed());
@@ -188,6 +196,21 @@ class DocumentContentTest {
     @Override
     public BuiltInFormat timeFormat() {
       return BuiltInFormat.ISO;
+    }
+
+    @Override
+    public ByteBuffer head() {
+      return ByteBuffer.wrap(new byte[] {'a', '\n'}).asReadOnlyBuffer();
+    }
+
+    @Override
+    public ColumnSchema columns() {
+      return ColumnSchema.fixed(ColumnFormat.CLF);
+    }
+
+    @Override
+    public LineSet memberStarts(LineIndex index) {
+      return null;
     }
 
     @Override

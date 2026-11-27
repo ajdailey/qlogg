@@ -109,6 +109,15 @@ public final class RotatedIndex implements LineIndex {
   }
 
   /**
+   * Returns the first line of each member with lines.
+   *
+   * @return ascending lines, line 0 first when a member has lines
+   */
+  public long[] memberStarts() {
+    return lineBase.clone();
+  }
+
+  /**
    * Returns the member that holds a line.
    *
    * @param line 0 to {@code lineCount() - 1}

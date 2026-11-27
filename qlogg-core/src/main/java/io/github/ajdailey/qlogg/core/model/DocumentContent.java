@@ -1,11 +1,14 @@
 package io.github.ajdailey.qlogg.core.model;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
+import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.text.EncodingDetection;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.watch.FileMonitor;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
 
@@ -67,6 +70,29 @@ interface DocumentContent {
    * @return the format, or null when detection was skipped or found none
    */
   BuiltInFormat timeFormat();
+
+  /**
+   * Returns the head the formats were detected from: the file's first bytes, or a rotated set's
+   * newest member's with bytes.
+   *
+   * @return a read-only buffer from offset 0, BOM included
+   */
+  ByteBuffer head();
+
+  /**
+   * Returns the column format detected at open from {@link #head}.
+   *
+   * @return the schema, or null when no format matches
+   */
+  ColumnSchema columns();
+
+  /**
+   * Returns the lines of an index snapshot that start a member of a rotated set.
+   *
+   * @param index a snapshot of {@link #index}
+   * @return the lines, or null for one file
+   */
+  LineSet memberStarts(LineIndex index);
 
   /**
    * Returns the bytes the index covers.

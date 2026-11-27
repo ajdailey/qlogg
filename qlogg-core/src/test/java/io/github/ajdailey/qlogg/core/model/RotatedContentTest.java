@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.core.columns.ColumnFormat;
+import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
+import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.OperationOutcome;
@@ -12,11 +15,15 @@ import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.IndexProgress;
 import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
+import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.io.ByteSource;
 import io.github.ajdailey.qlogg.core.rotate.LeftOut;
 import io.github.ajdailey.qlogg.core.rotate.LineMap;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
+import io.github.ajdailey.qlogg.core.search.LineSet;
+import io.github.ajdailey.qlogg.core.search.RecordLines;
+import io.github.ajdailey.qlogg.core.search.RecordScan;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -204,6 +211,36 @@ class RotatedContentTest {
       assertTrue(
           change == FileChange.APPENDED || change == FileChange.UNCHANGED,
           events.changes.toString());
+    }
+  }
+
+  @Test
+  void aCsvSetTakesItsColumnsFromTheNewestMemberAndStartsARecordAtEachMember() throws Exception {
+    Path old = dir.resolve("app.csv.1");
+    Files.writeString(old, "id,level,message\n1,INFO,\"open\n", StandardCharsets.US_ASCII);
+    age(old, 2);
+    Path active = dir.resolve("app.csv");
+    Files.writeString(active, "id,level,message\n2,WARN,next\n", StandardCharsets.US_ASCII);
+    age(active, 1);
+    LogDocument document = watched(open(active, false), new Events());
+    try {
+      ColumnSchema schema = document.columns();
+      assertEquals(ColumnFormat.CSV, schema.format());
+      assertTrue(schema.header());
+      assertEquals("level", schema.columns().get(1).name());
+      LineIndex index = document.index();
+      LineSet starts = document.memberStarts(index);
+      assertEquals(List.of(0L, 2L), List.of(starts.select(0), starts.select(1)));
+      RecordScan scan = new RecordScan(schema, document.encoding(), budget);
+      document.scanRecords(scan, index, new CancellationToken());
+      RecordLines records = scan.snapshot();
+      assertEquals(4, records.end());
+      for (long line = 0; line < 4; line++) {
+        assertTrue(records.starts(line), "line " + line);
+      }
+      scan.lines().clear();
+    } finally {
+      document.close();
     }
   }
 

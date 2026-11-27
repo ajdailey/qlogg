@@ -31,6 +31,8 @@ sequence.
 | `stopIndexing()` | Cancels indexing; later growth stays unindexed while the document is open |
 | `index()`, `status()` | Published state, read without I/O. `status()` carries the file size, modification time and the missing flag |
 | `timeFormat()` | The detected format, null for none |
+| `columns()`, `head()` | The column format `ColumnDetector` found in the same head, null for none, and the head itself, for a schema the owner builds from a chosen format ([columns](columns.md#format-detection)) |
+| `scanRecords(scan, index, token)`, `memberStarts(index)` | Extends a `RecordScan` through the indexing buffers; a rotated set's member starts, which `memberStarts` returns (null for one file), start records ([columns](columns.md#records)) |
 | `newTimeReader(parser)` | A `TimeReader` over the document through the shared `BlockCache` |
 | `openedModifiedMillis()` | The modification time at open, for `TimeContext` |
 | `marks()`, `markComments()` | The marked lines (`MutableLineSet`) and their `MarkComments`, both charged to `RESULTS`; `close` empties them |

@@ -214,6 +214,10 @@ public enum UiText {
   SEARCH_WORKER_FAILED,
   /** Regex error: 1-based column, the JDK's description. */
   SEARCH_REGEX_ERROR,
+  /** Column term error: the view has no such column; argument: the column as written. */
+  SEARCH_NO_COLUMN,
+  /** Column term error: a range search on a multi-line format; argument: the column. */
+  SEARCH_COLUMN_LINES_ONLY,
   /** Combined expression error: 1-based column, the reason. */
   SEARCH_EXPRESSION_ERROR,
   /** Expression error reason. */
@@ -739,6 +743,8 @@ public enum UiText {
   COMMAND_EXTEND_BLOCK_LEFT,
   /** Command label. */
   COMMAND_EXTEND_BLOCK_RIGHT,
+  /** Command label. */
+  COMMAND_TOGGLE_COLUMNS,
   /** Notice: no multi-line entry at the current line. */
   NOTICE_NO_FOLD,
   /** Notice: the fold share is full. */
@@ -1301,6 +1307,10 @@ public enum UiText {
   NOTICE_TIME_OUT_OF_ORDER,
   /** Notice: progress of a go to time over every line. */
   NOTICE_TIME_PROGRESS,
+  /** Notice: progress of a record scan. */
+  NOTICE_RECORDS_PROGRESS,
+  /** Notice: the record scan stopped at the memory limit; argument: the 1-based line. */
+  NOTICE_RECORDS_MEMORY_LIMIT,
   /** Notice: Esc canceled a go to time. */
   NOTICE_TIME_CANCELED,
   /** Notice: a go to time failed; the reason. */

@@ -54,8 +54,11 @@ every view `FieldValues.value` returned.
 ## Detection
 
 `ColumnDetector.detect(head, encoding, fileName, context)` reads the first 200
-non-empty lines (CSV and TSV: records) of the head `LogDocument.open` reads.
-The first rule that matches wins; text logs match none.
+non-empty lines (CSV and TSV: records) of the head `LogDocument.open` reads:
+the file's first 64 KiB, or a rotated set's newest member's with bytes, with
+the set's base name. `LogDocument.columns()` returns the result and `head()`
+the head, which the owner passes to `ColumnDetector.schema` for a format the
+user chose. The first rule that matches wins; text logs match none.
 
 | Format | File name | Content |
 |---|---|---|
@@ -97,6 +100,10 @@ it from where it stopped as the index grows. Its `MutableLineSet` charges
   byte other than a quote or the delimiter ends outside quotes, whatever state
   it started in; only the other lines with quotes run the quote rules char by
   char. A line whose leading blanks fill a block is not an event start.
+- A line in the forced starts `scan` takes starts a record outside quotes.
+  `LogDocument.scanRecords` passes a rotated set's member starts
+  (`memberStarts`), so no record spans members, and reads through the
+  indexing buffers (`Indexer.buffers()`).
 - A partial last line is left for the next pass. A `RESULTS` refusal stops the
   scan for good (`refused()`); lines from the refused entry on stay
   unclassified.

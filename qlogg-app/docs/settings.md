@@ -92,7 +92,7 @@ Two settings can hold text taken from a log:
 |---|---|---|
 | `Preferences` fields | `ui.theme` (`ThemeMode`), search history and size, `search.maxResults`, `search.runOnAdd`, quick find options, `view.splitPercent`, `view.overview`, `follow.*`, predefined filters | `ConfigStore` |
 | `HighlightSettings` | `highlight.*`, `label.*`, `matchHighlight.*` | `HighlightFile` |
-| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors` | `ViewFile` |
+| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors`, `view.columns.auto` | `ViewFile` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab`, `tabs.closeShowsLastUsed` | `OptionsFile` |
 | `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
@@ -126,6 +126,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.showWhitespace` | `true`, `false` | `false` | View > Show Whitespace |
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
 | `view.syntaxColors` | `true`, `false`: log structure is colored in both views of every file ([syntax colors](highlighting.md#syntax-colors-and-highlighters)) | `true` | View > Syntax Colors |
+| `view.columns.auto` | `true`, `false`: a file whose column format is detected opens in column view ([columns](document-views.md#columns)) | `true` | Not set from the UI |
 | `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Preferences, Folding |
 | `highlight.selector.N.glob`, `.firstLine`, `.set` | A rule picking a highlighter set for a file as it opens | none | Highlighters > Automatic Highlighters |
 | `font.family`, `font.size` | The log views' font; empty and 0 are the platform's monospace font and size | empty, 0 | Tools > Preferences, View |
@@ -183,7 +184,7 @@ last saved file stays, so a load never finds a file over its cap.
 
 | Store | File | Contents | Limits |
 |---|---|---|---|
-| `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
+| `PositionStore` | `positions.conf` | Per canonical path ([saved paths](#saved-paths)): top line, caret line and column, forced charset, the timestamp format and zone the user chose, and the column choices (`.columns`: a format id or `none`; `.header`: `1` or `0`), each written only once chosen (`pos.N.*`) | 500 entries, least recently used dropped; 1 MiB |
 | `SessionStore` | `qlogg_session.conf` | Per window W from 0: `window.W.active`, `window.W.onTop` (View > Always on Top, when on), `window.W.x`, `.y`, `.width`, `.height` (normal position and client size, each when known, kept from before View > Full Screen; malformed reads as unknown), `.maximized` (when on, or on before full screen); per tab `window.W.tab.N.path` ([saved paths](#saved-paths)), `.name`, `.follow`, `.marks` (`3-7,9`, 0-based), `.comment.K` (0-based line, a space, the text; K from 0 without gaps), `.timeOffset` (nanoseconds, when not 0), `.syncGroup` (from 1, when in a group); `droppedComments`, the comments the save left out at the cap, when not 0 | 32 windows, 256 tabs over all windows, 100,000 mark ranges and 1,000 comments over all tabs; 4 MiB |
 
 `PositionStore.get`, `put` and the setters touch memory under a lock held for
