@@ -12,7 +12,10 @@
 # a folder holding portable.txt or qlogg.conf. /NOEXPLORERMENU over an install removes the verb.
 # register-associations.cmd from the portable zip, in a folder named with a space, & and (,
 # adds Open With and the verb under HKCU, the verb on two selected files hands both to the
-# running QLogg, and /u removes every key. Run from the repository root with no QLogg installed.
+# running QLogg, and /u removes every key. Setup and its uninstaller request asInvoker. A
+# standard local user installs for itself silently at medium integrity, is refused /MACHINE
+# with exit 5 and a message, and uninstalls. No uninstall or /u leaves a Software\Classes\*
+# or *\shell key that was absent before. Run from the repository root with no QLogg installed.
 $ErrorActionPreference = 'Stop'
 
 $setup = (Get-Item "dist\qlogg-*-$env:TARGET-setup.exe").FullName
@@ -140,6 +143,32 @@ function Wait-Until([scriptblock] $Condition, [string] $Message) {
 $defaultVerbs = Get-DefaultVerbs
 Write-Output "default verbs before any install: .log [$($defaultVerbs['.log'])] .txt [$($defaultVerbs['.txt'])]"
 
+# The verb's parents, which uninstall and /u delete only when empty.
+$starKeys = @('HKLM:\Software\Classes\*', 'HKLM:\Software\Classes\*\shell', 'HKCU:\Software\Classes\*', 'HKCU:\Software\Classes\*\shell')
+$starBefore = @{}
+foreach ($key in $starKeys) {
+  $starBefore[$key] = Test-Path -LiteralPath $key
+  Write-Output "before any install: $key $(if ($starBefore[$key]) { 'present' } else { 'absent' })"
+}
+
+function Assert-NoNewStarKeys([string] $What) {
+  foreach ($key in $starKeys) {
+    if (-not $starBefore[$key] -and (Test-Path -LiteralPath $key)) { throw "$What left $key, absent before any install" }
+  }
+}
+
+# The requestedExecutionLevel of the manifest in $Exe.
+function Get-ExecutionLevel([string] $Exe) {
+  $text = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($Exe))
+  $found = [regex]::Matches($text, 'requestedExecutionLevel\s+level="(\w+)"')
+  if ($found.Count -ne 1) { throw "$Exe holds $($found.Count) requestedExecutionLevel entries" }
+  $found[0].Groups[1].Value
+}
+
+$level = Get-ExecutionLevel $setup
+if ($level -ne 'asInvoker') { throw "setup requests $level, expected asInvoker" }
+Write-Output 'PASS: setup requests asInvoker'
+
 function Test-Scope([string] $Scope) {
   if ($Scope -eq 'machine') {
     $hive = 'HKLM:'
@@ -186,6 +215,8 @@ function Test-Scope([string] $Scope) {
   $command = (Get-Item "$classes\QLogg.File\shell\open\command").GetValue('')
   if ($command -ne "`"$dir\qlogg.exe`" `"%1`"") { throw "$Scope QLogg.File opens with $command" }
   Assert-Verb $classes "$dir\qlogg.exe" "$Scope install"
+  $level = Get-ExecutionLevel (Join-Path $dir 'uninstall.exe')
+  if ($level -ne 'asInvoker') { throw "$Scope uninstall.exe requests $level, expected asInvoker" }
   Assert-DefaultVerbs "$Scope install" -Picker
   Assert-CmdRuns "$Scope install"
   Write-Output "PASS: $Scope install into $dir with its Installed apps entry, shortcut, Open With and Explorer menu verb, no desktop shortcut, no QLogg default verb, a .cmd that still runs, and no QLogg started"
@@ -222,6 +253,7 @@ function Test-Scope([string] $Scope) {
     Wait-Until { -not (Test-Path "$classes\$key") } "$Scope uninstall left $classes\$key"
   }
   Wait-Until { -not (Test-Verb $hive) } "$Scope uninstall left $hive\$verbKey"
+  Assert-NoNewStarKeys "$Scope uninstall"
   Assert-DefaultVerbs "$Scope uninstall"
   foreach ($ext in @('.log', '.txt')) {
     $progids = Get-ItemProperty "$classes\$ext\OpenWithProgids" -ErrorAction SilentlyContinue
@@ -231,11 +263,142 @@ function Test-Scope([string] $Scope) {
   if (-not (Test-Path $marker)) { throw "$Scope uninstall removed the per-user settings" }
   Remove-Item -Recurse -Force $settings
   Assert-CmdRuns "$Scope uninstall"
-  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry, restored the default verbs, kept the settings, and a .cmd still runs"
+  Write-Output "PASS: $Scope uninstall removed every file, shortcut and registry entry, left no new * or *\shell key, restored the default verbs, kept the settings, and a .cmd still runs"
 }
 
 Test-Scope 'machine'
 Test-Scope 'user'
+
+# A standard user runs standard.ps1 from a folder it can write: setup /S /USER, whose token
+# it reads while setup runs; setup /S /MACHINE with standard error captured; the uninstaller.
+# It writes result.json beside itself.
+$standardScript = @'
+$ErrorActionPreference = 'Stop'
+$result = [ordered]@{}
+try {
+  Add-Type -TypeDefinition @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+public static class TokenInfo {
+  [DllImport("advapi32.dll", SetLastError = true)]
+  static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+  [DllImport("advapi32.dll", SetLastError = true)]
+  static extern bool GetTokenInformation(IntPtr token, int infoClass, IntPtr info, int length, out int returned);
+  [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
+  [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthority(IntPtr sid, int index);
+  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+
+  // Class 25 TokenIntegrityLevel: the level's RID (0x2000 medium, 0x3000 high).
+  // Class 20 TokenElevation: 1 elevated, 0 not.
+  public static int Query(IntPtr process, int infoClass) {
+    IntPtr token;
+    if (!OpenProcessToken(process, 0x0008, out token)) { throw new Win32Exception(); }
+    IntPtr buffer = Marshal.AllocHGlobal(256);
+    try {
+      int returned;
+      // TokenElevation takes exactly its DWORD's length.
+      if (!GetTokenInformation(token, infoClass, buffer, infoClass == 25 ? 256 : 4, out returned)) { throw new Win32Exception(); }
+      if (infoClass != 25) { return Marshal.ReadInt32(buffer); }
+      IntPtr sid = Marshal.ReadIntPtr(buffer);
+      int count = Marshal.ReadByte(GetSidSubAuthorityCount(sid));
+      return Marshal.ReadInt32(GetSidSubAuthority(sid, count - 1));
+    } finally {
+      Marshal.FreeHGlobal(buffer);
+      CloseHandle(token);
+    }
+  }
+}
+"@
+  # Start-Process -Credential passes the caller's environment; point the profile variables
+  # at this user's profile so setup and the checks use its folders.
+  $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $userHome = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid").ProfileImagePath
+  $env:USERPROFILE = $userHome
+  $env:HOMEPATH = $userHome.Substring(2)
+  $env:USERNAME = [Environment]::UserName
+  $env:APPDATA = Join-Path $userHome 'AppData\Roaming'
+  $env:LOCALAPPDATA = Join-Path $userHome 'AppData\Local'
+  $env:TEMP = Join-Path $env:LOCALAPPDATA 'Temp'
+  $env:TMP = $env:TEMP
+  New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null
+  $result.localAppData = $env:LOCALAPPDATA
+  $setup = Join-Path $PSScriptRoot 'setup.exe'
+  $installed = Join-Path $env:LOCALAPPDATA 'Programs\QLogg'
+  $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\QLogg'
+  $stars = @('HKCU:\Software\Classes\*', 'HKCU:\Software\Classes\*\shell')
+  $result.starBefore = @($stars | Where-Object { Test-Path -LiteralPath $_ })
+  $result.callerLevel = [TokenInfo]::Query([Diagnostics.Process]::GetCurrentProcess().Handle, 25)
+  $process = Start-Process -FilePath $setup -ArgumentList '/S', '/USER' -PassThru
+  $result.setupLevel = [TokenInfo]::Query($process.Handle, 25)
+  $result.setupElevation = [TokenInfo]::Query($process.Handle, 20)
+  $process.WaitForExit()
+  $result.userExit = $process.ExitCode
+  $result.installed = Test-Path (Join-Path $installed 'qlogg.exe')
+  $result.entry = (Get-ItemProperty $uninstallKey -ErrorAction SilentlyContinue).InstallLocation
+  $result.verb = Test-Path -LiteralPath 'HKCU:\Software\Classes\*\shell\QLogg.Open'
+  $err = Join-Path $PSScriptRoot 'machine.err'
+  $process = Start-Process -FilePath $setup -ArgumentList '/S', '/MACHINE' -RedirectStandardError $err -PassThru
+  $null = $process.Handle
+  $process.WaitForExit()
+  $result.machineExit = $process.ExitCode
+  $result.machineError = (Get-Content -LiteralPath $err -Raw)
+  $result.programFiles = Test-Path (Join-Path $env:ProgramFiles 'QLogg')
+  Start-Process -FilePath (Join-Path $installed 'uninstall.exe') -ArgumentList '/S' -Wait
+  $deadline = (Get-Date).AddSeconds(120)
+  while ((Test-Path $installed) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+  $result.removed = -not (Test-Path $installed)
+  $result.entryAfter = Test-Path $uninstallKey
+  $result.starAfter = @($stars | Where-Object { Test-Path -LiteralPath $_ })
+} catch {
+  $result.error = "$_"
+}
+$result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'result.json')
+'@
+
+$account = 'qloggstd'
+# net user asks for confirmation of a password over 14 characters.
+$password = 'Qa1!' + [Guid]::NewGuid().ToString('N').Substring(0, 10)
+$shared = Join-Path $env:SystemDrive 'qlogg-standard'
+if (Test-Path $shared) { Remove-Item -Recurse -Force $shared }
+New-Item -ItemType Directory -Path $shared | Out-Null
+Copy-Item -LiteralPath $setup -Destination (Join-Path $shared 'setup.exe')
+Set-Content -LiteralPath (Join-Path $shared 'standard.ps1') -Value $standardScript
+# S-1-5-32-545 is BUILTIN\Users.
+& icacls.exe $shared /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "icacls exited $LASTEXITCODE" }
+& net.exe user $account $password /add /expires:never | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "net user /add exited $LASTEXITCODE" }
+try {
+  $credential = New-Object System.Management.Automation.PSCredential($account, (ConvertTo-SecureString $password -AsPlainText -Force))
+  $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList '-NoProfile', '-NonInteractive', '-File', (Join-Path $shared 'standard.ps1') -Credential $credential -LoadUserProfile -WorkingDirectory $shared -PassThru
+  if (-not $process.WaitForExit(600000)) { throw 'the standard user script did not exit within 600 s' }
+  $resultFile = Join-Path $shared 'result.json'
+  if (-not (Test-Path $resultFile)) { throw 'the standard user script wrote no result.json' }
+  Write-Output "standard user result: $(Get-Content -LiteralPath $resultFile -Raw)"
+  $result = Get-Content -LiteralPath $resultFile -Raw | ConvertFrom-Json
+  if ($result.error) { throw "the standard user script failed: $($result.error)" }
+  if ($result.callerLevel -ne 0x2000) { throw "the standard user's shell runs at integrity $($result.callerLevel), expected 0x2000" }
+  if ($result.setupLevel -ne 0x2000 -or $result.setupElevation -ne 0) { throw "standard user setup ran at integrity $($result.setupLevel), elevation $($result.setupElevation)" }
+  if ($result.userExit -ne 0) { throw "standard user setup /S /USER exited $($result.userExit)" }
+  if (-not $result.installed) { throw 'standard user setup /S /USER installed no qlogg.exe' }
+  if ($result.entry -ne (Join-Path $result.localAppData 'Programs\QLogg')) { throw "standard user setup /S /USER wrote InstallLocation [$($result.entry)]" }
+  if (-not $result.verb) { throw 'standard user setup /S /USER wrote no QLogg.Open verb' }
+  if ($result.machineExit -ne 5) { throw "standard user setup /S /MACHINE exited $($result.machineExit), expected 5" }
+  if ("$($result.machineError)" -notlike '*/MACHINE needs an elevated caller*') { throw "standard user setup /S /MACHINE wrote [$($result.machineError)] to standard error" }
+  if ($result.programFiles) { throw 'standard user setup /S /MACHINE wrote into Program Files' }
+  if (-not $result.removed -or $result.entryAfter) { throw 'standard user uninstall left the folder or the Installed apps entry' }
+  foreach ($key in @($result.starAfter)) {
+    if (@($result.starBefore) -notcontains $key) { throw "standard user uninstall left $key, absent before the install" }
+  }
+} finally {
+  & net.exe user $account /delete | Out-Null
+  Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -and (Split-Path -Leaf $_.LocalPath) -like "$account*" } |
+    Remove-CimInstance -ErrorAction SilentlyContinue
+  Remove-Item -Recurse -Force $shared -ErrorAction SilentlyContinue
+}
+Write-Output 'PASS: a standard user installed for itself at medium integrity without elevation, setup /S /MACHINE exited 5 with its message, and the uninstall left no new * or *\shell key'
 
 # /NOEXPLORERMENU clears the Explorer menu component: an install over one with the verb
 # removes it and keeps Open With, and the default verbs read the same with and without it.
@@ -249,6 +412,7 @@ if ($code -ne 0) { throw "per-user setup with /NOEXPLORERMENU exited $code" }
 foreach ($hive in @('HKLM:', 'HKCU:')) {
   if (Test-Verb $hive) { throw "per-user install with /NOEXPLORERMENU left $hive\$verbKey" }
 }
+Assert-NoNewStarKeys 'per-user install with /NOEXPLORERMENU'
 if ($null -eq (Get-ItemProperty 'HKCU:\Software\Classes\.log\OpenWithProgids').'QLogg.File') { throw 'per-user install with /NOEXPLORERMENU dropped Open With' }
 $withoutVerb = Get-DefaultVerbs
 foreach ($ext in @('.log', '.txt')) {
@@ -396,7 +560,8 @@ foreach ($ext in @('.log', '.txt')) {
   if ($progids -and $null -ne $progids.'QLogg.File') { throw "register-associations.cmd /u left QLogg.File in $ext OpenWithProgids" }
 }
 if (Test-Verb 'HKCU:') { throw "register-associations.cmd /u left HKCU:\$verbKey" }
+Assert-NoNewStarKeys 'register-associations.cmd /u'
 Assert-DefaultVerbs 'register-associations.cmd /u'
-Write-Output 'PASS: register-associations.cmd /u removed Open With and the Explorer menu verb and restored the default verbs'
+Write-Output 'PASS: register-associations.cmd /u removed Open With and the Explorer menu verb, left no new * or *\shell key, and restored the default verbs'
 # The stopped QLogg's DLLs stay locked briefly after it exits.
 Wait-Until { Remove-Item -Recurse -Force -LiteralPath $unpacked -ErrorAction SilentlyContinue; -not (Test-Path -LiteralPath $unpacked) } "cannot remove $unpacked"

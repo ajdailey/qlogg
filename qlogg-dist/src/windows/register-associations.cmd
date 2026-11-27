@@ -6,7 +6,8 @@ setlocal DisableDelayedExpansion
 set "exe=%~dp0qlogg.exe"
 rem !exe! expands after cmd splits the line, so & ( ) ^ in the path stay literal.
 setlocal EnableDelayedExpansion
-set "classes=HKCU\Software\Classes"
+rem The long root name, as reg query prints it, for :deleteifempty.
+set "classes=HKEY_CURRENT_USER\Software\Classes"
 set "verb=%classes%\*\shell\QLogg.Open"
 rem No .bat or .cmd: with QLogg.File in their OpenWithProgids, ShellExecute fails to run them.
 set "extensions=.log .txt"
@@ -36,7 +37,16 @@ for %%e in (%extensions%) do (
 reg delete "%classes%\QLogg.File" /f >nul 2>nul
 reg delete "%classes%\Applications\qlogg.exe" /f >nul 2>nul
 reg delete "%verb%" /f >nul 2>nul
+call :deleteifempty "%classes%\*\shell"
+call :deleteifempty "%classes%\*"
 echo QLogg is out of the Open With lists and the Explorer right-click menu.
+exit /b 0
+
+:deleteifempty
+rem reg has no /ifempty: delete %1 only when reg query lists no value or subkey.
+reg query "%~1" >nul 2>nul || exit /b 0
+for /f "delims=" %%l in ('reg query "%~1"') do if /i not "%%l"=="%~1" exit /b 0
+reg delete "%~1" /f >nul 2>nul
 exit /b 0
 
 :usage

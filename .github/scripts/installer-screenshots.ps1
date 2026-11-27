@@ -2,7 +2,9 @@
 # installer-screenshots\: a per-machine install that keeps the Explorer menu
 # component, ticks the desktop shortcut box and leaves Run QLogg checked, its
 # uninstaller, then a portable install into a temporary folder, which skips
-# the components page. After each install the finish page must
+# the components page, then the elevated instance the type page starts for
+# all users (/MACHINE /ELEVATED /NOEXPLORERMENU), which must open on the
+# components page with Back disabled. After each install the finish page must
 # have started qlogg.exe from an explorer.exe, with QLogg's token elevation
 # equal to the shell's, and the per-machine install must have written the
 # common desktop shortcut and the HKLM QLogg.Open verb, which its uninstaller
@@ -113,6 +115,11 @@ public static class SetupUi {
   public static bool NextEnabled(IntPtr hwnd) {
     IntPtr next = GetDlgItem(hwnd, 1);
     return next != IntPtr.Zero && IsWindowEnabled(next);
+  }
+
+  public static bool BackEnabled(IntPtr hwnd) {
+    IntPtr back = GetDlgItem(hwnd, 3);
+    return back != IntPtr.Zero && IsWindowVisible(back) && IsWindowEnabled(back);
   }
 
   [DllImport("user32.dll")]
@@ -349,4 +356,30 @@ while ($true) {
     Start-Sleep -Milliseconds 500
   }
 }
+
+# The elevated instance: this shell is elevated already, so it starts setup
+# with the switches the type page passes.
+Write-Host "starting $setup /MACHINE /ELEVATED /NOEXPLORERMENU"
+Watch-Starts 'elevated-start'
+Start-Process -FilePath $setup -ArgumentList '/MACHINE', '/ELEVATED', '/NOEXPLORERMENU' | Out-Null
+$script:elevatedPage = 0
+Invoke-Walk 'QLogg Setup' 'elevated' {
+  param($hwnd)
+  $script:elevatedPage++
+  if ($script:elevatedPage -eq 1) {
+    $text = [SetupUi]::Texts($hwnd)
+    if (-not $text.Contains('Choose Components')) { throw "the elevated setup opened on another page than the components page:`n$text" }
+    if ([SetupUi]::BackEnabled($hwnd)) { throw 'the elevated setup left Back enabled on the components page' }
+  }
+  $false
+}
+Test-Launched $installed 'elevated-start'
+if (Test-Path -LiteralPath $verb) { throw "the elevated setup wrote $verb despite /NOEXPLORERMENU" }
+Start-Process -FilePath (Join-Path $installed 'uninstall.exe') -ArgumentList '/S' -Wait
+$deadline = (Get-Date).AddSeconds(120)
+while (Test-Path $installed) {
+  if ((Get-Date) -gt $deadline) { throw "the silent uninstall left $installed" }
+  Start-Sleep -Milliseconds 500
+}
+Write-Output 'PASS: the elevated instance opened on the components page with Back disabled, kept /NOEXPLORERMENU, and installed for all users'
 Write-Output "PASS: saved $script:n installer pages in $out"
