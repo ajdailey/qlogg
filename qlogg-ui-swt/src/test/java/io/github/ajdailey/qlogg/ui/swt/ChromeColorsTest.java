@@ -7,9 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
-import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.ui.swt.platform.ChromeColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
@@ -60,9 +58,11 @@ class ChromeColorsTest {
   private static final RGB OWN_TEXT = new RGB(0x40, 0x50, 0x60);
   private static final RGB LIGHT_INK = new RGB(0xd4, 0xd4, 0xd4);
   private static final RGB DARK_INK = new RGB(0x3a, 0x3a, 0x3a);
-  private static final RGB BACKGROUND = rgb(Palette.DARK.gutter());
-  private static final RGB TEXT = rgb(Palette.DARK.text());
-  private static final RGB FIELD = rgb(Palette.DARK.background());
+  // The neutral grays of the dark win32 chrome.
+  private static final RGB BACKGROUND = new RGB(0x20, 0x20, 0x20);
+  private static final RGB TEXT = new RGB(0xff, 0xff, 0xff);
+  private static final RGB FIELD = new RGB(0x2b, 0x2b, 0x2b);
+  private static final RGB FACE = new RGB(0x33, 0x33, 0x33);
   private static final double LINK_CONTRAST = 4.5;
 
   /** Lowest contrast of a faded disabled icon's strongest pixel on the dark rows. */
@@ -159,10 +159,6 @@ class ChromeColorsTest {
       }
     }
     return names;
-  }
-
-  private static RGB rgb(Rgb rgb) {
-    return new RGB(rgb.red(), rgb.green(), rgb.blue());
   }
 
   private List<Control> painted() {
@@ -387,15 +383,15 @@ class ChromeColorsTest {
     assertEquals(system, fieldColors(), "a light start keeps no field dark");
   }
 
-  /** A read-only combo, whose list the theme leaves white, takes the field colors under dark. */
+  /** A read-only combo, whose list the theme leaves white, takes the button face under dark. */
   @Test
-  void aReadOnlyComboTakesTheFieldColorsUnderDark() {
+  void aReadOnlyComboTakesTheButtonFaceUnderDark() {
     RGB background = readOnly.getBackground().getRGB();
     RGB foreground = readOnly.getForeground().getRGB();
     ChromeColors chrome = chrome(WIN32);
     for (boolean dark : new boolean[] {true, false}) {
       chrome.apply(dark);
-      assertEquals(dark ? FIELD : background, readOnly.getBackground().getRGB(), "dark " + dark);
+      assertEquals(dark ? FACE : background, readOnly.getBackground().getRGB(), "dark " + dark);
       assertEquals(dark ? TEXT : foreground, readOnly.getForeground().getRGB(), "dark " + dark);
     }
   }
@@ -436,12 +432,12 @@ class ChromeColorsTest {
   }
 
   /**
-   * After a dark start an empty, unfocused text field on the light side is filled with its system
-   * background, which the dark native field draws {@code #212121} under any colors; a field holding
-   * text and the dark side keep the native drawing.
+   * After a dark start an empty, unfocused text field is filled with its background, the system one
+   * on the light side and the field gray on the dark side, which the dark native field draws {@code
+   * #212121} under any colors; a field holding text keeps the native drawing.
    */
   @Test
-  void afterADarkStartAnEmptyFieldOnTheLightSideIsPaintedInItsSystemBackground() {
+  void afterADarkStartAnEmptyFieldIsPaintedInItsBackground() {
     display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
     Text find = (Text) fields.get(0);
     find.setSize(200, 30);
@@ -452,7 +448,7 @@ class ChromeColorsTest {
     assertEquals(1, find.getListeners(SWT.Paint).length, "one fill listener");
     assertEquals(system, paintedCorner(find));
     chrome.apply(true);
-    assertEquals(OWN_BACKGROUND, paintedCorner(find), "dark side");
+    assertEquals(FIELD, paintedCorner(find), "dark side");
     chrome.apply(false);
     setText(find, "mock");
     assertEquals(OWN_BACKGROUND, paintedCorner(find), "holding text");

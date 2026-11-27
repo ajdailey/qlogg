@@ -65,9 +65,11 @@ class ChromeWindowTest {
   private static final Duration BOUND = Duration.ofSeconds(10);
   private static final PlatformTraits WIN32 = PlatformTraits.of("win32", false);
   private static final RGB OWN = new RGB(0x10, 0x20, 0x30);
-  private static final RGB BACKGROUND = rgb(Palette.DARK.gutter());
-  private static final RGB TEXT = rgb(Palette.DARK.text());
-  private static final RGB FIELD = rgb(Palette.DARK.background());
+  // The neutral grays of the dark win32 chrome.
+  private static final RGB BACKGROUND = new RGB(0x20, 0x20, 0x20);
+  private static final RGB TEXT = new RGB(0xff, 0xff, 0xff);
+  private static final RGB FIELD = new RGB(0x2b, 0x2b, 0x2b);
+  private static final RGB FACE = new RGB(0x33, 0x33, 0x33);
 
   @TempDir Path temp;
 
@@ -231,7 +233,7 @@ class ChromeWindowTest {
         fields.toString());
     List<RGB> systemFields = colors(fields);
     List<Control> natives = List.of(window.tabStrip().buttons().control());
-    // The read-only visibility combo, whose drop-down list takes the field colors under dark.
+    // The read-only visibility combo, whose drop-down list takes the button face under dark.
     Control visibility = window.searchBar().visibility();
     List<RGB> visibilityColors = colors(List.of(visibility));
     // Own colors, so a control that reports its parent's inherited color on GTK still shows a
@@ -250,7 +252,7 @@ class ChromeWindowTest {
           assertEquals(FIELD, field.getBackground().getRGB(), "" + field);
           assertEquals(TEXT, field.getForeground().getRGB(), "" + field);
         }
-        assertEquals(List.of(FIELD, TEXT), colors(List.of(visibility)), "visibility");
+        assertEquals(List.of(FACE, TEXT), colors(List.of(visibility)), "visibility");
         assertTrue(window.searchBar().icons().darkBackground(), "search row ink");
         for (ToolItem item : window.toolBar().getItems()) {
           assertNotNull(item.getDisabledImage(), item.getToolTipText());

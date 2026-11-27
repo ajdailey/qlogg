@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
@@ -23,6 +24,7 @@ import io.github.ajdailey.qlogg.core.index.IndexSettings;
 import io.github.ajdailey.qlogg.core.index.Indexer;
 import io.github.ajdailey.qlogg.core.io.BlockCache;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
@@ -79,6 +81,10 @@ class TabColorsGuiTest {
   private static final int PROBE_TOLERANCE = 8;
   private static final int PROBE_READS = 6;
   private static final String NO_SCREEN = "A screen read does not show the main window";
+  // The neutral grays of the dark win32 chrome.
+  private static final RGB PANEL = new RGB(0x20, 0x20, 0x20);
+  private static final RGB FIELD = new RGB(0x2b, 0x2b, 0x2b);
+  private static final int TEXT_TOLERANCE = 16;
 
   @TempDir Path temp;
 
@@ -301,6 +307,100 @@ class TabColorsGuiTest {
     settle();
     checkScheme("light-chrome-keeps-legal-pad", "legal-pad");
     assertTrue(faults.isEmpty(), faults.toString());
+  }
+
+  /**
+   * win32 under Dark: the tool bar, the status bar and the path field keep the neutral grays under
+   * two schemes, and the tab strip takes each scheme's colors.
+   */
+  @Test
+  void darkWin32PanelsKeepTheirGraysAndTheTabsFollowTheScheme() throws Exception {
+    assumeTrue(WIN32, "the win32 chrome");
+    open(ThemeMode.DARK, "graphite");
+    checkPanels("graphite");
+    setColors("nightwater");
+    checkPanels("nightwater");
+    assertTrue(faults.isEmpty(), faults.toString());
+  }
+
+  private void checkPanels(String id) throws Exception {
+    Palette palette = ColorSchemes.NONE.find(id).palette();
+    window.shell().forceActive();
+    settle();
+    window.shell().forceFocus();
+    settle();
+    expectGround(id + " tool bar", window.toolBar(), PANEL);
+    expectGround(id + " status bar", window.statusBar(), PANEL);
+    expectGround(id + " path field", window.pathField(), FIELD);
+    CTabFolder tabs = window.tabStrip().tabs();
+    ImageData strip = read(tabs);
+    CTabItem selected = tabs.getSelection();
+    Rectangle end = tabs.getItem(tabs.getItemCount() - 1).getBounds();
+    expect(
+        id + " strip",
+        Pixels.mode(strip, new Rectangle(end.x + end.width + 8, end.y + 3, 24, end.height - 6)),
+        rgb(palette.gutter()));
+    for (CTabItem item : tabs.getItems()) {
+      if (item != selected) {
+        Rectangle tab = inset(item.getBounds());
+        expect(id + " unselected tab", Pixels.mode(strip, tab), rgb(palette.gutter()));
+        expectText(id + " unselected tab", strip, tab, rgb(palette.text()));
+      }
+    }
+    tabs.forceFocus();
+    settle();
+    strip = read(tabs);
+    Rectangle tab = inset(selected.getBounds());
+    expect(id + " focused selected tab", Pixels.mode(strip, tab), rgb(palette.background()));
+    expectText(id + " focused selected tab", strip, tab, rgb(palette.text()));
+  }
+
+  private void expectGround(String step, Control control, RGB expected) {
+    ImageData data = read(control);
+    expect(step, Pixels.mode(data, inset(new Rectangle(0, 0, data.width, data.height))), expected);
+  }
+
+  private void expect(String step, RGB seen, RGB expected) {
+    if (Math.abs(seen.red - expected.red) > 2
+        || Math.abs(seen.green - expected.green) > 2
+        || Math.abs(seen.blue - expected.blue) > 2) {
+      faults.add(step + ": " + seen + ", expected " + expected);
+    }
+  }
+
+  /** Records a fault unless a pixel of the area is within {@link #TEXT_TOLERANCE} of a color. */
+  private void expectText(String step, ImageData data, Rectangle area, RGB expected) {
+    for (int y = area.y; y < Math.min(data.height, area.y + area.height); y++) {
+      for (int x = area.x; x < Math.min(data.width, area.x + area.width); x++) {
+        RGB seen = data.palette.getRGB(data.getPixel(x, y));
+        if (Math.abs(seen.red - expected.red) <= TEXT_TOLERANCE
+            && Math.abs(seen.green - expected.green) <= TEXT_TOLERANCE
+            && Math.abs(seen.blue - expected.blue) <= TEXT_TOLERANCE) {
+          return;
+        }
+      }
+    }
+    faults.add(step + ": no text near " + expected);
+  }
+
+  private static Rectangle inset(Rectangle area) {
+    return new Rectangle(area.x + 3, area.y + 3, area.width - 6, area.height - 6);
+  }
+
+  /** Reads a control's pixels from the screen, or through {@code Control.print} on win32. */
+  private ImageData read(Control control) {
+    control.redraw();
+    control.update();
+    if (!screenShowsWindows) {
+      return print(control);
+    }
+    Point at = control.toDisplay(0, 0);
+    Point size = control.getSize();
+    return capture(new Rectangle(at.x, at.y, size.x, size.y));
+  }
+
+  private static RGB rgb(Rgb rgb) {
+    return new RGB(rgb.red(), rgb.green(), rgb.blue());
   }
 
   private void setColors(String id) {
