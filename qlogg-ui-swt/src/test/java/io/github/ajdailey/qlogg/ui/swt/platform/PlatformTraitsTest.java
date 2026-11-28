@@ -152,6 +152,14 @@ class PlatformTraitsTest {
   }
 
   @Test
+  void onlyWin32PaintsTheListSelection() {
+    assertInstanceOf(Win32ListSelection.class, PlatformTraits.of("win32", false).listSelection());
+    assertInstanceOf(NativeListSelection.class, PlatformTraits.of("cocoa", false).listSelection());
+    assertInstanceOf(NativeListSelection.class, PlatformTraits.of("gtk", false).listSelection());
+    assertInstanceOf(NativeListSelection.class, PlatformTraits.of("gtk", true).listSelection());
+  }
+
+  @Test
   void onlyGtkNamesAToolkitVersion() {
     assertEquals("", PlatformTraits.of("win32", false).toolkitVersion());
     assertEquals("", PlatformTraits.of("cocoa", false).toolkitVersion());

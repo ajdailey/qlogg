@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
+import io.github.ajdailey.qlogg.ui.swt.platform.ListSelection;
 import io.github.ajdailey.qlogg.ui.swt.platform.MenuBehavior;
 import io.github.ajdailey.qlogg.ui.swt.platform.PlatformTraits;
 import org.eclipse.swt.SWT;
@@ -149,6 +150,20 @@ final class Dialogs {
     label.setText(text);
     label.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
     return label;
+  }
+
+  /**
+   * Creates a bordered single-selection list with a vertical scroll bar, its selected row drawn by
+   * {@link ListSelection#PLATFORM}.
+   *
+   * @param parent the parent
+   * @return the list
+   */
+  static org.eclipse.swt.widgets.List list(Composite parent) {
+    org.eclipse.swt.widgets.List list =
+        new org.eclipse.swt.widgets.List(parent, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
+    ListSelection.PLATFORM.draw(list);
+    return list;
   }
 
   /**

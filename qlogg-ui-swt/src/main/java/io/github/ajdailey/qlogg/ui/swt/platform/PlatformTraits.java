@@ -142,6 +142,13 @@ public interface PlatformTraits {
   ComboListSelection comboListSelection();
 
   /**
+   * Returns how a single-selection list draws its selected row.
+   *
+   * @return {@link Win32ListSelection} on win32, else {@link NativeListSelection}
+   */
+  ListSelection listSelection();
+
+  /**
    * Creates the native controls' theme handling for a Display.
    *
    * @param display the Display

@@ -78,7 +78,7 @@ final class TimestampFormatsDialog {
     }
     shell = Dialogs.shell(parent, UiText.TIME_FORMATS_TITLE.text(), true);
     ((GridLayout) shell.getLayout()).numColumns = 2;
-    list = new org.eclipse.swt.widgets.List(shell, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
+    list = Dialogs.list(shell);
     GridData listData = new GridData(SWT.FILL, SWT.FILL, false, true);
     listData.widthHint = 160;
     listData.heightHint = 160;

@@ -289,7 +289,7 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture`,
 |---|---|
 | SWT only in `ui.swt` and `launcher` | Model and controllers test without a display |
 | No dependency on `org.eclipse.swt.internal` | Public SWT API only, so GTK3 and GTK4 behave the same |
-| No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`, `Gtk4ToolItemSizing`, `Win32ComboListSelection`, `Win32MenuThemes` and `WindowsForegroundRights` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT and the Java 21 foreign-function API, a preview reached by reflection, stays in listed Public SWT API exceptions |
+| No `Class.forName`, `getDeclared*`, `getMethod`, `getField` or `setAccessible` in any class except `Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`, `Gtk4ToolItemSizing`, `Win32ListBox`, `Win32MenuThemes` and `WindowsForegroundRights` (`reflectionOnlyInExceptionClasses`) | Reflection into SWT and the Java 21 foreign-function API, a preview reached by reflection, stays in listed Public SWT API exceptions |
 | `SWT.getPlatform()`, strings starting `org.eclipse.swt.internal.` (system properties, class names) and the string `SWT_GTK4` only in `ui.swt.platform`; no `System.getenv` elsewhere in `ui.swt` or in `launcher` (`platformOnlyInTraits`) | View-layer platform code stays in `ui.swt.platform`, behind a seam `PlatformTraits` chooses |
 | Outside `ui.swt.platform` and `core.util.os`, no call of a boolean `PlatformTraits` or `OsTraits` method other than the value traits (`behaviorOnlyThroughSeams`) | Platform behavior goes through a seam interface the traits choose; a trait answers a value |
 | No call of `Display.getSystemMenu`, `getSystemTray`, `getSystemTaskBar`, `isSystemDarkTheme` or `Program.findProgram` outside `ui.swt.platform` (`platformQueriesOnlyInThePlatformPackage`) | Their answer is the platform; shared code takes it from a seam or a value trait |
@@ -300,6 +300,7 @@ classes in `ui.swt.archfixture`, `app.controller.archfixture`,
 | No `setImage` on an `Item` or a `Button` outside `ToolIcons`, except `TabStrip`, `TabList` (tab dots) and `NativeCellImages` (`iconsOnlyThroughToolIcons`) | An icon takes the ink for the background it shows on |
 | `Dialog.open` (file, folder and color choosers) is called only in `ui.swt.NativeDialogs` (`nativeChoosersOnlyThroughNativeDialogs`) | A window rebuild for a theme switch waits only for a chooser `NativeDialogs` counts |
 | A native `TabFolder` is created only in `ui.swt.platform` (`tabFoldersOnlyThroughDialogTabs`) | A dialog takes its folder from `PlatformTraits.dialogTabs`, dark after a dark win32 start |
+| A `List` is created only in `Dialogs.list` (`listsOnlyThroughDialogs`) | Every list draws its selected row through `ListSelection`, readable under a dark win32 start |
 | `Table.setLinesVisible` is called only in `ui.swt.platform` (`gridLinesOnlyThroughDialogColors`) | A table shows its lines through `Dialogs.gridLines`, drawn dark in a dark win32 dialog |
 | A string starting `org.eclipse.swt.internal.win32.Table` only in `Win32HeaderLines` (`headerLineKeyOnlyInWin32HeaderLines`) | The header divider color key is a Public SWT API exception confined to one class |
 | `core` does not depend on `app`, `ui` or `launcher`; `app` not on `ui` or `launcher` | Layering |

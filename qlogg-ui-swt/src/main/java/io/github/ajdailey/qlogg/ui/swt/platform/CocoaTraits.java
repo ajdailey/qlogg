@@ -102,6 +102,11 @@ final class CocoaTraits implements PlatformTraits {
   }
 
   @Override
+  public ListSelection listSelection() {
+    return new NativeListSelection();
+  }
+
+  @Override
   public WindowPlacement windowPlacement() {
     return new NativeWindowPlacement();
   }

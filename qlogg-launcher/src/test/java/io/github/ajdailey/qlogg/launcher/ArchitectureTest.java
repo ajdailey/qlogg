@@ -169,8 +169,8 @@ class ArchitectureTest {
         .check(classes);
   }
 
-  // Public SWT API exceptions: Always on Top, GTK 4 tool item sizing, win32 dark combo list
-  // selection, win32 menu themes and the foreground grant.
+  // Public SWT API exceptions: Always on Top, GTK 4 tool item sizing, win32 dark combo list and
+  // list selection, win32 menu themes and the foreground grant.
 
   /** The classes that reach SWT internals by reflection, which no import shows. */
   private static final String[] SWT_REFLECTION = {
@@ -178,7 +178,7 @@ class ArchitectureTest {
     ROOT + ".ui.swt.platform.CocoaStacking",
     ROOT + ".ui.swt.platform.GtkX11Stacking",
     ROOT + ".ui.swt.platform.Gtk4ToolItemSizing",
-    ROOT + ".ui.swt.platform.Win32ComboListSelection"
+    ROOT + ".ui.swt.platform.Win32ListBox"
   };
 
   /** The view class excepted to link the Java 21 foreign-function API by reflection. */
@@ -1704,6 +1704,29 @@ class ArchitectureTest {
         .should()
         .callConstructorWhere(newInstanceOf(org.eclipse.swt.widgets.TabFolder.class))
         .because("a native TabFolder keeps a light tab row under a dark win32 start");
+  }
+
+  /** Only {@code Dialogs.list} creates a {@code List}, so every list draws its selection. */
+  @Test
+  void listsOnlyThroughDialogs() {
+    listsOnlyThroughDialogsRule().check(classes);
+  }
+
+  @Test
+  void listsRuleFailsOnItsFixture() throws ClassNotFoundException {
+    assertViolations(
+        listsOnlyThroughDialogsRule(),
+        ROOT + ".ui.swt.archfixture.ViewViolations$CreatesList",
+        "CreatesList.open");
+  }
+
+  private static ArchRule listsOnlyThroughDialogsRule() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(ROOT + ".ui.swt.Dialogs")
+        .should()
+        .callConstructorWhere(newInstanceOf(org.eclipse.swt.widgets.List.class))
+        .because("win32 draws a List's selected row white under the dark theme; use Dialogs.list");
   }
 
   @Test
