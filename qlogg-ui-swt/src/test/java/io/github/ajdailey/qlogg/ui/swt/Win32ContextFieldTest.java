@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
  * alternating live switches with no rebuild (the window waits for its dialog). Under dark it reads
  * {@code #2b2b2b}; under light the system list background, never {@code #212121}, the color of the
  * dark theme SWT gives a field colored under the dark setting (measured on {@code windows-2025}).
+ * Skipped where the screen does not show the field's first dark fill ({@code windows-11-arm}).
  */
 @Tag("swt")
 class Win32ContextFieldTest {
@@ -83,6 +84,12 @@ class Win32ContextFieldTest {
         settle();
         RGB ground = ground(field);
         String step = "round trip " + i + (dark ? ", dark" : ", light");
+        if (i == 0 && dark) {
+          // As Win32ListTest: the dark field has no theme defect, so its color shows the screen.
+          assumeTrue(
+              ground.equals(field.getBackground().getRGB()),
+              "the screen shows the field; ground " + ground);
+        }
         assertNotEquals(THEMED, ground, step);
         assertEquals(dark ? FIELD : light, ground, step);
       }
