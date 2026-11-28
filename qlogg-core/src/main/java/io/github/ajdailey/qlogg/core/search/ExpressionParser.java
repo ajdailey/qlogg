@@ -239,7 +239,7 @@ public final class ExpressionParser {
   /**
    * True when {@code text[from, colon)} is a column name or number and {@code colon} holds a colon.
    */
-  private static boolean columnName(String text, int from, int colon) {
+  static boolean columnName(String text, int from, int colon) {
     if (colon <= from || text.charAt(colon) != ':') {
       return false;
     }

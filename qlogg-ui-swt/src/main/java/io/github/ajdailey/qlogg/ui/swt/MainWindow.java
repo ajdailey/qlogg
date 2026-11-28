@@ -22,6 +22,7 @@ import io.github.ajdailey.qlogg.app.view.DocumentViewListener;
 import io.github.ajdailey.qlogg.app.view.DocumentViewState;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.PositionText;
+import io.github.ajdailey.qlogg.app.view.SaveTarget;
 import io.github.ajdailey.qlogg.app.view.StatusText;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
@@ -1669,10 +1670,26 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   @Override
   public Path chooseSaveFile(String suggestedName) {
+    return savePath(saveDialog(suggestedName));
+  }
+
+  @Override
+  public SaveTarget chooseColumnSaveFile(String suggestedName) {
+    FileDialog dialog = saveDialog(suggestedName);
+    SaveForms.offer(dialog);
+    Path chosen = savePath(dialog);
+    return chosen == null ? null : new SaveTarget(chosen, SaveForms.original(dialog));
+  }
+
+  private FileDialog saveDialog(String suggestedName) {
     FileDialog dialog = new FileDialog(shell, SWT.SAVE);
     dialog.setText(CommandId.SAVE_SELECTION.title());
     dialog.setFileName(suggestedName);
     dialog.setOverwrite(true);
+    return dialog;
+  }
+
+  private Path savePath(FileDialog dialog) {
     String chosen = NativeDialogs.open(dialog);
     if (chosen == null) {
       return null;

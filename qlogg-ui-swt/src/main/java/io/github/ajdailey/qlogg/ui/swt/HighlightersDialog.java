@@ -49,6 +49,7 @@ final class HighlightersDialog {
   private final Button regex;
   private final Button ignoreCase;
   private final Button wholeLine;
+  private final RuleColumnField column;
   private final Button enabled;
   private final ColorField foreground;
   private final ColorField background;
@@ -128,6 +129,7 @@ final class HighlightersDialog {
     regex = check(fields, UiText.SEARCH_REGEX, edited);
     ignoreCase = check(fields, UiText.RULE_IGNORE_CASE, edited);
     wholeLine = check(fields, UiText.RULE_WHOLE_LINE, edited);
+    column = new RuleColumnField(fields, application.activeDocument(), edited);
     enabled = check(fields, UiText.RULE_ENABLED, edited);
     foreground = new ColorField(fields, UiText.RULE_FOREGROUND.text(), false, edited);
     background = new ColorField(fields, UiText.RULE_BACKGROUND.text(), false, edited);
@@ -322,6 +324,15 @@ final class HighlightersDialog {
   }
 
   /** Writes the fields into the selected rule; a pattern that does not compile is reported. */
+  /**
+   * Returns the Column field.
+   *
+   * @return the field
+   */
+  RuleColumnField columnField() {
+    return column;
+  }
+
   private void ruleEdited() {
     int s = setList.getSelectionIndex();
     int r = ruleList.getSelectionIndex();
@@ -344,7 +355,7 @@ final class HighlightersDialog {
                 setMark.getSelection(),
                 commentTemplate.getText(),
                 quiet.getSelection()),
-            editor.rules(s).get(r).column());
+            column.get());
     commentTemplate.setEnabled(setMark.getSelection());
     String invalid = editor.setRule(s, r, rule);
     ruleList.setItem(r, label(rule));
@@ -557,6 +568,7 @@ final class HighlightersDialog {
       regex.setSelection(!any || rule.mode() == MatchMode.REGEX);
       ignoreCase.setSelection(any && !rule.caseSensitive());
       wholeLine.setSelection(any && rule.wholeLine());
+      column.set(any ? rule.column() : "");
       enabled.setSelection(!any || rule.enabled());
       foreground.set(any ? rule.foreground() : null);
       background.set(any ? rule.background() : null);
@@ -575,6 +587,7 @@ final class HighlightersDialog {
       regex.setEnabled(any);
       ignoreCase.setEnabled(any);
       wholeLine.setEnabled(any);
+      column.setEnabled(any);
       enabled.setEnabled(any);
       foreground.setEnabled(any);
       background.setEnabled(any);

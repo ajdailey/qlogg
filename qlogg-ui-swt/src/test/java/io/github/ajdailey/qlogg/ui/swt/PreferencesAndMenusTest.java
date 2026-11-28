@@ -315,6 +315,19 @@ class PreferencesAndMenusTest {
   }
 
   @Test
+  void theViewPageSetsWhetherADetectedFormatOpensInColumnView() {
+    PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
+    assertTrue(dialog.columnsAuto().getSelection());
+    dialog.columnsAuto().setSelection(false);
+    dialog.apply();
+    assertFalse(controller.preferences().view().columnsAuto());
+    dialog.shell().dispose();
+    PreferencesDialog reopened = new PreferencesDialog(window.shell(), controller);
+    assertFalse(reopened.columnsAuto().getSelection());
+    reopened.shell().dispose();
+  }
+
+  @Test
   void theShortcutEditorRefusesTakenKeysAndAppliesFreeOnes() throws Exception {
     final PreferencesDialog dialog = new PreferencesDialog(window.shell(), controller);
     dialog.open();

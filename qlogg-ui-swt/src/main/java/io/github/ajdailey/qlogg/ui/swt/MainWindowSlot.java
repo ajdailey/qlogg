@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.view.BusyCounter;
 import io.github.ajdailey.qlogg.app.view.MainView;
+import io.github.ajdailey.qlogg.app.view.SaveTarget;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
@@ -416,6 +417,11 @@ public final class MainWindowSlot implements MainView {
   @Override
   public Path chooseSaveFile(String suggestedName) {
     return view.chooseSaveFile(suggestedName);
+  }
+
+  @Override
+  public SaveTarget chooseColumnSaveFile(String suggestedName) {
+    return view.chooseColumnSaveFile(suggestedName);
   }
 
   @Override

@@ -1,6 +1,10 @@
 package io.github.ajdailey.qlogg.app.search;
 
+import io.github.ajdailey.qlogg.core.search.ExpressionColumns;
+import io.github.ajdailey.qlogg.core.search.ExpressionException;
+import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.search.SearchExpression;
 import java.util.List;
 
 /**
@@ -8,6 +12,10 @@ import java.util.List;
  * combining, filters join as regex alternatives ({@code a|b}), a {@code LITERAL} filter escaped;
  * with combining, each is a quoted term joined with {@code or}. Composed text is searched as a
  * regex.
+ *
+ * <p>A column filter's pattern is one prefixed term, {@code Level:"ERROR"}: it renders as that term
+ * with its pattern escaped by its mode, and any column filter makes the composed text combining
+ * ({@link #needsCombining}).
  */
 public final class FilterPatterns {
   private static final String REGEX_SPECIALS = "\\^$.|?*+()[]{}";
@@ -22,25 +30,78 @@ public final class FilterPatterns {
    * @return the text
    */
   public static String render(PredefinedFilter filter, boolean combining) {
-    String regex =
-        filter.mode() == MatchMode.REGEX ? filter.pattern() : escapeRegex(filter.pattern());
+    SearchExpression.Term column = columnTerm(filter.pattern());
+    String pattern = column == null ? filter.pattern() : column.pattern();
+    String regex = filter.mode() == MatchMode.REGEX ? pattern : escapeRegex(pattern);
+    if (column != null) {
+      return column.column() + ':' + quote(regex);
+    }
     return combining ? quote(regex) : regex;
+  }
+
+  /**
+   * Reports whether composed text must be combining: when a filter is a column filter.
+   *
+   * @param filters the checked filters
+   * @return true when one names a column
+   */
+  public static boolean needsCombining(List<PredefinedFilter> filters) {
+    for (PredefinedFilter filter : filters) {
+      if (columnTerm(filter.pattern()) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns the pattern Save as Filter stores: with a search bar column, the text as one term with
+   * the column prefix ({@link ExpressionColumns#prefixed}).
+   *
+   * @param text the search text
+   * @param combining whether the text is combining syntax; combining text holding a quote is stored
+   *     as typed, its own prefixes naming its columns
+   * @param column the search bar column, or empty
+   * @param number the column's 1-based number, written when its name falls outside the prefix
+   *     grammar
+   * @return the pattern
+   */
+  public static String saved(String text, boolean combining, String column, int number) {
+    if (column.isEmpty() || (combining && text.indexOf('"') >= 0)) {
+      return text;
+    }
+    String prefixed = ExpressionColumns.prefixed(column, number, text);
+    return prefixed == null ? text : prefixed;
+  }
+
+  /** Returns a pattern's term when it is exactly one prefixed term, else null. */
+  private static SearchExpression.Term columnTerm(String pattern) {
+    if (pattern.indexOf(':') < 0 || pattern.indexOf('"') < 0) {
+      return null;
+    }
+    try {
+      SearchExpression parsed = ExpressionParser.parse(pattern, MatchMode.REGEX, true);
+      return parsed instanceof SearchExpression.Term term && term.column() != null ? term : null;
+    } catch (ExpressionException e) {
+      return null;
+    }
   }
 
   /**
    * Joins filters into search text.
    *
    * @param filters the checked filters, in menu order
-   * @param combining true for quoted terms joined with {@code or}
+   * @param combining true for quoted terms joined with {@code or}; a column filter makes it true
    * @return the text, empty for no filters
    */
   public static String compose(List<PredefinedFilter> filters, boolean combining) {
+    boolean quoted = combining || needsCombining(filters);
     StringBuilder text = new StringBuilder();
     for (PredefinedFilter filter : filters) {
       if (text.length() > 0) {
-        text.append(combining ? " or " : "|");
+        text.append(quoted ? " or " : "|");
       }
-      text.append(render(filter, combining));
+      text.append(render(filter, quoted));
     }
     return text.toString();
   }

@@ -74,4 +74,28 @@ class RecordRowsTest {
     assertEquals(-1, cursor.next(line), message);
     assertEquals(-1, cursor.previous(0), message);
   }
+
+  @Test
+  void aHiddenHeaderLeavesTheFirstRecordOut() {
+    MutableLineSet starts = new MutableLineSet();
+    starts.add(0);
+    starts.add(2);
+    starts.add(3);
+    // The header spans lines 0 and 1; records start at 2 and 3; line 4 is past the scan.
+    RecordRows rows = new RecordRows(RecordLines.starts(starts, 4), true);
+    assertEquals(3, rows.rowCount(5));
+    assertEquals(2, rows.lineAt(0));
+    assertEquals(3, rows.lineAt(1));
+    assertEquals(4, rows.lineAt(2));
+    assertEquals(0, rows.rowOf(0));
+    assertEquals(0, rows.rowOf(1));
+    assertEquals(1, rows.rowOf(3));
+    assertEquals(2, rows.rowOf(4));
+    RowCursor cursor = rows.cursor(5);
+    assertEquals(2, cursor.next(-1));
+    assertEquals(3, cursor.next(2));
+    assertEquals(2, cursor.previous(3));
+    assertEquals(-1, cursor.previous(2));
+    assertEquals(0, new RecordRows(RecordLines.starts(starts, 4), true).rowCount(1));
+  }
 }

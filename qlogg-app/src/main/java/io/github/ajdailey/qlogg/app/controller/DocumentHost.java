@@ -85,6 +85,9 @@ public interface DocumentHost {
    */
   void showText(String title, String text);
 
+  /** Focuses the search field, as Search in Column does after it sets the column. */
+  void focusSearch();
+
   // Columns.
 
   /**

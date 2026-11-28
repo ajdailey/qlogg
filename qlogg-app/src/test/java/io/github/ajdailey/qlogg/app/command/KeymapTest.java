@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.util.HashSet;
 import java.util.List;
@@ -15,14 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 class KeymapTest {
-  /** Column commands without a key until the column menus give them one. */
-  private static final Set<CommandId> COLUMN_COMMANDS =
-      Set.of(
-          CommandId.TOGGLE_COLUMNS,
-          CommandId.COPY_RAW_LINES,
-          CommandId.COPY_CELL,
-          CommandId.SHOW_RECORD);
-
   private final Keymap keymap = Keymap.defaults();
 
   /** Returns the macOS or the Linux defaults. */
@@ -56,14 +49,38 @@ class KeymapTest {
   void everyMenuCommandHasALabelAndEveryBindingACommandInTheTable() {
     for (CommandId command : CommandId.values()) {
       assertFalse(command.title().isEmpty());
-      // Toggle Columns runs only through ApplicationController.execute.
-      if (command.group() == CommandGroup.LOG_VIEW && !COLUMN_COMMANDS.contains(command)) {
+      if (command.group() == CommandGroup.LOG_VIEW) {
         assertFalse(keymap.bindingsFor(command).isEmpty(), command + " has no key");
       }
       KeyStroke accelerator = keymap.accelerator(command);
       if (accelerator != null) {
         assertTrue(command.group().menu(), command + " has an accelerator but no menu");
       }
+    }
+  }
+
+  @Test
+  void toggleColumnsIsCtrlEControlKAndTheColumnCommandsSitInViewAndTheLogViewMenu() {
+    List<Binding> toggle = keymap.bindingsFor(CommandId.TOGGLE_COLUMNS);
+    assertEquals(1, toggle.size());
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'e'), toggle.get(0).first());
+    assertEquals(KeyStroke.of(KeyStroke.PRIMARY, 'k'), toggle.get(0).second());
+    assertEquals(List.of(), keymap.conflicts(toggle.get(0)));
+    List<CommandId> columns =
+        List.of(
+            CommandId.TOGGLE_COLUMNS,
+            CommandId.COPY_RAW_LINES,
+            CommandId.COPY_CELL,
+            CommandId.SHOW_RECORD);
+    for (CommandId command : columns) {
+      assertEquals(CommandGroup.VIEW, command.group(), command.name());
+      assertEquals(UiText.MENU_COLUMNS.text(), command.submenu(), command.name());
+      assertTrue(MenuTable.LOG_VIEW_MENU.contains(command), command.name());
+      assertEquals(UiText.MENU_COLUMNS, MenuTable.logViewCascade(command), command.name());
+    }
+    assertTrue(CommandId.TOGGLE_COLUMNS.check());
+    for (CommandId command : columns.subList(1, columns.size())) {
+      assertTrue(keymap.bindingsFor(command).isEmpty(), command.name());
     }
   }
 

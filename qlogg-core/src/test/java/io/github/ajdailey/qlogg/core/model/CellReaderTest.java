@@ -378,6 +378,66 @@ class CellReaderTest {
   }
 
   @Test
+  void levelCellsTakeTheirLevelsColorWhateverTheCase() throws Exception {
+    String[] levels = {"Verbose", "Debug", "Information", "Warning", "Error", "Fatal", "Other"};
+    TokenKind[] kinds = {
+      TokenKind.COMMENT,
+      TokenKind.KEYWORD2,
+      TokenKind.TYPE,
+      TokenKind.ESCAPE,
+      TokenKind.INVALID,
+      TokenKind.INVALID,
+      null
+    };
+    StringBuilder clef = new StringBuilder();
+    for (String level : levels) {
+      clef.append("{\"@t\":\"2026-11-01T12:00:00Z\",\"@l\":\"").append(level).append("\"}\n");
+    }
+    open(clef.toString());
+    assertLevels(ColumnSchema.fixed(ColumnFormat.CLEF), kinds, levels.length);
+    String[] log4j = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OTHER"};
+    StringBuilder xml = new StringBuilder();
+    for (String level : log4j) {
+      xml.append("<log4j:event logger=\"mock\" timestamp=\"1764237600000\" level=\"")
+          .append(level)
+          .append("\"></log4j:event>\n");
+    }
+    open(xml.toString());
+    assertLevels(ColumnSchema.fixed(ColumnFormat.LOG4J_XML), kinds, log4j.length);
+  }
+
+  /** Reads the Level cell alone and checks each row's one span, or none. */
+  private void assertLevels(ColumnSchema schema, TokenKind[] kinds, int rows) throws Exception {
+    long[] lines = new long[rows];
+    for (int i = 0; i < rows; i++) {
+      lines[i] = i;
+    }
+    LineBlock block =
+        new CellReader(document.newReader())
+            .readRows(
+                document.index(),
+                0,
+                lines,
+                rows,
+                0,
+                40,
+                view(new ColumnLayout(schema, new int[] {1}, new int[] {14}, 0)),
+                null,
+                true);
+    for (int i = 0; i < rows; i++) {
+      TokenSpans tokens = block.tokens(i);
+      if (kinds[i] == null) {
+        assertEquals(0, tokens.count(), block.text(i));
+      } else {
+        assertEquals(1, tokens.count(), block.text(i));
+        assertEquals(kinds[i], tokens.kind(0), block.text(i));
+        assertEquals(0, tokens.start(0));
+        assertEquals(block.text(i).strip().length(), tokens.end(0));
+      }
+    }
+  }
+
+  @Test
   void theCacheKeepsARowUntilItsRecordOrTheReadChanges() throws Exception {
     open("1,2\n3,4\n");
     ColumnSchema schema = ColumnSchema.delimited(ColumnFormat.CSV, ',', List.of("a", "b"), true);

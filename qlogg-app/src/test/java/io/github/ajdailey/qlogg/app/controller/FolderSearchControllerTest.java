@@ -260,6 +260,16 @@ class FolderSearchControllerTest {
               dir.toString(),
               NamePattern.DEFAULT,
               false,
+              "\"hit\" and level:\"ERROR\"",
+              LITERAL.withCombining(true),
+              ""));
+      assertEquals(FolderSearchState.Phase.FAILED, search.state().phase());
+      assertEquals(UiText.FOLDER_COLUMN_TERM.format("level"), search.state().message());
+      search.run(
+          new FolderRequest(
+              dir.toString(),
+              NamePattern.DEFAULT,
+              false,
               "\"hit",
               LITERAL.withCombining(true),
               ""));

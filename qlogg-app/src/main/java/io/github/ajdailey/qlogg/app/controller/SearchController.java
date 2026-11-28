@@ -18,7 +18,6 @@ import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
-import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.LineRange;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
@@ -426,6 +425,18 @@ public final class SearchController {
   }
 
   /**
+   * Sets the column each term without its own column tests and focuses the search field, as Search
+   * in Column does; the views take the column through {@link SearchViewListener#optionsChanged}.
+   *
+   * @param name the column's name, or empty for the whole row
+   */
+  public void searchInColumn(String name) {
+    options = options.withColumn(name);
+    fireOptions();
+    host.focusSearch();
+  }
+
+  /**
    * Returns the search field's text.
    *
    * @return the text as last reported by the field or set by an edit
@@ -525,7 +536,7 @@ public final class SearchController {
     host.searchRan(text, toggles);
     SearchExpression expression;
     try {
-      expression = ExpressionParser.parse(text, toggles.mode(), toggles.combining());
+      expression = RanSearch.parse(text, toggles);
     } catch (ExpressionException e) {
       publish(
           failed(text, toggles, 0, UiText.SEARCH_EXPRESSION_ERROR.format(e.column(), reason(e))));
@@ -783,7 +794,7 @@ public final class SearchController {
       if (fieldText.isEmpty()) {
         throw new ExpressionException(ExpressionException.Reason.EXPECTED_TERM, 1);
       }
-      start = ExpressionParser.parse(fieldText, toggles.mode(), toggles.combining());
+      start = RanSearch.parse(fieldText, toggles);
     } catch (ExpressionException e) {
       document
           .notifications()

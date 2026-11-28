@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.config.ViewOptions;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSelector;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.MainView;
+import io.github.ajdailey.qlogg.app.view.SaveTarget;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
@@ -207,7 +208,10 @@ final class ViewFeatures {
     view.showMultiSearch();
   }
 
-  /** Asks for a target, validates it on a worker, then saves the selection or the filtered view. */
+  /**
+   * Asks for a target, validates it on a worker, then saves the selection or the filtered view; in
+   * column view the chooser also takes the form, Columns (TSV) or Original Lines.
+   */
   private void save(final boolean filtered) {
     final DocumentController document = host.activeDocument();
     if (document == null) {
@@ -217,7 +221,16 @@ final class ViewFeatures {
     if (target == null) {
       return;
     }
-    Path chosen = view.chooseSaveFile(document.state().title() + ".txt");
+    Path chosen;
+    final boolean original;
+    if (document.columns().shown()) {
+      SaveTarget answer = view.chooseColumnSaveFile(document.state().title() + ".tsv");
+      chosen = answer == null ? null : answer.path();
+      original = answer != null && answer.original();
+    } else {
+      chosen = view.chooseSaveFile(document.state().title() + ".txt");
+      original = false;
+    }
     if (chosen == null) {
       return;
     }
@@ -229,7 +242,7 @@ final class ViewFeatures {
             new Runnable() {
               @Override
               public void run() {
-                validate(given, held, target, filtered);
+                validate(given, held, target, filtered, original);
               }
             });
     if (!started) {
@@ -242,7 +255,8 @@ final class ViewFeatures {
       Path given,
       SafePaths.HeldLock held,
       final LineViewController target,
-      final boolean filtered) {
+      final boolean filtered,
+      final boolean original) {
     Path checked = null;
     String error = null;
     try {
@@ -256,12 +270,13 @@ final class ViewFeatures {
         new Runnable() {
           @Override
           public void run() {
-            validated(file, message, target, filtered);
+            validated(file, message, target, filtered, original);
           }
         });
   }
 
-  private void validated(Path file, String error, LineViewController target, boolean filtered) {
+  private void validated(
+      Path file, String error, LineViewController target, boolean filtered, boolean original) {
     if (target.isClosed()) {
       return;
     }
@@ -276,9 +291,9 @@ final class ViewFeatures {
       }
     }
     if (filtered) {
-      target.saveAll(file);
+      target.saveAll(file, original);
     } else {
-      target.saveLines(file);
+      target.saveLines(file, original);
     }
   }
 

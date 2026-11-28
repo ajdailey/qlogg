@@ -90,6 +90,15 @@ public record ColumnSchema(
   }
 
   /**
+   * Returns the index of the Level column, whose values name a log level.
+   *
+   * @return the index for CLEF and log4j XML, else -1
+   */
+  public int levelColumn() {
+    return format == ColumnFormat.CLEF || format == ColumnFormat.LOG4J_XML ? 1 : -1;
+  }
+
+  /**
    * Returns the index of the Time column.
    *
    * @return the index, or -1 for CSV and TSV

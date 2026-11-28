@@ -143,7 +143,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.showWhitespace` | `true`, `false` | `false` | View > Show Whitespace |
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
 | `view.syntaxColors` | `true`, `false`: log structure is colored in both views of every file ([syntax colors](highlighting.md#syntax-colors-and-highlighters)) | `true` | View > Syntax Colors |
-| `view.columns.auto` | `true`, `false`: a file whose column format is detected opens in column view ([columns](document-views.md#columns)) | `true` | Not set from the UI |
+| `view.columns.auto` | `true`, `false`: a file whose column format is detected opens in column view ([columns](document-views.md#columns)) | `true` | Tools > Preferences, View |
 | `columns.<id>.<n>.name`, `.width`, `.hidden`; `columns.<id>.frozen` | Column-view layout per column format id ([column layouts](#column-layouts)) | none | The column header: drag, double-click, its context menu |
 | `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Preferences, Folding |
 | `highlight.selector.N.glob`, `.firstLine`, `.set` | A rule picking a highlighter set for a file as it opens | none | Highlighters > Automatic Highlighters |
@@ -229,8 +229,8 @@ entry.
 A filter tab's entry has its root's `.path`, its `.name` and `.follow`, no
 marks, and its definition under `.derived.`: `parent` (`W.N` of the parent's
 entry), `text`, the toggles under the `searchOption.*` names, `scope` (first
-and end root line, when the search had one) and `column` (when set; stored and
-restored only). A malformed `parent` or `scope`, or an empty `text`, leaves
+and end root line, when the search had one) and `column`, the search bar
+column it ran with (when set; restored into its `SearchOptions.column`). A malformed `parent` or `scope`, or an empty `text`, leaves
 the entry a tab of the root's file, which the root's own entry opens already
 ([filter tab sessions](document-views.md#filter-tab-sessions)).
 

@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.app.theme.CellRule;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
@@ -17,9 +18,6 @@ import org.eclipse.swt.graphics.GC;
  * outlines the current cell. Selection is whole rows. UI thread only.
  */
 final class ColumnRowPainter {
-  /** Alpha of the line-number color over the background that makes the rule color. */
-  static final int RULE_ALPHA = 0x60;
-
   private final RowPainter painter;
 
   /**
@@ -35,13 +33,10 @@ final class ColumnRowPainter {
    * Returns the color of the rule between cells and between header cells.
    *
    * @param colors the palette's colors
-   * @return the line-number color at {@link #RULE_ALPHA} over the background
+   * @return the palette's {@link CellRule}
    */
   static Color ruleColor(PaletteColors colors) {
-    return colors.cached(
-        PaletteColors.blend(
-            RULE_ALPHA << 24 | PaletteColors.packed(colors.palette.lineNumbers()),
-            PaletteColors.packed(colors.palette.background())));
+    return colors.cellRule;
   }
 
   /**

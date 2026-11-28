@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
+import io.github.ajdailey.qlogg.app.search.FilterPatterns;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.core.columns.ColumnFormat;
 import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.columns.TimeCell;
@@ -123,12 +125,14 @@ public final class ColumnController {
   }
 
   private void apply(final boolean view) {
+    final boolean hideHeader = schema != null && schema.header();
     owner.changeRows(
         new Runnable() {
           @Override
           public void run() {
             shown = view;
-            rows = recordView() && owner.ownsDocument() ? new RecordRows(records()) : null;
+            rows =
+                recordView() && owner.ownsDocument() ? new RecordRows(records(), hideHeader) : null;
           }
         });
     owner.host().documentStateChanged();
@@ -165,6 +169,22 @@ public final class ColumnController {
             layout = next;
           }
         });
+  }
+
+  /**
+   * Returns the pattern Save as Filter stores for a search: in column view with a search bar
+   * column, one term with that column's prefix ({@link FilterPatterns#saved}).
+   *
+   * @param text the search text
+   * @param options the search's toggles
+   * @return the pattern
+   */
+  String filterPattern(String text, SearchOptions options) {
+    int index = shown && schema != null ? schema.columnIndex(options.column()) : -1;
+    return index < 0
+        ? text
+        : FilterPatterns.saved(
+            text, options.combining(), schema.columns().get(index).name(), index + 1);
   }
 
   /**
@@ -326,6 +346,7 @@ public final class ColumnController {
       return;
     }
     final RecordLines next = records();
+    final boolean hideHeader = rows.hidesHeader();
     if (next.end() == rows.records().end() && next.lines() == rows.records().lines()) {
       return;
     }
@@ -333,7 +354,7 @@ public final class ColumnController {
         new Runnable() {
           @Override
           public void run() {
-            rows = new RecordRows(next);
+            rows = new RecordRows(next, hideHeader);
           }
         });
   }

@@ -20,4 +20,13 @@ public interface FileDialogService {
    * @return the chosen path, not yet validated, or null when canceled
    */
   Path chooseSaveFile(String suggestedName);
+
+  /**
+   * Asks for a file to write a column view's rows to, and their form: the chooser's file types are
+   * Columns (TSV) and Original Lines.
+   *
+   * @param suggestedName the name the chooser starts with
+   * @return the chosen path and form, or null when canceled
+   */
+  SaveTarget chooseColumnSaveFile(String suggestedName);
 }

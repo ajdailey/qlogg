@@ -170,6 +170,8 @@ public final class Keymap {
     view(b, CommandId.TOGGLE_FOLD, KeyStroke.ALT, KeyStroke.BACKSPACE);
     sequence(b, CommandId.COLLAPSE_ALL_FOLDS, 'c');
     sequence(b, CommandId.EXPAND_ALL_FOLDS, 'x');
+    // Columns.
+    sequence(b, CommandId.TOGGLE_COLUMNS, 'k');
     view(b, CommandId.EXTEND_BLOCK_UP, KeyStroke.ALT | S, KeyStroke.UP);
     view(b, CommandId.EXTEND_BLOCK_DOWN, KeyStroke.ALT | S, KeyStroke.DOWN);
     view(b, CommandId.EXTEND_BLOCK_LEFT, KeyStroke.ALT | S, KeyStroke.LEFT);

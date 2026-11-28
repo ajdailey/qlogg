@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
+import io.github.ajdailey.qlogg.app.theme.CellRule;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.core.model.Rgb;
 import io.github.ajdailey.qlogg.core.model.TokenKind;
@@ -31,6 +32,8 @@ final class PaletteColors {
   final Color overviewFrame;
   // Time spread.
   final Color disorder;
+  // Column view.
+  final Color cellRule;
   // Syntax colors.
   private final Color[] tokens = new Color[TokenKind.values().length];
   private final Display display;
@@ -51,6 +54,7 @@ final class PaletteColors {
     overview = color(palette.overview());
     overviewFrame = color(palette.overviewFrame());
     disorder = color(palette.followStoppedDot());
+    cellRule = color(CellRule.of(palette));
     for (TokenKind kind : TokenKind.values()) {
       tokens[kind.ordinal()] = color(palette.tokens().color(kind));
     }

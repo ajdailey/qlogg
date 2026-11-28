@@ -1816,7 +1816,10 @@ public final class ApplicationController
       case SET_SEARCH_START -> search.setSearchStart(caretLine(target));
       case SET_SEARCH_END -> search.setSearchEnd(caretLine(target));
       case CLEAR_SEARCH_LIMITS -> search.clearSearchLimits();
-      case SAVE_AS_FILTER -> askFilterName(search.fieldText(), search.options().mode());
+      case SAVE_AS_FILTER ->
+          askFilterName(
+              document.columns().filterPattern(search.fieldText(), search.options()),
+              search.options().mode());
       // Filter tabs.
       case FILTER_TO_TAB -> filterToTab(document);
       case LOCATE_SOURCE ->
@@ -2185,6 +2188,11 @@ public final class ApplicationController
   @Override
   public void showText(String title, String text) {
     view.showText(title, text);
+  }
+
+  @Override
+  public void focusSearch() {
+    view.focusSearch();
   }
 
   @Override

@@ -556,16 +556,16 @@ class RotatedSetTest {
           public boolean getAsBoolean() {
             LineBlock lines = set.lines();
             return lines.cellView()
-                && lines.contains(3)
-                && lines.text(3).contains("plain")
-                && lines.header(2);
+                && lines.contains(2)
+                && lines.text(2).contains("plain")
+                && lines.header(1);
           }
         });
     LineBlock lines = set.lines();
-    assertTrue(lines.header(0));
-    assertEquals(1, lines.sourceLine(1));
-    assertEquals(2, lines.sourceLine(2));
-    assertEquals(3, lines.sourceLine(3), "the quoted LF does not take the next file's lines");
-    assertTrue(lines.text(3).startsWith("2"), lines.text(3));
+    assertFalse(lines.header(0));
+    assertEquals(1, lines.sourceLine(0), "the set's first header is no row");
+    assertEquals(2, lines.sourceLine(1));
+    assertEquals(3, lines.sourceLine(2), "the quoted LF does not take the next file's lines");
+    assertTrue(lines.text(2).startsWith("2"), lines.text(2));
   }
 }

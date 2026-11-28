@@ -56,8 +56,8 @@ class ColumnSizingTest {
             return layout != null
                 && !layout.unfitted()
                 && document.lines().cellView()
-                && document.lines().contains(1)
-                && document.lines().width(1) == layout.width();
+                && document.lines().contains(0)
+                && document.lines().width(0) == layout.width();
           }
         });
   }
@@ -86,7 +86,7 @@ class ColumnSizingTest {
     assertEquals(3, layout.width(0));
     assertEquals(20, layout.width(1));
     assertEquals(1, layout.frozen());
-    assertTrue(document.lines().text(1).startsWith("1  mock first"));
+    assertTrue(document.lines().text(0).startsWith("1  mock first"));
   }
 
   @Test

@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.app.controller.ApplicationController;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.DocumentController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.theme.CellRule;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
@@ -225,10 +226,7 @@ class ColumnViewGuiTest {
   }
 
   private static RGB rule(Palette palette) {
-    int rgb =
-        PaletteColors.blend(
-            ColumnRowPainter.RULE_ALPHA << 24 | PaletteColors.packed(palette.lineNumbers()),
-            PaletteColors.packed(palette.background()));
+    int rgb = PaletteColors.packed(CellRule.of(palette));
     return new RGB((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
   }
 
@@ -409,6 +407,32 @@ class ColumnViewGuiTest {
     } finally {
       menu.dispose();
     }
+  }
+
+  @Test
+  void theSearchBarColumnShowsInColumnViewAndSearchInColumnSetsIt() throws Exception {
+    openColumns("bar.csv", CSV);
+    final ColumnChooser chooser = window.searchBar().columnChooser();
+    assertTrue(chooser.control().getVisible());
+    assertEquals(
+        List.of(UiText.SEARCH_ALL_COLUMNS.text(), "id", "level", "message", "tail"),
+        List.of(chooser.control().getItems()));
+    assertEquals("", chooser.column());
+    int x = (cells().columnX(layout().start(1)) + ruleX(1)) / 2;
+    choose(view().header().menuAt(x), UiText.COLUMN_SEARCH.text());
+    assertEquals("level", chooser.column());
+    assertEquals("level", document().search().options().column());
+    assertEquals("level", window.searchBar().options().column());
+    controller.execute(CommandId.TOGGLE_COLUMNS);
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return !chooser.control().getVisible();
+              }
+            }));
+    assertEquals("", window.searchBar().options().column());
   }
 
   @Test

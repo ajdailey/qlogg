@@ -410,7 +410,8 @@ class FilteredPaneTest {
         if (item.getData() instanceof CommandId command) {
           found.add(command);
         }
-        if (item.getText().equals(UiText.MENU_SEARCH_LIMITS.text())) {
+        if (item.getText().equals(UiText.MENU_SEARCH_LIMITS.text())
+            || item.getText().equals(UiText.MENU_COLUMNS.text())) {
           for (MenuItem limit : item.getMenu().getItems()) {
             found.add((CommandId) limit.getData());
           }
@@ -721,7 +722,9 @@ class FilteredPaneTest {
     assertSame(bar.visibility(), row[0]);
     assertTrue(row[1] instanceof ToolBar, "toggles after the visibility combo");
     assertSame(bar.filtersButton().getParent(), row[2]);
-    assertSame(bar.pattern(), row[3]);
+    assertSame(bar.columnChooser().control(), row[3]);
+    assertFalse(row[3].getVisible(), "the Column drop-down shows in column view only");
+    assertSame(bar.pattern(), row[4]);
     for (ToolItem toggle : bar.toggles()) {
       assertEquals(SWT.CHECK, toggle.getStyle() & SWT.CHECK);
       assertNotNull(toggle.getImage());

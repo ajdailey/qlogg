@@ -238,6 +238,16 @@ public enum CommandId {
   /** Expand every entry. */
   EXPAND_ALL_FOLDS(
       CommandGroup.VIEW, UiText.COMMAND_EXPAND_ALL_FOLDS, false, false, UiText.MENU_FOLDING),
+  /** Switch the tab between text view and its column format; checked in column view. */
+  TOGGLE_COLUMNS(
+      CommandGroup.VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, true, UiText.MENU_COLUMNS),
+  /** Copy every line of each selected record, as in the file. */
+  COPY_RAW_LINES(
+      CommandGroup.VIEW, UiText.COMMAND_COPY_RAW_LINES, true, false, UiText.MENU_COLUMNS),
+  /** Copy the full value of the caret's cell. */
+  COPY_CELL(CommandGroup.VIEW, UiText.COMMAND_COPY_CELL, false, false, UiText.MENU_COLUMNS),
+  /** Show the caret's record, a column per line, in a text window. */
+  SHOW_RECORD(CommandGroup.VIEW, UiText.COMMAND_SHOW_RECORD, false, false, UiText.MENU_COLUMNS),
   /** Edit the user timestamp formats; the cascade lists the formats before it. */
   TIMESTAMP_FORMATS(
       CommandGroup.VIEW, UiText.COMMAND_TIMESTAMP_FORMATS, false, false, UiText.MENU_TIMESTAMPS),
@@ -440,18 +450,7 @@ public enum CommandId {
   /** Extend a block selection left one column. */
   EXTEND_BLOCK_LEFT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_LEFT, false, false),
   /** Extend a block selection right one column. */
-  EXTEND_BLOCK_RIGHT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_RIGHT, false, false),
-  /**
-   * Switch the tab between text view and its column format; no key or menu item, so it runs only
-   * through {@code ApplicationController.execute}, as the three column commands after it do.
-   */
-  TOGGLE_COLUMNS(CommandGroup.LOG_VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, false),
-  /** Copy every line of each selected record, as in the file. */
-  COPY_RAW_LINES(CommandGroup.LOG_VIEW, UiText.COMMAND_COPY_RAW_LINES, false, false),
-  /** Copy the full value of the caret's cell. */
-  COPY_CELL(CommandGroup.LOG_VIEW, UiText.COMMAND_COPY_CELL, false, false),
-  /** Show the caret's record, a column per line, in a text window. */
-  SHOW_RECORD(CommandGroup.LOG_VIEW, UiText.COMMAND_SHOW_RECORD, false, false);
+  EXTEND_BLOCK_RIGHT(CommandGroup.LOG_VIEW, UiText.COMMAND_EXTEND_BLOCK_RIGHT, false, false);
 
   private final CommandGroup group;
   private final UiText label;
