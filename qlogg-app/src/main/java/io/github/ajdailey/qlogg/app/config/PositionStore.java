@@ -1,5 +1,7 @@
 package io.github.ajdailey.qlogg.app.config;
 
+import io.github.ajdailey.qlogg.core.io.PathCase;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,10 +17,12 @@ import java.util.concurrent.locks.ReentrantLock;
  * .encoding}, {@code .timeFormat}, {@code .zone}, {@code .columns} and {@code .header}, most
  * recently used first. Keys are canonical paths; {@code pos.N.path} passes through {@link
  * InstallPaths}, and a load that finds a value the next save writes differently marks the store
- * changed, so the first save rewrites it. At most {@link #MAX_ENTRIES}; the least recently used
- * goes first. Thread-safe: {@link #get}, {@link #put} and the setters touch memory only under a
- * lock held for no I/O, so the UI thread may call them; {@link #load} and {@link #save} block and
- * run on workers.
+ * changed, so the first save rewrites it. Where file names ignore case ({@link PathCase}), a path
+ * with no entry in its own spelling reads and updates the most recently used entry in another case,
+ * which keeps its key; a new entry takes the path's spelling. At most {@link #MAX_ENTRIES}; the
+ * least recently used goes first. Thread-safe: {@link #get}, {@link #put} and the setters touch
+ * memory only under a lock held for no I/O, so the UI thread may call them; {@link #load} and
+ * {@link #save} block and run on workers.
  */
 public final class PositionStore {
   /** The file name in the settings directory. */
@@ -115,18 +119,30 @@ public final class PositionStore {
 
   private final SettingsFile file;
   private final InstallPaths paths;
+  private final PathCase names;
   private final ReentrantLock lock = new ReentrantLock();
   private final Map<String, Entry> entries = new LinkedHashMap<String, Entry>(16, 0.75f, true);
   private boolean dirty;
 
   /**
-   * Creates an empty store.
+   * Creates an empty store with this system's file name case rule.
    *
    * @param location the settings directory
    */
   public PositionStore(SettingsLocation location) {
+    this(location, PathCase.of(OsTraits.current()));
+  }
+
+  /**
+   * Creates an empty store.
+   *
+   * @param location the settings directory
+   * @param names the case rule paths match entries by
+   */
+  public PositionStore(SettingsLocation location, PathCase names) {
     this.file = new SettingsFile(location, FILE, MAX_BYTES);
     this.paths = new InstallPaths(location);
+    this.names = names;
   }
 
   /** Reads the file, replacing the entries in memory. Blocking. */
@@ -257,7 +273,7 @@ public final class PositionStore {
   public Entry get(Path path) {
     lock.lock();
     try {
-      Entry entry = entries.get(path.toString());
+      Entry entry = entries.get(key(path));
       return entry == null ? Entry.NONE : entry;
     } finally {
       lock.unlock();
@@ -275,7 +291,7 @@ public final class PositionStore {
   public void put(Path path, long top, long line, long column) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -304,7 +320,7 @@ public final class PositionStore {
   public void setEncoding(Path path, Charset charset) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -335,7 +351,7 @@ public final class PositionStore {
   public void setTimeFormat(Path path, String formatId) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -364,7 +380,7 @@ public final class PositionStore {
   public void setZone(Path path, String zoneId) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -395,7 +411,7 @@ public final class PositionStore {
   public void setColumns(Path path, String formatId) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -425,7 +441,7 @@ public final class PositionStore {
   public void setHeader(Path path, boolean header) {
     lock.lock();
     try {
-      Entry old = entries.get(path.toString());
+      Entry old = entries.get(key(path));
       if (old == null) {
         old = Entry.NONE;
       }
@@ -445,8 +461,26 @@ public final class PositionStore {
     }
   }
 
+  /**
+   * Returns a path's key: its own spelling when stored, else the most recently used entry that
+   * matches it apart from case where names ignore case, else its own spelling. Call under the lock.
+   */
+  private String key(Path path) {
+    String own = path.toString();
+    if (!names.ignoreCase() || entries.containsKey(own)) {
+      return own;
+    }
+    String match = own;
+    for (String stored : entries.keySet()) {
+      if (names.same(stored, own)) {
+        match = stored;
+      }
+    }
+    return match;
+  }
+
   private void store(Path path, Entry entry) {
-    String key = path.toString();
+    String key = key(path);
     if (!entry.equals(entries.get(key))) {
       dirty = true;
     }

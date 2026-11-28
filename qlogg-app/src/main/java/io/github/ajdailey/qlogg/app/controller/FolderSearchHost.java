@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import java.nio.file.Path;
 import java.util.List;
@@ -64,4 +65,11 @@ interface FolderSearchHost {
    * @return the current services
    */
   DocumentServices services();
+
+  /**
+   * Returns the file name case rule listed files match tabs by.
+   *
+   * @return the rule
+   */
+  PathCase pathCase();
 }

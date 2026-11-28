@@ -1,29 +1,38 @@
-package io.github.ajdailey.qlogg.app.controller;
+package io.github.ajdailey.qlogg.core.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** {@link RotatedTabs#onDisk}: the on-disk spelling of a path typed in another case. */
-class RotatedTabsTest {
+/**
+ * {@link PathCase}: the on-disk spelling of a path typed in another case, and path matching. The
+ * Mac rule makes the on-disk cases run on a case-sensitive file system.
+ */
+class FileNamesTest {
+  private static final PathCase EXACT = PathCase.of(OsTraits.of("Linux"));
+  private static final PathCase IGNORING = PathCase.of(OsTraits.of("Mac OS X"));
+
   @TempDir Path temp;
 
   @Test
   void namesThatKeepTheirCaseLeaveThePathAsGiven() {
     Path typed = temp.resolve("LOGS").resolve("APP.LOG.1");
-    assertSame(typed, RotatedTabs.onDisk(typed, false));
+    assertSame(typed, EXACT.onDisk(typed));
   }
 
   @Test
   void eachNameTakesItsDirectoryEntrysSpelling() throws Exception {
     Path file = Files.createDirectories(temp.resolve("Logs")).resolve("app.log.1");
     Files.writeString(file, "mock\n");
-    assertEquals(file, RotatedTabs.onDisk(temp.resolve("LOGS").resolve("APP.LOG.1"), true));
+    assertEquals(file, IGNORING.onDisk(temp.resolve("LOGS").resolve("APP.LOG.1")));
   }
 
   @Test
@@ -31,7 +40,7 @@ class RotatedTabsTest {
     Path logs = Files.createDirectories(temp.resolve("Logs"));
     assertEquals(
         logs.resolve("Missing").resolve("APP.LOG"),
-        RotatedTabs.onDisk(temp.resolve("LOGS").resolve("Missing").resolve("APP.LOG"), true));
+        IGNORING.onDisk(temp.resolve("LOGS").resolve("Missing").resolve("APP.LOG")));
   }
 
   /** Two entries that differ only in case exist only where names keep their case. */
@@ -41,7 +50,15 @@ class RotatedTabsTest {
     Path upper = temp.resolve("APP.LOG");
     assumeTrue(!Files.exists(upper), "names ignore case here");
     Files.writeString(upper, "upper\n");
-    assertEquals(lower, RotatedTabs.onDisk(lower, true));
-    assertEquals(upper, RotatedTabs.onDisk(upper, true));
+    assertEquals(lower, IGNORING.onDisk(lower));
+    assertEquals(upper, IGNORING.onDisk(upper));
+  }
+
+  @Test
+  void pathsMatchApartFromCaseOnlyWhereNamesIgnoreCase() {
+    assertTrue(EXACT.same("/mock/app.log", "/mock/app.log"));
+    assertFalse(EXACT.same("/mock/app.log", "/MOCK/APP.LOG"));
+    assertTrue(IGNORING.same("/mock/app.log", "/MOCK/APP.LOG"));
+    assertFalse(IGNORING.same("/mock/app.log", "/mock/app.log.1"));
   }
 }

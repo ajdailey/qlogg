@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.search.FilterFile;
 import io.github.ajdailey.qlogg.app.search.SearchHistory;
 import io.github.ajdailey.qlogg.app.theme.ThemeMode;
 import io.github.ajdailey.qlogg.core.io.AtomicFiles;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.io.PropertiesFiles;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.text.LogText;
@@ -81,6 +82,7 @@ public final class ConfigStore {
   // Session and remembered positions.
   private final SessionStore sessions;
   private final PositionStore positions;
+  private final PathCase names;
   // View colors.
   private final SchemeStore schemes;
 
@@ -97,14 +99,16 @@ public final class ConfigStore {
    * Creates the store; nothing is read until {@link #load}.
    *
    * @param location the settings directory
-   * @param os the system whose {@link Preferences#defaults} a missing file or key takes
+   * @param os the system whose {@link Preferences#defaults} a missing file or key takes, and whose
+   *     file name case rule the stored paths match by
    */
   public ConfigStore(SettingsLocation location, OsTraits os) {
     this.location = location;
     this.defaults = Preferences.defaults(os);
+    this.names = PathCase.of(os);
     this.paths = new InstallPaths(location);
     this.sessions = new SessionStore(location);
-    this.positions = new PositionStore(location);
+    this.positions = new PositionStore(location, names);
     // View colors.
     this.schemes = new SchemeStore(location);
   }
@@ -127,6 +131,16 @@ public final class ConfigStore {
    */
   public PositionStore positions() {
     return positions;
+  }
+
+  /**
+   * Returns the file name case rule that opened paths take their spelling by and stored paths match
+   * by.
+   *
+   * @return the rule
+   */
+  public PathCase pathCase() {
+    return names;
   }
 
   // View colors.

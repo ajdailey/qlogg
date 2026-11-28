@@ -281,6 +281,7 @@ from a parser.
 | `ForegroundRightsTest` | Each system's `foregroundRights` class; on Windows, user32 `AllowSetForegroundWindow` linking through `java.lang.foreign`, so a JDK or Windows change that removes a member fails |
 | `RunnableTypesTest` | Every `WINDOWS` and `MAC` extension in either case, trailing dots and spaces on Windows, a `PATHEXT` entry added and malformed entries ignored |
 | `SafePathsTest` | `deviceNamesAreRefusedOnWindowsOnly` characterizes the refusal on the host; `deviceFormsFollowTheSystem` checks it for each system through `OsTraits.of`; `aRejectedFormCarriesItsReason` checks the `PathFormException` reason of an empty path, a NUL character and, on Windows, an invalid path |
+| `PathCaseTest` | `onDisk` through the Mac rule on any file system: each name taking its directory entry's spelling, a name with no entry keeping its own, an exact entry winning over one in another case where both exist (skipped where names ignore case); the Linux rule leaving the path as given; `same` matching apart from case under the Mac rule only |
 
 ## Platform assumptions
 
