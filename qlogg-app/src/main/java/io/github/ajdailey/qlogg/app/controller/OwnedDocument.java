@@ -1,14 +1,22 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
+import java.time.ZoneId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A file tab's document: the tab indexes it, reopens it on a change and closes it. */
 final class OwnedDocument implements DocumentRole {
   private static final Logger LOG = LoggerFactory.getLogger(OwnedDocument.class);
+
+  private final LogDocument document;
+
+  OwnedDocument(LogDocument document) {
+    this.document = document;
+  }
 
   @Override
   public void start(DocumentController owner) {
@@ -33,6 +41,26 @@ final class OwnedDocument implements DocumentRole {
   @Override
   public boolean owns() {
     return true;
+  }
+
+  @Override
+  public String title() {
+    return RotatedTabs.title(document);
+  }
+
+  @Override
+  public String details(ZoneId zone) {
+    return RotatedTabs.tooltip(document, zone);
+  }
+
+  @Override
+  public String note() {
+    return RotatedTabs.note(document);
+  }
+
+  @Override
+  public long rowCount(long lineCount) {
+    return lineCount;
   }
 
   @Override

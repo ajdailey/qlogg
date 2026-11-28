@@ -174,7 +174,7 @@ there shares (`MenuTableTest` for the menu bar and the context menu tables,
 `LogViewTest` for every built menu); listed entries and Wrap Line have none. `MenuTable` holds
 the context menus' layout: `LOG_VIEW_MENU` with `logViewCascade` and
 `LOG_VIEW_CASCADES`, `TAB_MENU`, `RESULT_TAB_MENU` (a results tab's close
-items; the view adds Keep Results as a check item after a separator), `PATH_MENU`
+items; the view adds Keep Results as a check item after a separator, then Filter to Tab), `PATH_MENU`
 and `SEARCH_FIELD_MENU`; null is a separator. The log view's
 context menu shows `CommandId.label()`, so a command in both takes a letter
 free in both.

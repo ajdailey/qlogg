@@ -144,8 +144,9 @@ The results strip (`ResultsPane`) carries the list button alone: 11 kept
 searches of short patterns overflow it at 1100 px. Its context menu
 (`ResultTabMenu`) holds Close, Close Others and Close All over the tabs that
 show a close button, each through `ResultsPane.closeTab` (kept sets by identity
-first, then the current search's tab), and Keep Results
-(`TOGGLE_KEEP_RESULTS`), checked as the toggle is.
+first, then the current search's tab), Keep Results
+(`TOGGLE_KEEP_RESULTS`), checked as the toggle is, and Filter to Tab, which
+shows the tab's set and runs `ApplicationController.filterToTab`.
 
 ### Tab strip height
 

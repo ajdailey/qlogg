@@ -10,12 +10,14 @@ import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.TimeSettings;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
+import io.github.ajdailey.qlogg.app.view.SearchOptions;
 import io.github.ajdailey.qlogg.app.view.TimeStatus;
 import io.github.ajdailey.qlogg.app.view.TimeText;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
+import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
 import io.github.ajdailey.qlogg.core.time.UserFormat;
 import java.io.BufferedWriter;
@@ -179,6 +181,35 @@ class TimeControllerTest {
             return fixture.budget.reserved(MemoryShare.HIGHLIGHT) == 0;
           }
         });
+  }
+
+  @Test
+  void goToTimeInAFilterTabGoesToTheLastRowAtOrBeforeTheTarget() throws Exception {
+    final DocumentController root = fixture.open(timed("f.log", 40, BASE));
+    root.search()
+        .run(
+            "entry 1",
+            new SearchOptions(MatchMode.LITERAL, true, false, false, false, false, true, false));
+    fixture.runUntilEnded(root.search());
+    fixture.application.filterToTab(root);
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController shown = fixture.application.activeDocument();
+            return shown != root && shown.viewport().lineCount() == 11;
+          }
+        });
+    DocumentController tab = fixture.application.activeDocument();
+    tab.viewportResized(10, 80);
+    // Entry 25 is not a row: the last row before it is entry 19.
+    tab.time().goToTime(nanos(BASE.plusSeconds(25)));
+    searched(tab);
+    assertEquals(entryLines.get(19).longValue(), tab.sourceLine(tab.selection().caret().line()));
+    // No row at or before entry 0: the first row.
+    tab.time().goToTime(nanos(BASE));
+    searched(tab);
+    assertEquals(entryLines.get(1).longValue(), tab.sourceLine(tab.selection().caret().line()));
   }
 
   @Test

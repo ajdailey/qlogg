@@ -16,6 +16,9 @@ import io.github.ajdailey.qlogg.core.search.SearchListener;
 import io.github.ajdailey.qlogg.core.search.SearchQuery;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
@@ -52,22 +55,21 @@ final class Derivation implements DocumentRole {
   private boolean rangeOpen;
   private OperationHandle running;
   private boolean wanted;
+  private String column = "";
 
   /**
    * Creates a definition over rows a finished search found.
    *
    * @param tabs the parent links; growth pokes the tab's children through them
    * @param parent the parent tab
-   * @param ran the search and where it ended
-   * @param lines a copy of its set, which the rows own
+   * @param ran the search and where it ended, over a copy of its set, which the rows own
    * @param engine runs growth
    * @param ui the UI-thread dispatcher
    */
   Derivation(
       DerivedTabs tabs,
       DocumentController parent,
-      SearchController.Ran ran,
-      MutableLineSet lines,
+      RanSearch ran,
       SearchEngine engine,
       UiDispatcher ui) {
     this.tabs = tabs;
@@ -81,7 +83,7 @@ final class Derivation implements DocumentRole {
     this.ui = ui;
     this.rows =
         new DerivedRows(
-            lines,
+            ran.lines,
             ran.end,
             ran.bytes,
             new Runnable() {
@@ -100,9 +102,10 @@ final class Derivation implements DocumentRole {
    * @return the definition
    */
   Derivation rederived(DocumentController newParent, MemoryBudget budget) {
-    SearchController.Ran ran =
-        new SearchController.Ran(text, options, query, null, SearchLimit.NONE, 0, -1, false);
-    return new Derivation(tabs, newParent, ran, new MutableLineSet(budget), engine, ui);
+    RanSearch ran = RanSearch.unrun(text, options, query, new MutableLineSet(budget));
+    Derivation again = new Derivation(tabs, newParent, ran, engine, ui);
+    again.column = column;
+    return again;
   }
 
   /** Binds the tab these rows belong to; its controller calls this once, while it is built. */
@@ -142,6 +145,67 @@ final class Derivation implements DocumentRole {
   /** Returns the search text. */
   String text() {
     return text;
+  }
+
+  /** Returns the search's toggles. */
+  SearchOptions options() {
+    return options;
+  }
+
+  /** Returns the root lines the search covers, or null for every line. */
+  LineRange scope() {
+    return query.scope();
+  }
+
+  /** Returns the search's column, as the session keeps it; empty for none. */
+  String column() {
+    return column;
+  }
+
+  /**
+   * Sets the search's column, as a restored session gives it.
+   *
+   * @param name the column, or empty for none
+   */
+  void setColumn(String name) {
+    column = name;
+  }
+
+  /** Reports whether growth has ended: a limit stopped it, or the scope ends before the file. */
+  boolean stopped() {
+    return limit != SearchLimit.NONE
+        || (query.scope() != null && query.scope().end() != Long.MAX_VALUE);
+  }
+
+  @Override
+  public String title() {
+    return UiText.FILTER_TAB_TITLE.format(
+        RotatedTabs.title(parent.document()), ResultTabs.shortText(text, options));
+  }
+
+  /** Lists the searches from the root down, then whether the tab grows. */
+  @Override
+  public String details(ZoneId zone) {
+    List<String> lines = new ArrayList<String>();
+    Derivation link = this;
+    while (link != null) {
+      lines.add(0, UiText.FILTER_TAB_SEARCH.format(ResultTabs.label(link.text, link.options)));
+      link = tabs.derivation(link.parent);
+    }
+    if (stopped()) {
+      lines.add(UiText.FILTER_TAB_NO_GROWTH.text());
+    }
+    return String.join("\n", lines);
+  }
+
+  @Override
+  public String note() {
+    return UiText.FILTER_TAB_ROWS.format(rows.lines().size());
+  }
+
+  @Override
+  public long rowCount(long lineCount) {
+    return rows.lines().size();
   }
 
   /** Returns what stopped growth. */
@@ -214,17 +278,19 @@ final class Derivation implements DocumentRole {
     rows.growthStarted(from);
     source.readerStarted();
     SearchQuery growth =
-        new SearchQuery(
-            query.expression(),
-            query.caseSensitive(),
-            query.wholeWord(),
-            query.inverse(),
-            new LineRange(from, end),
-            query.hideAnsi(),
-            query.rangeEnd(),
-            from == last && rangeOpen,
-            source.members(),
-            parent.columns().search());
+        RowRestriction.restricted(
+            new SearchQuery(
+                query.expression(),
+                query.caseSensitive(),
+                query.wholeWord(),
+                query.inverse(),
+                new LineRange(from, end),
+                query.hideAnsi(),
+                query.rangeEnd(),
+                from == last && rangeOpen,
+                null,
+                parent.columns().search()),
+            source.members());
     Growth events = new Growth(owner, rows.lines(), source, end, bytes);
     try {
       running = engine.search(document, index, growth, rows.lines(), events);

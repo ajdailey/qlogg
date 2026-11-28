@@ -209,7 +209,7 @@ public final class DocumentController extends LineViewController {
     this.columns = new ColumnController(this);
     if (derivation == null) {
       this.rows = new ColumnRows(this, new FoldRows(this, folds));
-      this.role = new OwnedDocument();
+      this.role = new OwnedDocument(document);
     } else {
       this.rows = derivation.rows();
       this.role = derivation;
@@ -1438,7 +1438,7 @@ public final class DocumentController extends LineViewController {
 
   private DocumentViewState buildState(DocumentStatus status) {
     return new DocumentViewState(
-        RotatedTabs.title(document),
+        role.title(),
         document.inMemory() ? "" : document.path().toString(),
         document.encoding().charset().name(),
         document.detection().reason() == DetectionReason.FORCED,
@@ -1453,7 +1453,8 @@ public final class DocumentController extends LineViewController {
         status.loadingStopped(),
         status.reopenWaiting(),
         failure,
-        RotatedTabs.tooltip(document, ZoneId.systemDefault()),
-        RotatedTabs.note(document));
+        role.details(ZoneId.systemDefault()),
+        role.note(),
+        role.rowCount(status.lineCount()));
   }
 }

@@ -166,7 +166,7 @@ and selection and hands focus back to the canvas.
 ### Context menu
 
 The right-click menu (`MenuTable.LOG_VIEW_MENU`, then `LOG_VIEW_CASCADES`)
-lists Copy, Copy This Line, Copy with Line Numbers; Mark or Unmark, Edit Mark
+lists Copy, Copy This Line, Copy with Line Numbers; Locate Source Line; Mark or Unmark, Edit Mark
 Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
 Selection from Search, Replace Search with Selection and the Search Limits
 cascade; Set Selection Start and End; Save Selection to File, Send Selection to

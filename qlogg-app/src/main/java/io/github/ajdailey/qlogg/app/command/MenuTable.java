@@ -128,6 +128,8 @@ public final class MenuTable {
               CommandId.COPY_LINE,
               CommandId.COPY_WITH_LINE_NUMBERS,
               null,
+              CommandId.LOCATE_SOURCE,
+              null,
               CommandId.TOGGLE_MARK,
               CommandId.EDIT_MARK_COMMENT,
               null,
@@ -209,8 +211,9 @@ public final class MenuTable {
   // Results tab context menu.
 
   /**
-   * A results tab's context menu: the close items, then a separator and {@link
-   * CommandId#TOGGLE_KEEP_RESULTS} as a check item.
+   * A results tab's context menu: the close items, then a separator, {@link
+   * CommandId#TOGGLE_KEEP_RESULTS} as a check item and {@link CommandId#FILTER_TO_TAB} for the
+   * tab's set.
    */
   public static final List<UiText> RESULT_TAB_MENU =
       List.of(UiText.TAB_CLOSE, UiText.TAB_CLOSE_OTHERS, UiText.TAB_CLOSE_ALL);

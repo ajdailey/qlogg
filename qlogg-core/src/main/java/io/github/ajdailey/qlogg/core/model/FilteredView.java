@@ -1,10 +1,10 @@
 package io.github.ajdailey.qlogg.core.model;
 
-import io.github.ajdailey.qlogg.core.concurrent.CancellationToken;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.search.LineSet;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.search.SortedLines;
 
 /**
  * The filtered view's rows: the matching lines, the marked lines or both, in line order. Row n maps
@@ -19,12 +19,17 @@ import io.github.ajdailey.qlogg.core.search.MutableLineSet;
  *
  * <p>With {@link Visibility#MARKS_AND_MATCHES} the rows are the matches plus an {@link Extras}
  * snapshot: the marks that were not matches when it was built, held in a {@link MutableLineSet}
- * that reserves its storage from {@link MemoryShare#RESULTS}. {@link #buildExtras} walks the marks
- * on a worker; {@link #installExtras} puts the result in place on the view's thread and {@link
- * #extrasStale} reports when the marks or the matches changed since. Until a newer snapshot is
- * installed the rows keep the old one, so marks toggled meanwhile appear one build later, and a
+ * that reserves its storage from {@link MemoryShare#RESULTS}. {@link MarkSnapshots#build} walks the
+ * marks on a worker; {@link #installExtras} puts the result in place on the view's thread and
+ * {@link #extrasStale} reports when the marks or the matches changed since. Until a newer snapshot
+ * is installed the rows keep the old one, so marks toggled meanwhile appear one build later, and a
  * mark the matches gained meanwhile counts twice in {@link #size}. A snapshot the share cannot hold
  * is partial ({@link Extras#complete} false). {@link #close} releases it.
+ *
+ * <p>A view with a domain ({@link #FilteredView(LineSet, MutableLineSet, LineSet, MemoryBudget)})
+ * lists only the marks among the domain's lines, as a filter tab lists the marks among its rows.
+ * Its {@link Visibility#MARKS} rows are then a snapshot too, of every mark in the domain, built and
+ * installed the same way; a snapshot is stale also when the domain's size changed.
  *
  * <p>Confined to one thread (the UI thread); the sets it reads are thread-safe. {@link #cursor}
  * hands a worker a thread-safe walk over the same rows.
@@ -38,13 +43,21 @@ public final class FilteredView {
    * @param basisSize their count then
    * @param marksVersion the marks' {@link MutableLineSet#version} when the build started
    * @param complete false when the share refused part of the lines
+   * @param domainSize the domain's size then, or -1 without a domain
    */
   public record Extras(
-      MutableLineSet lines, LineSet basis, long basisSize, long marksVersion, boolean complete) {}
+      MutableLineSet lines,
+      LineSet basis,
+      long basisSize,
+      long marksVersion,
+      boolean complete,
+      long domainSize) {}
 
-  private static final int BATCH = 4096;
+  /** The basis of a {@link Visibility#MARKS} snapshot: no line is left out. */
+  private static final LineSet NO_LINES = new SortedLines(new long[0]);
 
   private final MutableLineSet marks;
+  private final LineSet domain;
   private final MemoryBudget budget;
   private LineSet matches;
   private Visibility visibility = Visibility.MARKS_AND_MATCHES;
@@ -60,10 +73,46 @@ public final class FilteredView {
    * @param budget charged for the marks outside the matches, or null
    */
   public FilteredView(LineSet matches, MutableLineSet marks, MemoryBudget budget) {
+    this(matches, marks, null, budget);
+  }
+
+  /**
+   * Creates a view that lists only the marks among a domain's lines.
+   *
+   * @param matches the matching lines
+   * @param marks the document's marks
+   * @param domain the lines marks are listed from, or null for every line
+   * @param budget charged for the snapshots, or null
+   */
+  public FilteredView(LineSet matches, MutableLineSet marks, LineSet domain, MemoryBudget budget) {
     this.matches = matches;
     this.marks = marks;
+    this.domain = domain;
     this.budget = budget;
-    this.extras = new Extras(new MutableLineSet(budget), null, -1, -1, true);
+    this.extras = emptyExtras();
+  }
+
+  private Extras emptyExtras() {
+    return new Extras(new MutableLineSet(budget), null, -1, -1, true, -1);
+  }
+
+  /**
+   * Returns the lines marks are listed from.
+   *
+   * @return the domain, or null for every line
+   */
+  public LineSet domain() {
+    return domain;
+  }
+
+  /**
+   * Returns the lines the next snapshot leaves out: the listed matches, or none for the marks mode
+   * of a view with a domain.
+   *
+   * @return the set to pass to {@link MarkSnapshots#build}
+   */
+  public LineSet extrasBasis() {
+    return visibility == Visibility.MARKS ? NO_LINES : rows();
   }
 
   /**
@@ -256,7 +305,7 @@ public final class FilteredView {
   public long size() {
     return switch (visibility) {
       case MATCHES -> rows().size();
-      case MARKS -> marks.size();
+      case MARKS -> marked().size();
       case MARKS_AND_MATCHES -> rows().size() + extras.lines().size();
     };
   }
@@ -275,7 +324,7 @@ public final class FilteredView {
       case MATCHES:
         return selectOrNone(rows(), row);
       case MARKS:
-        return selectOrNone(marks, row);
+        return selectOrNone(marked(), row);
       default:
         break;
     }
@@ -309,7 +358,7 @@ public final class FilteredView {
   public long rowOf(long line) {
     return switch (visibility) {
       case MATCHES -> rows().rank(line);
-      case MARKS -> marks.rank(line);
+      case MARKS -> marked().rank(line);
       case MARKS_AND_MATCHES -> unionRank(line, extras.lines());
     };
   }
@@ -323,7 +372,7 @@ public final class FilteredView {
   public boolean lists(long line) {
     return switch (visibility) {
       case MATCHES -> rows().contains(line);
-      case MARKS -> marks.contains(line);
+      case MARKS -> marked().contains(line);
       case MARKS_AND_MATCHES -> rows().contains(line) || extras.lines().contains(line);
     };
   }
@@ -356,7 +405,7 @@ public final class FilteredView {
   public RowCursor cursor() {
     return switch (visibility) {
       case MATCHES -> RowCursor.of(rows(), null);
-      case MARKS -> RowCursor.of(marks, null);
+      case MARKS -> RowCursor.of(marked(), null);
       case MARKS_AND_MATCHES -> RowCursor.of(rows(), extras.lines());
     };
   }
@@ -374,24 +423,28 @@ public final class FilteredView {
    * Reports whether the marks or the matches changed since the installed snapshot was built, in the
    * mode that uses it.
    *
-   * @return true when {@link #buildExtras} should run again
+   * @return true when {@link MarkSnapshots#build} should run again
    */
   public boolean extrasStale() {
-    return visibility == Visibility.MARKS_AND_MATCHES
-        && (extras.basis() != rows()
-            || extras.basisSize() != rows().size()
-            || extras.marksVersion() != marks.version());
+    if (visibility == Visibility.MATCHES || (visibility == Visibility.MARKS && domain == null)) {
+      return false;
+    }
+    LineSet basis = extrasBasis();
+    return extras.basis() != basis
+        || extras.basisSize() != basis.size()
+        || extras.marksVersion() != marks.version()
+        || extras.domainSize() != (domain == null ? -1 : domain.size());
   }
 
   /**
    * Installs a snapshot and releases the one before. A snapshot built for another matching set is
    * released and dropped.
    *
-   * @param next from {@link #buildExtras}
+   * @param next from {@link MarkSnapshots#build}
    * @return false when it was dropped
    */
   public boolean installExtras(Extras next) {
-    if (next.basis() != rows()) {
+    if (next.basis() != extrasBasis()) {
       next.lines().clear();
       return false;
     }
@@ -401,62 +454,18 @@ public final class FilteredView {
   }
 
   /**
-   * Collects the marks that are not matches. Thread-safe; runs on a worker.
-   *
-   * @param matches the matching lines
-   * @param marks the marks
-   * @param budget reserved from for the snapshot, or null
-   * @param token checked per batch of {@value #BATCH} marks
-   * @return the snapshot
-   * @throws java.util.concurrent.CancellationException once the token is canceled; nothing stays
-   *     reserved
-   */
-  public static Extras buildExtras(
-      LineSet matches, MutableLineSet marks, MemoryBudget budget, CancellationToken token) {
-    long version = marks.version();
-    long basisSize = matches.size();
-    MutableLineSet lines = new MutableLineSet(budget);
-    long[] batch = new long[BATCH];
-    long[] kept = new long[BATCH];
-    long from = 0;
-    boolean complete = true;
-    boolean built = false;
-    try {
-      while (true) {
-        token.check();
-        int n = marks.fill(from, batch);
-        int k = 0;
-        for (int i = 0; i < n; i++) {
-          if (!matches.contains(batch[i])) {
-            kept[k++] = batch[i];
-          }
-        }
-        if (!lines.addSorted(kept, k)) {
-          complete = false;
-          break;
-        }
-        if (n < BATCH || batch[n - 1] == Long.MAX_VALUE) {
-          break;
-        }
-        from = batch[n - 1] + 1;
-      }
-      built = true;
-    } finally {
-      if (!built) {
-        lines.clear();
-      }
-    }
-    return new Extras(lines, matches, basisSize, version, complete);
-  }
-
-  /**
    * Releases the snapshot and the context rows; the view lists no marks with the matches until the
    * next snapshot, and no context until {@link #setContext}.
    */
   public void close() {
     releaseContext();
     extras.lines().clear();
-    extras = new Extras(new MutableLineSet(budget), null, -1, -1, true);
+    extras = emptyExtras();
+  }
+
+  /** The marks the marks mode lists: every mark, or the snapshot of those in the domain. */
+  private LineSet marked() {
+    return domain == null ? marks : extras.lines();
   }
 
   private long unionRank(long line, LineSet extra) {

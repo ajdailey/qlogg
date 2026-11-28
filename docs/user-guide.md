@@ -239,7 +239,8 @@ quote is one term.
   shown tab's search and empties its results; kept result tabs stay. A kept
   result tab's close button removes that tab.
 - A result tab's context menu holds Close, Close Others and Close All, which
-  act as the tabs' close buttons do, and Keep Results.
+  act as the tabs' close buttons do, Keep Results, and Filter to Tab for that
+  tab's results.
 - Each search that runs, including selected log text added with `Shift+A`,
   `Shift+E` or `Shift+R`, is saved to the search history in `qlogg.conf`.
   Search > Clear Search History removes the history.
@@ -270,6 +271,36 @@ matching the end, both lines included.
 - Search > Select Range Around Line (`Ctrl+R` in a log view) selects
   the range around the current line of the main view: the nearest line above
   that matches the pattern, through the next line matching the end.
+
+### Filter tabs
+
+Search > Filter to Tab opens the shown results as a tab of their own, right of
+the tab they came from, after that tab's other filter tabs. The search must
+have run to its end. The tab is named after the file and the search, such as
+`app.log: ERROR`; its tooltip lists the searches from the file down, and the
+status bar shows its row count.
+
+- A filter tab lists the lines the search found, with their line numbers in
+  the file. It grows as the file grows, whatever the Auto-refresh setting. A
+  search stopped by the result or memory limit, or limited to end before the
+  end of the file, does not grow, and the tooltip says so.
+- A search in a filter tab searches its lines only. Filter to Tab there makes
+  a filter tab of a filter tab; each searches the one it came from.
+- In column view on a multi-line format, a search in a filter tab tests the
+  records holding its lines, so a tab made from a text-view search of
+  continuation lines finds their records.
+- Marks are the file's: a mark set in a filter tab marks that line in every
+  tab of the file. Next and previous mark, the filtered view's Marks mode and
+  the Marks list show the marks among the tab's lines.
+- Go > Locate Source Line (`Shift+L` in a log view, or `Ctrl+E Ctrl+L`) shows
+  the current line in the tab the filter tab came from, raising its window if
+  it is in another one. Go Back returns to where that tab was.
+- Go to Time goes to the last line of the tab at or before the time. Folding
+  is off in a filter tab.
+- Closing the file's tab closes its filter tabs. Closing a filter tab keeps
+  the filter tabs made from it; they search the tab it came from instead.
+- Reload, and a file that is truncated, replaced or rolled over, rebuild every
+  filter tab from its search, with one notice.
 
 ### Searching all open files
 
@@ -752,7 +783,8 @@ QLogg restores the last session at start when no file is given (Tools >
 Preferences, General; `-s` and `-n` decide for one run): the tabs of each
 window, the shown tab, tab names, follow, marks, mark comments, time offsets,
 time sync groups and each window's position, size, maximized state and Always
-on Top. A session keeps at most 1,000
+on Top. A filter tab is saved as the tab it came from and its search, and runs
+the search again at start. A session keeps at most 1,000
 mark comments over all tabs; a notice counts any left out. Each file's position
 and forced encoding are remembered; `+line:N` wins over the position.
 
@@ -826,8 +858,8 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 |---|---|
 | File | Open, Open from Clipboard, Include Rotated Files; Recent Files (the files, Open All, Clean Up, Clear Recent Files), Reopen Closed Tab, Recently Closed (the files, Open All, Clear Recently Closed), Favorites (Add to Favorites, Remove from Favorites, the files); Open Containing Folder, Open in Editor, Open Path at Caret; Save Selection to File, Save Filtered Results to File; Close, Close All, Close Multiple Tabs (Close Others, Close to the Left, Close to the Right); Exit |
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
-| Search | Find, Find Next, Find Previous; Search Field, Clear Results, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
-| Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
+| Search | Find, Find Next, Find Previous; Search Field, Clear Results, Filter to Tab, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
+| Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward, Locate Source Line; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
 | View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
@@ -844,9 +876,9 @@ the main window on screen. Elsewhere Minimize and Zoom are not in the Window
 menu, where the title bar has them; the command palette and Tools >
 Preferences, Shortcuts still list them, and they act on the window in front.
 
-The log view's context menu holds the copy, mark, search, selection and save
-commands, Open Path at Caret, Toggle Fold, Wrap Line, Scroll All Tabs to This
-Time, and the Time Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
+The log view's context menu holds the copy commands, Locate Source Line, the
+mark, search, selection and save commands, Open Path at Caret, Toggle Fold,
+Wrap Line, Scroll All Tabs to This Time, and the Time Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
 Send Selection to Scratchpad and Replace Scratchpad with Selection are only
 there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
 context menu.

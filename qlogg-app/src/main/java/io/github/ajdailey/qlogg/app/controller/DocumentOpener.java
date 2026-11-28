@@ -370,6 +370,10 @@ final class DocumentOpener {
     final List<Path> paths = new ArrayList<Path>();
     final List<Session.Tab> tabs = new ArrayList<Session.Tab>();
     for (Session.Tab tab : session.tabs()) {
+      if (tab.derived() != null) {
+        // Filter tabs derive again once their parent opens (SessionFilterTabs).
+        continue;
+      }
       try {
         paths.add(Path.of(tab.path()));
         tabs.add(tab);

@@ -509,6 +509,7 @@ class LogViewTest {
             "-",
             "Search Field",
             "Clear Results",
+            "Filter to Tab",
             "Search All Open Files",
             "Search in Folder",
             "Next Folder Match",
@@ -549,6 +550,7 @@ class LogViewTest {
             "-",
             "Go Back",
             "Go Forward",
+            "Locate Source Line",
             "-",
             "Mark or Unmark",
             "Next Mark",
@@ -674,6 +676,8 @@ class LogViewTest {
             "Copy This Line",
             "Copy with Line Numbers",
             "-",
+            "Locate Source Line",
+            "-",
             "Mark or Unmark",
             "Edit Mark Comment",
             "-",
@@ -703,7 +707,7 @@ class LogViewTest {
         labels(menu));
     assertEquals(
         List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
-        labels(menu.getItem(13).getMenu()));
+        labels(menu.getItem(15).getMenu()));
   }
 
   /**

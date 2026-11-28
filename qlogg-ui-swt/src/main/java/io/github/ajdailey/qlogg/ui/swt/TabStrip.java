@@ -389,7 +389,7 @@ final class TabStrip {
   }
 
   /**
-   * Shows a rotated set's tab title and tooltip again, as its files change.
+   * Shows a rotated set's or a filter tab's title and tooltip again, as its files or rows change.
    *
    * @param document the tab's controller
    */
@@ -459,7 +459,7 @@ final class TabStrip {
         controller == null ? TabDataState.NONE : controller.tabData().state(document);
     int group = controller == null ? 0 : controller.windowSet().timeSync().number(document);
     item.setToolTipText(
-        TabTips.text(document.state().path(), document.state().members(), state, group));
+        TabTips.text(document.state().path(), document.state().details(), state, group));
     item.setImage(tabDots == null ? null : tabDots.image(state));
   }
 

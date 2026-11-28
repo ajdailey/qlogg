@@ -67,7 +67,7 @@ class TabCloseTest {
     fixture.application.addListener(
         new ApplicationListener() {
           @Override
-          public void documentOpened(DocumentController document) {
+          public void documentOpened(DocumentController document, int index) {
             // Not recorded.
           }
 

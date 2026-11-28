@@ -66,7 +66,9 @@ lines (`SearchQuery.records()` is null).
 
 - A record is tested when its first line is in the scope and, for a restricted
   search, a member. A record that starts in the scope is read whole, past the
-  scope's end if it runs on. A member that continues a record tests nothing.
+  scope's end if it runs on. A member that continues a record tests nothing;
+  to test the records holding a set's lines, restrict to `RecordStarts` (the
+  set over the same `RecordLines`), as a filter tab does.
 - With a `ColumnSchema.header`, the header records are not tested: line 0 and
   the lines of `ColumnSearch.headers`, which repeat the header, such as a
   rotated set's member starts.

@@ -81,7 +81,11 @@ public final class RememberedState {
 
   /** Returns the saved search toggles, with In selection off. */
   SearchOptions searchOptions() {
-    SearchToggles toggles = host.settings().state().search();
+    return options(host.settings().state().search());
+  }
+
+  /** Returns saved toggles as search options with In selection off. */
+  static SearchOptions options(SearchToggles toggles) {
     return new SearchOptions(
         toggles.regex() ? MatchMode.REGEX : MatchMode.LITERAL,
         toggles.caseSensitive(),
@@ -100,22 +104,26 @@ public final class RememberedState {
   /** Saves a search's toggles, less In selection, for the next document in any window. */
   void rememberSearchOptions(SearchOptions options) {
     UiState state = host.settings().state();
-    SearchToggles toggles =
-        new SearchToggles(
-            options.mode() == MatchMode.REGEX,
-            options.caseSensitive(),
-            options.wholeWord(),
-            options.inverse(),
-            options.combining(),
-            options.autoRefresh(),
-            options.keepResults(),
-            options.range(),
-            options.rangeEnd(),
-            options.contextBefore(),
-            options.contextAfter());
+    SearchToggles toggles = toggles(options);
     if (!toggles.equals(state.search())) {
       host.setPreferences(host.settings().withState(state.withSearch(toggles)));
     }
+  }
+
+  /** Returns search options as saved toggles, less In selection. */
+  static SearchToggles toggles(SearchOptions options) {
+    return new SearchToggles(
+        options.mode() == MatchMode.REGEX,
+        options.caseSensitive(),
+        options.wholeWord(),
+        options.inverse(),
+        options.combining(),
+        options.autoRefresh(),
+        options.keepResults(),
+        options.range(),
+        options.rangeEnd(),
+        options.contextBefore(),
+        options.contextAfter());
   }
 
   /** Saves a tab's main and filtered line number toggles for the next document. */

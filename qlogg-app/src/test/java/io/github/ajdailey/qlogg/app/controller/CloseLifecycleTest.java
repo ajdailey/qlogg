@@ -212,7 +212,7 @@ class CloseLifecycleTest {
               ApplicationListener.class,
               new ApplicationListener() {
                 @Override
-                public void documentOpened(DocumentController document) {
+                public void documentOpened(DocumentController document, int index) {
                   track(document);
                 }
 

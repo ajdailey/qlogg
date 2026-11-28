@@ -93,66 +93,24 @@ public final class SearchController {
     REPLACE
   }
 
-  /**
-   * A search that ran to its end, as a filter tab takes it. A class, not a record, so the mutable
-   * set has no public accessor.
-   */
-  static final class Ran {
-    final String text;
-    final SearchOptions options;
-    final SearchQuery query;
-    final MutableLineSet lines;
-    final SearchLimit limit;
-    final long end;
-    final long bytes;
-    final boolean rangeOpen;
-
-    /**
-     * Creates the search.
-     *
-     * @param text the search text
-     * @param options the toggles it ran with
-     * @param query its query, without a restriction to the tab's rows
-     * @param lines the matching lines
-     * @param limit what stopped it early, or {@code NONE}
-     * @param end the line below which {@code lines} holds every match
-     * @param bytes the indexed bytes it searched
-     * @param rangeOpen for a range search, whether a range was open before the line {@code end - 1}
-     */
-    Ran(
-        String text,
-        SearchOptions options,
-        SearchQuery query,
-        MutableLineSet lines,
-        SearchLimit limit,
-        long end,
-        long bytes,
-        boolean rangeOpen) {
-      this.text = text;
-      this.options = options;
-      this.query = query;
-      this.lines = lines;
-      this.limit = limit;
-      this.end = end;
-      this.bytes = bytes;
-      this.rangeOpen = rangeOpen;
-    }
-  }
-
   /** A finished search kept as a pinned result set. */
   public static final class KeptResults {
     private final String text;
     private final SearchOptions options;
     private final MutableLineSet lines;
     private final SearchLimit limit;
-    private final Ran ran;
+    private final RanSearch ran;
 
     KeptResults(String text, SearchOptions options, MutableLineSet lines, SearchLimit limit) {
       this(text, options, lines, limit, null);
     }
 
     KeptResults(
-        String text, SearchOptions options, MutableLineSet lines, SearchLimit limit, Ran ran) {
+        String text,
+        SearchOptions options,
+        MutableLineSet lines,
+        SearchLimit limit,
+        RanSearch ran) {
       this.text = text;
       this.options = options;
       this.lines = lines;
@@ -356,15 +314,15 @@ public final class SearchController {
    *
    * @return the search, or null while it runs, after it failed or was canceled, or with no search
    */
-  Ran shownRan() {
+  RanSearch shownRan() {
     if (shown >= 0) {
       return kept.get(shown).ran;
     }
     return state.phase() == SearchViewState.Phase.DONE ? ran(results) : null;
   }
 
-  private Ran ran(MutableLineSet lines) {
-    return new Ran(
+  private RanSearch ran(MutableLineSet lines) {
+    return new RanSearch(
         state.text(),
         state.options(),
         ranQuery,
@@ -576,7 +534,7 @@ public final class SearchController {
     SearchExpression end = null;
     if (toggles.range()) {
       try {
-        end = rangeEnd(toggles);
+        end = RanSearch.rangeEnd(toggles);
       } catch (ExpressionException e) {
         publish(failed(text, toggles, 0, rangeEndError(e)));
         return;
@@ -622,7 +580,8 @@ public final class SearchController {
     }
     LineIndex index = document.document().index();
     final RowMap rows = document.rowMap();
-    SearchQuery searched = settled(query.withColumns(document.columns().search()), rows);
+    SearchQuery searched =
+        RowRestriction.settled(query.withColumns(document.columns().search()), rows);
     long first = query.scope() == null ? 0 : Math.min(query.scope().first(), index.lineCount());
     AtomicBoolean discarded = new AtomicBoolean();
     Events events =
@@ -647,26 +606,6 @@ public final class SearchController {
       rows.readerEnded();
       return false;
     }
-  }
-
-  /** Restricts a query to the rows' members and cuts its scope at their settled line. */
-  private static SearchQuery settled(SearchQuery query, RowMap rows) {
-    LineRange scope = query.scope();
-    long end = Math.min(scope == null ? Long.MAX_VALUE : scope.end(), rows.settledLines());
-    long first = scope == null ? 0 : scope.first();
-    LineRange cut =
-        first == 0 && end == Long.MAX_VALUE ? null : new LineRange(first, Math.max(first, end));
-    return new SearchQuery(
-        query.expression(),
-        query.caseSensitive(),
-        query.wholeWord(),
-        query.inverse(),
-        cut,
-        query.hideAnsi(),
-        query.rangeEnd(),
-        query.rangeOpen(),
-        rows.members(),
-        query.columns());
   }
 
   /**
@@ -822,13 +761,6 @@ public final class SearchController {
    *
    * @throws ExpressionException for an empty or malformed end expression
    */
-  private static SearchExpression rangeEnd(SearchOptions toggles) throws ExpressionException {
-    if (toggles.rangeEnd().isEmpty()) {
-      throw new ExpressionException(ExpressionException.Reason.EXPECTED_TERM, 1);
-    }
-    return ExpressionParser.parse(toggles.rangeEnd(), toggles.mode(), toggles.combining());
-  }
-
   private static String rangeEndError(ExpressionException e) {
     return UiText.SEARCH_RANGE_END_ERROR.format(e.column(), reason(e));
   }
@@ -859,7 +791,7 @@ public final class SearchController {
       return;
     }
     try {
-      end = rangeEnd(toggles);
+      end = RanSearch.rangeEnd(toggles);
     } catch (ExpressionException e) {
       document.notifications().showNotice(rangeEndError(e));
       return;
@@ -1039,7 +971,7 @@ public final class SearchController {
     boolean idle = running == null || running.refresh();
     if (keep && finished && idle && !state.text().isEmpty()) {
       cancel();
-      Ran ran = state.phase() == SearchViewState.Phase.DONE ? ran(results) : null;
+      RanSearch ran = state.phase() == SearchViewState.Phase.DONE ? ran(results) : null;
       kept.add(new KeptResults(state.text(), state.options(), results, state.limit(), ran));
     } else {
       discard();

@@ -28,8 +28,12 @@ class FilteredViewTest {
     if (view.extrasStale()) {
       assertTrue(
           view.installExtras(
-              FilteredView.buildExtras(
-                  view.matches(), view.marks(), view.budget(), new CancellationToken())));
+              MarkSnapshots.build(
+                  view.extrasBasis(),
+                  view.marks(),
+                  view.domain(),
+                  view.budget(),
+                  new CancellationToken())));
     }
     return view;
   }
@@ -138,7 +142,7 @@ class FilteredViewTest {
     assertEquals(2, view.size());
     assertEquals(-1, view.sourceLine(2));
     FilteredView.Extras stale =
-        FilteredView.buildExtras(set(9), marks, budget, new CancellationToken());
+        MarkSnapshots.build(set(9), marks, null, budget, new CancellationToken());
     assertFalse(view.installExtras(stale));
     assertEquals(3, rows(view).size());
   }
@@ -151,7 +155,7 @@ class FilteredViewTest {
       marks.add(line);
     }
     FilteredView.Extras extras =
-        FilteredView.buildExtras(new MutableLineSet(), marks, small, new CancellationToken());
+        MarkSnapshots.build(new MutableLineSet(), marks, null, small, new CancellationToken());
     assertFalse(extras.complete());
     assertTrue(extras.lines().size() < marks.size());
     extras.lines().clear();
@@ -175,5 +179,27 @@ class FilteredViewTest {
     assertEquals(-1, all.next(2));
     assertEquals(-1, all.previous(0));
     assertEquals(2, all.previous(10));
+  }
+
+  @Test
+  void aDomainListsOnlyTheMarksAmongItsLines() {
+    MutableLineSet domain = set(2, 5, 9, 12);
+    MutableLineSet matches = set(5);
+    MutableLineSet marks = set(1, 2, 9, 10);
+    FilteredView view = new FilteredView(matches, marks, domain, budget);
+    assertEquals(List.of(2L, 5L, 9L), rows(view));
+    view.setVisibility(Visibility.MARKS);
+    assertTrue(view.extrasStale());
+    assertEquals(List.of(2L, 9L), rows(view));
+    assertEquals(1, view.rowOf(3));
+    assertFalse(view.lists(10));
+    marks.add(12);
+    assertEquals(List.of(2L, 9L, 12L), rows(view));
+    domain.add(10);
+    assertTrue(view.extrasStale(), "the domain grew");
+    assertEquals(List.of(2L, 9L, 10L, 12L), rows(view));
+    view.setVisibility(Visibility.MATCHES);
+    assertFalse(view.extrasStale());
+    assertEquals(List.of(5L), rows(view));
   }
 }

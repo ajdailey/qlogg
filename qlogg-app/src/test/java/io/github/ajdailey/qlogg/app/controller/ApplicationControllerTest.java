@@ -93,7 +93,7 @@ class ApplicationControllerTest {
             ApplicationListener.class,
             new ApplicationListener() {
               @Override
-              public void documentOpened(DocumentController document) {
+              public void documentOpened(DocumentController document, int index) {
                 opened.add(document);
               }
 
@@ -167,7 +167,7 @@ class ApplicationControllerTest {
             ApplicationListener.class,
             new ApplicationListener() {
               @Override
-              public void documentOpened(DocumentController document) {
+              public void documentOpened(DocumentController document, int index) {
                 // Counted through documents().
               }
 

@@ -25,6 +25,7 @@ import io.github.ajdailey.qlogg.core.model.FilteredView;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.LogTokens;
+import io.github.ajdailey.qlogg.core.model.MarkSnapshots;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
@@ -737,7 +738,7 @@ public final class Harness {
         out.println("filtered.context.ms=" + millis(System.nanoTime() - start));
         out.println("filtered.context.complete=" + complete);
         start = System.nanoTime();
-        FilteredView.Extras extras = FilteredView.buildExtras(view.rows(), marks, budget, token);
+        FilteredView.Extras extras = MarkSnapshots.build(view.rows(), marks, null, budget, token);
         if (!view.installExtras(extras)) {
           throw new IllegalStateException("Marks snapshot not installed");
         }

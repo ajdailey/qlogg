@@ -5,7 +5,8 @@ The controllers of one document's two views in `app.controller` of
 view), `FilteredController`, `FoldController`, the column classes
 (`ColumnController`, `ColumnFeatures`, `ColumnRows`, `RecordScanner`,
 `CellCommands`, `RecordText`), the
-filter tab classes (`DerivedTabs`, `Derivation`, `DerivedRows`),
+filter tab classes (`DerivedTabs`, `Derivation`, `DerivedRows`, `RanSearch`,
+`RowRestriction`, `SessionFilterTabs`),
 `TextExporter`, `MarksListController` and `TabDataModel`.
 
 ## Line view controller
@@ -374,8 +375,9 @@ worker inside a document entry, with the busy cursor.
 
 A filter tab is a `DocumentController` over its root tab's `LogDocument` whose
 rows are the root lines one search matched. `ApplicationController.filterToTab`
-makes one from a tab's shown result set when its search ran to its end
-(`SearchController.shownRan`), else a notice shows. A `qlogg-search-` worker
+(Search > Filter to Tab, a results tab's context menu) makes one from a tab's
+shown result set when its search ran to its end (`SearchController.shownRan`,
+a `RanSearch`), else a notice shows. A `qlogg-search-` worker
 copies the set (`MutableLineSet.copy`, charged to `RESULTS`), so the parent's
 next search leaves the tab as it is; a refused copy shows a notice. A filter
 tab of a filter tab makes a chain, every level in root lines.
@@ -387,9 +389,13 @@ callers never check the tab kind.
 |---|---|---|
 | `RowMap` | `ColumnRows`: `FoldRows`, where row n is line n unless folded, or one row per record ([Columns](#columns)) | `DerivedRows`: row n is `select(n)`; a line's row is `rank(line)`, the next row for a line that is not one |
 | `DocumentRole` | `OwnedDocument`: indexes, reopens on a change, closes | `Derivation`: shares the document and grows the rows |
-| Folding, keyword triggers | On | Off |
-| Its search tests | Every line | Its rows below `settledLines` (`SearchQuery.restriction`) |
-| Position, Recently Closed, session tab | Recorded | Left out (`ownsDocument()` is false) |
+| Folding, keyword triggers | On | Off; the fold commands are disabled |
+| Its search tests | Every line | Its rows below `settledLines` (`RowRestriction`); a record search, the records holding them |
+| Title | File name, or a rotated set's | Root title and search: `app.log: ERROR` |
+| Tooltip after the path | A rotated set's files | The searches from the root down, then `Does not grow` when a limit or a scope ended growth |
+| Status bar note, tab data dot | A rotated set's note; growth in lines | `N rows`; growth in rows |
+| Position, Recently Closed | Recorded | Left out (`ownsDocument()` is false) |
+| Session | Path, marks | Parent and search ([Sessions](#filter-tab-sessions)) |
 
 ### Growth
 
@@ -406,11 +412,20 @@ Growth ignores the auto-refresh toggle and shows no progress.
 - A growth stopped by the result or memory limit ends growth with a notice. A
   search scoped to end before the end of the file ends growth at that line.
 
+A record search in a filter tab (column view on a multi-line format) tests the
+records holding its rows: `RowRestriction` maps the rows to their records'
+first lines through `RecordStarts`, a lazy `LineSet` over the rows and the
+records, so a tab of continuation lines from a text-view search finds records.
+A hit is the record's first line, which may not be a row; the filtered view
+shows it and the main view goes to the record's first row.
+
 ### Chains and closing
 
 `DerivedTabs` (one per `WindowSet`) holds each filter tab's `Derivation`, whose
 parent is a controller in any window.
 
+- A new filter tab opens right of its parent, after the parent's filter tabs
+  in that window (`WindowTabs`, `documentOpened` with the index).
 - Closing a file tab closes its filter tabs at every depth in every window.
   Closing a filter tab moves its children under its parent. Closing a window
   does both for its tabs.
@@ -421,9 +436,23 @@ parent is a controller in any window.
 - Marks are the root document's. `]`, `[` and the marks list skip marks that
   are not rows (`MarkSteps`, alternating `ceiling` or `floor` on the marks and
   the rows).
-- `locateSource(tab)` shows the caret's line in the immediate parent: it shows
-  the parent's tab, raises its window, and records a jump in the parent's
-  navigation history. In a file tab it does nothing.
+- Locate Source Line (`L`, `Ctrl+E Ctrl+L`, Go menu, log view context menu)
+  shows the focused view's caret line in the immediate parent: it shows the
+  parent's tab, raises its window, and records a jump in the parent's
+  navigation history. In a file tab it is disabled.
+- Go to Time searches the root lines and goes to the last row at or before
+  the line found, else the first row. Time Spread samples at row boundaries;
+  activity counts rows.
+
+### Filter tab sessions
+
+`SessionFilterTabs` saves each filter tab as its parent's `W.N` and its search
+(`window.W.tab.N.derived.*`, [settings](settings.md)), and leaves out a filter
+tab whose parent is not saved. On restore it derives each tab once the
+window's file tabs are open, matched to their entries by path, with empty
+rows its growth fills, a level after its parent, in the tab's own window. A
+filter tab whose parent did not open is dropped; one whose search does not
+parse is dropped with a notice. `derived.column` is stored and restored only.
 
 ## Filtered view
 
@@ -436,10 +465,12 @@ line in the main view; a click or `Enter` makes that a jump of the
 lines' and toggle apart from the main view's.
 
 In marks and matches mode, the marks outside the matches come from a snapshot
-built by a `qlogg-search-` worker as one CPU step (`FilteredView.buildExtras`),
+built by a `qlogg-search-` worker as one CPU step (`MarkSnapshots.build`),
 at most one at a time and not while a mark toggle runs. Until it arrives the
 rows keep the previous snapshot, so the marks are never walked on the UI
-thread.
+thread. In a filter tab the view lists only the marks among the tab's rows
+(the view's domain), in marks mode through the same snapshot, rebuilt when the
+rows grow.
 
 ### Context lines
 

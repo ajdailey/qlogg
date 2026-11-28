@@ -32,6 +32,8 @@ public record Session(
    * @param rotated true when the tab showed the rotated set of {@code path}
    * @param members a rotated tab's marks and comments per member; {@code marks} and {@code
    *     comments} are then empty
+   * @param derived a filter tab's definition, with {@code path} its root's file and no marks; null
+   *     for a file tab
    */
   public record Tab(
       String path,
@@ -42,7 +44,8 @@ public record Session(
       long timeOffset,
       int syncGroup,
       boolean rotated,
-      List<MemberMarks> members) {
+      List<MemberMarks> members,
+      Derived derived) {
     /** Checks the components and copies the lists. */
     public Tab {
       if (path == null || name == null || marks == null || marks.length % 2 != 0) {
@@ -50,6 +53,32 @@ public record Session(
       }
       comments = List.copyOf(comments);
       members = List.copyOf(members);
+    }
+
+    /**
+     * Creates a file tab.
+     *
+     * @param path the file's path
+     * @param name the name set by Rename Tab, or empty
+     * @param follow true when the tab followed its file
+     * @param marks marked line ranges as pairs of first and last 0-based line, ascending
+     * @param comments the marks' comments, ascending by line
+     * @param timeOffset the tab's time offset in nanoseconds
+     * @param syncGroup the tab's time sync group number, or 0
+     * @param rotated true when the tab showed the rotated set of {@code path}
+     * @param members a rotated tab's marks and comments per member
+     */
+    public Tab(
+        String path,
+        String name,
+        boolean follow,
+        long[] marks,
+        List<MarkComments.Comment> comments,
+        long timeOffset,
+        int syncGroup,
+        boolean rotated,
+        List<MemberMarks> members) {
+      this(path, name, follow, marks, comments, timeOffset, syncGroup, rotated, members, null);
     }
 
     /**
@@ -122,6 +151,33 @@ public record Session(
      */
     public Tab(String path, String name, boolean follow, long[] marks) {
       this(path, name, follow, marks, List.of(), 0);
+    }
+  }
+
+  /**
+   * A filter tab's definition: its parent tab and its search. Restore derives the rows again.
+   *
+   * @param parentWindow the parent tab's window number in the session
+   * @param parentTab the parent tab's number in that window
+   * @param text the search text
+   * @param toggles the search's toggles
+   * @param scopeFirst the first root line of a scoped search, or -1 for every line
+   * @param scopeEnd the first root line after the scope, or -1
+   * @param column the search's column, or empty
+   */
+  public record Derived(
+      int parentWindow,
+      int parentTab,
+      String text,
+      SearchToggles toggles,
+      long scopeFirst,
+      long scopeEnd,
+      String column) {
+    /** Checks the components. */
+    public Derived {
+      if (text == null || toggles == null || column == null || parentWindow < 0 || parentTab < 0) {
+        throw new IllegalArgumentException("parent, text, toggles and column are required");
+      }
     }
   }
 

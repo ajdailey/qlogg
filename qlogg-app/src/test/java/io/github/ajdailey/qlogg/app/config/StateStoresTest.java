@@ -256,6 +256,45 @@ class StateStoresTest {
   }
 
   @Test
+  void sessionRoundTripsAFilterTabsDefinition() throws Exception {
+    SessionStore store = new SessionStore(location());
+    Session.Tab root = new Session.Tab("/mock/a.log", "", false, new long[] {3, 4});
+    SearchToggles toggles =
+        new SearchToggles(false, true, true, false, false, true, false, true, "END", 2, 0);
+    Session.Derived derived = new Session.Derived(0, 0, "flagword", toggles, 10, 40, "level");
+    Session.Tab tab =
+        new Session.Tab(
+            "/mock/a.log",
+            "mock name",
+            true,
+            new long[0],
+            List.of(),
+            0,
+            0,
+            false,
+            List.of(),
+            derived);
+    assertTrue(store.save(new Session(List.of(root, tab), 1)));
+    Session loaded = new SessionStore(location()).load();
+    assertNull(loaded.tabs().get(0).derived());
+    Session.Tab back = loaded.tabs().get(1);
+    assertEquals(derived, back.derived());
+    assertEquals("mock name", back.name());
+    assertTrue(back.follow());
+    String file = Files.readString(temp.resolve(SessionStore.FILE), StandardCharsets.ISO_8859_1);
+    assertTrue(file.contains("window.0.tab.1.derived.searchOption.rangeEnd=END"), file);
+    // A malformed parent leaves a tab of the root's file.
+    Files.writeString(
+        temp.resolve(SessionStore.FILE),
+        "window.0.active=0\n"
+            + "window.0.tab.0.path=/mock/a.log\n"
+            + "window.0.tab.0.derived.parent=first\n"
+            + "window.0.tab.0.derived.text=flagword\n",
+        StandardCharsets.ISO_8859_1);
+    assertNull(new SessionStore(location()).load().tabs().get(0).derived());
+  }
+
+  @Test
   void sessionRoundTripsTheSyncGroup() throws Exception {
     SessionStore store = new SessionStore(location());
     Session.Tab tab = new Session.Tab("/mock/a.log", "", false, new long[0], List.of(), 0, 2);

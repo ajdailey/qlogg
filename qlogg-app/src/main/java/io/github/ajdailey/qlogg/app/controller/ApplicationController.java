@@ -51,10 +51,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -135,11 +132,12 @@ public final class ApplicationController
   private final QuickFindController quickFind;
   private final ThemeController theme;
   private final FileMonitor monitor;
-  private final List<DocumentController> documents = new ArrayList<DocumentController>();
+  // Tab order, placement and Rename Tab names; documents is its read-only view.
+  private final WindowTabs tabs = new WindowTabs(listeners);
+  private final List<DocumentController> documents = tabs.list();
   private final List<DocumentController> reopening = new ArrayList<DocumentController>();
   private DocumentController active;
   private LineViewController focused;
-  private final Map<Path, String> tabNames = new HashMap<Path, String>();
   private int pastes;
   private boolean shuttingDown;
   // Open, paste, reload and session restore workers, and the claim of what they open.
@@ -159,8 +157,6 @@ public final class ApplicationController
   private CommandPalette palette;
   // Always on Top.
   private final AlwaysOnTop alwaysOnTop;
-  // Last used tab.
-  private final TabUse use = new TabUse();
   // Positions, recent files, toggles, folders, window placement and dialog sizes; saves.
   private final RememberedState remembered;
   // Copy Path, Copy File Name, Open Containing Folder and Open in Editor.
@@ -500,7 +496,7 @@ public final class ApplicationController
    * @return an unmodifiable view
    */
   public List<DocumentController> documents() {
-    return Collections.unmodifiableList(documents);
+    return documents;
   }
 
   @Override
@@ -734,10 +730,7 @@ public final class ApplicationController
       }
     } else {
       shown = create(document);
-      documents.add(shown);
-      for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
-        listener.documentOpened(shown);
-      }
+      tabs.open(shown, set.derivedTabs());
       if (opening.marksCopied()) {
         shown.restore(LabelState.EMPTY, document.marks().size() > 0);
         if (!opening.marksComplete()) {
@@ -830,6 +823,7 @@ public final class ApplicationController
     @Override
     public void restoreFinished() {
       noticeDroppedComments();
+      set.derivedTabs().sessions().restored(ApplicationController.this);
     }
   }
 
@@ -924,8 +918,7 @@ public final class ApplicationController
    * @return the name
    */
   public String tabTitle(DocumentController document) {
-    Path path = document.document().path();
-    String renamed = path == null ? null : tabNames.get(path);
+    String renamed = tabs.name(document);
     return renamed == null ? document.state().title() : renamed;
   }
 
@@ -956,19 +949,10 @@ public final class ApplicationController
    * @param name the name; blank resets it to the file name
    */
   public void setTabName(DocumentController document, String name) {
-    Path path = document.document().path();
-    if (path == null || !documents.contains(document)) {
+    if (document.document().path() == null || !documents.contains(document)) {
       return;
     }
-    String label = name.strip();
-    if (label.length() > TAB_NAME_CHARS) {
-      label = label.substring(0, TAB_NAME_CHARS);
-    }
-    if (label.isEmpty()) {
-      tabNames.remove(path);
-    } else {
-      tabNames.put(path, label);
-    }
+    tabs.setName(document, name);
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.tabRenamed(document);
     }
@@ -1004,26 +988,14 @@ public final class ApplicationController
    * @param left true closes the tabs before it, false the tabs after it
    */
   public void closeSide(DocumentController from, boolean left) {
-    int index = documents.indexOf(from);
-    if (index < 0) {
-      return;
-    }
-    List<DocumentController> side =
-        left
-            ? new ArrayList<DocumentController>(documents.subList(0, index))
-            : new ArrayList<DocumentController>(documents.subList(index + 1, documents.size()));
-    if (removeDocuments(side, from)) {
+    if (documents.contains(from) && removeDocuments(tabs.side(from, left), from)) {
       closeWindowAfterLastTab();
     }
   }
 
-  private DocumentController find(Path path) {
-    for (DocumentController document : documents) {
-      if (path != null && document.ownsDocument() && path.equals(document.document().path())) {
-        return document;
-      }
-    }
-    return null;
+  /** Returns the file tab showing a path, or null. */
+  DocumentController find(Path path) {
+    return tabs.find(path);
   }
 
   private DocumentController create(LogDocument document) {
@@ -1079,7 +1051,7 @@ public final class ApplicationController
     quickFind.cancelRunning();
     active = document;
     focused = document;
-    use.shown(document);
+    tabs.use().shown(document);
     view.setTitle(UiText.WINDOW_TITLE_FILE.format(document.state().title()));
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.activeDocumentChanged(document);
@@ -1094,8 +1066,7 @@ public final class ApplicationController
    * @param index its new position, 0 first; clamped to the tabs
    */
   public void moveDocument(DocumentController document, int index) {
-    if (documents.remove(document)) {
-      documents.add(Math.max(0, Math.min(index, documents.size())), document);
+    if (tabs.move(document, index)) {
       remembered.scheduleSave();
     }
   }
@@ -1136,15 +1107,13 @@ public final class ApplicationController
    * @return the tab's Rename Tab name, or null
    */
   String detachMoved(DocumentController document) {
-    int index = documents.indexOf(document);
-    documents.remove(index);
+    String name = tabs.takeName(document);
+    int index = tabs.remove(document);
     quickFind.cancelRunning(document);
     features.documentClosed(document);
     if (focused == document || focused == document.filtered()) {
       focused = null;
     }
-    Path path = document.document().path();
-    String name = path == null ? null : tabNames.remove(path);
     for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
       listener.documentMovedOut(document);
     }
@@ -1165,15 +1134,10 @@ public final class ApplicationController
     if (document.host() instanceof TabHost host) {
       host.moveTo(this, view, open);
     }
-    int at = Math.max(0, Math.min(index, documents.size()));
-    documents.add(at, document);
-    Path path = document.document().path();
-    if (name != null && path != null) {
-      tabNames.put(path, name);
+    if (name != null) {
+      tabs.setName(document, name);
     }
-    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
-      listener.documentMovedIn(document, at);
-    }
+    tabs.moveIn(document, index);
     activate(document);
   }
 
@@ -1183,11 +1147,10 @@ public final class ApplicationController
   }
 
   private void showNeighbor(int step) {
-    int index = documents.indexOf(active);
-    if (index < 0 || documents.size() < 2) {
-      return;
+    DocumentController next = tabs.neighbor(active, step);
+    if (next != null) {
+      activate(next);
     }
-    activate(documents.get(Math.floorMod(index + step, documents.size())));
   }
 
   /** Closes the shown tab, if any. */
@@ -1228,8 +1191,7 @@ public final class ApplicationController
     }
     // Filter tabs.
     set.derivedTabs().closing(document);
-    index = documents.indexOf(document);
-    documents.remove(index);
+    index = tabs.remove(document);
     reopening.remove(document);
     quickFind.cancelRunning(document);
     features.documentClosed(document);
@@ -1249,7 +1211,7 @@ public final class ApplicationController
 
   /** Shows the tab {@link TabUse#successor} picks when the removed tab was the shown one. */
   private void showAfterRemoval(DocumentController document, int index) {
-    use.removed(document);
+    tabs.use().removed(document);
     if (active != document) {
       return;
     }
@@ -1261,7 +1223,8 @@ public final class ApplicationController
         listener.activeDocumentChanged(null);
       }
     } else {
-      activate(use.successor(documents, index, preferences().options().closeShowsLastUsed()));
+      activate(
+          tabs.use().successor(documents, index, preferences().options().closeShowsLastUsed()));
     }
   }
 
@@ -1375,7 +1338,7 @@ public final class ApplicationController
     long caret =
         LineCarry.line(carried.map(), Math.max(0, old.sourceLine(old.selection().caret().line())));
     LabelState labels = old.labels();
-    takeTab(old, replacement, index);
+    takeTab(old, replacement);
     replacement.mapHistory(carried.map());
     if (kept) {
       replacement.restore(labels, document.marks().size() > 0);
@@ -1438,14 +1401,13 @@ public final class ApplicationController
    * Puts a replacement in an old tab's place with its line numbers, search text and navigation
    * history, then closes the old tab.
    */
-  private void takeTab(DocumentController old, DocumentController replacement, int index) {
+  private void takeTab(DocumentController old, DocumentController replacement) {
     replacement.setLineNumbers(old.lineNumbers());
     replacement.filtered().setLineNumbers(old.filtered().lineNumbers());
     replacement.search().setText(old.search().fieldText(), old.search().options());
     // Navigation history.
     replacement.takeHistory(old);
-    documents.set(index, replacement);
-    use.replaced(old, replacement);
+    tabs.replace(old, replacement);
     quickFind.cancelRunning(old);
     features.documentClosed(old);
     set.timeSync().replace(old, replacement);
@@ -1477,22 +1439,27 @@ public final class ApplicationController
    * @return false for a file tab
    */
   public boolean locateSource(DocumentController tab) {
-    return set.derivedTabs().locate(this, tab);
+    return set.derivedTabs().locate(this, tab, tab.sourceLine(tab.selection().caret().line()));
   }
 
-  /** Adds a filter tab, with its parent's color labels and highlighter set, and shows it. */
-  void openDerived(Derivation derivation, LogDocument document) {
+  /**
+   * Adds a filter tab, with its parent's color labels and highlighter set.
+   *
+   * @param show true shows it
+   * @return its controller
+   */
+  DocumentController openDerived(Derivation derivation, LogDocument document, boolean show) {
     DocumentController parent = derivation.parent();
     DocumentController created = create(document, derivation);
     set.derivedTabs().register(derivation);
     created.restore(parent.labels(), false);
     created.setAutoHighlightSet(parent.autoHighlightSet());
-    documents.add(created);
-    for (ApplicationListener listener : new ArrayList<ApplicationListener>(listeners)) {
-      listener.documentOpened(created);
-    }
+    tabs.open(created, set.derivedTabs());
     start(created);
-    activate(created);
+    if (show) {
+      activate(created);
+    }
+    return created;
   }
 
   /**
@@ -1508,7 +1475,7 @@ public final class ApplicationController
     boolean rerun = rerun(old, change);
     boolean follow = old.following();
     replacement.restore(old.labels(), false);
-    takeTab(old, replacement, documents.indexOf(old));
+    takeTab(old, replacement);
     start(replacement);
     if (rerun) {
       rerunSearch(replacement, ran);
@@ -1840,6 +1807,11 @@ public final class ApplicationController
       case SET_SEARCH_END -> search.setSearchEnd(caretLine(target));
       case CLEAR_SEARCH_LIMITS -> search.clearSearchLimits();
       case SAVE_AS_FILTER -> askFilterName(search.fieldText(), search.options().mode());
+      // Filter tabs.
+      case FILTER_TO_TAB -> filterToTab(document);
+      case LOCATE_SOURCE ->
+          set.derivedTabs()
+              .locate(this, document, target.sourceLine(target.selection().caret().line()));
       case NEXT_COLOR_LABEL ->
           target.selectedText(
               new TextListener() {
@@ -2090,9 +2062,8 @@ public final class ApplicationController
       }
     }
     final List<DocumentController> closing = new ArrayList<DocumentController>(documents);
-    documents.clear();
+    tabs.clear();
     reopening.clear();
-    use.clear();
     active = null;
     focused = null;
     for (DocumentController document : closing) {
@@ -2136,6 +2107,8 @@ public final class ApplicationController
    */
   public void restoreSession(final Session session) {
     set.setSessionOwner(true);
+    // Filter tabs.
+    set.derivedTabs().sessions().restoring(this, session);
     droppedComments = session.droppedComments();
     // Always on Top.
     alwaysOnTop.restore(session.onTop());
@@ -2265,29 +2238,34 @@ public final class ApplicationController
     }
   }
 
-  /** Captures this window's tabs for the session; pasted documents are left out. */
+  /**
+   * Captures this window's tabs for the session; pasted documents and their filter tabs are left
+   * out.
+   */
   WindowSet.WindowDraft draft() {
-    List<WindowSet.DraftTab> tabs = new ArrayList<WindowSet.DraftTab>();
+    List<WindowSet.DraftTab> drafts = new ArrayList<WindowSet.DraftTab>();
     int shown = -1;
     for (DocumentController document : documents) {
       Path path = document.document().path();
-      if (document.document().inMemory() || !document.ownsDocument()) {
+      if (document.document().inMemory()) {
         continue;
       }
       if (document == active) {
-        shown = tabs.size();
+        shown = drafts.size();
       }
-      String name = tabNames.get(path);
-      tabs.add(
+      String name = tabs.name(document);
+      drafts.add(
           new WindowSet.DraftTab(
               path.toString(),
               name == null ? "" : name,
               document.following(),
               document.time().offset(),
               set.timeSync().sessionNumber(document),
-              document.document()));
+              document.document(),
+              document,
+              null));
     }
-    return new WindowSet.WindowDraft(tabs, shown, alwaysOnTop.saved(), windowState());
+    return new WindowSet.WindowDraft(drafts, shown, alwaysOnTop.saved(), windowState());
   }
 
   /** Records this window's placement and split for the next start and the next new window. */

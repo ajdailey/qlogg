@@ -15,6 +15,7 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.model.ContextRows;
 import io.github.ajdailey.qlogg.core.model.FilteredView;
+import io.github.ajdailey.qlogg.core.model.MarkSnapshots;
 import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Visibility;
 import io.github.ajdailey.qlogg.core.search.LineSet;
@@ -34,7 +35,8 @@ import java.util.function.Supplier;
  * FilteredView.Extras}), built on a {@code qlogg-search-} worker whenever the marks or the matches
  * changed, at most one at a time and not while a mark toggle runs. Until the snapshot arrives the
  * rows stay on the previous one, so the view never walks the marks on the UI thread. A snapshot the
- * results share cannot hold shows a notice.
+ * results share cannot hold shows a notice. A filter tab's view lists only the marks among the
+ * tab's rows ({@link RowMap#members}), in marks mode through the same snapshot.
  *
  * <p>Context lines come from the shown set's toggles ({@link SearchController#shownOptions}), so a
  * kept set keeps the counts it ran with. The {@link ContextRows} are extended on a {@code
@@ -83,7 +85,9 @@ public final class FilteredController extends LineViewController {
     super(owner.document(), workers, ui, clipboard, notifications, activity, budget);
     this.owner = owner;
     this.search = search;
-    this.view = new FilteredView(search.shownResults(), owner.document().marks(), budget);
+    this.view =
+        new FilteredView(
+            search.shownResults(), owner.document().marks(), owner.rowMap().members(), budget);
     applyContext();
     search.addListener(results);
   }
@@ -207,7 +211,8 @@ public final class FilteredController extends LineViewController {
   }
 
   /**
-   * Re-reads the rows after the line count changed, when the last result's context may extend.
+   * Re-reads the rows after the line count changed, when the last result's context may extend, and
+   * builds a marks snapshot when the rows changed it.
    *
    * @param lineCount the document's line count
    */
@@ -218,6 +223,8 @@ public final class FilteredController extends LineViewController {
         refresh();
       }
     }
+    // A filter tab's grown rows may hold marks.
+    buildExtras();
   }
 
   @Override
@@ -315,7 +322,7 @@ public final class FilteredController extends LineViewController {
     if (building != null || owner.markingRunning() || !view.extrasStale()) {
       return;
     }
-    final LineSet matches = view.rows();
+    final LineSet matches = view.extrasBasis();
     final MutableLineSet marks = view.marks();
     final CancellationToken token = new CancellationToken();
     building = token;
@@ -347,7 +354,7 @@ public final class FilteredController extends LineViewController {
                 new Supplier<FilteredView.Extras>() {
                   @Override
                   public FilteredView.Extras get() {
-                    return FilteredView.buildExtras(matches, marks, view.budget(), token);
+                    return MarkSnapshots.build(matches, marks, view.domain(), view.budget(), token);
                   }
                 });
       }
