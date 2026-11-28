@@ -196,7 +196,13 @@ its menu's enablement then.
 ### Marks
 
 - `]` and `[` go to the next and previous mark among the rows; with none, a
-  notice shows.
+  notice shows. `MarkStepper` runs the step on the UI thread in a file tab and
+  in a filter tab with at most 75,000 marks (`MarkSteps.WORKER_MARKS`; a step
+  skipping that many takes under 4 ms). Above it the step runs on the CPU pool
+  as a `BusyWork` with the `ActivityIndicator` active, holding the rows'
+  reader so a growth waits, and steps again while the marks' or rows'
+  `version` changed during it. A new `]` or `[` cancels a running step and
+  replaces it; `Esc` and tab close cancel it.
 - `toggleMarks` runs `MarkToggle` from a `qlogg-search-` worker, one batch of
   4,096 rows per CPU step (`CpuSteps`), with the `ActivityIndicator` active.
   One toggle runs at a time (a second `M` shows a notice), with progress
@@ -212,7 +218,8 @@ its menu's enablement then.
 
 ### Stop
 
-`Esc` (`STOP`) cancels a mark toggle and keeps what changed. `STOP` also stops
+`Esc` (`STOP`) cancels a mark toggle and keeps what changed, and cancels a mark
+step on a worker. `STOP` also stops
 loading: indexing ends and growth stays unindexed until a reload. While a go to
 time runs, `STOP` cancels it and leaves loading for the next press.
 

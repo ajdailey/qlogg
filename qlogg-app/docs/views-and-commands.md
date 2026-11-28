@@ -60,10 +60,10 @@ is ignored.
 `BusyWork` pairs the calls for an operation whose result applies in one UI task:
 `start` raises the indicator and starts `work` on a worker, `finished` runs on
 the UI thread, and the idle call follows `finished` on every outcome, including
-a throwing `work` or `finished`. Copy and save, quick find, mark toggles, go to
-time and Select Range run on it. Indexing, the search and Search in Folder pair
-the calls by hand, because their tasks start in `qlogg-core`. Mark each anonymous `work` override
-`@WorkerThread`: the worker rules read `run` of anonymous `Runnable`s only. The
+a throwing `work` or `finished`. Copy and save, quick find, mark toggles, mark
+steps over many marks, go to time and Select Range run on it. Indexing, the
+search and Search in Folder pair the calls by hand, because their tasks start
+in `qlogg-core`. Mark each anonymous `work` override `@WorkerThread`: the worker rules read `run` of anonymous `Runnable`s only. The
 launcher's `BusyCoverageTest` lists every `Workers` call in `qlogg-app` with
 what the user sees while it runs.
 
