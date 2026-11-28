@@ -34,7 +34,7 @@ account:
 (`USERPROFILE`) and the accounts its allow entries give write, append, delete,
 delete child, write ACL or write owner: `SYSTEM` and `Administrators` on a
 default profile. Windows localizes their names, so they are not looked up by
-name. `user.home` is not used: the test JVMs set it to `target/test-home`.
+name. `user.home` is not used: the test JVMs set it under `target`.
 
 The attributes are read before the content and again while the file is open,
 and must name the same file. Windows opens it without delete sharing, so it

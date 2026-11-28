@@ -159,7 +159,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Duser.home=${project.build.directory}/test-home --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs} -Djava.util.logging.config.file=${project.basedir}/src/test/resources/quiet-logging.properties</argLine>
+                    <argLine>-Duser.home=${project.build.directory}/${qlogg.test.home} --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs} -Djava.util.logging.config.file=${project.basedir}/src/test/resources/quiet-logging.properties</argLine>
                 </configuration>
             </plugin>
         </plugins>
