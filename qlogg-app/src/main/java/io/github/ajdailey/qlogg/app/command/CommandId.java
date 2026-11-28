@@ -239,7 +239,8 @@ public enum CommandId {
   EXPAND_ALL_FOLDS(
       CommandGroup.VIEW, UiText.COMMAND_EXPAND_ALL_FOLDS, false, false, UiText.MENU_FOLDING),
   /** Switch the tab between text view and its column format; checked in column view. */
-  TOGGLE_COLUMNS(CommandGroup.VIEW, UiText.COMMAND_TOGGLE_COLUMNS, true, true, UiText.MENU_COLUMNS),
+  TOGGLE_COLUMNS(
+      CommandGroup.VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, true, UiText.MENU_COLUMNS),
   /** Copy every line of each selected record, as in the file. */
   COPY_RAW_LINES(
       CommandGroup.VIEW, UiText.COMMAND_COPY_RAW_LINES, true, false, UiText.MENU_COLUMNS),

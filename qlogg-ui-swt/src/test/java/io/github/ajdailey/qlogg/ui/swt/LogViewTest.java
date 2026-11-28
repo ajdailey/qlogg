@@ -716,7 +716,7 @@ class LogViewTest {
         labels(menu.getItem(15).getMenu()));
     assertEquals(
         List.of("Toggle Columns", "Copy Raw Lines", "Copy Cell", "Show Record"),
-        labels(menu.getItem(25).getMenu()));
+        labels(menu.getItem(24).getMenu()));
   }
 
   /**
