@@ -29,13 +29,15 @@ import io.github.ajdailey.qlogg.core.time.TimestampFormat;
  *
  * <p>Rows: in column view the views read each row as the record holding its line, composed into the
  * cells of {@link #layout} ({@link #read}), so a filter tab's continuation line shows its record. A
- * new format starts at {@link ColumnLayout#of}.
+ * new format takes its stored layout ({@link ColumnSizing}); a view's read fits the cells waiting
+ * for a width ({@link #fitted}).
  */
 public final class ColumnController {
   private static final LineSet NO_HEADERS = new SortedLines(new long[0]);
   private static final RecordLines NO_RECORDS = RecordLines.starts(NO_HEADERS, 0);
 
   private final DocumentController owner;
+  private final ColumnSizing sizing;
   private ColumnSchema schema;
   private boolean shown;
   private RecordScanner scanner;
@@ -46,6 +48,16 @@ public final class ColumnController {
 
   ColumnController(DocumentController owner) {
     this.owner = owner;
+    this.sizing = new ColumnSizing(this, owner);
+  }
+
+  /**
+   * Returns the layout edits of the column header.
+   *
+   * @return the tab's sizing
+   */
+  public ColumnSizing sizing() {
+    return sizing;
   }
 
   /**
@@ -78,7 +90,10 @@ public final class ColumnController {
       scanner = null;
     }
     if (next != schema) {
-      layout = next == null ? null : ColumnLayout.of(next);
+      layout = next == null ? null : sizing.build(next, null);
+      if (next != null) {
+        sizing.shown(next);
+      }
     }
     schema = next;
     if (scanner == null && next != null && next.format().multiLine() && owner.ownsDocument()) {
@@ -150,6 +165,18 @@ public final class ColumnController {
             layout = next;
           }
         });
+  }
+
+  /**
+   * Takes the widths a view's read fitted, while the layout is still the one it fitted.
+   *
+   * @param from the layout the read started from
+   * @param to the fitted layout
+   */
+  void fitted(ColumnLayout from, ColumnLayout to) {
+    if (layout == from && to.schema() == schema) {
+      setLayout(to);
+    }
   }
 
   /**

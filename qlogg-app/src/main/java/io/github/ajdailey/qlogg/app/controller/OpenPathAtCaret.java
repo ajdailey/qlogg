@@ -6,6 +6,9 @@ import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
+import io.github.ajdailey.qlogg.core.model.CellReader;
+import io.github.ajdailey.qlogg.core.model.CellRecord;
+import io.github.ajdailey.qlogg.core.model.ColumnRead;
 import io.github.ajdailey.qlogg.core.model.LineReader;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.text.LogText;
@@ -28,7 +31,9 @@ import org.slf4j.LoggerFactory;
  * ApplicationController#openFile} at its {@code :line}. The read and the {@link SafePaths} check
  * run on a {@code qlogg-read-} worker under the busy cursor. No path, a URL, a relative path on a
  * tab without a file, or no regular file shows a notice; a URL is never opened. A newer run drops
- * an older result. Confined to the UI thread.
+ * an older result. In column view the text is the current cell's value ({@link CellCaret}), and the
+ * path is its first run holding a {@code /} or {@code \}, else its first run. Confined to the UI
+ * thread.
  */
 final class OpenPathAtCaret {
   /** Chars read on each side of the caret. */
@@ -85,6 +90,7 @@ final class OpenPathAtCaret {
     final LineIndex index = document.index();
     final long line = target.sourceLine(target.selection().caret().line());
     final long column = target.selection().caret().column();
+    final ColumnRead cells = target.owner().columns().read();
     if (line < 0 || line >= index.lineCount()) {
       view.showNotice(UiText.OPEN_PATH_NONE.text());
       return;
@@ -99,7 +105,10 @@ final class OpenPathAtCaret {
       @Override
       @WorkerThread
       void work() {
-        found = find(document, index, line, column, base, held);
+        found =
+            cells == null
+                ? find(document, index, line, column, base, held)
+                : findInCell(document, index, line, column, cells, base, held);
       }
 
       @Override
@@ -157,6 +166,66 @@ final class OpenPathAtCaret {
       document.exit();
     }
     return check(PathAtCaret.find(around, caret), base, held);
+  }
+
+  /** Reads the current cell's value and checks the path in it. */
+  @WorkerThread
+  private static Target findInCell(
+      LogDocument document,
+      LineIndex index,
+      long line,
+      long column,
+      ColumnRead cells,
+      Path base,
+      SafePaths.HeldLock held) {
+    if (!document.enter()) {
+      return new Target(null, 0, null);
+    }
+    PathAtCaret.Found found;
+    try {
+      CellRecord record = new CellReader(document.newReader()).record(index, line, cells);
+      CharSequence value =
+          RecordText.cellValue(record, cells.layout(), cells.layout().cellAt(column));
+      if (!record.parsed()) {
+        int at = charAt(value, column);
+        int from = Math.max(0, at - REACH);
+        found =
+            PathAtCaret.find(
+                value.subSequence(from, Math.min(value.length(), at + REACH)), at - from);
+      } else {
+        found = firstPath(value.subSequence(0, Math.min(value.length(), 2 * REACH)));
+      }
+    } catch (ClosedChannelException e) {
+      return new Target(null, 0, null);
+    } catch (IOException | UncheckedIOException e) {
+      LOG.warn(
+          "Cannot read {}: {}", LogText.oneLine(document.path()), LogText.oneLine(e.getMessage()));
+      return new Target(null, 0, null);
+    } finally {
+      document.exit();
+    }
+    return check(found, base, held);
+  }
+
+  /** The path of a value's first run holding a path separator, else of its first run. */
+  static PathAtCaret.Found firstPath(CharSequence value) {
+    PathAtCaret.Found first = null;
+    for (int k = 0; k < value.length(); k++) {
+      boolean starts =
+          !Character.isWhitespace(value.charAt(k))
+              && (k == 0 || Character.isWhitespace(value.charAt(k - 1)));
+      if (!starts) {
+        continue;
+      }
+      PathAtCaret.Found found = PathAtCaret.find(value, k);
+      if (found != null && (found.path().indexOf('/') >= 0 || found.path().indexOf('\\') >= 0)) {
+        return found;
+      }
+      if (first == null) {
+        first = found;
+      }
+    }
+    return first;
   }
 
   /** Returns the index of the char at a display column, or the length past the line's end. */

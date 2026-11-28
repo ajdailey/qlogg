@@ -43,7 +43,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Column-view rows: cells of every format, the unparsed span, extra CSV fields, the Time cell with
  * offset and zone, record rows over a scan in progress and after growth, header rows, the cut
- * marker, frozen cells, cell highlights with and without a named column, tokens and the row cache.
+ * marker, frozen cells, cell highlights with and without a named column, tokens, the row cache and
+ * cells fitted to records ({@link ColumnFit}).
  */
 class CellReaderTest {
   private static final TimeContext UTC = new TimeContext(ZoneOffset.UTC, 2026, 11);
@@ -159,6 +160,42 @@ class CellReaderTest {
     assertEquals(6, block.cellStart(1, 1));
     assertEquals(18, block.width(1));
     assertFalse(block.header(1));
+  }
+
+  @Test
+  void cellsFitTheWidestValueOrNameUpToTheirLimit() throws Exception {
+    String wide = "x".repeat(250);
+    open("a,Message,c\n1,short,\t\n" + "12345,\"" + wide + "\",3\n");
+    ColumnSchema schema =
+        ColumnSchema.delimited(ColumnFormat.CSV, ',', List.of("a", "Message", "c"), true);
+    ColumnLayout waiting =
+        new ColumnLayout(
+            schema,
+            new int[] {0, 1, 2},
+            new int[] {16, 16, 16},
+            0,
+            new boolean[] {true, true, false});
+    assertTrue(waiting.unfitted());
+    long[] lines = {0, 1, 2};
+    int[] widths =
+        ColumnFit.widths(
+            new CellReader(document.newReader()), document.index(), lines, 3, view(waiting));
+    // a: "12345" and the gap; Message: cut at 200; c: a tab to the next stop and the gap.
+    assertEquals(6, widths[0]);
+    assertEquals(ColumnLayout.FIT_TEXT_WIDTH, widths[1]);
+    assertEquals(9, widths[2]);
+    ColumnLayout fitted = waiting.fitted(widths);
+    assertFalse(fitted.unfitted());
+    assertEquals(16, fitted.width(2));
+    assertEquals(
+        0,
+        ColumnFit.widths(
+                new CellReader(document.newReader()),
+                document.index(),
+                new long[] {0},
+                1,
+                view(waiting))
+            .length);
   }
 
   @Test

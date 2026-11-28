@@ -115,10 +115,10 @@ class CellViewTest {
     scanned(document);
     LineBlock lines = rowsWith(document, 1, "first  second");
     assertTrue(lines.header(0));
-    assertTrue(lines.text(1).startsWith("1               INFO            first  second"));
-    assertEquals('\n', lines.controls(1).charAt(37));
+    assertTrue(lines.text(1).startsWith("1  INFO  first  second "));
+    assertEquals('\n', lines.controls(1).charAt(14));
     assertEquals(3, lines.cellCount(1));
-    assertEquals(32, lines.cellStart(1, 2));
+    assertEquals(9, lines.cellStart(1, 2));
     assertEquals(3, lines.sourceLine(2));
     assertFalse(lines.cut(1));
   }
@@ -134,9 +134,9 @@ class CellViewTest {
         copied(CommandId.COPY_WITH_LINE_NUMBERS));
     assertEquals(
         "1,INFO,\"first" + NL + "second\"" + NL + "2,WARN,plain", copied(CommandId.COPY_RAW_LINES));
-    document.select(Selection.caretAt(new TextPosition(1, 33)));
+    document.select(Selection.caretAt(new TextPosition(1, 10)));
     assertEquals("first\nsecond", copied(CommandId.COPY_CELL));
-    document.select(Selection.caretAt(new TextPosition(1, 17)));
+    document.select(Selection.caretAt(new TextPosition(1, 4)));
     assertEquals("INFO", copied(CommandId.COPY_CELL));
   }
 
@@ -255,7 +255,7 @@ class CellViewTest {
       fixture.application.execute(CommandId.TOGGLE_COLUMNS);
     }
     LineBlock lines = rowsWith(tab, 0, "first  second");
-    assertTrue(lines.text(0).startsWith("1               INFO"));
+    assertTrue(lines.text(0).startsWith("1  INFO  "));
     assertEquals(2, lines.sourceLine(0));
   }
 
@@ -281,7 +281,7 @@ class CellViewTest {
     tab.search().run("message:\"second\"", LITERAL);
     fixture.runUntilEnded(tab.search());
     assertEquals(List.of(1L), ControllerFixture.toList(tab.search().results()));
-    assertTrue(rowsWith(tab, 0, "first  second").text(0).startsWith("1               INFO"));
+    assertTrue(rowsWith(tab, 0, "first  second").text(0).startsWith("1  INFO  "));
   }
 
   @Test
@@ -341,6 +341,7 @@ class CellViewTest {
           }
         });
     assertEquals(30, document.sourceLine(document.viewport().topLine()));
-    assertTrue(rowsWith(document, 10, "event 10").text(10).contains("event 10"));
+    // The Message cell fits the first rows read, which may cut "event 10" to "event 1".
+    assertEquals(30, rowsWith(document, 10, "event 1").sourceLine(10));
   }
 }

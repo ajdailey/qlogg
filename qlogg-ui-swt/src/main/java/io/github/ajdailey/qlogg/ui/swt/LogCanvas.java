@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.app.command.Keymap;
 import io.github.ajdailey.qlogg.app.command.MenuTable;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
 import io.github.ajdailey.qlogg.app.controller.ApplicationController;
+import io.github.ajdailey.qlogg.app.controller.ColumnController;
 import io.github.ajdailey.qlogg.app.controller.CommandStates;
 import io.github.ajdailey.qlogg.app.controller.LineViewController;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
@@ -102,6 +103,10 @@ public final class LogCanvas {
 
   private final Composite frame;
   private final Canvas canvas;
+  // Column view.
+  private final ColumnHeader header;
+  private final ColumnRowPainter cellPainter;
+  private int reportedFrozen;
   private final Slider vertical;
 
   // Accessible names.
@@ -141,12 +146,14 @@ public final class LogCanvas {
         @Override
         public void stateChanged(DocumentViewState state) {
           resized();
+          header.sync();
         }
 
         @Override
         public void contentChanged() {
           if (!canvas.isDisposed()) {
-            if (marginShown != (markerMargin() > 0)) {
+            header.sync();
+            if (marginShown != (markerMargin() > 0) || reportedFrozen != frozenWidth()) {
               resized();
             }
             if (fitsLines()) {
@@ -187,7 +194,16 @@ public final class LogCanvas {
     layout.marginHeight = 0;
     layout.horizontalSpacing = 0;
     frame.setLayout(layout);
-    canvas = new Canvas(frame, SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
+    // Column view: the header sits above the canvas in a column of its own.
+    Composite body = new Composite(frame, SWT.NONE);
+    GridLayout stack = new GridLayout(1, false);
+    stack.marginWidth = 0;
+    stack.marginHeight = 0;
+    stack.verticalSpacing = 0;
+    body.setLayout(stack);
+    body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    header = new ColumnHeader(body, this);
+    canvas = new Canvas(body, SWT.H_SCROLL | SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
     canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     // An overlay bar fades in over the bottom row and is left out of the client area; a fixed bar
     // stays visible and the rows fit above it.
@@ -200,12 +216,14 @@ public final class LogCanvas {
     antialias = settings.antialias();
     colors = new PaletteColors(canvas.getDisplay(), palette);
     painter = new RowPainter(canvas.getDisplay(), font);
+    cellPainter = new ColumnRowPainter(painter);
     timers = new SwtUiDispatcher(canvas.getDisplay());
     keys = new SequenceKeys(keymap, timers, prefix, SequenceKeys.TIMEOUT_MILLIS);
     measure();
     canvas.setBackground(colors.background);
     listen();
     document.addListener(viewListener);
+    header.sync();
   }
 
   private Font createFont(FontSettings settings) {
@@ -248,6 +266,7 @@ public final class LogCanvas {
 
   private void remeasure() {
     measure();
+    header.sync();
     resized();
     if (fitsLines()) {
       document.wrapFitted(wrapFit());
@@ -389,6 +408,7 @@ public final class LogCanvas {
     old.dispose();
     canvas.setBackground(colors.background);
     canvas.redraw();
+    header.control().redraw();
   }
 
   /**
@@ -448,6 +468,34 @@ public final class LogCanvas {
     side.moveAbove(vertical);
     ((GridLayout) frame.getLayout()).numColumns = frame.getChildren().length;
     frame.layout(true);
+  }
+
+  // Column view.
+
+  /** Returns the colors the canvas paints with. */
+  PaletteColors colors() {
+    return colors;
+  }
+
+  /** Returns the column grid. */
+  TextGrid grid() {
+    return grid;
+  }
+
+  /** Returns the font rows are drawn in. */
+  Font font() {
+    return font;
+  }
+
+  /** Returns the column header above the canvas. */
+  ColumnHeader header() {
+    return header;
+  }
+
+  /** Returns the composed columns of the frozen cells in column view, else 0. */
+  private int frozenWidth() {
+    ColumnController columns = document.owner().columns();
+    return columns.shown() && columns.layout() != null ? columns.layout().frozenWidth() : 0;
   }
 
   /**
@@ -713,7 +761,9 @@ public final class LogCanvas {
       return;
     }
     Selection current = document.selection();
-    dragBlock = (event.stateMask & SWT.ALT) != 0 || application.blockMode();
+    dragBlock =
+        ((event.stateMask & SWT.ALT) != 0 || application.blockMode())
+            && !document.owner().columns().shown();
     if ((event.stateMask & SWT.MOD2) != 0) {
       select(new Selection(current.anchor(), position));
     } else {
@@ -875,7 +925,10 @@ public final class LogCanvas {
           textX,
           y);
     }
-    return grid.hit(viewport.topLine(), viewport.lineCount(), viewport.firstColumn(), textX, y);
+    TextPosition position =
+        grid.hit(viewport.topLine(), viewport.lineCount(), viewport.firstColumn(), textX, y);
+    long screen = grid.columnAt(textX);
+    return screen < frozenWidth() ? new TextPosition(position.line(), screen) : position;
   }
 
   /**
@@ -948,7 +1001,7 @@ public final class LogCanvas {
    * @return false with text wrap on and for a row not read yet
    */
   private boolean marked(long line, long wrapped) {
-    if (document.wrap()) {
+    if (document.wrap() || document.lines().cellView()) {
       return false;
     }
     if (line == wrapped) {
@@ -1017,8 +1070,10 @@ public final class LogCanvas {
     Rectangle area = canvas.getClientArea();
     int margin = markerMargin();
     marginShown = margin > 0;
+    reportedFrozen = frozenWidth();
     document.viewportResized(
-        grid.rows(area.height), grid.columns(area.width - gutterWidth() - margin));
+        grid.rows(area.height),
+        Math.max(1, grid.columns(area.width - gutterWidth() - margin) - reportedFrozen));
     updateScrollBars();
   }
 
@@ -1111,6 +1166,12 @@ public final class LogCanvas {
     int lineHeight = grid.lineHeight();
     List<Integer> wrapMarkers = new ArrayList<Integer>();
     int unwrapMarker = -1;
+    // Column view.
+    CellGrid cells =
+        block.cellView()
+            ? new CellGrid(grid, gutter, viewport.firstColumn(), block.frozenColumns())
+            : null;
+    List<Integer> cutMarkers = new ArrayList<Integer>();
     int y = 0;
     for (long line = viewport.topLine(); line < viewport.lineCount() && y < area.height; line++) {
       long[] selected = selectedColumns(selection, line);
@@ -1126,6 +1187,28 @@ public final class LogCanvas {
         unwrapMarker = y;
       } else if (marked(line, wrappedRow)) {
         wrapMarkers.add(y);
+      }
+      if (cells != null && !wrapped) {
+        if (block.contains(line)) {
+          cellPainter.paint(
+              gc,
+              colors,
+              cells,
+              new ColumnRowPainter.Row(
+                  block,
+                  line,
+                  y,
+                  area.width - margin,
+                  line == caretLine,
+                  selection.caret().column(),
+                  selected[0] >= 0,
+                  context));
+          if (block.cut(line)) {
+            cutMarkers.add(y);
+          }
+        }
+        y += lineHeight;
+        continue;
       }
       for (int k = 0; k < segments && y < area.height; k++) {
         long from = wrapped ? (long) k * columns : viewport.firstColumn();
@@ -1160,6 +1243,9 @@ public final class LogCanvas {
     }
     if (unwrapMarker >= 0) {
       paintLineMarker(gc, true, unwrapMarker, area.width);
+    }
+    for (int top : cutMarkers) {
+      ColumnRowPainter.paintCut(gc, colors, area.width - margin, margin, top, lineHeight);
     }
     paintGutter(gc, viewport, rows, gutter, area);
     if (!TEXT_PAINTED.get()

@@ -58,16 +58,15 @@ final class ControlBoxes {
       int under,
       boolean onGrid,
       LongToIntFunction columnX) {
-    LineBlock block = row.block();
     int height = grid.lineHeight();
     int top = row.y() + 1;
     int bottom = row.y() + height - 2;
     int base = ink(rowText(colors, spans), under);
-    long first = Math.max(row.from(), block.firstColumn());
-    long end = Math.min(row.to(), block.firstColumn() + text.length());
+    long first = Math.max(row.from(), row.textColumn());
+    long end = Math.min(row.to(), row.textColumn() + text.length());
     char[] labels = null;
     int last = -1;
-    long column = block.firstColumn();
+    long column = row.textColumn();
     for (int i = 0; i < controls.length() && i < text.length(); i++) {
       if (Character.isLowSurrogate(text.charAt(i))) {
         continue;
