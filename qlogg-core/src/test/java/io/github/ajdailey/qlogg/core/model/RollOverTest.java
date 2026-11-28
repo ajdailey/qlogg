@@ -110,6 +110,44 @@ class RollOverTest {
   }
 
   /**
+   * Regression: the tail grew past its first line without an indexing pass, then was renamed, and
+   * the new file at its name held exactly the indexed bytes. Without file keys the tail stayed at
+   * the new file and the renamed tail rolled the set as an inserted file.
+   */
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void anUnindexedTailRenamedBesideAnEqualNewFileFollowsTheRenamedFile(boolean fileKeys)
+      throws Exception {
+    openSet(CSV_HEADER);
+    Files.writeString(
+        base, rows("app.log", 3), StandardCharsets.US_ASCII, StandardOpenOption.APPEND);
+    rename(CSV_HEADER);
+    assertFollowedPastTheNewFile(plan(fileKeys));
+  }
+
+  /**
+   * The tail and the new file at its name both hold only the first line: content cannot tell them
+   * apart, so without file keys the tail stays at its name and the renamed file, starting as the
+   * tail does, waits as a copy in progress. Where the platform has file keys and the case uses
+   * them, the key follows the rename.
+   */
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void aTailHoldingOnlyItsFirstLineBesideAnEqualNewFileStaysAtTheFileFound(boolean fileKeys)
+      throws Exception {
+    openSet(CSV_HEADER);
+    rename(CSV_HEADER);
+    RollOver.Plan plan = plan(fileKeys);
+    if (fileKeys && members.get(1).memberIdentity().fileKey() != null) {
+      assertFollowedPastTheNewFile(plan);
+      return;
+    }
+    assertEquals(RollOver.Kind.IN_PLACE, plan.kind());
+    assertEquals(List.of(dir.resolve("app.log.2"), base), plan.paths());
+    assertTrue(plan.joins().isEmpty());
+  }
+
+  /**
    * The file at the tail's name grew past the indexed bytes beside another file with the same first
    * line: the tail stays at its name.
    */
@@ -139,10 +177,19 @@ class RollOverTest {
     index(tail);
     assertEquals(header.length(), tail.memberIdentity().indexedBytes());
     assertTrue(tail.index().snapshot().indexedBytes() > header.length());
+    rename(header);
+    assertFollowedPastTheNewFile(plan(fileKeys));
+  }
+
+  /** Renames {@code app.log.1} and {@code app.log} up one and starts {@code app.log} anew. */
+  private void rename(String first) throws IOException {
     Files.move(dir.resolve("app.log.1"), dir.resolve("app.log.2"));
     Files.move(base, dir.resolve("app.log.1"));
-    Files.writeString(base, header, StandardCharsets.US_ASCII);
-    RollOver.Plan plan = plan(fileKeys);
+    Files.writeString(base, first, StandardCharsets.US_ASCII);
+  }
+
+  /** The members follow their renamed files in place and the new {@code app.log} joins. */
+  private void assertFollowedPastTheNewFile(RollOver.Plan plan) {
     assertEquals(RollOver.Kind.IN_PLACE, plan.kind());
     assertEquals(List.of(dir.resolve("app.log.2"), dir.resolve("app.log.1")), plan.paths());
     assertEquals(1, plan.joins().size());

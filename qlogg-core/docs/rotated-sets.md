@@ -149,6 +149,7 @@ match several files.
 |---|---|---|
 | Every member keeps its rank, members before the last keep their size, the last holds its indexed bytes | Renamed members re-pointed; newer files join once one has bytes (`APPENDED`); until then growth of the renamed last member is an append | Kept |
 | Last member found holding fewer than its indexed bytes, another unmatched file holds them | Copy-truncate, or a rename where the new file at the name matched the same digests: the other file takes the member's place, the short file joins | Kept |
+| Without file keys: last member found at a file holding exactly its indexed bytes, another unmatched file matches and holds more | A rename where the new file repeats the indexed bytes: the longer file takes the member's place, the file at the name joins. When both hold only the indexed bytes, content cannot tell them apart and the member stays at the file found | Kept |
 | An unmatched file before the last member starts with its bytes, the last member not truncated | Copy in progress: ignored until its size holds for two rescans | - |
 | Last member gone, nothing in its place | `MISSING` once; the content stays readable and the checks go on | Kept |
 | Anything else: a member gone, compressed or past the cap, a member before the last grown or shrunk, the order changed, the last member rewritten | `ROLLED` once, with `lineMap()`; the checks stop until the owner's reopen fails | Mapped |
