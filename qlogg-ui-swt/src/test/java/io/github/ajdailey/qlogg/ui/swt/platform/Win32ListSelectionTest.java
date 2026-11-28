@@ -17,10 +17,11 @@ import org.junit.jupiter.api.condition.OS;
 
 /**
  * {@link Win32ListSelection} and {@link Win32ListBox}: every SWT internal {@link Win32ListBox}
- * reflects on still exists in this SWT, a single-selection list's window takes another window
- * procedure until the list is disposed, which restores the native one, and a {@code SWT.MULTI}
- * list's keeps its own. A failing resolution test after an SWT upgrade names the member that went
- * away. The painted row is checked on the screen by {@code Win32ListTest}.
+ * reflects on still exists in this SWT, a single-selection list's window in a dark-created dialog
+ * takes another window procedure until the list is disposed, which restores the native one, and a
+ * {@code SWT.MULTI} list's, or one in a light-created dialog, keeps its own. A failing resolution
+ * test after an SWT upgrade names the member that went away. The painted row is checked on the
+ * screen by {@code Win32ListTest}.
  */
 @Tag("swt")
 @EnabledOnOs(OS.WINDOWS)
@@ -35,7 +36,7 @@ class Win32ListSelectionTest {
   void aListIsSubclassedUntilItIsDisposed() throws ReflectiveOperationException {
     Display display = new Display();
     try {
-      Shell shell = new Shell(display);
+      Shell shell = darkDialog(display);
       List list = new List(shell, SWT.SINGLE | SWT.BORDER);
       final long window = Control.class.getField("handle").getLong(list);
       long nativeProc = proc(window);
@@ -66,7 +67,7 @@ class Win32ListSelectionTest {
   void aMultiSelectionListIsLeftAsItIs() throws ReflectiveOperationException {
     Display display = new Display();
     try {
-      Shell shell = new Shell(display);
+      Shell shell = darkDialog(display);
       List list = new List(shell, SWT.MULTI);
       long window = Control.class.getField("handle").getLong(list);
       long nativeProc = proc(window);
@@ -76,6 +77,32 @@ class Win32ListSelectionTest {
     } finally {
       display.dispose();
     }
+  }
+
+  @Test
+  void aListInALightCreatedDialogIsLeftAsItIs() throws ReflectiveOperationException {
+    Display display = new Display();
+    try {
+      Shell shell = new Shell(display);
+      Win32DialogColors.INSTANCE.apply(shell);
+      List list = new List(shell, SWT.SINGLE | SWT.BORDER);
+      long window = Control.class.getField("handle").getLong(list);
+      long nativeProc = proc(window);
+      display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+      new Win32ListSelection().draw(list);
+      assertEquals(nativeProc, proc(window));
+      shell.dispose();
+    } finally {
+      display.dispose();
+    }
+  }
+
+  /** A shell {@link Win32DialogColors} colors, as a dialog created under the dark setting. */
+  private static Shell darkDialog(Display display) {
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    Shell shell = new Shell(display);
+    Win32DialogColors.INSTANCE.apply(shell);
+    return shell;
   }
 
   private static long proc(long window) throws ReflectiveOperationException {

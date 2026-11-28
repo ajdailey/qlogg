@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
  * Win32ComboListSelection} and {@link Win32ListSelection} share. {@link #resolve} finds SWT's
  * {@code Control.handle}, {@code internal.Callback} and the {@code internal.win32.OS} calls and
  * structs in the running SWT; a {@link Hook} subclasses one ListBox window through them and paints
- * its selected row over the native drawing while {@link DialogColors#nativeDark} holds, read per
- * message. Confined to the UI thread.
+ * its selected row over the native drawing while {@link Hook#dark} holds, read per message.
+ * Confined to the UI thread.
  */
 final class Win32ListBox {
   static final int WM_PAINT = 0x000f;
@@ -174,9 +174,9 @@ final class Win32ListBox {
 
   /**
    * One subclassed ListBox window, owned by a control whose disposal restores the native window
-   * procedure and frees the callback. After each native message, while the dark native setting is
-   * on, {@link #after} decides whether to paint; {@link #paint} fills the selected row and draws
-   * its text in {@link #colors}.
+   * procedure and frees the callback. After each native message, while {@link #dark} holds, {@link
+   * #after} decides whether to paint; {@link #paint} fills the selected row and draws its text in
+   * {@link #colors}.
    */
   abstract static class Hook {
     final Control owner;
@@ -237,7 +237,7 @@ final class Win32ListBox {
 
     /**
      * The window procedure: {@link #consume}, else the native one followed by {@link #after} while
-     * the dark native setting is on. SWT's callback passes every argument as a long.
+     * {@link #dark} holds. SWT's callback passes every argument as a long.
      */
     final long windowProc(long hwnd, long msg, long wParam, long lParam) {
       if (consume(msg)) {
@@ -250,7 +250,7 @@ final class Win32ListBox {
         LOG.warn("A list window's procedure failed", e);
         return 0;
       }
-      if (busy || broken || !DialogColors.nativeDark(owner.getDisplay())) {
+      if (busy || broken || !dark()) {
         return result;
       }
       busy = true;
@@ -270,6 +270,13 @@ final class Win32ListBox {
     }
 
     /**
+     * Reports whether the window draws its selected row dark; read after each native message.
+     *
+     * @return true to paint the row
+     */
+    abstract boolean dark();
+
+    /**
      * Handles a message the hook keeps from the native procedure.
      *
      * @return true when the message is consumed
@@ -277,7 +284,7 @@ final class Win32ListBox {
     abstract boolean consume(long msg);
 
     /**
-     * Runs after the native procedure handled a message under the dark native setting.
+     * Runs after the native procedure handled a message while {@link #dark} holds.
      *
      * @param selected the selected row, or -1
      */

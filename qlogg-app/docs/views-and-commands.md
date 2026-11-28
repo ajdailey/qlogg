@@ -226,7 +226,11 @@ defaults: `shortcut.<COMMAND>.count` and `shortcut.<COMMAND>.<n>` = `window` or
   stood.
 - `Keymap.conflicts` lists the bindings with the same keys in any scope (a
   window stroke also reaches the log view) and a single stroke that starts a
-  sequence. The shortcut editor refuses a binding with any conflict.
+  sequence.
+- `ShortcutAdd.of` is the shortcut editor's Add. It appends the captured keys,
+  or returns the message for no selected command, an empty key field, a
+  conflict (naming its command), keys the command has, or a command at
+  `MAX_PER_COMMAND` (8) bindings.
 - `scopeFor` gives `LOG_VIEW` to a sequence, a log view command or a plain key;
   the default binding's scope to a stroke the command has by default; and
   `WINDOW` to other `Ctrl`, `Command`, `Control`, `Alt` or function keys.

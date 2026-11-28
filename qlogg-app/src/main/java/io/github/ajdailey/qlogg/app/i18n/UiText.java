@@ -1123,6 +1123,14 @@ public enum UiText {
   SHORTCUTS_RESET_ALL,
   /** Shortcut editor message: the keys and the command holding them. */
   SHORTCUTS_CONFLICT,
+  /** Shortcut editor message: Add with no command selected. */
+  SHORTCUTS_NO_COMMAND,
+  /** Shortcut editor message: Add with an empty key field. */
+  SHORTCUTS_NO_KEYS,
+  /** Shortcut editor message: the keys and the selected command, which already has them. */
+  SHORTCUTS_ALREADY_BOUND,
+  /** Shortcut editor message: the command and the most bindings one command keeps. */
+  SHORTCUTS_FULL,
   /** Shortcut editor mark on an overridden command. */
   SHORTCUTS_OVERRIDDEN,
   // Multiple windows, logging and support items.
