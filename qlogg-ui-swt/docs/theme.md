@@ -312,9 +312,14 @@ on build 26300), so the hook also posts the list a private message
 combo `SWT.Selection` on the open list (a keyboard move) invalidates it too.
 A dialog combo's side is fixed when it is created, as its dialog's colors are
 and as a `List`'s is: in a dialog `DialogColors.apply` colored, `dark()` is
-true for the combo's life, so the row stays dark after a live switch to light;
-a combo in a dialog created light is never subclassed and stays native after a
-switch to dark. A main window combo (the search row's combos) reads
+true for the combo's life, so the row stays dark after a live switch to light.
+In a dialog created light, the native list takes the white-on-white row at a
+live switch to dark (OBERON, 150% and 100%), so under the dark native setting
+the hook paints the row in `SWT.COLOR_LIST_SELECTION` and
+`COLOR_LIST_SELECTION_TEXT`, the selection the light list draws (`#0078d7`
+with white text on Windows 11, `#0078d4` on `windows-2025`); under light it
+leaves the native drawing. `ListHook.dark()` and `colors()` choose the side.
+A main window combo (the search row's combos) reads
 `DialogColors.nativeDark` per message, because the main window follows a live
 switch: the switch applies at the next paint, and under light the native
 selection stays. `Win32DialogColors.dialog` tells the two apart: `apply` marks
