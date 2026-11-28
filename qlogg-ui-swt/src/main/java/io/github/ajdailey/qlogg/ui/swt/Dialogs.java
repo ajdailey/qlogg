@@ -245,16 +245,6 @@ final class Dialogs {
   }
 
   /**
-   * Creates a check box readable on its page ({@link DialogColors#check}).
-   *
-   * @param parent the parent
-   * @return the check box
-   */
-  static Button check(Composite parent) {
-    return DialogColors.platform().check(parent);
-  }
-
-  /**
    * Shows a dialog table's grid lines ({@link DialogColors#gridLines}).
    *
    * @param table the table

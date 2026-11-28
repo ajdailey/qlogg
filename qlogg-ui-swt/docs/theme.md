@@ -125,11 +125,12 @@ the 100 ms UI bound; a switch is rare and user-initiated, and the stall is
 accepted. The user guide reloads at its last anchor; JavaScript is off, so the
 scroll position within a section is not kept.
 
-- win32: while native controls are dark, check box labels draw near-white, which
-  a light page cannot show. Every check box therefore comes from
-  `DialogColors.check` (through `Dialogs.check`): `Win32DialogColors` creates it
-  with the theme off, except in a dialog it colors, whose page is dark. On the quick find bar
-  `Win32ChromeColors` gives an enabled box's label the dark chrome text.
+- win32: a check box is a plain `Button` with `SWT.CHECK`, created under the
+  native setting. Under the dark one win32 draws the box dark (unchecked
+  interior `#242424`) and its label near-white, in a dialog and in the main
+  window alike. On the quick find bar `Win32ChromeColors` gives the label
+  `#ffffff` under dark and, on the light side after a dark start, the system
+  widget text, which a light page shows.
 - cocoa: pin the application appearance only together with `CocoaChrome`.
   cocoa SWT caches its widget colors under the system appearance at Display
   creation, and a pinned appearance that differs draws native text over the
@@ -384,7 +385,7 @@ light and `DialogGridLinesTest` fails on win32.
 |---|---|
 | `Spinner` arrows | Light buttons beside the dark field |
 | Disabled text | The system gray: a disabled label `#808080` on the body (4.1 contrast). `Dialogs.disabledText` (`#9a9a9a`) colors only the rows the command palette draws disabled |
-| `Table` and `Tree` selection | Native dark with white text: focused `#223e55` (table) and `#626262` (tree), unfocused `#252525` and `#333333`, 6.10:1 or more (measured, `windows-2025`) |
+| `Table` and `Tree` selection | Focused: native dark with white text, `#223e55` (table) and `#626262` (tree), 6.10:1 or more (measured, `windows-2025`). Unfocused: native `#252525` and `#333333`, 1.1:1 on the field, so `Win32UnfocusedSelection` draws `#747474` with white text (3.03:1 on the field, text 4.67:1) |
 | `Browser` (the user guide) | The page's own colors |
 | `FileDialog`, `ColorDialog` | The system dialogs |
 

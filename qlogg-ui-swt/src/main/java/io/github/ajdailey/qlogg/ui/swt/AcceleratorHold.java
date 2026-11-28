@@ -60,10 +60,30 @@ final class AcceleratorHold {
     cleared.clear();
   }
 
-  /** Clears the accelerators of a menu bar built while held; call after every menu bar build. */
-  void menuBarBuilt() {
-    if (held) {
-      clear();
+  /**
+   * Clears the accelerators a menu bar build or keymap change set while held, keeping the new ones
+   * to restore; a menu bar item left without one restores none. Call after each.
+   */
+  void menuBarChanged() {
+    if (!held || shell.isDisposed()) {
+      return;
+    }
+    Menu bar = shell.getMenuBar();
+    if (bar != null) {
+      replace(bar);
+    }
+  }
+
+  private void replace(Menu menu) {
+    for (MenuItem item : menu.getItems()) {
+      if (item.getAccelerator() != 0) {
+        clear(item);
+      } else {
+        cleared.remove(item);
+      }
+      if (item.getMenu() != null) {
+        replace(item.getMenu());
+      }
     }
   }
 

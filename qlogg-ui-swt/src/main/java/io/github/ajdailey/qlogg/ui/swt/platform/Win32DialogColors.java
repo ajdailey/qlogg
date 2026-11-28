@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.ui.swt.platform;
 
+import java.util.function.BooleanSupplier;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
 import org.eclipse.swt.custom.StyledText;
@@ -39,7 +40,8 @@ import org.eclipse.swt.widgets.Tree;
  *
  * <p>A single-line {@link Text}'s hint draws {@code #6d6d6d} when read-only (SWT draws it in {@code
  * COLOR_GRAYTEXT}) and {@code #575757} when editable, 2.74:1 and 1.96:1 on {@link #FIELD} (measured
- * on {@code windows-2025}); {@link Win32EmptyField} draws it in {@link #HINT} over that.
+ * on {@code windows-2025}); {@link Win32EmptyField} draws it in {@link #HINT} over that. {@link
+ * Win32UnfocusedSelection} draws a table's or tree's selected rows while it lacks focus.
  *
  * <p>A {@link ToolBar} takes {@link #WINDOW} as its own background, not only through inheritance:
  * under the dark native theme SWT fills a hot or checked tool item with a shade of the bar's own
@@ -84,6 +86,15 @@ final class Win32DialogColors implements DialogColors {
       };
 
   static final Win32DialogColors INSTANCE = new Win32DialogColors();
+
+  /** A colored dialog shows only under the dark native setting. */
+  private static final BooleanSupplier ALWAYS =
+      new BooleanSupplier() {
+        @Override
+        public boolean getAsBoolean() {
+          return true;
+        }
+      };
 
   /** Shell data key: set on a shell whose surfaces this colors. */
   private static final String COLORED = Win32DialogColors.class.getName() + ".colored";
@@ -171,20 +182,6 @@ final class Win32DialogColors implements DialogColors {
   }
 
   @Override
-  public Button check(Composite parent) {
-    Display display = parent.getDisplay();
-    if (!DialogColors.nativeDark(display) || colored(parent)) {
-      return new Button(parent, SWT.CHECK);
-    }
-    display.setDarkThemePreferred(false);
-    try {
-      return new Button(parent, SWT.CHECK);
-    } finally {
-      display.setDarkThemePreferred(true);
-    }
-  }
-
-  @Override
   public void gridLines(Table table) {
     if (colored(table)) {
       Win32GridLines.draw(table, GRID);
@@ -229,6 +226,9 @@ final class Win32DialogColors implements DialogColors {
     }
     if (control instanceof Text text) {
       Win32EmptyField.draw(text, DIALOG_INK);
+    }
+    if (control instanceof Table || control instanceof Tree) {
+      Win32UnfocusedSelection.draw((Composite) control, ALWAYS);
     }
   }
 

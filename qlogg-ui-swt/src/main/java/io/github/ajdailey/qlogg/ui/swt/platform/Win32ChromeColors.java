@@ -34,6 +34,10 @@ import org.eclipse.swt.widgets.Tree;
  * while the dark native theme draws its closed field. While it resolves to light every such color
  * is null and composites take {@code SWT.INHERIT_NONE}. Both directions apply live.
  *
+ * <p>A check box is created under the native setting, so its box draws dark under the dark one; on
+ * the light side under that setting its label takes the system widget text, since the dark native
+ * box draws it near-white without colors.
+ *
  * <p>While native controls are dark ({@link DialogColors#nativeDark}) a field holding text keeps
  * the dark colors on the light side until its window is rebuilt, because the dark native field
  * draws near-black under any light colors. An empty field takes the system list colors, set
@@ -199,7 +203,7 @@ final class Win32ChromeColors implements ChromeColors {
       return;
     }
     control.setBackground(dark ? BACKGROUND : null);
-    control.setForeground(dark ? TEXT : null);
+    control.setForeground(dark ? TEXT : lightText(control));
     if (control instanceof Link link) {
       link.setLinkForeground(dark ? linkColor(display) : null);
     }
@@ -245,6 +249,18 @@ final class Win32ChromeColors implements ChromeColors {
 
   private static int length(Control field) {
     return field instanceof Text text ? text.getCharCount() : ((Combo) field).getText().length();
+  }
+
+  /**
+   * Returns a control's text color on the light side: the system widget text for a check box or
+   * radio button under the dark native setting, which draws its label near-white without colors;
+   * otherwise null.
+   */
+  private Color lightText(Control control) {
+    if (control instanceof Button && nativeDark()) {
+      return display.getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
+    }
+    return null;
   }
 
   /** Reports whether a new control sits under a surface with no kept control between. */

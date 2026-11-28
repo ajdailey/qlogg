@@ -35,7 +35,6 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
 import io.github.ajdailey.qlogg.core.search.SearchEngine;
 import io.github.ajdailey.qlogg.core.search.SearchSettings;
 import io.github.ajdailey.qlogg.core.search.StandardMatchers;
-import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -248,7 +247,7 @@ class ThemeAndHighlightTest {
     Shell shell = new Shell(display);
     try {
       SwtThemeService.open(display, ThemeMode.DARK);
-      Button check = DialogColors.platform().check(shell);
+      Button check = new Button(shell, SWT.CHECK);
       assertTrue((check.getStyle() & SWT.CHECK) != 0);
       assertTrue(check.getEnabled());
     } finally {

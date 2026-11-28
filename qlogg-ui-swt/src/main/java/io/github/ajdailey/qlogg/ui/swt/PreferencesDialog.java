@@ -177,7 +177,7 @@ final class PreferencesDialog {
   }
 
   private static Button check(Composite page, UiText label, boolean value) {
-    Button button = Dialogs.check(page);
+    Button button = new Button(page, SWT.CHECK);
     button.setText(label.text());
     button.setSelection(value);
     button.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));

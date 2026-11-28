@@ -432,6 +432,27 @@ class ChromeColorsTest {
   }
 
   /**
+   * After a dark start a check box's label takes the system widget text on the light side, since
+   * the dark native box draws it near-white without colors; after a light start it takes none.
+   */
+  @Test
+  void afterADarkStartACheckBoxLabelTakesTheSystemTextOnTheLightSide() {
+    RGB system = display.getSystemColor(SWT.COLOR_WIDGET_FOREGROUND).getRGB();
+    RGB plain = check.getForeground().getRGB();
+    ChromeColors light = chrome(WIN32);
+    light.apply(true);
+    light.apply(false);
+    assertEquals(plain, check.getForeground().getRGB(), "light start");
+    light.dispose();
+    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+    ChromeColors chrome = chrome(WIN32);
+    for (boolean dark : new boolean[] {true, false, true, false}) {
+      chrome.apply(dark);
+      assertEquals(dark ? TEXT : system, check.getForeground().getRGB(), "dark " + dark);
+    }
+  }
+
+  /**
    * After a dark start an empty, unfocused text field is filled with its background, the system one
    * on the light side and the field gray on the dark side, which the dark native field draws {@code
    * #212121} under any colors; a field holding text keeps the native drawing.

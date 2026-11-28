@@ -27,7 +27,6 @@ import org.eclipse.swt.accessibility.AccessibleControlEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.RGB;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Link;
@@ -460,22 +459,6 @@ class PlatformSeamsTest {
     assertFalse(new BrowserGuideDisplay().show(guide, shows));
     assertTrue(new NoticeGuideDisplay().show(guide, shows));
     assertEquals(List.of("browser", "notice"), shown);
-  }
-
-  @Test
-  void everyDialogColorsCheckIsACheckBoxOnItsParent() {
-    display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
-    Win32DialogColors colors = Win32DialogColors.INSTANCE;
-    Button plain = colors.check(shell);
-    assertTrue((plain.getStyle() & SWT.CHECK) != 0);
-    assertSame(shell, plain.getParent());
-    Shell dialog = new Shell(shell, SWT.DIALOG_TRIM);
-    colors.apply(dialog);
-    Button colored = colors.check(dialog);
-    assertTrue((colored.getStyle() & SWT.CHECK) != 0);
-    assertSame(dialog, colored.getShell());
-    Button nativeCheck = NativeDialogColors.INSTANCE.check(shell);
-    assertTrue((nativeCheck.getStyle() & SWT.CHECK) != 0);
   }
 
   @Test

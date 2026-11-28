@@ -307,12 +307,14 @@ call replaces its text and activates it.
   `MenuBehavior.applicationMenuItems` to 0 and keeps each value; empty prefix
   text restores them. The menu takes a key before the focused control: without
   the hold `Ctrl+E Ctrl+,` opens Preferences (measured on GTK 3) and `Cmd+E
-  Cmd+M` minimizes the window (measured on macOS). A menu bar built while held
-  is cleared too (`menuBarBuilt`); a restore skips disposed items. Every
+  Cmd+M` minimizes the window (measured on macOS). A menu bar built or given a
+  new keymap while held is cleared too, and the new accelerators are the ones
+  restored (`menuBarChanged`); a restore skips disposed items. Every
   accelerator is cleared, not only the colliding ones, because a shortcut
   override can give any window key to a command, and any stroke after the
   prefix belongs to the sequence: it completes or cancels it.
-- `keymapChanged` rebuilds the menu bar, the tooltips and the shown views from
+- `keymapChanged` applies the keymap to the menu bar in place
+  (`MainMenuBar.apply`) and rebuilds the tooltips and the shown views from
   a later UI task, because the event that changed the key bindings may come
   from a menu item or a view the rebuild disposes. The focused log view keeps
   the focus, and an open Keyboard Shortcuts window closes.

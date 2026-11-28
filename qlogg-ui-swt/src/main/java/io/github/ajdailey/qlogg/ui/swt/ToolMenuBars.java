@@ -15,8 +15,9 @@ import org.eclipse.swt.widgets.Shell;
 /**
  * A main window's menus on its tool windows, built when {@link MenuBehavior#toolWindowMenus} asks
  * (cocoa). Each tool window gets a {@link MainMenuBar} over the main window's controller, so its
- * items act on the main window, except Close, which closes the tool window. A keymap change
- * rebuilds every bar and a document event syncs their enablement. Confined to the UI thread.
+ * items act on the main window, except Close, which closes the tool window. A keymap change reaches
+ * every bar through {@link MainMenuBar#apply} and a document event syncs their enablement. Confined
+ * to the UI thread.
  */
 final class ToolMenuBars implements MenuBehavior.ToolMenus {
   /** Shell data of a main window: its tool menu bars. */
@@ -87,17 +88,14 @@ final class ToolMenuBars implements MenuBehavior.ToolMenus {
   }
 
   /**
-   * Rebuilds every bar with new key bindings.
+   * Gives every bar new key bindings ({@link MainMenuBar#apply}).
    *
    * @param next the key bindings
    */
-  void rebuild(Keymap next) {
+  void apply(Keymap next) {
     keymap = next;
     for (MainMenuBar bar : bars) {
-      bar.build(next);
-      if (choices != null) {
-        bar.encodingsLoaded(choices);
-      }
+      bar.apply(next);
     }
   }
 

@@ -31,6 +31,8 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
+import org.eclipse.swt.widgets.Tree;
+import org.eclipse.swt.widgets.TreeItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -102,6 +104,45 @@ class DialogColorsTest {
     assertEquals(Win32DialogColors.TEXT.getRGB(), readOnly.getForeground().getRGB());
     assertEquals(OWN, own.getForeground().getRGB());
     assertEquals(Win32DialogColors.WINDOW.getRGB(), colors.background(owner).getRGB());
+  }
+
+  /**
+   * An unfocused selected row in a dark dialog table or tree draws {@code #747474} with white text
+   * instead of the native {@code #252525}, 1.1:1 on the field ({@link Win32UnfocusedSelection}); a
+   * focused one keeps the native selection.
+   */
+  @Test
+  void win32DrawsAnUnfocusedSelectionReadable() {
+    Shell shell = new Shell(owner, SWT.DIALOG_TRIM);
+    Win32DialogColors.INSTANCE.apply(shell);
+    Text other = new Text(shell, SWT.BORDER);
+    Table table = new Table(shell, SWT.BORDER | SWT.FULL_SELECTION);
+    new TableItem(table, SWT.NONE).setText("mock row");
+    Tree tree = new Tree(shell, SWT.BORDER | SWT.FULL_SELECTION);
+    new TreeItem(tree, SWT.NONE).setText("mock row");
+    shell.open();
+    other.setFocus();
+    for (Composite list : new Composite[] {table, tree}) {
+      boolean focused = list.isFocusControl();
+      Image image = new Image(display, 8, 8);
+      GC gc = new GC(image);
+      try {
+        Event erase = new Event();
+        erase.gc = gc;
+        erase.detail = SWT.SELECTED;
+        erase.width = 8;
+        erase.height = 8;
+        list.notifyListeners(SWT.EraseItem, erase);
+        assertEquals(focused ? SWT.SELECTED : 0, erase.detail & SWT.SELECTED, "" + list);
+        if (!focused) {
+          assertEquals(new RGB(0x74, 0x74, 0x74), gc.getBackground().getRGB(), "" + list);
+          assertEquals(new RGB(0xff, 0xff, 0xff), gc.getForeground().getRGB(), "" + list);
+        }
+      } finally {
+        gc.dispose();
+        image.dispose();
+      }
+    }
   }
 
   /**

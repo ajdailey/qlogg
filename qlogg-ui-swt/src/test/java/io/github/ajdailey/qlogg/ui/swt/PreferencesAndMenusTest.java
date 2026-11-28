@@ -342,6 +342,8 @@ class PreferencesAndMenusTest {
     shoot(dialog.shell(), "options-shortcuts.png");
     dialog.folder().select(1);
     shoot(dialog.shell(), "options-view.png");
+    Menu bar = window.shell().getMenuBar();
+    MenuItem item = window.menuBar().item(CommandId.RELOAD);
     dialog.apply();
     assertEquals(
         "Ctrl+Alt+R", controller.keymap().bindingsFor(CommandId.RELOAD).get(0).text(false));
@@ -355,7 +357,21 @@ class PreferencesAndMenusTest {
                 return menuText(CommandId.RELOAD).contains(shown);
               }
             }));
-    dialog.shell().dispose();
+    // A key change keeps the bar; on GTK 4 a replaced bar crashed the JVM when a dialog closed.
+    assertSame(bar, window.shell().getMenuBar());
+    assertSame(item, window.menuBar().item(CommandId.RELOAD));
+    assertEquals(
+        SwtKeys.accelerator(controller.keymap().accelerator(CommandId.RELOAD)),
+        item.getAccelerator());
+    dialog.shell().close();
+    assertTrue(
+        runUntil(
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return dialog.shell().isDisposed() && !display.readAndDispatch();
+              }
+            }));
     shoot(window.shell(), "main.png");
   }
 

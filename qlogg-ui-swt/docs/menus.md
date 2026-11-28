@@ -24,6 +24,11 @@ Favorites, Search > Search Options, View > Folding).
   follows the same rule.
 - Only a `WINDOW` binding becomes an SWT accelerator, so `LOG_VIEW` keys such
   as `Ctrl+C` reach the log view and never a text field.
+- `build` runs once per bar. A new keymap keeps the bar (`MainMenuBar.apply`):
+  each item takes its new key text and accelerator. On GTK 4 a replaced bar
+  followed by a dialog closing fails `gtk_widget_has_focus` and can crash the
+  JVM (`PreferencesAndMenusTest` under Xvfb: the critical in 3 of 3 runs, a
+  crash in 1; 0 of 3 with the bar kept).
 - Every accelerator is 0 while a log view's key sequence is pending
   (`AcceleratorHold`, [main-window.md](main-window.md#input-and-commands)).
   The default second strokes that are also window keys: `Ctrl+,` (Preferences)
@@ -183,7 +188,7 @@ on its shell (`ToolMenuBars.KEY`, found on the owner or an owner's owner). Each
 tool window gets its own
 `MainMenuBar` over the main window's controller, so File, View and the
 accelerators act on that main window, except File > Close (`Cmd+W`), which
-closes the tool window and stays enabled (`MainMenuBar.closesToolWindow`). `MainWindow` rebuilds these bars with its
-own on a keymap change, fills their Encoding > Other cascade and syncs their
+closes the tool window and stays enabled (`MainMenuBar.closesToolWindow`). `MainWindow` applies a keymap change to
+these bars with its own, fills their Encoding > Other cascade and syncs their
 enablement with its own. A modal dialog gets none. The win32 and GTK classes do
 nothing, since a menu bar draws inside its window there.

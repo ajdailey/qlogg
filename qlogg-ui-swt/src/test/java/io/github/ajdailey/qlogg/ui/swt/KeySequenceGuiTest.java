@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -363,7 +364,8 @@ class KeySequenceGuiTest {
   @Test
   void aKeymapRebuildWhilePendingKeepsTheAccelerators() {
     Map<Integer, MenuItem> before = accelerators();
-    final Menu old = window().shell().getMenuBar();
+    Menu bar = window().shell().getMenuBar();
+    final LogCanvas old = window().canvas();
     press('e');
     window().keymapChanged();
     assertTrue(
@@ -371,11 +373,12 @@ class KeySequenceGuiTest {
             new BooleanSupplier() {
               @Override
               public boolean getAsBoolean() {
-                return old.isDisposed();
+                return window().canvas() != old;
               }
             }),
-        "menu bar rebuilt");
+        "views rebuilt");
     windows.settle();
+    assertSame(bar, window().shell().getMenuBar());
     assertEquals(before.keySet(), accelerators().keySet());
   }
 

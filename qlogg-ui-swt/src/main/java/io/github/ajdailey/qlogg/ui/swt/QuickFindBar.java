@@ -97,7 +97,7 @@ final class QuickFindBar {
   }
 
   private Button check(UiText label) {
-    Button button = Dialogs.check(bar);
+    Button button = new Button(bar, SWT.CHECK);
     button.setText(label.text());
     return button;
   }

@@ -41,7 +41,8 @@ import org.eclipse.swt.widgets.Shell;
  * item also follows each document event ({@link #syncEnablement}), because a disabled item's
  * accelerator does not fire. The Encoding menu's common charsets are created with the menu bar and
  * the Other cascade, disabled and empty, is filled once by {@link #encodingsLoaded}; neither is
- * rebuilt, and a show updates their enablement and radio selection. Call on the UI thread.
+ * rebuilt, and a show updates their enablement and radio selection. {@link #apply} changes the keys
+ * of the built bar and never replaces it. Call on the UI thread.
  */
 final class MainMenuBar {
   /** Widget data of the items the menus list after their commands. */
@@ -128,13 +129,11 @@ final class MainMenuBar {
   }
 
   /**
-   * Creates the menu bar with the keys of a keymap, sets it on the shell and disposes the previous
-   * one.
+   * Creates the menu bar with the keys of a keymap and sets it on the shell; call once.
    *
    * @param keymap the key bindings the items show and the accelerators come from
    */
   void build(Keymap keymap) {
-    Menu old = shell.getMenuBar();
     items.clear();
     menus.clear();
     encodingItems.clear();
@@ -193,12 +192,7 @@ final class MainMenuBar {
                 nested(target, MenuTable.nestedCascade(command)),
                 radio ? SWT.RADIO : command.check() ? SWT.CHECK : SWT.PUSH);
         item.setData(command);
-        String keys = keymap.menuKeyText(command, mac);
-        item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
-        KeyStroke accelerator = keymap.accelerator(command);
-        if (accelerator != null) {
-          item.setAccelerator(SwtKeys.accelerator(accelerator));
-        }
+        showKeys(item, command, keymap, mac);
         item.addListener(
             SWT.Selection,
             new Listener() {
@@ -261,10 +255,49 @@ final class MainMenuBar {
           });
     }
     shell.setMenuBar(bar);
-    if (old != null) {
-      old.dispose();
-    }
     syncEnablement();
+  }
+
+  /**
+   * Applies a keymap to the built bar: each item's keys and accelerator. The bar and its menus
+   * stay; on GTK 4 a replaced bar followed by a dialog closing fails {@code gtk_widget_has_focus}
+   * and can crash the process (measured under Xvfb). Builds the bar when none is built.
+   *
+   * @param next the key bindings
+   */
+  void apply(Keymap next) {
+    if (keymap == null) {
+      build(next);
+      return;
+    }
+    if (shell.isDisposed()) {
+      return;
+    }
+    keymap = next;
+    boolean mac = SwtKeys.mac();
+    for (Map.Entry<CommandId, MenuItem> entry : items.entrySet()) {
+      if (!entry.getValue().isDisposed()) {
+        showKeys(entry.getValue(), entry.getKey(), next, mac);
+      }
+    }
+  }
+
+  /** Shows a command's key in its item's text and its window binding as the accelerator. */
+  private static void showKeys(MenuItem item, CommandId command, Keymap keymap, boolean mac) {
+    String keys = keymap.menuKeyText(command, mac);
+    item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
+    KeyStroke accelerator = keymap.accelerator(command);
+    item.setAccelerator(accelerator == null ? 0 : SwtKeys.accelerator(accelerator));
+  }
+
+  /**
+   * Returns a command's item.
+   *
+   * @param command the command
+   * @return its item, or null when the bar lists none
+   */
+  MenuItem item(CommandId command) {
+    return items.get(command);
   }
 
   /** Adds a cascade whose items are filled from the controller's state. */

@@ -974,10 +974,10 @@ public final class MainWindow implements MainView, ApplicationListener {
       menuBar = new MainMenuBar(shell, controller, menuIcons);
       toolMenus = new ToolMenuBars(shell, controller, menuIcons, keymap);
     }
-    menuBar.build(keymap);
+    menuBar.apply(keymap);
     // Key sequences.
-    acceleratorHold.menuBarBuilt();
-    toolMenus.rebuild(keymap);
+    acceleratorHold.menuBarChanged();
+    toolMenus.apply(keymap);
     encodingSource.load(
         new EncodingChoices.Listener() {
           @Override
@@ -1003,7 +1003,7 @@ public final class MainWindow implements MainView, ApplicationListener {
   /**
    * Sets where the menu bar gets the Encoding menu's lists; the default asks the controller.
    *
-   * @param source the source, used from the next menu bar build
+   * @param source the source, used from the next menu bar build or keymap change
    */
   void setEncodingSource(EncodingSource source) {
     encodingSource = source;
@@ -2136,8 +2136,9 @@ public final class MainWindow implements MainView, ApplicationListener {
   }
 
   /**
-   * Rebuilds the menu bar and the views after the event that changed the key bindings, which may
-   * come from a menu item or a view about to be replaced. The focused view keeps the focus.
+   * Applies the key bindings to the menu bar and rebuilds the views after the event that changed
+   * them, which may come from a menu item or a view about to be replaced. The focused view keeps
+   * the focus.
    */
   @Override
   public void keymapChanged() {
