@@ -4,6 +4,7 @@ import static io.github.ajdailey.qlogg.ui.swt.Pixels.contrast;
 import static io.github.ajdailey.qlogg.ui.swt.Pixels.luminance;
 import static io.github.ajdailey.qlogg.ui.swt.Pixels.mode;
 import static io.github.ajdailey.qlogg.ui.swt.Pixels.strongest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -49,6 +50,7 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -70,7 +72,8 @@ import org.junit.jupiter.api.io.TempDir;
  * under the Windows setup screen, the test skips every body check and reads the first label through
  * {@code Control.print}, checking its text against its background; the same applies to a single
  * dialog a screen read does not show. On each tab of a tabbed dialog the tab row, the folder's edge
- * and the selected tab's text are read too: dark under a dark start. Each dialog is saved to {@code
+ * and the selected tab's text are read too: dark under a dark start. The quick find bar's check
+ * boxes are read through {@code Control.print}. Each dialog is saved to {@code
  * target/diagnostics/win32-dark-dialogs/}, with the read of each check in the report there.
  */
 @Tag("swt")
@@ -298,6 +301,67 @@ class Win32DarkDialogsTest {
     } finally {
       dialog.dispose();
       settle();
+    }
+  }
+
+  /**
+   * The quick find bar's unchecked check boxes draw a dark box after a dark start and after a live
+   * switch to light and back (OBERON: {@code #f3f3f3} under Dark), read through {@code
+   * Control.print} left of each label.
+   */
+  @Test
+  void theQuickFindCheckBoxesDrawADarkBoxUnderDark() throws IOException {
+    open(ThemeMode.DARK);
+    controller.quickFind().open(true);
+    final Composite bar = window.quickFindBar().control();
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return bar.isVisible();
+              }
+            },
+            BOUND),
+        "the quick find bar shows");
+    List<Button> boxes = new ArrayList<Button>();
+    for (Control child : bar.getChildren()) {
+      if (child instanceof Button button && (button.getStyle() & SWT.CHECK) != 0) {
+        boxes.add(button);
+      }
+    }
+    assertEquals(3, boxes.size());
+    assertDarkBoxes(boxes, "dark start");
+    controller.execute(CommandId.THEME_LIGHT);
+    controller.execute(CommandId.THEME_DARK);
+    assertTrue(
+        EventLoop.runUntil(
+            display,
+            new BooleanSupplier() {
+              @Override
+              public boolean getAsBoolean() {
+                return bar.getBackground().getRGB().equals(DARK_WINDOW);
+              }
+            },
+            BOUND),
+        "the dark bar again");
+    assertDarkBoxes(boxes, "after a live switch");
+  }
+
+  /** Asserts that each unchecked box draws a dark interior, sampled left of its label. */
+  private void assertDarkBoxes(List<Button> boxes, String when) {
+    settle();
+    for (Button box : boxes) {
+      box.setSelection(false);
+      settle();
+      int middle = box.getSize().y / 2;
+      RGB interior = mode(print(box), new Rectangle(5, middle - 1, 3, 3));
+      report.append(when + " " + box.getText() + " box interior " + hex(interior) + "\n");
+      save("check-boxes.txt", report.toString());
+      assertTrue(
+          interior.red < 0x60 && interior.green < 0x60 && interior.blue < 0x60,
+          when + " " + box.getText() + " box interior " + hex(interior));
     }
   }
 
