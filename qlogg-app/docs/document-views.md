@@ -519,7 +519,7 @@ the listeners.
 
 | State | Set on a tab that is not shown when |
 |---|---|
-| `NEW_LINES` | Its line count grows after the first indexing pass ends; a reload or reopen replacement indexed in the background with at least one line |
+| `NEW_LINES` | Its row count grows after the first indexing pass ends and, in a filter tab, after `deriving()` turns false (the rows caught up with the parent at every level); a reload or reopen replacement indexed in the background with at least one line |
 | `NEW_MATCHES` | Its search's match count grows from `DONE` to `DONE` within one generation, which only the auto-refresh of appended lines does |
 | `FOLLOW_STOPPED` | A keyword trigger turned follow off |
 

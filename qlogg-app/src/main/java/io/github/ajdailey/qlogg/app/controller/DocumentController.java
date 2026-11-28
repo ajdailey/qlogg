@@ -498,6 +498,11 @@ public final class DocumentController extends LineViewController {
     return role.parent();
   }
 
+  /** Reports whether a filter tab's rows lag its parent's; false for a file tab. */
+  boolean deriving() {
+    return role.deriving();
+  }
+
   /** The rows changed outside a document event; flushes them. */
   void rowsChanged() {
     updates.post();

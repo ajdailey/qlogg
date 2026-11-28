@@ -72,6 +72,15 @@ interface DocumentRole {
    */
   long rowCount(long lineCount);
 
+  /**
+   * Reports whether the tab's rows lag its parent's, as while a restored or reloaded filter tab
+   * derives. The tab data dot does not count rows added meanwhile as growth.
+   *
+   * @return true while a filter tab's rows lag its parent's at its level or one above; false for a
+   *     file tab
+   */
+  boolean deriving();
+
   /** The tab detached; stops the role's background work. */
   void detached();
 

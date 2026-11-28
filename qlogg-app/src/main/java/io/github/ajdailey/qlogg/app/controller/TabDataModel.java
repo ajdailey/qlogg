@@ -18,9 +18,11 @@ import java.util.Map;
  * and {@code NEW_MATCHES} when its search's match count grows within one generation from {@code
  * DONE} to {@code DONE}, which only the auto-refresh of appended lines does. A higher state
  * replaces a lower one, never the reverse; showing the tab sets {@code NONE}. Lines indexed before
- * the document's first indexing pass ends are not growth. A reloaded or reopened document keeps the
- * tab's state and, while not shown, takes {@code NEW_LINES} when its first pass ends with at least
- * one line. A run of a new search starts a new generation and never sets a state.
+ * the document's first indexing pass ends are not growth, nor are a filter tab's rows before its
+ * derivation catches up with its parent ({@link DocumentController#deriving}). A reloaded or
+ * reopened document keeps the tab's state and, while not shown, takes {@code NEW_LINES} when its
+ * first pass ends with at least one line. A run of a new search starts a new generation and never
+ * sets a state.
  *
  * <p>A keyword trigger that turns follow off sets {@code FOLLOW_STOPPED}, which outranks {@code
  * NEW_MATCHES}. While a quiet rule acts on the document ({@link TriggerController#defersDot}),
@@ -137,7 +139,7 @@ public final class TabDataModel implements ApplicationListener {
   public void documentMovedIn(DocumentController document, int index) {
     Watch watch = new Watch(document, false);
     watches.put(document, watch);
-    watch.attach(!document.state().indexing());
+    watch.attach(!document.state().indexing() && !document.deriving());
   }
 
   private Watch remove(DocumentController document) {
@@ -210,7 +212,7 @@ public final class TabDataModel implements ApplicationListener {
     public void stateChanged(DocumentViewState viewState) {
       long count = viewState.rowCount();
       if (!settled) {
-        if (!viewState.indexing()) {
+        if (!viewState.indexing() && !document.deriving()) {
           settled = true;
           if (reopened && count > 0) {
             raise(TabDataState.NEW_LINES);
