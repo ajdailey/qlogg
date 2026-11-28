@@ -132,8 +132,11 @@ hit testing maps a point over them to their own columns.
 `ColumnRowPainter` paints, per row: the ground across the text area
 (selection, gutter color for a header row, current line or context shade),
 the cells through `RowPainter` with each cell's text at its grid x, then a
-one-pixel rule in the middle of each cell's last column, in the line-number
-color at alpha `0x60` over the background (`ruleColor`). A row outside
+one-pixel rule in the middle of each cell's last column, in
+`PaletteColors.cellRule` (`ruleColor`): `CellRule` (`qlogg-app`) blends the
+line-number color over the background from alpha `0x60` up until the rule
+reaches 3:1 on the background, the current line and the gutter, else takes
+the text color. A row outside
 printable ASCII paints cell by cell, each clipped at its rule, so a wide or
 CJK glyph laid out in a `TextLayout` cannot push or cover the next cell. A
 printable-ASCII row cannot overrun a cell and paints its frozen part and its
@@ -152,7 +155,7 @@ color, and repaints with each read and palette change.
 |---|---|
 | Drag within 3 px of a rule | Resizes the cell left of it while the pointer moves, to at least 3 grid columns (`resize`) |
 | Double-click on a rule | Fits that cell to the visible rows on a worker (`fit`) |
-| Context menu | A check item per column of the format (the last shown one cannot be cleared); Hide Column, Freeze Columns Up To Here for the cell under the pointer; Unfreeze; Fit Columns; Reset Columns |
+| Context menu | A check item per column of the format (the last shown one cannot be cleared); Hide Column, Freeze Columns Up To Here for the cell under the pointer; Unfreeze; Fit Columns; Reset Columns; Search in Column for the cell under the pointer (`SearchController.searchInColumn`) |
 
 A screen reader reads each header cell as an accessible child named
 `<name> column` (`AccessibleName.Parts`).
@@ -210,7 +213,8 @@ lists Copy, Copy This Line, Copy with Line Numbers; Locate Source Line; Mark or 
 Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
 Selection from Search, Replace Search with Selection and the Search Limits
 cascade; Set Selection Start and End; Save Selection to File, Send Selection to
-Scratchpad, Replace Scratchpad with Selection; Open Path at Caret, Toggle
+Scratchpad, Replace Scratchpad with Selection; the Columns cascade (Toggle
+Columns, Copy Raw Lines, Copy Cell, Show Record); Open Path at Caret, Toggle
 Fold, Wrap Line, Scroll All Tabs to This Time and the Time Sync cascade; then the Highlighters (None and the sets)
 and Color Label (None and the label names) cascades. A right click outside the
 selection first moves the caret to that row. Each `SWT.Show` applies

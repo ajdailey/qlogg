@@ -93,9 +93,10 @@ builds each whole row from its record:
 | `LINES` (Copy Raw Lines, `saveLines(file, true)`) | Every line of the record as in the file |
 | `CELL` (Copy Cell) | One cell's full value, unescaped |
 
-With line numbers, the record's first line number comes first. Save takes the
-form through `saveLines(Path, boolean)` and `saveAll(Path, boolean)`; the save
-dialog's choice is not built yet.
+With line numbers, the record's first line number comes first. In column view
+`ViewFeatures.save` asks `FileDialogService.chooseColumnSaveFile`, whose
+`SaveTarget.original` picks `LINES` over `COLUMNS` for `saveLines(Path,
+boolean)` and `saveAll(Path, boolean)`.
 
 ### Charges
 
@@ -318,9 +319,9 @@ rows, copies and searches below; the view paints it (ui-swt
 - `.header` (`1` or `0`) overrides the CSV and TSV header guess.
 - A tab whose format is `clef` or `log4j-xml`, with no timestamp format chosen
   for the file, takes the built-in timestamp format of the same name.
-- Toggle Columns (`TOGGLE_COLUMNS`, no key and no menu item; enabled while the
-  tab has a format) switches between text and column view and records the
-  format id or `none` for the file. `ApplicationController.setColumnHeader`
+- Toggle Columns (`TOGGLE_COLUMNS`, View > Columns, `Ctrl+E Ctrl+K`; enabled
+  while the tab has a format, checked in column view) switches between text
+  and column view and records the format id or `none` for the file. `ApplicationController.setColumnHeader`
   rebuilds the schema and records `.header`. Pasted text records nothing.
 - A `time` format follows the tab's timestamp format; without one the tab has
   no column format.
@@ -347,7 +348,10 @@ find the records read:
 
 In column view on a multi-line format, `ColumnRows` maps a file tab's rows
 through `RecordRows`: a row is a record, shown at its first line, and lines
-past the scanned end are one row each. Each flush takes the newest snapshot
+past the scanned end are one row each. A schema with a header hides the first
+record (`RecordRows(records, true)`): row 0 is the first data record, a line of
+the header maps to row 0, and the cursor never returns a header line. Text
+view and the filter tabs keep line 0. Each flush takes the newest snapshot
 through `changeRows`, which keeps the top line and the selection on their
 lines, as a fold change does. Folding is off while records show; the fold
 rules and collapsed entries stay for text view. A filter tab keeps its
@@ -379,8 +383,8 @@ The current cell is the cell holding the caret's composed column
 `End` (`LINE_START`, `LINE_END`) to the first and last, keeping the row and a
 selection's anchor, and scrolls a scrolling cell into view. Open Path at Caret
 reads the current cell's value and takes its first run holding `/` or `\`,
-else its first run. The three column commands have no key and no menu item
-yet. Show Record and the cell reads run on a `qlogg-read-` worker inside a
+else its first run. Copy Raw Lines, Copy Cell and Show Record sit in View >
+Columns and the log view menu's Columns cascade, with no key. Show Record and the cell reads run on a `qlogg-read-` worker inside a
 document entry, with the busy cursor.
 
 Commands in `CommandStates.OFF_IN_COLUMNS` (text wrap, Wrap Line, block

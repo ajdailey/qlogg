@@ -55,7 +55,6 @@ final class Derivation implements DocumentRole {
   private boolean rangeOpen;
   private OperationHandle running;
   private boolean wanted;
-  private String column = "";
 
   /**
    * Creates a definition over rows a finished search found.
@@ -103,9 +102,7 @@ final class Derivation implements DocumentRole {
    */
   Derivation rederived(DocumentController newParent, MemoryBudget budget) {
     RanSearch ran = RanSearch.unrun(text, options, query, new MutableLineSet(budget));
-    Derivation again = new Derivation(tabs, newParent, ran, engine, ui);
-    again.column = column;
-    return again;
+    return new Derivation(tabs, newParent, ran, engine, ui);
   }
 
   /** Binds the tab these rows belong to; its controller calls this once, while it is built. */
@@ -157,18 +154,9 @@ final class Derivation implements DocumentRole {
     return query.scope();
   }
 
-  /** Returns the search's column, as the session keeps it; empty for none. */
+  /** Returns the search bar column it ran with, as the session keeps it; empty for none. */
   String column() {
-    return column;
-  }
-
-  /**
-   * Sets the search's column, as a restored session gives it.
-   *
-   * @param name the column, or empty for none
-   */
-  void setColumn(String name) {
-    column = name;
+    return options.column();
   }
 
   /** Reports whether growth has ended: a limit stopped it, or the scope ends before the file. */

@@ -110,33 +110,34 @@ class CellViewTest {
   }
 
   @Test
-  void aRecordRowShowsItsCellsAndTheHeaderRowIsMarked() throws Exception {
+  void aRecordRowShowsItsCellsAndTheHeaderLineIsNoRow() throws Exception {
     DocumentController document = open("cells.csv", CSV);
     scanned(document);
-    LineBlock lines = rowsWith(document, 1, "first  second");
-    assertTrue(lines.header(0));
-    assertTrue(lines.text(1).startsWith("1  INFO  first  second "));
-    assertEquals('\n', lines.controls(1).charAt(14));
-    assertEquals(3, lines.cellCount(1));
-    assertEquals(9, lines.cellStart(1, 2));
-    assertEquals(3, lines.sourceLine(2));
-    assertFalse(lines.cut(1));
+    LineBlock lines = rowsWith(document, 0, "first  second");
+    assertFalse(lines.header(0));
+    assertEquals(1, lines.sourceLine(0));
+    assertTrue(lines.text(0).startsWith("1  INFO  first  second "));
+    assertEquals('\n', lines.controls(0).charAt(14));
+    assertEquals(3, lines.cellCount(0));
+    assertEquals(9, lines.cellStart(0, 2));
+    assertEquals(3, lines.sourceLine(1));
+    assertFalse(lines.cut(0));
   }
 
   @Test
   void copyTakesShownCellsRawLinesOrOneCell() throws Exception {
     DocumentController document = open("copy.csv", CSV);
     scanned(document);
-    document.select(rows(1, 2));
+    document.select(rows(0, 1));
     assertEquals("1\tINFO\tfirst\\nsecond" + NL + "2\tWARN\tplain", copied(CommandId.COPY));
     assertEquals(
         "2\t1\tINFO\tfirst\\nsecond" + NL + "4\t2\tWARN\tplain",
         copied(CommandId.COPY_WITH_LINE_NUMBERS));
     assertEquals(
         "1,INFO,\"first" + NL + "second\"" + NL + "2,WARN,plain", copied(CommandId.COPY_RAW_LINES));
-    document.select(Selection.caretAt(new TextPosition(1, 10)));
+    document.select(Selection.caretAt(new TextPosition(0, 10)));
     assertEquals("first\nsecond", copied(CommandId.COPY_CELL));
-    document.select(Selection.caretAt(new TextPosition(1, 4)));
+    document.select(Selection.caretAt(new TextPosition(0, 4)));
     assertEquals("INFO", copied(CommandId.COPY_CELL));
   }
 
@@ -169,7 +170,7 @@ class CellViewTest {
   void showRecordListsEveryColumn() throws Exception {
     DocumentController document = open("show.csv", CSV);
     scanned(document);
-    document.select(Selection.caretAt(new TextPosition(1, 0)));
+    document.select(Selection.caretAt(new TextPosition(0, 0)));
     fixture.application.execute(CommandId.SHOW_RECORD);
     fixture.runUntil(
         new BooleanSupplier() {
@@ -212,7 +213,7 @@ class CellViewTest {
           }
         });
     assertEquals(
-        new Selection(new TextPosition(1, 39), new TextPosition(1, 45)), document.selection());
+        new Selection(new TextPosition(0, 39), new TextPosition(0, 45)), document.selection());
   }
 
   @Test

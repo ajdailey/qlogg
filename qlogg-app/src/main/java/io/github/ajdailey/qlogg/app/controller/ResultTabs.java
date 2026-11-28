@@ -78,21 +78,26 @@ public final class ResultTabs {
    *
    * @param text the search text
    * @param options the search's toggles
-   * @return the text, with a range search's end after it
+   * @return the text as {@link #label} gives it
    */
   static String shortText(String text, SearchOptions options) {
     return shorten(label(text, options));
   }
 
   /**
-   * Returns a search's text in full, with a range search's end after it; not mnemonic-escaped.
+   * Returns a search's text in full, with a range search's end after it and its search bar column
+   * before it ({@code [Level] ERROR}); not mnemonic-escaped.
    *
    * @param text the search text
    * @param options the search's toggles
    * @return the text
    */
   static String label(String text, SearchOptions options) {
-    return options.range() ? UiText.RESULTS_RANGE.format(text, options.rangeEnd()) : text;
+    String searched =
+        options.range() ? UiText.RESULTS_RANGE.format(text, options.rangeEnd()) : text;
+    return options.column().isEmpty()
+        ? searched
+        : UiText.RESULTS_COLUMN.format(options.column(), searched);
   }
 
   private static String shorten(String text) {

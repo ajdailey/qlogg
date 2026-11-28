@@ -42,11 +42,12 @@ import org.eclipse.swt.widgets.ToolItem;
 /**
  * The search row at the top of the bottom pane, in this order: the filtered view's visibility
  * combo, the option toggles (match case, regex, whole word, inverse, combining, in selection,
- * auto-refresh, range), the Predefined filters menu, the pattern field with the search history, the
- * range end field (shown while range is on), the context line counts, then Clear, Search, Keep
- * results, Stop and the search status. Toggles and buttons are icon tool items whose tooltips name
- * the option and its key. The row drives the shown document's {@link SearchController} and filtered
- * view; with no document it is disabled. Enter in the field searches and Escape stops.
+ * auto-refresh, range), the Predefined filters menu, the Column drop-down (column view only, {@link
+ * ColumnChooser}), the pattern field with the search history, the range end field (shown while
+ * range is on), the context line counts, then Clear, Search, Keep results, Stop and the search
+ * status. Toggles and buttons are icon tool items whose tooltips name the option and its key. The
+ * row drives the shown document's {@link SearchController} and filtered view; with no document it
+ * is disabled. Enter in the field searches and Escape stops.
  *
  * <p>The field's list holds the history, most recent first. Typing completes inline with the most
  * recent entry that starts with the text, compared with the Match case toggle's rule; Backspace and
@@ -75,6 +76,7 @@ public final class SearchBar {
   private Keymap keymap;
   private final ToolIcons icons;
   private final Combo visibility;
+  private final ColumnChooser columnChooser;
   private final Combo pattern;
   private final ToolBar filterBar;
   private final ToolItem filters;
@@ -131,6 +133,18 @@ public final class SearchBar {
           syncVisibility();
         }
       };
+  private final DocumentViewListener columnsListener =
+      new DocumentViewListener() {
+        @Override
+        public void stateChanged(DocumentViewState state) {
+          syncColumns();
+        }
+
+        @Override
+        public void contentChanged() {
+          syncColumns();
+        }
+      };
 
   /**
    * Creates the row, disabled.
@@ -141,7 +155,7 @@ public final class SearchBar {
   public SearchBar(Composite parent, Keymap keymap) {
     this.keymap = keymap;
     bar = new Composite(parent, SWT.NONE);
-    GridLayout layout = new GridLayout(8, false);
+    GridLayout layout = new GridLayout(9, false);
     layout.marginHeight = 2;
     layout.marginWidth = 2;
     layout.horizontalSpacing = 4;
@@ -188,6 +202,17 @@ public final class SearchBar {
     }
     filters.setToolTipText(CommandId.PREDEFINED_FILTERS.title());
     filterMenu = new Menu(filterBar);
+    columnChooser =
+        new ColumnChooser(
+            bar,
+            new Listener() {
+              @Override
+              public void handleEvent(Event event) {
+                if (controller != null && !syncing) {
+                  controller.setOptions(options());
+                }
+              }
+            });
     pattern = new Combo(bar, SWT.DROP_DOWN);
     ComboListSelection.PLATFORM.draw(pattern);
     GridData patternData = new GridData(SWT.FILL, SWT.CENTER, true, false);
@@ -616,7 +641,10 @@ public final class SearchBar {
         checked.add(all.get(i));
       }
     }
-    SearchOptions next = options().withMode(MatchMode.REGEX);
+    SearchOptions next =
+        options()
+            .withMode(MatchMode.REGEX)
+            .withCombining(combining || FilterPatterns.needsCombining(checked));
     showPreferences(FilterPatterns.compose(checked, combining), next);
     if (controller != null) {
       controller.setText(pattern.getText(), next);
@@ -631,6 +659,15 @@ public final class SearchBar {
    */
   public Composite control() {
     return bar;
+  }
+
+  /**
+   * Returns the Column drop-down.
+   *
+   * @return the drop-down
+   */
+  ColumnChooser columnChooser() {
+    return columnChooser;
   }
 
   /**
@@ -752,7 +789,9 @@ public final class SearchBar {
     controller = shown.search();
     controller.addListener(listener);
     shown.filtered().addListener(filteredListener);
+    shown.addListener(columnsListener);
     setEnabled(true);
+    syncColumns();
     showPreferences(controller.fieldText(), controller.options());
     show(controller.state());
     syncVisibility();
@@ -766,10 +805,19 @@ public final class SearchBar {
     }
     if (document != null) {
       document.filtered().removeListener(filteredListener);
+      document.removeListener(columnsListener);
       document = null;
     }
+    syncColumns();
     setEnabled(false);
     show(SearchViewState.IDLE);
+  }
+
+  /** Shows the Column drop-down in the bound tab's column view, with that tab's names. */
+  private void syncColumns() {
+    if (!bar.isDisposed() && columnChooser.sync(document == null ? null : document.columns())) {
+      bar.layout(true);
+    }
   }
 
   /** Selects the filtered view's mode in the combo. */
@@ -809,7 +857,8 @@ public final class SearchBar {
         range.getSelection(),
         rangeEnd.getText(),
         count(contextBefore),
-        count(contextAfter));
+        count(contextAfter),
+        columnChooser.column());
   }
 
   private void runSearch() {
@@ -841,6 +890,7 @@ public final class SearchBar {
       }
       setCount(contextBefore, options.contextBefore());
       setCount(contextAfter, options.contextAfter());
+      columnChooser.select(options.column());
     } finally {
       syncing = false;
     }

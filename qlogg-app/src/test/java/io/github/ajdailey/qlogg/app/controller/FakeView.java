@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.controller;
 import io.github.ajdailey.qlogg.app.about.AboutInfo;
 import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.view.MainView;
+import io.github.ajdailey.qlogg.app.view.SaveTarget;
 import io.github.ajdailey.qlogg.app.view.UiThreadCheck;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.time.TimeContext;
@@ -303,6 +304,16 @@ final class FakeView implements MainView {
   public Path chooseSaveFile(String suggestedName) {
     check("chooseSaveFile");
     return saveTarget;
+  }
+
+  boolean saveOriginal;
+  String columnSaveName;
+
+  @Override
+  public SaveTarget chooseColumnSaveFile(String suggestedName) {
+    check("chooseColumnSaveFile");
+    columnSaveName = suggestedName;
+    return saveTarget == null ? null : new SaveTarget(saveTarget, saveOriginal);
   }
 
   @Override

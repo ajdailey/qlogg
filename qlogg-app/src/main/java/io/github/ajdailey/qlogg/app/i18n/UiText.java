@@ -180,6 +180,10 @@ public enum UiText {
   LICENSES_READ_FAILED,
   /** Search field hint. */
   SEARCH_HINT,
+  /** Column drop-down entry that searches whole rows. */
+  SEARCH_ALL_COLUMNS,
+  /** Column drop-down tooltip. */
+  SEARCH_COLUMN_TOOLTIP,
   /** Search toggle. */
   SEARCH_REGEX,
   /** Search toggle. */
@@ -218,6 +222,8 @@ public enum UiText {
   SEARCH_NO_COLUMN,
   /** Column term error: a range search on a multi-line format; argument: the column. */
   SEARCH_COLUMN_LINES_ONLY,
+  /** Search in Folder refused a column term: the column. */
+  FOLDER_COLUMN_TERM,
   /** Combined expression error: 1-based column, the reason. */
   SEARCH_EXPRESSION_ERROR,
   /** Expression error reason. */
@@ -532,6 +538,10 @@ public enum UiText {
   RULE_IGNORE_CASE,
   /** Highlighter option. */
   RULE_WHOLE_LINE,
+  /** Highlighter rule field caption: the column the rule tests. */
+  RULE_COLUMN,
+  /** Highlighter rule column tooltip. */
+  RULE_COLUMN_HINT,
   /** Highlighter color. */
   RULE_FOREGROUND,
   /** Highlighter color. */
@@ -763,6 +773,8 @@ public enum UiText {
   COLUMN_FIT,
   /** Column header menu item. */
   COLUMN_RESET,
+  /** Column header menu item: sets the search bar column to this cell. */
+  COLUMN_SEARCH,
   /** Accessible name of the column header. */
   ACCESSIBLE_COLUMN_HEADER,
   /** Accessible name of a header cell: {@code %s} is the column name. */
@@ -777,6 +789,10 @@ public enum UiText {
   NOTICE_BLOCK_WRAP,
   /** Save failure dialog title. */
   SAVE_TITLE,
+  /** Save chooser file type in column view: the shown cells tab-separated. */
+  SAVE_FORM_COLUMNS,
+  /** Save chooser file type in column view: the lines as in the file. */
+  SAVE_FORM_ORIGINAL,
   /** Save failure; argument: the reason. */
   SAVE_FAILED,
   /** Save refused; arguments: the lines' MiB and the largest MiB that fits. */
@@ -1212,6 +1228,8 @@ public enum UiText {
   FILTERED_CONTEXT_LIMIT,
   /** Results tab text of a range search: the start and end expressions. */
   RESULTS_RANGE,
+  /** A search with a search bar column: the column, then the text. */
+  RESULTS_COLUMN,
 
   // Keyword triggers.
   /** Tab tooltip line for a tab whose follow a trigger turned off. */
@@ -1421,6 +1439,8 @@ public enum UiText {
   VIEW_COLORS_GRAPHITE,
   /** Preferences note: where user schemes are read. */
   PREFERENCES_VIEW_COLORS_NOTE,
+  /** Preferences check box: view.columns.auto. */
+  PREFERENCES_COLUMNS_AUTO,
 
   // Dropped folders.
   /** Notice: a drop held folders, which are not opened. */
@@ -1471,6 +1491,11 @@ public enum UiText {
   MENU_SEARCH_LIMITS,
   /** View menu cascade of the fold commands. */
   MENU_FOLDING,
+  /**
+   * View and log view cascade of the column commands; every letter of the label already marks
+   * another View item.
+   */
+  MENU_COLUMNS,
   /** File menu cascade closing the tabs around the active one. */
   MENU_CLOSE_MULTIPLE,
 

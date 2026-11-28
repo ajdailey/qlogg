@@ -333,6 +333,7 @@ public final class CommandStates {
       case TOGGLE_KEEP_RESULTS -> options.keepResults();
       case TOGGLE_RANGE -> options.range();
       case TOGGLE_WRAP -> document.wrap();
+      case TOGGLE_COLUMNS -> document.columns().shown();
       default -> false;
     };
   }

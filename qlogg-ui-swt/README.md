@@ -11,10 +11,10 @@ against the build host's SWT fragment.
 
 | Classes | Contents | Detail |
 |---|---|---|
-| `MainWindow`, `TabStrip`, `SearchBar`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabStripHeight`, `TabList`, `WindowBusyCursor`, `ResultTabMenu`, `TabWheel`, `AccessibleName`, `OpenDocuments` | The main window: top row, tab row, split body, search row, filtered view, status bar, busy cursor | [docs/main-window.md](docs/main-window.md) |
+| `MainWindow`, `TabStrip`, `SearchBar`, `ColumnChooser`, `ResultsPane`, `QuickFindBar`, `TabDots`, `TabStripButtons`, `TabStripHeight`, `TabList`, `WindowBusyCursor`, `ResultTabMenu`, `TabWheel`, `AccessibleName`, `OpenDocuments` | The main window: top row, tab row, split body, search row, filtered view, status bar, busy cursor | [docs/main-window.md](docs/main-window.md) |
 | `MainMenuBar`, `ToolMenuBars`, `MenuIcons`, `TimeSyncMenu`, `ColorLabelMenu`, `AppMenu`, `AcceleratorHold` | Menu bar, tool window menus on macOS, menu item icons, listed entries, Time Sync and Color Label cascades, macOS application menu, accelerators cleared during a key sequence | [docs/menus.md](docs/menus.md) |
 | `LogCanvas`, `TextGrid`, `RowPainter`, `ColumnRowPainter`, `ColumnHeader`, `CellGrid`, `PaletteColors`, `SwtKeys`, `SequenceKeys`, `OverviewBar` | The log view and its column view, its key sequences and the overview bar | [docs/log-view.md](docs/log-view.md) |
-| `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow`, `ColorField`, `EncodingCombo` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
+| `Dialogs` and the dialog classes, `CommandPaletteWindow`, `TableFit`, `GuideWindow`, `ScratchpadWindow`, `MultiSearchWindow`, `FolderSearchWindow`, `MarksWindow`, `ColorField`, `EncodingCombo`, `RuleColumnField`, `SaveForms` | Dialogs and tool windows | [docs/dialogs.md](docs/dialogs.md) |
 | `SwtThemeService`, `Icons`, `ToolIcons` | Native widget theme per platform, dialog colors, the main window's rows under dark on win32, tab strip colors, icons | [docs/theme.md](docs/theme.md) |
 | `WindowViews`, `MainWindowSlot`, `RebuildState`, `NativeDialogs` | Rebuilding each main window over its controllers for a theme switch on win32; native choosers counted so a window waits for them | [docs/theme.md](docs/theme.md#window-rebuild) |
 | `SwtUiDispatcher` | `UiDispatcher` over the Display | [UI thread](#ui-thread) |

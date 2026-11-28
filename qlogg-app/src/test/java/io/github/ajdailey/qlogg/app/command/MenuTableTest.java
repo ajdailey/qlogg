@@ -115,7 +115,10 @@ class MenuTableTest {
     List<String> missing = new ArrayList<String>();
     for (Map.Entry<String, List<String>> menu : menus().entrySet()) {
       for (String label : menu.getValue()) {
-        if (label.indexOf('&') < 0 && !label.equals(CommandId.WRAP_LINE.label())) {
+        // Every letter of Columns already marks another item of View and of the log view menu.
+        if (label.indexOf('&') < 0
+            && !label.equals(CommandId.WRAP_LINE.label())
+            && !label.equals(UiText.MENU_COLUMNS.text())) {
           missing.add(menu.getKey() + " > " + label);
         }
       }

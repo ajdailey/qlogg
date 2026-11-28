@@ -216,6 +216,12 @@ parsed once (`FieldParser`), by the first column term that needs its values.
 - A term may name a column directly before its opening quote:
   `level:"ERROR"`. The name matches `[A-Za-z_@][A-Za-z0-9_@.-]*` or is a
   1-based number; any other word before a quote is `UNKNOWN_WORD`.
+- `ExpressionColumns.within(expression, name)` gives every term without a
+  column the column `name` (the search bar's Column drop-down), `first`
+  returns the first column a term names, and `prefixed(name, number,
+  pattern)` writes one term with its prefix, the number when the name is
+  outside the grammar, or null for a pattern the quoted form cannot carry (a
+  trailing backslash, or a backslash before a quote).
 - A syntax error throws `ExpressionException` with a `Reason` and a 1-based
   column; nesting deeper than 256 is an error.
 

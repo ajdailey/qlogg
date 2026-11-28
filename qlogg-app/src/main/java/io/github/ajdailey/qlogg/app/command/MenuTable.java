@@ -150,6 +150,11 @@ public final class MenuTable {
               CommandId.SEND_TO_SCRATCHPAD,
               CommandId.REPLACE_SCRATCHPAD,
               null,
+              CommandId.TOGGLE_COLUMNS,
+              CommandId.COPY_RAW_LINES,
+              CommandId.COPY_CELL,
+              CommandId.SHOW_RECORD,
+              null,
               CommandId.OPEN_PATH_AT_CARET,
               CommandId.TOGGLE_FOLD,
               CommandId.WRAP_LINE,
@@ -222,11 +227,12 @@ public final class MenuTable {
    * Returns the cascade a log view context menu command sits in.
    *
    * @param command a command of {@link #LOG_VIEW_MENU}
-   * @return Search Limits for the search limit commands, or null
+   * @return Search Limits for the search limit commands, Columns for the column commands, or null
    */
   public static UiText logViewCascade(CommandId command) {
     return switch (command) {
       case SET_SEARCH_START, SET_SEARCH_END, CLEAR_SEARCH_LIMITS -> UiText.MENU_SEARCH_LIMITS;
+      case TOGGLE_COLUMNS, COPY_RAW_LINES, COPY_CELL, SHOW_RECORD -> UiText.MENU_COLUMNS;
       default -> null;
     };
   }

@@ -11,7 +11,7 @@ The dialogs (`Dialogs`, `LineNumberDialog`, `ErrorDialog`, `AboutDialog`,
 ## Dialog model
 
 Dialogs open without a nested event loop: `open` returns at once and buttons
-act through listeners. The platform `FileDialog` and `ColorDialog` are the
+act through listeners. `Dialogs.combo` creates every dialog combo with its list selection drawn. In column view the save chooser offers the form as its file types (`SaveForms`): Columns, tab-separated, first, then Original lines. The platform `FileDialog` and `ColorDialog` are the
 exceptions. Modal dialogs use `APPLICATION_MODAL`; Enter presses the default
 button and Escape closes. Dialogs that remember their size are listed in
 [main-window.md](main-window.md#windows-and-placement).
@@ -83,7 +83,7 @@ chosen file whose ids are new.
 
 | Tab | Contents |
 |---|---|
-| Highlighter Sets | The sets (Add, Remove, Move Up, Move Down, Import, Export, name) and the selected set's highlighters (Add, Remove, Move Up, Move Down) with the editor: pattern, Regex, Ignore case, whole line, Enabled, text and background colors through `ColorField`, opacity, variance, and the trigger actions Stop follow, Set mark with a comment template field enabled only with it, and Do not light the tab dot. A pattern or template regex that does not compile is reported below |
+| Highlighter Sets | The sets (Add, Remove, Move Up, Move Down, Import, Export, name) and the selected set's highlighters (Add, Remove, Move Up, Move Down) with the editor: pattern, Regex, Ignore case, whole line, Enabled, the Column field (`RuleColumnField`: an editable combo of the shown tab's column names, empty for the whole row), text and background colors through `ColorField`, opacity, variance, and the trigger actions Stop follow, Set mark with a comment template field enabled only with it, and Do not light the tab dot. A pattern or template regex that does not compile is reported below |
 | Color Labels | Name, colors and cycle membership per label |
 | Match Highlight | On or off, theme color or a chosen one, variance |
 
@@ -99,7 +99,7 @@ Preferences made while the dialog is open survive Apply.
 
 | Tab | Behavior |
 |---|---|
-| View | The family list is `Display.getFontList`. Changing the size or family clears the zoom |
+| View | The family list is `Display.getFontList`. Changing the size or family clears the zoom. A check box sets `view.columns.auto` |
 | File | The default encoding box (`EncodingCombo`) lists the common charsets and the current one at once, then every `EncodingChoices` charset when `loadEncodingChoices` delivers them, keeping the selection |
 | Shortcuts | Every command with its keys, an override marked `(changed)`. The key field records one or two strokes; Add refuses keys `Keymap.conflicts` reports, naming the command that holds them |
 | Folding | The entry start pattern and the continuation patterns, one per line, with Restore Defaults. OK and Apply check them first (`FoldRulesText`); a refused pattern applies nothing, selects the tab and shows the reason under the patterns |

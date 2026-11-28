@@ -118,6 +118,9 @@ read, so the snapshot stays valid while the scan goes on. A search
 read it. `RecordRows` maps rows to record first lines by `rank` and `select`
 on the set, or on its complement (a binary search over `rank`) for a
 continuation set, with the `rowOf`, `lineAt` and `cursor` calls `FoldMap` has.
+`RecordRows(records, true)` leaves out the first record, a CSV or TSV header:
+row 0 is the second record, a header line maps to row 0, and the cursor
+returns no header line.
 
 ## Column search
 
@@ -182,7 +185,11 @@ a record is parsed when it holds the literal or any of
   column it names; a match-only rule colors matches inside each shown cell's
   value, or only in its column's cells. A rule naming a column the format
   lacks colors nothing in column view. Syntax tokens run over each cell's
-  value. Spans are in composed columns, clipped to each cell's shown chars.
+  value, except that a Level cell (`ColumnSchema.levelColumn`, CLEF and log4j
+  XML) whose whole value is a level name, ASCII case ignored, takes that
+  level's kind over its shown chars (`LevelNames`): Serilog's Verbose to
+  Fatal and log4j's TRACE to FATAL color as the text levels do. Spans are in
+  composed columns, clipped to each cell's shown chars.
 - `LineFinder.find` with a `ColumnRead` searches each shown cell's full value
   in cell order and reports the match in composed columns, cut to the cell's
   shown columns.

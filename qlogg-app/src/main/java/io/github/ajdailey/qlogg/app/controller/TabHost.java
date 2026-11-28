@@ -174,6 +174,11 @@ final class TabHost
   }
 
   @Override
+  public void focusSearch() {
+    view.focusSearch();
+  }
+
+  @Override
   public ColumnSettings columnSettings() {
     return window.columnSettings();
   }

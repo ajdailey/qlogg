@@ -645,6 +645,96 @@ the rules for every file:
 Patterns are Java regular expressions found anywhere in the line, so anchor
 them with `^`. A pattern that does not compile is refused with the reason.
 
+## Column view
+
+![A CSV file in column view](images/guide/columns-csv-light.png)
+
+Column view splits each line into cells under a header of column names.
+QLogg detects these formats when a file opens:
+
+| Format | Detected by |
+|---|---|
+| CSV | A `.csv` name and the same field count on most lines; the first line names the columns unless a field in it is empty, repeated, a number or a time |
+| TSV | As CSV, with a `.tsv` or `.tab` name |
+| Apache access log | Common or combined format lines |
+| Serilog compact JSON (CLEF) | JSON objects with an `@t` time |
+| log4j XML | `<log4j:event>` elements, one event over several lines |
+
+A file in a detected format opens in column view while Tools > Preferences,
+View, Open a file in a detected column format in column view is on, the
+default. View > Columns > Toggle Columns (`Ctrl+E Ctrl+K`) switches the tab
+between column and text view, and QLogg remembers the choice for the file.
+Text files match no format and open as text.
+
+- A row is a record: a log4j event, or a CSV record whose quoted field holds a
+  line break, is one row. Line numbers stay the file's.
+- A CSV or TSV header line is not a row; the header shows its names. Text
+  view shows it as line 1. In a [rotated set](#rotated-files) each later
+  file's header line shows as a shaded row.
+- The Time cell shows the time in the display zone with the tab's
+  [time offset](#time-offset). Level cells take the level colors of
+  [syntax colors](#syntax-colors).
+- A line that does not parse spans the row.
+- `Left` and `Right` move the current cell, `Home` and `End` to the first and
+  last.
+- Text wrap, Wrap Line, block selection, folding and Show Whitespace are off.
+
+![A CLEF file in column view, Dark](images/guide/columns-clef-dark.png)
+
+The header sets the cells for every file of the format:
+
+- Drag the rule after a name to resize the column, to at least 3 characters;
+  double-click it to fit the column to the shown rows.
+- The header's context menu shows or hides each column, and holds Hide
+  Column, Freeze Columns Up To Here, Unfreeze, Fit Columns, Reset Columns and
+  Search in Column. Frozen columns stay at the left while the rest scroll.
+- QLogg stores widths, hidden columns and the frozen count per format, by
+  column name, for up to 256 names. A column without a stored width fits the
+  first rows read.
+
+### Searching columns
+
+In column view the Column drop-down beside the search field limits the search
+to one column: All Columns, then the tab's column names. Search in Column in
+the header's context menu sets it and moves to the search field. The result
+tab shows the column, such as `[level] ERROR`.
+
+With Combine on, a term can name its own column before its quote, by name or
+number: `level:"ERROR" and message:"timeout"`. A name holds letters, digits,
+`_`, `@`, `.` and `-`; reach any other column, such as `User agent`, by its
+number. The drop-down applies to every term without a column. A search naming
+a column the tab does not have stops with "No column level in this view",
+in text view too. Search All Open Files reports it for each tab, and Search
+in Folder refuses column terms. Save as Filter from a drop-down search saves
+the text with the column as a prefix, `level:"ERROR"`; such a filter turns
+Combine on when the filters menu adds it.
+
+On a multi-line format the record is the unit: a match anywhere in an event
+lists the event. A range search there cannot use column terms, and context
+lines are off.
+
+### Highlighters in columns
+
+Configure Highlighters' Column field names the column a rule tests, picked
+from the shown tab's names or typed; empty tests the whole row. A rule that
+colors the line tests that column's value; one that colors matches colors them
+inside that column's cells. Without a column, a match colors inside each cell.
+Text view ignores the field.
+
+### Copying and saving columns
+
+| Command | Copies |
+|---|---|
+| Copy (`Ctrl+C`) | The selected rows' shown cells, tab-separated; a tab, line break or backslash in a value is written `\t`, `\n` or `\\` |
+| Copy with Line Numbers | The same, each row's first line number first |
+| View > Columns > Copy Raw Lines | Every line of each selected row as in the file |
+| View > Columns > Copy Cell | The current cell's full value |
+
+Save Selection and Save Filtered Results ask for the form as the file type:
+Columns, tab-separated, or Original lines. View > Columns > Show Record opens
+the current row as one `Name: value` line per column, full values included.
+The log view's context menu has the same Columns cascade.
+
 ## Selecting, copying and saving
 
 Drag or use `Shift` with the arrows to select lines; `Ctrl+A` selects all.
@@ -864,7 +954,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Filter to Tab, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward, Locate Source Line; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Columns (Toggle Columns; Copy Raw Lines, Copy Cell, Show Record), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |
@@ -882,7 +972,7 @@ Preferences, Shortcuts still list them, and they act on the window in front.
 
 The log view's context menu holds the copy commands, Locate Source Line, the
 mark, search, selection and save commands, Open Path at Caret, Toggle Fold,
-Wrap Line, Scroll All Tabs to This Time, and the Time Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
+Wrap Line, Scroll All Tabs to This Time, and the Columns, Time Sync, Highlighters and Color Label cascades. Find Selection Forward and Backward,
 Send Selection to Scratchpad and Replace Scratchpad with Selection are only
 there and on their keys. Rename Tab and Reset Tab Name are only in a tab's
 context menu.
@@ -906,6 +996,7 @@ Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 | View | Font, Size | Platform monospace font and size | The log views' font; size 4 to 72 |
 | View | Bold, Force anti-aliasing | Off | Text drawing |
 | View | View colors | Follow theme | [View colors](#view-colors) |
+| View | Open a file in a detected column format in column view | On | [Column view](#column-view) |
 | File | Default encoding | windows-1252 | Used when detection finds no other encoding |
 | File | Use directory change notifications | On (Windows, Linux), Off (macOS) | Notices file changes from system events between checks; on macOS the Java runtime only polls the folder every 2 s, which adds nothing to the check interval |
 | File | Check interval (ms) | 1000 | How often open files are checked for changes, 100 to 60,000 |

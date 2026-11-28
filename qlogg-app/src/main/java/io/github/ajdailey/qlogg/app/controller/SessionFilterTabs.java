@@ -209,7 +209,8 @@ final class SessionFilterTabs {
       return null;
     }
     Session.Derived definition = entry.tab().derived();
-    SearchOptions options = RememberedState.options(definition.toggles());
+    SearchOptions options =
+        RememberedState.options(definition.toggles()).withColumn(definition.column());
     LineRange scope =
         definition.scopeFirst() < 0
             ? null
@@ -228,7 +229,6 @@ final class SessionFilterTabs {
             RanSearch.unrun(definition.text(), options, query, new MutableLineSet(parent.budget())),
             set.services().search(),
             set.ui());
-    derivation.setColumn(definition.column());
     DocumentController created = window.openDerived(derivation, parent.document(), entry.shown());
     if (!entry.tab().name().isEmpty()) {
       window.setTabName(created, entry.tab().name());

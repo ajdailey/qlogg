@@ -19,6 +19,7 @@ import io.github.ajdailey.qlogg.core.folder.FolderSearch;
 import io.github.ajdailey.qlogg.core.folder.NamePattern;
 import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
+import io.github.ajdailey.qlogg.core.search.ExpressionColumns;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.SearchExpression;
@@ -139,9 +140,9 @@ public final class FolderSearchController {
 
   /**
    * Stops the running search and starts a new one as the shown set. An empty folder or text, a name
-   * or exclude pattern or combined expression that does not parse, or closed workers start no set
-   * and make {@link #state} {@code FAILED} with a message; the folder is validated on the search
-   * thread.
+   * or exclude pattern or combined expression that does not parse, a column term, or closed workers
+   * start no set and make {@link #state} {@code FAILED} with a message; the folder is validated on
+   * the search thread.
    *
    * @param next what to search
    */
@@ -160,6 +161,11 @@ public final class FolderSearchController {
       expression = ExpressionParser.parse(next.text(), toggles.mode(), toggles.combining());
     } catch (ExpressionException e) {
       refuse(UiText.SEARCH_EXPRESSION_ERROR.format(e.column(), SearchController.reason(e)));
+      return;
+    }
+    String column = ExpressionColumns.first(expression);
+    if (column != null) {
+      refuse(UiText.FOLDER_COLUMN_TERM.format(LogText.oneLine(column)));
       return;
     }
     SearchQuery query =

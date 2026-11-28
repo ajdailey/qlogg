@@ -97,6 +97,8 @@ final class PreferencesDialog {
   // View colors.
   private Combo viewColors;
   private final List<String> colorIds = new ArrayList<String>();
+  // Column view.
+  private Button columnsAuto;
   // Last tab.
   private Button closeWindowWithLastTab;
   // Last used tab.
@@ -266,6 +268,9 @@ final class PreferencesDialog {
     antialias = check(page, UiText.PREFERENCES_FONT_ANTIALIAS, initialFont.antialias());
     // View colors.
     viewColors(page);
+    // Column view.
+    columnsAuto =
+        check(page, UiText.PREFERENCES_COLUMNS_AUTO, controller.preferences().view().columnsAuto());
   }
 
   private void file(Composite page, Options options) {
@@ -634,6 +639,7 @@ final class PreferencesDialog {
       boolean runOnAdd,
       long maxResults,
       String colors,
+      boolean columnsAuto,
       FoldRules folds) {}
 
   private Boxes boxes(FoldRules folds) {
@@ -664,6 +670,7 @@ final class PreferencesDialog {
         runOnAdd.getSelection(),
         maxResults.getSelection(),
         color < 0 ? null : colorIds.get(color),
+        columnsAuto.getSelection(),
         folds);
   }
 
@@ -735,7 +742,8 @@ final class PreferencesDialog {
     ViewOptions view = controller.preferences().view();
     ViewOptions next =
         view.withColors(changed(view.colors(), before.colors(), now.colors()))
-            .withFolds(changed(view.folds(), before.folds(), now.folds()));
+            .withFolds(changed(view.folds(), before.folds(), now.folds()))
+            .withColumnsAuto(changed(view.columnsAuto(), before.columnsAuto(), now.columnsAuto()));
     if (!next.equals(view)) {
       controller.setViewOptions(next);
     }
@@ -766,6 +774,10 @@ final class PreferencesDialog {
 
   Combo viewColors() {
     return viewColors;
+  }
+
+  Button columnsAuto() {
+    return columnsAuto;
   }
 
   /** Opens the dialog 640 wide, or wider where a page's labels need it. */

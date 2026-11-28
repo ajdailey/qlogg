@@ -415,6 +415,23 @@ class ThemeAndHighlightTest {
     dialog.shell().dispose();
   }
 
+  @Test
+  void theHighlightersDialogKeepsARulesColumn() {
+    HighlightersDialog dialog = new HighlightersDialog(window.shell(), controller);
+    dialog.selectRule(0, 0);
+    assertEquals("", dialog.columnField().get());
+    dialog.columnField().control().setText("Level");
+    assertEquals("Level", dialog.sets().get(0).rules().get(0).column());
+    controller.setHighlightSettings(dialog.result());
+    dialog.shell().dispose();
+    HighlightersDialog reopened = new HighlightersDialog(window.shell(), controller);
+    reopened.selectRule(0, 0);
+    assertEquals("Level", reopened.columnField().get());
+    reopened.columnField().control().setText("");
+    assertEquals("", reopened.sets().get(0).rules().get(0).column());
+    reopened.shell().dispose();
+  }
+
   // Keyword triggers.
 
   private static void click(Button check) {

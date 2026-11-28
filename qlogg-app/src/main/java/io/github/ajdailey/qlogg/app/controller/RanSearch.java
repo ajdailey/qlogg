@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.app.controller;
 
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.core.search.ExpressionColumns;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.ExpressionParser;
 import io.github.ajdailey.qlogg.core.search.LineRange;
@@ -90,7 +91,7 @@ final class RanSearch {
    */
   static SearchQuery query(String text, SearchOptions options, LineRange scope, boolean hideAnsi)
       throws ExpressionException {
-    SearchExpression expression = ExpressionParser.parse(text, options.mode(), options.combining());
+    SearchExpression expression = parse(text, options);
     return new SearchQuery(
         expression,
         options.caseSensitive(),
@@ -113,6 +114,20 @@ final class RanSearch {
     if (options.rangeEnd().isEmpty()) {
       throw new ExpressionException(ExpressionException.Reason.EXPECTED_TERM, 1);
     }
-    return ExpressionParser.parse(options.rangeEnd(), options.mode(), options.combining());
+    return parse(options.rangeEnd(), options);
+  }
+
+  /**
+   * Parses search text with the toggles' mode and combining, giving each term without a column the
+   * toggles' {@code column}.
+   *
+   * @param text the text
+   * @param options the toggles
+   * @return the expression
+   * @throws ExpressionException when combining text does not parse
+   */
+  static SearchExpression parse(String text, SearchOptions options) throws ExpressionException {
+    return ExpressionColumns.within(
+        ExpressionParser.parse(text, options.mode(), options.combining()), options.column());
   }
 }

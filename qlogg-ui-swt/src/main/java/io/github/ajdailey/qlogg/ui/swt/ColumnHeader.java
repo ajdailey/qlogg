@@ -25,8 +25,8 @@ import org.eclipse.swt.widgets.MenuItem;
  * ColumnRowPainter#ruleColor}; hidden in text view. A drag on a cell's rule resizes the cell, to at
  * least {@link ColumnLayout#MIN_WIDTH} grid columns; a double-click on a rule fits the cell to the
  * visible rows; the context menu ({@link #menuAt}) shows and hides columns, freezes, fits and
- * resets them. Each edit goes to the tab's {@link ColumnSizing}. A screen reader reads each header
- * cell as a child named after its column. UI thread only.
+ * resets them, and sets the search bar's column. Each edit goes to the tab's {@link ColumnSizing}.
+ * A screen reader reads each header cell as a child named after its column. UI thread only.
  */
 final class ColumnHeader {
   /** Pixels above and below the names. */
@@ -273,7 +273,8 @@ final class ColumnHeader {
 
   /**
    * Builds the context menu for a header x: a check item per column of the format, Hide Column,
-   * Freeze Columns Up To Here and Unfreeze for the cell there, Fit Columns and Reset Columns.
+   * Freeze Columns Up To Here and Unfreeze for the cell there, Fit Columns, Reset Columns, and
+   * Search in Column for the cell there.
    *
    * @param x pixels in the header
    * @return the menu, which the caller disposes
@@ -354,6 +355,17 @@ final class ColumnHeader {
           @Override
           public void run() {
             sizing.reset();
+          }
+        });
+    new MenuItem(menu, SWT.SEPARATOR);
+    item(
+        menu,
+        UiText.COLUMN_SEARCH,
+        cell >= 0,
+        new Runnable() {
+          @Override
+          public void run() {
+            view.document().owner().search().searchInColumn(name(layout, cell));
           }
         });
     return menu;

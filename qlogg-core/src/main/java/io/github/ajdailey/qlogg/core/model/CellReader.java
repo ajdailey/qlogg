@@ -325,13 +325,19 @@ public final class CellReader {
       }
       count = addTokens(kinds.spans(read.text(), from, (int) (to - from)), 0, from, to, count);
     } else {
+      int level = layout.schema().levelColumn();
       for (int cell = 0; cell < layout.count(); cell++) {
         long start = layout.start(cell);
         boolean frozen = cell < layout.frozen();
         long lo = frozen ? start : Math.max(start, from);
         long hi = Math.min(start + shown[cell], frozen ? frozenEnd : to);
         if (hi > lo) {
-          TokenSpans value = kinds.spans(read.value(layout.column(cell)), 0, shown[cell]);
+          CharSequence text = read.value(layout.column(cell));
+          TokenKind named = layout.column(cell) == level ? LevelNames.kind(text) : null;
+          TokenSpans value =
+              named != null
+                  ? LevelNames.span(named, shown[cell])
+                  : kinds.spans(text, 0, shown[cell]);
           count = addTokens(value, start, lo, hi, count);
         }
       }

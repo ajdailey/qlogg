@@ -582,6 +582,7 @@ class LogViewTest {
             "Syntax Colors",
             "-",
             "Folding",
+            "Columns",
             "Timestamps",
             "Filtered View",
             "-",
@@ -598,8 +599,11 @@ class LogViewTest {
     assertEquals(
         List.of("Toggle Fold", "Fold All", "Unfold All"), labels(view.getItem(18).getMenu()));
     assertEquals(
-        List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
+        List.of("Toggle Columns", "-", "Copy Raw Lines", "Copy Cell", "Show Record"),
         labels(view.getItem(19).getMenu()));
+    assertEquals(
+        List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
+        labels(view.getItem(20).getMenu()));
     assertEquals(
         List.of(
             "Marks and Matches",
@@ -612,8 +616,8 @@ class LogViewTest {
             "Grow Main View",
             "Shrink Main View",
             "Save Splitter Position"),
-        labels(view.getItem(20).getMenu()));
-    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(26).getMenu()));
+        labels(view.getItem(21).getMenu()));
+    assertEquals(List.of("Light", "Dark", "System"), labels(view.getItem(27).getMenu()));
     assertEquals(
         List.of(
             "Configure Highlighters",
@@ -696,6 +700,8 @@ class LogViewTest {
             "Send Selection to Scratchpad",
             "Replace Scratchpad with Selection",
             "-",
+            "Columns",
+            "-",
             "Open Path at Caret",
             "Toggle Fold",
             "Wrap Line",
@@ -708,12 +714,16 @@ class LogViewTest {
     assertEquals(
         List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
         labels(menu.getItem(15).getMenu()));
+    assertEquals(
+        List.of("Toggle Columns", "Copy Raw Lines", "Copy Cell", "Show Record"),
+        labels(menu.getItem(25).getMenu()));
   }
 
   /**
    * Every menu, cascade and context menu gives each item a mnemonic letter of its own. Listed
    * entries (paths, open files, sets, charsets, timestamp formats, color labels, tabs), the
-   * placeholders of empty lists and Wrap Line carry none.
+   * placeholders of empty lists, Wrap Line and the Columns cascade, every letter of which another
+   * item takes, carry none.
    */
   @Test
   void mnemonicsAreUniqueInEveryMenu() {
@@ -797,7 +807,8 @@ class LogViewTest {
         repeated.add(name + ": '" + key + "' again in " + text);
       }
       boolean listed = (item.getStyle() & SWT.RADIO) != 0 && !(item.getData() instanceof CommandId);
-      boolean exempt = item.getData() == CommandId.WRAP_LINE;
+      boolean exempt =
+          item.getData() == CommandId.WRAP_LINE || text.equals(UiText.MENU_COLUMNS.text());
       if (key == 0 && !listed && !exempt && fixedLabel(text)) {
         repeated.add(name + ": no mnemonic in " + text);
       }

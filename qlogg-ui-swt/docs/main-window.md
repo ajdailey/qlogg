@@ -231,7 +231,9 @@ binds the `SearchBar` to its document.
 
 `SearchBar` is one full-width row: the filtered view's visibility combo; icon
 toggles for Match case, Regex, Whole word, Inverse, Combine, In selection,
-Auto-refresh and Range; the Predefined filters button; the pattern field (a
+Auto-refresh and Range; the Predefined filters button; the Column drop-down
+(`ColumnChooser`, shown only while the bound tab shows columns); the pattern
+field (a
 `Combo` whose list is the search history, at least 160 px); the range end
 field, shown only while Range is on; two digit fields for the context lines
 above and below each result (0 to 1,000); Clear, Search, the Keep results
@@ -256,6 +258,11 @@ toggle and Stop; and the search status. With no document the row is disabled.
   Search History.
 - The toggles follow `SearchController.options()`, which keys `4` to `9`
   change.
+- The Column drop-down lists All Columns, then the bound tab's column names,
+  refilled when its format or view changes; a name the new format also has
+  stays chosen. Its choice is `SearchOptions.column`, empty while hidden, so a
+  text-view search tests whole lines. Toggling a column filter on turns
+  Combine on (`FilterPatterns.needsCombining`).
 
 ### Filtered view
 

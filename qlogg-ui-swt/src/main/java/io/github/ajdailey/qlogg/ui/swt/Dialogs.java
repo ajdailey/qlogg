@@ -1,6 +1,7 @@
 package io.github.ajdailey.qlogg.ui.swt;
 
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
+import io.github.ajdailey.qlogg.ui.swt.platform.ComboListSelection;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogColors;
 import io.github.ajdailey.qlogg.ui.swt.platform.DialogTabs;
 import io.github.ajdailey.qlogg.ui.swt.platform.ListSelection;
@@ -15,6 +16,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
@@ -164,6 +166,20 @@ final class Dialogs {
         new org.eclipse.swt.widgets.List(parent, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
     ListSelection.PLATFORM.draw(list);
     return list;
+  }
+
+  /**
+   * Creates a drop-down combo, its open list's selected row drawn by {@link
+   * ComboListSelection#PLATFORM}.
+   *
+   * @param parent the parent
+   * @param editable true for a field that also takes free text, false for read-only
+   * @return the combo
+   */
+  static Combo combo(Composite parent, boolean editable) {
+    Combo combo = new Combo(parent, editable ? SWT.DROP_DOWN : SWT.READ_ONLY | SWT.DROP_DOWN);
+    ComboListSelection.PLATFORM.draw(combo);
+    return combo;
   }
 
   /**

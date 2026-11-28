@@ -29,12 +29,20 @@ field text and the toggles stay.
   works; on a multi-line format the record is the unit, with the records the
   scan read when the search starts, and the CSV and TSV header records are not
   tested. Text view searches lines and has no columns.
+- `SearchOptions.column` is the search bar's Column drop-down: `RanSearch.parse`
+  gives it to every term without its own column
+  (`ExpressionColumns.within`), in the search text, the range end and Select
+  Range Around Line. The result tab and a filter tab's title show it first,
+  `[level] ERROR` (`ResultTabs.label`); a filter tab keeps it in
+  `window.W.tab.N.derived.column`, and its restore gives it back to the
+  options. `searchInColumn(name)` sets it and focuses the search field (the
+  header's Search in Column). The toggles saved for new tabs leave it out.
 - A column term the view cannot test fails with its own message
   (`SearchErrors`), not the regex one: `No column level in this view` for an
-  unknown column, text view or Search in Folder, and `Column level cannot be
-  searched in a range search on this format` for a range search or range
-  selection on a multi-line format. Quick find reports regex errors through the
-  same helper.
+  unknown column or text view, and `Column level cannot be searched in a range
+  search on this format` for a range search or range selection on a
+  multi-line format. Search All Open Files shows each tab's message in its
+  group. Quick find reports regex errors through the same helper.
 - A search that starts sets the filtered view to marks and matches.
 - Each search searches one index snapshot and records its line count and
   indexed bytes.
@@ -171,9 +179,10 @@ over a folder's files without opening tabs; core detail is in
   `folderSearch.*`.
 - `run` stops the running search, which keeps what it listed, and starts a
   `FolderResultSet` as the shown set. An empty folder or text, a glob or
-  combined expression that does not parse, or closed workers start no set and
-  make `state()` `FAILED` before the search thread; the folder is validated
-  on it.
+  combined expression that does not parse, a column term
+  (`ExpressionColumns.first`, `Search in Folder searches whole lines, not
+  column level`), or closed workers start no set and make `state()` `FAILED`
+  before the search thread; the folder is validated on it.
 - `FolderSearchText.status` gives a file row's status from `UiText`;
   `ACCESS_DENIED` shows `Access denied`.
 - Mode, case, whole word, inverse and combining apply. Range, In selection,
@@ -222,7 +231,12 @@ a key filter of the Search in Folder window.
 `qlogg-lifecycle-` worker (`FilterFile`) and report to a `SettingsFileListener`
 on the UI thread. Save as Filter asks for a name (`MainView.askFilterName`),
 prefilled with the pattern cut at 64 chars. `saveAsFilter` adds the filter
-once, named after the pattern when the name is blank.
+once, named after the pattern when the name is blank. In column view with a
+search bar column, the pattern is the text as one prefixed term
+(`ColumnController.filterPattern`, `FilterPatterns.saved`): `level:"ERROR"`,
+or the column's number when its name is outside the prefix grammar. Combining
+text holding a quote, and a pattern ending in a backslash or holding one
+before a quote, are saved as typed.
 
 ## Search text helpers
 
@@ -231,6 +245,6 @@ once, named after the pattern when the name is blank.
 | Class | Contract |
 |---|---|
 | `SearchHistory` | `add` puts a search first, drops an equal earlier entry and cuts the list to the size; `completions(prefix, caseSensitive)` lists the entries that extend a prefix, most recent first |
-| `FilterPatterns` | `compose` joins filters as regex alternatives (`a\|b`, a `LITERAL` filter escaped), or as quoted terms joined with `or` with combining; `present` reports which filters stand in a text between separators |
+| `FilterPatterns` | `compose` joins filters as regex alternatives (`a\|b`, a `LITERAL` filter escaped), or as quoted terms joined with `or` with combining; a column filter (one prefixed term) renders as that term and makes the text combining (`needsCombining`, which the filters menu applies to the Combine toggle); `present` reports which filters stand in a text between separators |
 | `SearchEdits` | `add` (`text\|sel`, or `text or "sel"`), `exclude` (`"text" and not "sel"`) and `replace`; the selection is escaped for the mode, and add to a literal search or exclude turn combining on |
 | `FilterFile` | Filters as `filter.N.name`, `filter.N.pattern`, `filter.N.regex`; an export adds `version=1`. `read` validates the path through `SafePaths.logFile` and refuses a file over 1 MiB, without `version=1`, with an incomplete entry or with over 1,000 filters (`FormatException`); `read` decodes through `PropertiesFiles` (UTF-8 BOM, UTF-8, ISO-8859-1); `write` replaces the file through `AtomicFiles.writeUserFile` |

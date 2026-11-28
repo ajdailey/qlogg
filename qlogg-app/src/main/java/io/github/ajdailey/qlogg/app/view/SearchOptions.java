@@ -19,6 +19,8 @@ import io.github.ajdailey.qlogg.core.search.MatchMode;
  * @param rangeEnd the end expression of a range search, read with the same toggles; never null
  * @param contextBefore lines the filtered view lists above each result, 0 to {@link #MAX_CONTEXT}
  * @param contextAfter lines the filtered view lists below each result, 0 to {@link #MAX_CONTEXT}
+ * @param column the column every term without its own column tests, by name or 1-based number;
+ *     empty for the whole row; never null
  */
 public record SearchOptions(
     MatchMode mode,
@@ -32,7 +34,8 @@ public record SearchOptions(
     boolean range,
     String rangeEnd,
     int contextBefore,
-    int contextAfter) {
+    int contextAfter,
+    String column) {
   /** Most context lines above or below a result. */
   public static final int MAX_CONTEXT = 1000;
 
@@ -45,8 +48,8 @@ public record SearchOptions(
     if (mode == null) {
       throw new IllegalArgumentException("mode is required");
     }
-    if (rangeEnd == null) {
-      throw new IllegalArgumentException("rangeEnd is required");
+    if (rangeEnd == null || column == null) {
+      throw new IllegalArgumentException("rangeEnd and column are required");
     }
     if (contextBefore < 0
         || contextBefore > MAX_CONTEXT
@@ -89,7 +92,53 @@ public record SearchOptions(
         false,
         "",
         0,
-        0);
+        0,
+        "");
+  }
+
+  /**
+   * Creates toggles that test the whole row.
+   *
+   * @param mode see the record
+   * @param caseSensitive see the record
+   * @param wholeWord see the record
+   * @param inverse see the record
+   * @param combining see the record
+   * @param inSelection see the record
+   * @param autoRefresh see the record
+   * @param keepResults see the record
+   * @param range see the record
+   * @param rangeEnd see the record
+   * @param contextBefore see the record
+   * @param contextAfter see the record
+   */
+  public SearchOptions(
+      MatchMode mode,
+      boolean caseSensitive,
+      boolean wholeWord,
+      boolean inverse,
+      boolean combining,
+      boolean inSelection,
+      boolean autoRefresh,
+      boolean keepResults,
+      boolean range,
+      String rangeEnd,
+      int contextBefore,
+      int contextAfter) {
+    this(
+        mode,
+        caseSensitive,
+        wholeWord,
+        inverse,
+        combining,
+        inSelection,
+        autoRefresh,
+        keepResults,
+        range,
+        rangeEnd,
+        contextBefore,
+        contextAfter,
+        "");
   }
 
   /**
@@ -111,7 +160,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -133,7 +183,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -155,7 +206,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -177,7 +229,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -199,7 +252,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -221,7 +275,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -243,7 +298,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -265,7 +321,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -287,7 +344,8 @@ public record SearchOptions(
         value,
         rangeEnd,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -309,7 +367,8 @@ public record SearchOptions(
         range,
         value,
         contextBefore,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -331,7 +390,8 @@ public record SearchOptions(
         range,
         rangeEnd,
         value,
-        contextAfter);
+        contextAfter,
+        column);
   }
 
   /**
@@ -353,6 +413,30 @@ public record SearchOptions(
         range,
         rangeEnd,
         contextBefore,
+        value,
+        column);
+  }
+
+  /**
+   * Returns a copy with another value of {@code column}.
+   *
+   * @param value the value
+   * @return the copy
+   */
+  public SearchOptions withColumn(String value) {
+    return new SearchOptions(
+        mode,
+        caseSensitive,
+        wholeWord,
+        inverse,
+        combining,
+        inSelection,
+        autoRefresh,
+        keepResults,
+        range,
+        rangeEnd,
+        contextBefore,
+        contextAfter,
         value);
   }
 }

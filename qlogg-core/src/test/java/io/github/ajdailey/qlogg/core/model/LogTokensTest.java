@@ -95,6 +95,11 @@ class LogTokensTest {
     cases.add(Arguments.of("TRACE-x", ""));
     cases.add(Arguments.of("level=verbose", "ATTRIBUTE:level COMMENT:verbose"));
     cases.add(Arguments.of("{\"level\":\"trace\"}", "STRING:\"level\" COMMENT:\"trace\""));
+    // Serilog CLEF levels.
+    cases.add(Arguments.of("{\"@l\":\"Verbose\"}", "STRING:\"@l\" COMMENT:\"Verbose\""));
+    cases.add(Arguments.of("{\"@l\":\"Information\"}", "STRING:\"@l\" TYPE:\"Information\""));
+    cases.add(Arguments.of("{\"@l\":\"Warning\"}", "STRING:\"@l\" ESCAPE:\"Warning\""));
+    cases.add(Arguments.of("{\"@l\":\"Fatal\"}", "STRING:\"@l\" INVALID:\"Fatal\""));
     cases.add(Arguments.of("[V] x", "COMMENT:V"));
     cases.add(Arguments.of("xT/MockTag: x", ""));
     // Groups, links, exceptions, classes, keys.

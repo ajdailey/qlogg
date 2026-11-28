@@ -7,20 +7,43 @@ import io.github.ajdailey.qlogg.core.search.RecordLines;
  * The column view's row map for a multi-line format: one row per record, shown at its first line.
  * Rows map to lines through {@code rank} and {@code select} on the {@link RecordLines} set, or on
  * its complement for a continuation set (a binary search over {@code rank}). Lines from {@link
- * RecordLines#end} on, not yet classified, are one row each. Holds one snapshot of the records;
- * thread-safe when its set is.
+ * RecordLines#end} on, not yet classified, are one row each. A map that hides the header leaves the
+ * first record out: row 0 is the second record, and a line of the first record shows at row 0.
+ * Holds one snapshot of the records; thread-safe when its set is.
  */
 public final class RecordRows {
   private final RecordLines records;
+  private final int hidden;
+
+  /**
+   * Creates a map of every record.
+   *
+   * @param records the records of one moment of a {@link
+   *     io.github.ajdailey.qlogg.core.search.RecordScan}
+   */
+  public RecordRows(RecordLines records) {
+    this(records, false);
+  }
 
   /**
    * Creates the map.
    *
    * @param records the records of one moment of a {@link
    *     io.github.ajdailey.qlogg.core.search.RecordScan}
+   * @param hideHeader true to leave out the first record, a CSV or TSV header
    */
-  public RecordRows(RecordLines records) {
+  public RecordRows(RecordLines records, boolean hideHeader) {
     this.records = records;
+    this.hidden = hideHeader ? 1 : 0;
+  }
+
+  /**
+   * Reports whether the map leaves out the first record.
+   *
+   * @return true when the header is hidden
+   */
+  public boolean hidesHeader() {
+    return hidden == 1;
   }
 
   /**
@@ -39,17 +62,17 @@ public final class RecordRows {
    * @return the records starting below {@code lineCount}
    */
   public long rowCount(long lineCount) {
-    return startsBelow(lineCount);
+    return Math.max(0, startsBelow(lineCount) - hidden);
   }
 
   /**
-   * Returns the row showing a line: its record's row.
+   * Returns the row showing a line: its record's row, or row 0 for a line of a hidden header.
    *
    * @param line a 0-based line
    * @return the 0-based row
    */
   public long rowOf(long line) {
-    return startsBelow(line + 1) - 1;
+    return Math.max(0, startsBelow(line + 1) - 1 - hidden);
   }
 
   /**
@@ -59,6 +82,11 @@ public final class RecordRows {
    * @return the 0-based line
    */
   public long lineAt(long row) {
+    return recordLine(row + hidden);
+  }
+
+  /** Returns the first line of the record at an index, the header included. */
+  private long recordLine(long row) {
     LineSet set = records.lines();
     long end = records.end();
     long classified = startsBelow(end);
@@ -103,14 +131,15 @@ public final class RecordRows {
     return new RowCursor() {
       @Override
       public long next(long line) {
-        long next = records.nextStart(Math.max(0, line + 1));
+        long next = records.nextStart(Math.max(hidden, line + 1));
         return next < lineCount ? next : -1;
       }
 
       @Override
       public long previous(long line) {
         long previous = Math.min(line, lineCount) - 1;
-        return previous < 0 ? -1 : records.startOf(previous);
+        long start = previous < 0 ? -1 : records.startOf(previous);
+        return start < hidden ? -1 : start;
       }
 
       @Override

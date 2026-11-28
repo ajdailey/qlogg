@@ -171,7 +171,9 @@ modes, Encoding > Auto, Time Spread).
 
 Every item of a menu, cascade or context menu has a mnemonic no other item
 there shares (`MenuTableTest` for the menu bar and the context menu tables,
-`LogViewTest` for every built menu); listed entries and Wrap Line have none. `MenuTable` holds
+`LogViewTest` for every built menu); listed entries, Wrap Line and the
+Columns cascade (View and the log view menu, where every letter of the label
+marks another item) have none. `MenuTable` holds
 the context menus' layout: `LOG_VIEW_MENU` with `logViewCascade` and
 `LOG_VIEW_CASCADES`, `TAB_MENU`, `RESULT_TAB_MENU` (a results tab's close
 items; the view adds Keep Results as a check item after a separator, then Filter to Tab), `PATH_MENU`
