@@ -783,7 +783,9 @@ QLogg restores the last session at start when no file is given (Tools >
 Preferences, General; `-s` and `-n` decide for one run): the tabs of each
 window, the shown tab, tab names, follow, marks, mark comments, time offsets,
 time sync groups and each window's position, size, maximized state and Always
-on Top. A filter tab is saved as the tab it came from and its search, and runs
+on Top. A start that does not restore the session, as with files on the command
+line or `-n`, does not save its tabs either, so the saved session stays as it
+was. A filter tab is saved as the tab it came from and its search, and runs
 the search again at start. A session keeps at most 1,000
 mark comments over all tabs; a notice counts any left out. Each file's position
 and forced encoding are remembered; `+line:N` wins over the position.
@@ -965,7 +967,7 @@ qlogg [options] [[+line:N] file]...
 | `-l`, `--log` | Also write the debug log file for this run |
 | `-m`, `--multi` | Run as an independent instance: no handoff, and the saved session and window size stay as they are |
 | `-s`, `--load-session` | Restore the last session |
-| `-n`, `--new-session` | Start without the last session |
+| `-n`, `--new-session` | Start without the last session and leave it saved as it was |
 | `-f`, `--follow` | Follow the files given |
 | `--rotated` | Open each file with its [rotated files](#rotated-files) as one tab |
 | `--window-width <px>`, `--window-height <px>` | Client-area size for this run, not saved; without them, the size at the last exit, else 1024 x 768 |

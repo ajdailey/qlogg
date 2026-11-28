@@ -430,6 +430,47 @@ class FilterTabTest {
   }
 
   @Test
+  void aRestoredChainTakesNewLinesOnlyForRowsAfterItsDerivation() throws Exception {
+    DocumentController root = open(100);
+    fixture.application.restoreSession(Session.EMPTY);
+    derive(derive(root, "hit"), "5");
+    fixture.application.activate(root);
+    fixture.close();
+    List<Session> saved = ApplicationControllerTest.config(temp).sessions().loadWindows();
+    assertEquals(0, saved.get(0).active());
+    fixture = new ControllerFixture(temp, Preferences.DEFAULTS);
+    fixture.application.restoreSession(saved.get(0));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            return fixture.application.documents().size() == 3;
+          }
+        });
+    List<DocumentController> open = fixture.application.documents();
+    final DocumentController first = open.get(1);
+    final DocumentController second = open.get(2);
+    first.viewportResized(10, 80);
+    second.viewportResized(10, 80);
+    waitForRows(first, matching("hit"));
+    waitForRows(second, matching("hit", "5"));
+    fixture.runUntilIdle();
+    assertEquals(TabDataState.NONE, fixture.application.tabData().state(first));
+    assertEquals(TabDataState.NONE, fixture.application.tabData().state(second));
+    append("hit 105\n");
+    waitForRows(second, matching("hit", "5"));
+    fixture.runUntil(
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            TabDataModel data = fixture.application.tabData();
+            return data.state(first) == TabDataState.NEW_LINES
+                && data.state(second) == TabDataState.NEW_LINES;
+          }
+        });
+  }
+
+  @Test
   void rangeGrowthAtTheSecondLevelMatchesADerivationFromScratch() throws Exception {
     DocumentController root = open(100);
     DocumentController first = derive(root, "hit");

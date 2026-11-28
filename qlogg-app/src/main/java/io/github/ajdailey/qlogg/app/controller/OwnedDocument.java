@@ -64,6 +64,11 @@ final class OwnedDocument implements DocumentRole {
   }
 
   @Override
+  public boolean deriving() {
+    return false;
+  }
+
+  @Override
   public void detached() {
     // Indexing and the watch end when the document closes.
   }

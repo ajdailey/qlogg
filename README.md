@@ -374,7 +374,7 @@ java -jar qlogg.jar [options] [[+line:N] file]...
 | `-d`, `--debug <level>` | stderr log level: `1` INFO, `2` DEBUG, `3` and above TRACE, or `error`, `warn`, `info`, `debug`, `trace`; WARN when absent. Show Log (INFO) and the `-l` file (DEBUG) take it when finer. It applies to QLogg's own loggers; the Java runtime's stay at INFO |
 | `-l`, `--log` | Also write the log at DEBUG to `logs/qlogg.log` in the settings directory, for this run; a process that is not the running instance (`-m`, or a failed handoff) writes `logs/qlogg-<pid>.log` |
 | `-m`, `--multi` | Run as an independent instance: no handoff, and it never replaces the saved session |
-| `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on |
+| `-s`, `--load-session` / `-n`, `--new-session` | Restore the last session's tabs / start without them. Without either, the session is restored when no file is given and `session.loadLast` is on. A run that does not restore the session does not save its tabs |
 | `-f`, `--follow` | Follow the files given |
 | `--rotated` | Open each file with its rotated files (`app.log.1`, `app-2026-11-25.log`) as one tab, oldest first; without it a file opens alone |
 | `--window-width <px>`, `--window-height <px>` | Client-area size, each independently; without them, the size at the last exit, else 1024 x 768 |

@@ -265,13 +265,9 @@ final class Derivation implements DocumentRole {
     if (bytes <= rows.searchedBytes()) {
       return;
     }
-    long first = query.scope() == null ? 0 : query.scope().first();
-    long end = Math.min(index.lineCount(), source.settledLines());
-    if (query.scope() != null) {
-      end = Math.min(end, query.scope().end());
-    }
+    long end = searchEnd(index);
     long last = rows.searchedEnd() - 1;
-    long from = Math.max(first, query.range() ? last : parent.columns().recordStart(last));
+    long from = searchFrom();
     if (from >= end || !document.enter()) {
       return;
     }
@@ -299,6 +295,41 @@ final class Derivation implements DocumentRole {
       rows.growthEnded(-1, 0);
       source.readerEnded();
     }
+  }
+
+  /**
+   * A growth runs, or the parent settled lines this tab or one above has not searched. A wanted
+   * growth alone does not count: a flush while a child reads the rows sets it with nothing to
+   * search.
+   */
+  @Override
+  public boolean deriving() {
+    if (owner == null || owner.isClosed() || limit != SearchLimit.NONE) {
+      return false;
+    }
+    if (running != null) {
+      return true;
+    }
+    Derivation above = tabs.derivation(parent);
+    if (above != null && above.deriving()) {
+      return true;
+    }
+    LineIndex index = owner.document().index();
+    return parent.rowMap().settledBytes(index) > rows.searchedBytes()
+        && searchFrom() < searchEnd(index);
+  }
+
+  /** Returns the first root line a growth searches. */
+  private long searchFrom() {
+    long first = query.scope() == null ? 0 : query.scope().first();
+    long last = rows.searchedEnd() - 1;
+    return Math.max(first, query.range() ? last : parent.columns().recordStart(last));
+  }
+
+  /** Returns the root line a growth searches below: the parent's settled lines, within scope. */
+  private long searchEnd(LineIndex index) {
+    long end = Math.min(index.lineCount(), parent.rowMap().settledLines());
+    return query.scope() == null ? end : Math.min(end, query.scope().end());
   }
 
   private void readersEnded() {
