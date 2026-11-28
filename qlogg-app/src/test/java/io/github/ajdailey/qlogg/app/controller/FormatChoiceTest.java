@@ -214,8 +214,9 @@ class FormatChoiceTest {
     DocumentController document = open("quoted.txt", CSV);
     assertNull(document.columns().schema());
     fixture.runUntilIdle();
+    int before = fixture.view.activations.get();
     fixture.application.execute(CommandId.COLUMNS_CSV);
-    assertTrue(fixture.view.active.get() > 0, "busy while the records are read");
+    assertTrue(fixture.view.activations.get() > before, "busy while the records are read");
     scanned(document);
     assertEquals(1, document.sourceLine(0));
     assertEquals(3, document.sourceLine(1), "line 2 is in the record of line 1");
