@@ -99,6 +99,9 @@ final class Win32DialogColors implements DialogColors {
   /** Shell data key: set on a shell whose surfaces this colors. */
   private static final String COLORED = Win32DialogColors.class.getName() + ".colored";
 
+  /** Shell data key: set on every shell {@link #apply} ran on, colored or not. */
+  private static final String DIALOG = Win32DialogColors.class.getName() + ".dialog";
+
   /** Display data key: set once the {@code SWT.Skin} listener is installed. */
   private static final String SKIN = Win32DialogColors.class.getName() + ".skin";
 
@@ -107,6 +110,7 @@ final class Win32DialogColors implements DialogColors {
   @Override
   public void apply(final Shell shell) {
     Display display = shell.getDisplay();
+    shell.setData(DIALOG, Boolean.TRUE);
     headerLines(display);
     if (!DialogColors.nativeDark(display)) {
       return;
@@ -163,6 +167,16 @@ final class Win32DialogColors implements DialogColors {
   @Override
   public boolean colored(Control control) {
     return control.getShell().getData(COLORED) != null;
+  }
+
+  /**
+   * Reports whether a control sits in a dialog or tool window shell: one {@link #apply} ran on.
+   *
+   * @param control the control
+   * @return false for a control of a main window
+   */
+  boolean dialog(Control control) {
+    return control.getShell().getData(DIALOG) != null;
   }
 
   private static void walk(Control control) {

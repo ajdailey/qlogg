@@ -23,9 +23,13 @@ import org.slf4j.LoggerFactory;
  * WM_PRINTCLIENT} DC: the opening slide renders the list through {@code WM_PRINTCLIENT} and shows
  * it without a {@code WM_PAINT} (measured on build 26300 at 150%). When the list shows, the hook
  * posts itself {@code SHOWN} and invalidates the list when it arrives, after the slide; a combo
- * {@code SWT.Selection} on the open list (a keyboard move) invalidates it too. Under the light
- * setting the native selection stays. A member that does not resolve logs one WARN and leaves the
- * native selection. Confined to the UI thread.
+ * {@code SWT.Selection} on the open list (a keyboard move) invalidates it too.
+ *
+ * <p>A dialog combo's side is fixed when {@link #draw} runs, as its dialog's colors are: in a
+ * dialog {@link Win32DialogColors} colored it draws the row for its life, and in a dialog created
+ * light it is never subclassed. A main window combo follows the dark native setting live, as the
+ * main window follows a theme switch; under the light setting the native selection stays. A member
+ * that does not resolve logs one WARN and leaves the native selection. Confined to the UI thread.
  */
 final class Win32ComboListSelection implements ComboListSelection {
   /** Posted to the list when it shows; the hook repaints on it and keeps it from the list. */
@@ -39,12 +43,16 @@ final class Win32ComboListSelection implements ComboListSelection {
     if ((combo.getStyle() & SWT.SIMPLE) != 0) {
       return;
     }
+    boolean dialog = Win32DialogColors.INSTANCE.dialog(combo);
+    if (dialog && !Win32DialogColors.INSTANCE.colored(combo)) {
+      return;
+    }
     Win32ListBox.Members found = members.get();
     if (found == null) {
       return;
     }
     try {
-      new ListHook(combo, found).install();
+      new ListHook(combo, found, dialog).install();
     } catch (ReflectiveOperationException | IllegalArgumentException e) {
       members.failed(e);
     }
@@ -53,12 +61,17 @@ final class Win32ComboListSelection implements ComboListSelection {
   /** One combo's subclassed list window. */
   private static final class ListHook extends Win32ListBox.Hook {
     private final Combo combo;
+
+    /** True in a colored dialog: dark for the combo's life. */
+    private final boolean fixed;
+
     private long painted = -1;
     private boolean shown;
 
-    ListHook(Combo combo, Win32ListBox.Members os) {
+    ListHook(Combo combo, Win32ListBox.Members os, boolean fixed) {
       super(combo, os);
       this.combo = combo;
+      this.fixed = fixed;
     }
 
     void install() throws ReflectiveOperationException {
@@ -82,10 +95,10 @@ final class Win32ComboListSelection implements ComboListSelection {
           });
     }
 
-    /** Follows the dark native setting live: main window combos follow a theme switch. */
+    /** Dark for a colored dialog's combo; a main window combo follows the native setting live. */
     @Override
     boolean dark() {
-      return DialogColors.nativeDark(combo.getDisplay());
+      return fixed || DialogColors.nativeDark(combo.getDisplay());
     }
 
     @Override
