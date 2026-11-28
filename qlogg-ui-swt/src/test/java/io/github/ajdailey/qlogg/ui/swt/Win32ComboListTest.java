@@ -43,9 +43,10 @@ import org.junit.jupiter.api.Test;
  * Dialogs#shell} dialog the row keeps the side the dialog was created on: {@link Palette#DARK}'s
  * selection when created dark, before and after a live switch to light; the system list selection
  * ({@code SWT.COLOR_LIST_SELECTION}) when created light, before and after a live switch to dark,
- * never the white row the native list takes at that switch. A main window combo follows a live
- * switch either way. Each case saves the list and its row readings to {@code
- * target/diagnostics/win32-combo-list/}. Skipped where the screen does not show the open list.
+ * never the white row the native list takes at that switch, and the native row after a switch back.
+ * A main window combo follows a live switch either way. Each case saves the list and its row
+ * readings to {@code target/diagnostics/win32-combo-list/}. Skipped where the screen does not show
+ * the open list.
  */
 @Tag("swt")
 class Win32ComboListTest {
@@ -144,6 +145,16 @@ class Win32ComboListTest {
         DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, false, 0, "main-to-light"));
   }
 
+  @Test
+  void aLightCreatedDialogComboShowsTheNativeRowAfterARoundTripToDark() {
+    check(SWT.READ_ONLY, ThemeMode.LIGHT, true, true, 0, "light-created-round-trip", true);
+  }
+
+  @Test
+  void anEditableLightCreatedDialogComboShowsTheNativeRowAfterARoundTripToDark() {
+    check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, true, 0, "editable-light-created-round-trip", true);
+  }
+
   /** Returns the system list selection, which a light-created dialog's combo keeps under dark. */
   private RGB lightSelection() {
     return display.getSystemColor(SWT.COLOR_LIST_SELECTION).getRGB();
@@ -160,6 +171,21 @@ class Win32ComboListTest {
    */
   private RGB check(
       int style, ThemeMode mode, Boolean switchTo, boolean inDialog, int downs, String name) {
+    return check(style, mode, switchTo, inDialog, downs, name, false);
+  }
+
+  /**
+   * As {@link #check(int, ThemeMode, Boolean, boolean, int, String)}; with {@code back} the list
+   * opens and closes after the switch, and a switch back to the start side follows.
+   */
+  private RGB check(
+      int style,
+      ThemeMode mode,
+      Boolean switchTo,
+      boolean inDialog,
+      int downs,
+      String name,
+      boolean back) {
     assumeTrue("win32".equals(SWT.getPlatform()), "win32 combo list");
     display = new Display();
     SwtThemeService.open(display, mode);
@@ -182,6 +208,14 @@ class Win32ComboListTest {
     settle();
     if (switchTo != null) {
       PlatformTraits.PLATFORM.themeFollow(display).showOnWindows(switchTo, WindowRebuild.NONE);
+    }
+    if (back) {
+      // SWT themes the list at a drop-down under the switched side.
+      combo.setListVisible(true);
+      settle();
+      combo.setListVisible(false);
+      settle();
+      PlatformTraits.PLATFORM.themeFollow(display).showOnWindows(!switchTo, WindowRebuild.NONE);
     }
     // A pointer left over the list by an earlier test would move its selection.
     display.setCursorLocation(parent.toDisplay(0, 0));
@@ -207,7 +241,8 @@ class Win32ComboListTest {
         "the screen does not show the open list below the combo; body " + hex(body));
     report.setLength(0);
     int[] band = selectedBand(list, mostRows(list));
-    boolean dark = inDialog || switchTo == null ? mode == ThemeMode.DARK : switchTo.booleanValue();
+    boolean dark =
+        inDialog || switchTo == null || back ? mode == ThemeMode.DARK : switchTo.booleanValue();
     double minimum = dark ? TEXT_CONTRAST : NATIVE_CONTRAST;
     RGB fill = readable(list, band, name, minimum);
     if (downs == 0) {

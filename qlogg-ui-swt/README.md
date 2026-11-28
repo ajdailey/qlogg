@@ -48,13 +48,14 @@ through `PlatformTraits` ([main window](docs/main-window.md#platform-traits)).
 `GtkWindowPlacement` and `Gtk3Traits` read the GDK backend system property, an
 internal name that fails safe when absent. View > Always on Top, Window >
 Minimize of a tool window on cocoa, GTK 4 tool item sizing and the dark win32
-combo list and list selection are the exceptions: `Win32Stacking`,
-`CocoaStacking`, `GtkX11Stacking`, `Gtk4ToolItemSizing` and `Win32ListBox`
-reach SWT internals by reflection, and `ArchitectureTest` allows reflection
+combo list, list selection and text field theme are the exceptions:
+`Win32Stacking`, `CocoaStacking`, `GtkX11Stacking`, `Gtk4ToolItemSizing`,
+`Win32ListBox` and `Win32FieldTheme` reach SWT internals by reflection, and `ArchitectureTest` allows reflection
 nowhere else ([main window](docs/main-window.md#always-on-top),
 [theme](docs/theme.md#gtk-4-tool-item-size),
 [combo lists](docs/theme.md#combo-list-selection),
-[lists](docs/theme.md#list-selection)). Dark win32 dialog header
+[lists](docs/theme.md#list-selection),
+[text fields](docs/theme.md#chrome-colors)). Dark win32 dialog header
 dividers are the last exception: `Win32HeaderLines` sets the Display data key
 `org.eclipse.swt.internal.win32.Table.headerLineColor`, and `ArchitectureTest`
 allows that string in no other class ([theme](docs/theme.md#dialog-colors)).
