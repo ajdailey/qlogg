@@ -118,7 +118,7 @@ class RotatedSetTest {
     DocumentController set = openSet(base, "app.log +2");
     assertEquals(9, set.document().index().lineCount());
     assertTrue(set.following(), "a set opens at the end");
-    String[] tip = set.state().members().split("\n");
+    String[] tip = set.state().details().split("\n");
     assertEquals(4, tip.length);
     assertTrue(tip[0].startsWith("app.log.2  18 B  "), tip[0]);
     assertTrue(tip[2].startsWith("app.log  "), tip[2]);
