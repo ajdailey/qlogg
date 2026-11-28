@@ -26,12 +26,15 @@ import java.util.zip.CRC32C;
  * its indexed bytes: renamed members are re-pointed and newer files join after the last member once
  * one of them has bytes. A last member found holding fewer than its indexed bytes beside another
  * file holding them is a copy-truncate or a rename: that file takes the member's place and the
- * short file joins. Without file keys, this settles a rename where each new file starts with the
- * same line and the member's digests still cover that line alone. A newer file whose bytes start as
- * the last member's do, an empty file included, while that member has not truncated is a copy in
- * progress, ignored until its size holds for two rescans. Anything else changes line numbers: the
- * plan carries a {@link LineMap}, with the line counts of the new order counted from the files
- * where the loaded indexes do not cover them. Not thread-safe; the set's watch calls it.
+ * short file joins. Without file keys, a last member found at a file holding exactly its indexed
+ * bytes moves to an unclaimed matching file that holds more: a rename where each new file starts
+ * with the same line and the member's digests still cover that line alone. When no matching file
+ * holds more, as when both files hold only that line, nothing tells them apart and the member stays
+ * at the file found. A newer file whose bytes start as the last member's do, an empty file
+ * included, while that member has not truncated is a copy in progress, ignored until its size holds
+ * for two rescans. Anything else changes line numbers: the plan carries a {@link LineMap}, with the
+ * line counts of the new order counted from the files where the loaded indexes do not cover them.
+ * Not thread-safe; the set's watch calls it.
  */
 final class RollOver {
   private static final int READ_BYTES = 64 * 1024;
@@ -131,6 +134,13 @@ final class RollOver {
     } else if (at[last] >= 0 && rewritten(tail, paths.get(at[last]))) {
       claimed[at[last]] = false;
       at[last] = -1;
+    } else if (at[last] >= 0 && found.get(at[last]).size() == tailIndexed) {
+      int longer = longerMatch(tail, found, claimed, tailIndexed);
+      if (longer >= 0) {
+        claimed[at[last]] = false;
+        at[last] = longer;
+        claimed[longer] = true;
+      }
     }
     boolean[] ignored = copiesInProgress(tail, found, claimed, at[last]);
     int[] rank = new int[found.size()];
@@ -215,6 +225,33 @@ final class RollOver {
     }
     MemberIdentity.Match match = identity.byContent().find(unclaimed(paths, claimed));
     return match.outcome() == MemberIdentity.Outcome.FOUND ? paths.indexOf(match.path()) : -1;
+  }
+
+  /**
+   * Without a file key, an unclaimed file holding more than the indexed bytes that matches the
+   * member by content, else -1.
+   */
+  private int longerMatch(SetMember member, List<Member> found, boolean[] claimed, long indexed) {
+    MemberIdentity identity = identity(member);
+    if (identity == null || identity.fileKey() != null) {
+      return -1;
+    }
+    List<Path> longer = new ArrayList<Path>();
+    for (int j = 0; j < found.size(); j++) {
+      if (!claimed[j] && found.get(j).size() > indexed) {
+        longer.add(found.get(j).path());
+      }
+    }
+    MemberIdentity.Match match = identity.find(longer);
+    if (match.outcome() != MemberIdentity.Outcome.FOUND) {
+      return -1;
+    }
+    for (int j = 0; j < found.size(); j++) {
+      if (found.get(j).path().equals(match.path())) {
+        return j;
+      }
+    }
+    return -1;
   }
 
   /** True when a member matched by file key does not hold its indexed bytes. */
