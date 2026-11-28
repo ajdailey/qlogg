@@ -599,7 +599,22 @@ class LogViewTest {
     assertEquals(
         List.of("Toggle Fold", "Fold All", "Unfold All"), labels(view.getItem(18).getMenu()));
     assertEquals(
-        List.of("Toggle Columns", "-", "Copy Raw Lines", "Copy Cell", "Show Record"),
+        List.of(
+            "Toggle Columns",
+            "-",
+            "Text",
+            "CSV",
+            "TSV",
+            "Apache Access Log",
+            "Serilog CLEF",
+            "log4j XML",
+            "Timestamp",
+            "-",
+            "First Line Is Header",
+            "-",
+            "Copy Raw Lines",
+            "Copy Cell",
+            "Show Record"),
         labels(view.getItem(19).getMenu()));
     assertEquals(
         List.of("Format", "-", "Edit Formats", "-", "Time Zone", "Time Offset", "-", "Time Spread"),
@@ -715,7 +730,22 @@ class LogViewTest {
         List.of("Set Search Start", "Set Search End", "Clear Search Limits"),
         labels(menu.getItem(15).getMenu()));
     assertEquals(
-        List.of("Toggle Columns", "Copy Raw Lines", "Copy Cell", "Show Record"),
+        List.of(
+            "Toggle Columns",
+            "-",
+            "Text",
+            "CSV",
+            "TSV",
+            "Apache Access Log",
+            "Serilog CLEF",
+            "log4j XML",
+            "Timestamp",
+            "-",
+            "First Line Is Header",
+            "-",
+            "Copy Raw Lines",
+            "Copy Cell",
+            "Show Record"),
         labels(menu.getItem(24).getMenu()));
   }
 

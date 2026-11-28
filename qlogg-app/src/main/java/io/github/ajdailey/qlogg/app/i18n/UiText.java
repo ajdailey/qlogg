@@ -755,6 +755,22 @@ public enum UiText {
   COMMAND_EXTEND_BLOCK_RIGHT,
   /** Command label. */
   COMMAND_TOGGLE_COLUMNS,
+  /** Format choice radio item: text view. */
+  COMMAND_COLUMNS_TEXT,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_CSV,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_TSV,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_CLF,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_CLEF,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_LOG4J_XML,
+  /** Format choice radio item. */
+  COMMAND_COLUMNS_TIME,
+  /** Command label. */
+  COMMAND_FIRST_LINE_HEADER,
   /** Command label. */
   COMMAND_COPY_RAW_LINES,
   /** Command label. */

@@ -413,7 +413,9 @@ class FilteredPaneTest {
         if (item.getText().equals(UiText.MENU_SEARCH_LIMITS.text())
             || item.getText().equals(UiText.MENU_COLUMNS.text())) {
           for (MenuItem limit : item.getMenu().getItems()) {
-            found.add((CommandId) limit.getData());
+            if (limit.getData() instanceof CommandId nested) {
+              found.add(nested);
+            }
           }
         }
       }

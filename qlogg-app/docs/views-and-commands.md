@@ -167,7 +167,7 @@ false only on macOS while the window calls it needs are unavailable;
 `ZOOM_WINDOW` runs `MainView.zoom`, always enabled, and has no key. `MenuTable` also names the cascades
 filled from state (`cascadeBefore`, `cascadeAfter`), the Time Spread cascade
 (`nestedCascade`) and the radio items (`RADIO`: Theme, the filtered view
-modes, Encoding > Auto, Time Spread).
+modes, Encoding > Auto, Time Spread, the Columns formats).
 
 Every item of a menu, cascade or context menu has a mnemonic no other item
 there shares (`MenuTableTest` for the menu bar and the context menu tables,
