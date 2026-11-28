@@ -3,7 +3,10 @@ package io.github.ajdailey.qlogg.app.controller;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
+import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
+import io.github.ajdailey.qlogg.app.config.SettingsLocation;
+import io.github.ajdailey.qlogg.app.config.SettingsMode;
 import io.github.ajdailey.qlogg.app.view.ManualUiDispatcher;
 import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.core.concurrent.MemoryBudget;
@@ -64,7 +67,7 @@ final class ControllerFixture implements AutoCloseable {
             ui,
             view,
             ApplicationControllerTest.services(workers, budget, fallback),
-            ApplicationControllerTest.config(temp),
+            new ConfigStore(new SettingsLocation(SettingsMode.EXPLICIT, temp), system),
             preferences);
   }
 

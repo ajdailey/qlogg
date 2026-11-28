@@ -21,8 +21,10 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.folder.FileHits;
 import io.github.ajdailey.qlogg.core.folder.NamePattern;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -110,6 +112,11 @@ class FolderSearchControllerTest {
     @Override
     public DocumentServices services() {
       return services;
+    }
+
+    @Override
+    public PathCase pathCase() {
+      return PathCase.of(OsTraits.current());
     }
 
     @Override

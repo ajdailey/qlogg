@@ -63,7 +63,9 @@ Show more options.
 
 Open files with File > Open (`Ctrl+O`), by dropping them on the window, from
 File > Recent Files or File > Favorites, or on the command line. Each file
-opens in its own tab. A drop always copies, so the source never moves or
+opens in its own tab; a file already open shows its tab. On macOS and Windows a
+name typed in another case, such as `APP.LOG` for `app.log`, opens under its
+name on disk. A drop always copies, so the source never moves or
 deletes the file; folders in a drop are not opened, and a notice says so. The
 first lines show at once while indexing continues in the background; `Esc` or
 the Stop button stops it. File > Open from Clipboard (`Ctrl+V` in a log view)

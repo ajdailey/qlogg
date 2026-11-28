@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.config;
 
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -208,15 +209,15 @@ public record UiState(
   }
 
   /**
-   * Returns a copy with a file first in the recent list.
+   * Returns a copy with a file first in the recent list, in place of each entry that names it.
    *
    * @param path the path
    * @param count entries kept
+   * @param names the case rule entries match by
    * @return the copy
    */
-  public UiState addRecent(String path, int count) {
-    List<String> list = new ArrayList<String>(recentFiles);
-    list.remove(path);
+  public UiState addRecent(String path, int count, PathCase names) {
+    List<String> list = without(recentFiles, path, names);
     list.add(0, path);
     while (list.size() > count) {
       list.remove(list.size() - 1);
@@ -258,29 +259,30 @@ public record UiState(
     return kept;
   }
 
-  /**
-   * Returns a copy with a file first in Recently Closed, at most {@link #MAX_CLOSED} kept.
-   *
-   * @param path the path
-   * @return the copy
-   */
-  public UiState addClosed(String path) {
-    return addClosed(path, false);
+  /** Copies a list without the entries that name {@code path}. */
+  private static List<String> without(List<String> list, String path, PathCase names) {
+    List<String> kept = new ArrayList<String>();
+    for (String entry : list) {
+      if (!names.same(entry, path)) {
+        kept.add(entry);
+      }
+    }
+    return kept;
   }
 
   /**
-   * Returns a copy with a file first in Recently Closed, at most {@link #MAX_CLOSED} kept.
+   * Returns a copy with a file first in Recently Closed, in place of each entry that names it, at
+   * most {@link #MAX_CLOSED} kept.
    *
    * @param path the path
    * @param rotated true when the tab showed the file's rotated set
+   * @param names the case rule entries match by
    * @return the copy
    */
-  public UiState addClosed(String path, boolean rotated) {
-    List<String> list = new ArrayList<String>(closedFiles);
-    list.remove(path);
+  public UiState addClosed(String path, boolean rotated, PathCase names) {
+    List<String> list = without(closedFiles, path, names);
     list.add(0, path);
-    List<String> sets = new ArrayList<String>(closedSets);
-    sets.remove(path);
+    List<String> sets = without(closedSets, path, names);
     if (rotated) {
       sets.add(path);
     }
@@ -299,18 +301,15 @@ public record UiState(
   }
 
   /**
-   * Returns a copy with a file left out of Recently Closed.
+   * Returns a copy without the Recently Closed entries that name a file.
    *
    * @param path the path
-   * @return the copy, or this one when the file is not listed
+   * @param names the case rule entries match by
+   * @return the copy, or this one when no entry names the file
    */
-  public UiState removeClosed(String path) {
-    if (!closedFiles.contains(path)) {
-      return this;
-    }
-    List<String> list = new ArrayList<String>(closedFiles);
-    list.remove(path);
-    return withClosedFiles(list);
+  public UiState removeClosed(String path, PathCase names) {
+    List<String> list = without(closedFiles, path, names);
+    return list.size() == closedFiles.size() ? this : withClosedFiles(list);
   }
 
   /**

@@ -12,7 +12,7 @@ display.
 | Package | Contents | Detail |
 |---|---|---|
 | `core.concurrent` | `Workers`, background operations, `OperationGate`, `MemoryBudget` | [Threads and memory budget](docs/threads-and-memory.md) |
-| `core.io` | `SafePaths`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
+| `core.io` | `SafePaths`, `PathCase`, byte sources, `BlockCache`, `ReadBuffers`, `AtomicFiles`, `PropertiesFiles` | [File access and text](docs/files-and-text.md) |
 | `core.text` | Encoding detection, `LineDecoder`, `AnsiCodes`, `LogText`, `BoundedChars`, `PathAtCaret` | [File access and text](docs/files-and-text.md) |
 | `core.index` | `GrowableLineIndex` (full and sparse), the parallel `Indexer` | [Line index](docs/line-index.md) |
 | `core.search` | `SearchEngine`, matchers, combining expressions, range search, `MutableLineSet`; column terms and record search, `RecordScan`, `SortedLines` | [Search](docs/search.md), [Columns](docs/columns.md#records) |
@@ -136,7 +136,7 @@ system's answers from `OsTraits.of(name)`.
 | `takesCtrlShiftZero` | true | false | false | `Keymap.defaults()`: no `Ctrl+Shift+0` for Clear Color Labels |
 | `keepFileClosedByDefault` | true | false | false | `FollowSettings.defaults`: the `follow.keepClosed` default |
 | `watchServiceByDefault` | true | false | true | `MonitorSettings.defaults`: the `monitor.watchService` default |
-| `fileNamesIgnoreCase` | true | true | false | The `ignoreCase` of `RotatedSet.discover`, `MemberNames.of` and `LogDocument.openRotated`, which `DocumentOpener` passes; true on macOS for its default case-insensitive volumes |
+| `fileNamesIgnoreCase` | true | true | false | `PathCase.of`: the on-disk spelling of opened paths and the case-blind match of stored ones, and the `ignoreCase` of `RotatedSet.discover`, `MemberNames.of` and `LogDocument.openRotated`, which `DocumentOpener` passes; true on macOS for its default case-insensitive volumes |
 | `runsInsteadOfOpening` | `RunnableTypes.windows` with `PATHEXT` | `RunnableTypes.mac`, or the execute bit | the execute bit | `PathCommands.openInEditor` fallback |
 
 `PlatformSetup` calls `confineHome` and `placeBrowserData` on every system

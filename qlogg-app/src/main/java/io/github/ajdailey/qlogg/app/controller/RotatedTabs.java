@@ -10,10 +10,6 @@ import io.github.ajdailey.qlogg.core.rotate.MemberNames;
 import io.github.ajdailey.qlogg.core.rotate.RotatedIndex;
 import io.github.ajdailey.qlogg.core.rotate.RotatedSet;
 import io.github.ajdailey.qlogg.core.rotate.SetFiles;
-import java.io.IOException;
-import java.nio.file.DirectoryIteratorException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -40,60 +36,6 @@ final class RotatedTabs {
       return path;
     }
     return path.resolveSibling(MemberNames.baseOf(name.toString(), ignoreCase));
-  }
-
-  /**
-   * Returns a path in its on-disk spelling where file names ignore case: each name is replaced by
-   * its directory's entry equal to it apart from case, an exact match first. A name with no such
-   * entry (a Windows short name, a missing file, a directory that cannot be listed) keeps the given
-   * spelling.
-   *
-   * @param path the path as given
-   * @param ignoreCase true where the file system compares names without regard to case
-   * @return the absolute, normalized path in the on-disk spelling; {@code path} unchanged when
-   *     names keep their case
-   */
-  @WorkerThread
-  static Path onDisk(Path path, boolean ignoreCase) {
-    if (!ignoreCase) {
-      return path;
-    }
-    Path absolute = path.toAbsolutePath().normalize();
-    Path spelled = absolute.getRoot();
-    if (spelled == null) {
-      return absolute;
-    }
-    for (Path name : absolute) {
-      String entry = entry(spelled, name.toString());
-      spelled = spelled.resolve(entry == null ? name.toString() : entry);
-    }
-    return spelled;
-  }
-
-  /**
-   * The entry of a directory named {@code name} apart from case, or null; case is compared as
-   * {@link MemberNames} compares it.
-   */
-  @WorkerThread
-  private static String entry(Path directory, String name) {
-    String found = null;
-    try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
-      for (Path child : entries) {
-        Path file = child.getFileName();
-        String entry = file == null ? "" : file.toString();
-        if (entry.equals(name)) {
-          return entry;
-        }
-        if (found == null
-            && entry.length() == name.length()
-            && entry.regionMatches(true, 0, name, 0, name.length())) {
-          found = entry;
-        }
-      }
-    } catch (IOException | DirectoryIteratorException e) {
-      return null;
-    }
-    return found;
   }
 
   /**

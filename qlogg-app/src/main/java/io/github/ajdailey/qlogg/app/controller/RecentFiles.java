@@ -7,6 +7,7 @@ import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.MainView;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -34,12 +35,20 @@ final class RecentFiles {
   private final Workers workers;
   private final UiDispatcher ui;
   private final MainView view;
+  private final PathCase names;
 
-  RecentFiles(RecentFilesHost host, Workers workers, UiDispatcher ui, MainView view) {
+  /**
+   * Creates the recent lists of one window.
+   *
+   * @param names the case rule list entries match by
+   */
+  RecentFiles(
+      RecentFilesHost host, Workers workers, UiDispatcher ui, MainView view, PathCase names) {
     this.host = host;
     this.workers = workers;
     this.ui = ui;
     this.view = view;
+    this.names = names;
   }
 
   /**
@@ -52,7 +61,7 @@ final class RecentFiles {
       setState(
           host.preferences()
               .state()
-              .addClosed(document.path().toString(), document.files() != null));
+              .addClosed(document.path().toString(), document.files() != null, names));
     }
   }
 
@@ -66,7 +75,7 @@ final class RecentFiles {
     }
     String path = closed.get(0);
     boolean rotated = host.preferences().state().closedSets().contains(path);
-    setState(host.preferences().state().removeClosed(path));
+    setState(host.preferences().state().removeClosed(path, names));
     host.openListed(path, rotated);
   }
 

@@ -353,7 +353,7 @@ class ArchitectureTest {
           "watchServiceByDefault",
           List.of(ROOT + ".core.watch.MonitorSettings"),
           "fileNamesIgnoreCase",
-          List.of(ROOT + ".app.controller.DocumentOpener"));
+          List.of(ROOT + ".core.io.PathCase"));
 
   /** Only {@code ui.swt.platform} calls a {@link #PLATFORM_QUERIES} method. */
   @Test

@@ -6,6 +6,7 @@ import io.github.ajdailey.qlogg.app.config.SearchToggles;
 import io.github.ajdailey.qlogg.app.config.UiState;
 import io.github.ajdailey.qlogg.app.config.WindowState;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.search.MatchMode;
@@ -69,11 +70,12 @@ public final class RememberedState {
       return;
     }
     Preferences current = host.settings();
+    PathCase names = config.pathCase();
     UiState state =
         current
             .state()
-            .addRecent(document.path().toString(), current.options().recentCount())
-            .removeClosed(document.path().toString());
+            .addRecent(document.path().toString(), current.options().recentCount(), names)
+            .removeClosed(document.path().toString(), names);
     if (!state.equals(current.state())) {
       host.setPreferences(current.withState(state));
     }

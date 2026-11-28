@@ -22,6 +22,12 @@ and type-checked, not contained to a directory.
 `ReopeningByteSource` validates with the same `HeldLock` on every read;
 `path()` is the path as given and `realPath()` the file opened.
 
+`PathCase` holds the platform's file name case rule. Where names ignore case,
+`onDisk` replaces each name of a path with its directory entry's spelling, an
+exact match first; a name with no entry keeps its spelling, and symbolic links
+stay as given. It lists each directory of the path, so it runs on a worker.
+`same` compares two path texts apart from case there. Elsewhere both are exact.
+
 ## Byte sources and buffers
 
 | Class | Contract |

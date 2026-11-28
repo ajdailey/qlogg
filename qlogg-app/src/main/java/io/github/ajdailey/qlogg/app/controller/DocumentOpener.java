@@ -8,13 +8,13 @@ import io.github.ajdailey.qlogg.app.config.SessionStore;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.text.LogText;
-import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -132,6 +132,7 @@ final class DocumentOpener {
   private final ConfigStore config;
   private final OpenListener listener;
   private final BooleanSupplier keepClosed;
+  private final PathCase names;
   private final boolean ignoreCase;
   private final BooleanSupplier closing =
       new BooleanSupplier() {
@@ -149,20 +150,20 @@ final class DocumentOpener {
    *
    * @param workers the thread owner
    * @param ui the UI-thread dispatcher
-   * @param config the settings store; its {@code PositionStore} holds forced encodings
+   * @param config the settings store; its {@code PositionStore} holds forced encodings, and its
+   *     file name case rule spells each opened path and finds a rotated set's files
    * @param listener receives the opened documents
    * @param keepClosed read at each open: true opens the file only for each read
-   * @param os the platform; its file name case rule finds a rotated set's files
    */
   DocumentOpener(
       Workers workers,
       UiDispatcher ui,
       ConfigStore config,
       OpenListener listener,
-      BooleanSupplier keepClosed,
-      OsTraits os) {
+      BooleanSupplier keepClosed) {
     this.keepClosed = keepClosed;
-    this.ignoreCase = os.fileNamesIgnoreCase();
+    this.names = config.pathCase();
+    this.ignoreCase = names.ignoreCase();
     this.workers = workers;
     this.ui = ui;
     this.config = config;
@@ -643,12 +644,13 @@ final class DocumentOpener {
   /**
    * Opens a file, or the rotated set it belongs to, with its remembered encoding override; a
    * remembered timestamp format skips the format detection. A set reads the base file's entry.
+   * Where names ignore case, the document's path is the on-disk spelling, so the tab title, the
+   * open-tab lookup and new stored entries use it.
    */
   @WorkerThread
   private LogDocument openRemembered(Path given, DocumentServices services, boolean rotated)
       throws IOException {
-    // A set's base name, tab title and open-tab lookup use the on-disk spelling.
-    Path path = rotated ? RotatedTabs.onDisk(given, ignoreCase) : given;
+    Path path = names.onDisk(given);
     Path key = rotated ? RotatedTabs.base(path, ignoreCase) : path;
     PositionStore.Entry entry;
     try {

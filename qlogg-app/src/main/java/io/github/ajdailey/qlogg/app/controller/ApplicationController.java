@@ -35,6 +35,7 @@ import io.github.ajdailey.qlogg.app.view.SearchViewState;
 import io.github.ajdailey.qlogg.app.view.UiDispatcher;
 import io.github.ajdailey.qlogg.app.view.WindowGeometry;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.io.SafePaths;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.HighlightSet;
@@ -239,14 +240,13 @@ public final class ApplicationController
               public boolean getAsBoolean() {
                 return preferences.get().follow().keepClosed();
               }
-            },
-            view.system());
+            });
     this.help = new HelpController(set, view, this::isShuttingDown);
     this.paths = new PathCommands(workers, ui, view, help, this::isShuttingDown);
     this.openPath =
         new OpenPathAtCaret(this, this::focusedView, workers, ui, view, this::isShuttingDown);
     // Recently Closed and Open All.
-    this.recent = new RecentFiles(this, workers, ui, view);
+    this.recent = new RecentFiles(this, workers, ui, view, config.pathCase());
     // Tab data dot.
     addListener(tabData);
     // Always on Top.
@@ -511,6 +511,11 @@ public final class ApplicationController
   @Override
   public DocumentServices services() {
     return set.services();
+  }
+
+  @Override
+  public PathCase pathCase() {
+    return config.pathCase();
   }
 
   /**

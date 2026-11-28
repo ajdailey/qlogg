@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.core.folder.FolderQuery;
 import io.github.ajdailey.qlogg.core.folder.FolderResults;
 import io.github.ajdailey.qlogg.core.folder.FolderSearch;
 import io.github.ajdailey.qlogg.core.folder.NamePattern;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.ExpressionParser;
@@ -410,8 +411,7 @@ public final class FolderSearchController {
           setJump.go(document, path, line - 1);
           return;
         }
-      } else if (path.equals(document.document().path())
-          || path.equals(document.document().realPath())) {
+      } else if (shows(document, path)) {
         opening = null;
         host.activate(document);
         document.goToLine(line);
@@ -431,6 +431,17 @@ public final class FolderSearchController {
     host.openFile(path, line);
   }
 
+  /**
+   * Reports whether a file tab shows a listed file: by its path or real path, apart from case where
+   * names ignore case (a folder typed in another case lists paths in that case).
+   */
+  private boolean shows(DocumentController document, Path path) {
+    PathCase names = host.pathCase();
+    String listed = path.toString();
+    return names.same(listed, document.document().path().toString())
+        || names.same(listed, document.document().realPath().toString());
+  }
+
   /** How long a file {@link #open} started stays the one later lines of it go to. */
   static final long OPEN_WAIT_NANOS = 5_000_000_000L;
 
@@ -448,9 +459,7 @@ public final class FolderSearchController {
     @Override
     public void documentOpened(final DocumentController document, int index) {
       Opening started = opening;
-      if (started == null
-          || !(started.path().equals(document.document().path())
-              || started.path().equals(document.document().realPath()))) {
+      if (started == null || !shows(document, started.path())) {
         return;
       }
       opening = null;

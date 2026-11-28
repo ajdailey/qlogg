@@ -10,8 +10,10 @@ import io.github.ajdailey.qlogg.app.command.Binding;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.model.MarkComments;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
+import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.MonitorSettings;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,6 +24,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Options, UI state, positions and the session through their files. */
 class StateStoresTest {
+  private static final PathCase EXACT = PathCase.of(OsTraits.of("Linux"));
+  private static final PathCase IGNORING = PathCase.of(OsTraits.of("Mac OS X"));
+
   @TempDir Path temp;
 
   private SettingsLocation location() {
@@ -59,8 +64,8 @@ class StateStoresTest {
             .withSearch(new SearchToggles(false, true, false, true, false, false, false))
             .withLineNumbers(false, true)
             .withOpenDirectory("/mock")
-            .addRecent("/mock/a.log", 7)
-            .addRecent("/mock/c.log", 7)
+            .addRecent("/mock/a.log", 7, EXACT)
+            .addRecent("/mock/c.log", 7, EXACT)
             .withDialog("preferences", new UiState.Size(640, 480));
     ConfigStore store = new ConfigStore(location());
     assertTrue(
@@ -191,6 +196,53 @@ class StateStoresTest {
     assertEquals("", loaded.get(Path.of("/mock/n.log")).header());
     assertEquals(TimeSettings.NO_FORMAT, loaded.get(Path.of("/mock/n.log")).timeFormat());
     assertEquals("", loaded.get(Path.of("/mock/n.log")).zone());
+  }
+
+  /**
+   * Where names ignore case, a path finds and updates the entry saved in another case, which keeps
+   * its key; the exact rule keeps the two apart.
+   */
+  @Test
+  void aPositionLookupInAnotherCaseFindsTheSavedEntryWhereNamesIgnoreCase() throws Exception {
+    PositionStore saved = new PositionStore(location(), EXACT);
+    saved.put(Path.of("/mock/APP.LOG"), 4, 5, 6);
+    saved.put(Path.of("/mock/other.log"), 1, 1, 1);
+    assertTrue(saved.save());
+    PositionStore ignoring = new PositionStore(location(), IGNORING);
+    ignoring.load();
+    Path onDisk = Path.of("/mock/app.log");
+    assertEquals(new PositionStore.Entry(4, 5, 6, ""), ignoring.get(onDisk));
+    ignoring.put(onDisk, 7, 8, 9);
+    ignoring.setEncoding(onDisk, StandardCharsets.UTF_8);
+    assertEquals(2, ignoring.size());
+    assertTrue(ignoring.save());
+    String file = Files.readString(temp.resolve(PositionStore.FILE), StandardCharsets.ISO_8859_1);
+    assertTrue(file.contains("APP.LOG"), file);
+    assertFalse(file.contains("app.log"), file);
+    PositionStore exact = new PositionStore(location(), EXACT);
+    exact.load();
+    assertEquals(PositionStore.Entry.NONE, exact.get(onDisk));
+    assertEquals(new PositionStore.Entry(7, 8, 9, "UTF-8"), exact.get(Path.of("/mock/APP.LOG")));
+  }
+
+  /**
+   * A recent or closed entry in another case gives way to the new spelling where names ignore case.
+   */
+  @Test
+  void listsKeepOneEntryPerFileWhereNamesIgnoreCase() {
+    UiState ignoring =
+        UiState.DEFAULTS
+            .addRecent("/mock/APP.LOG", 7, IGNORING)
+            .addRecent("/mock/app.log", 7, IGNORING)
+            .addClosed("/mock/APP.LOG", true, IGNORING)
+            .addClosed("/mock/app.log", true, IGNORING);
+    assertEquals(List.of("/mock/app.log"), ignoring.recentFiles());
+    assertEquals(List.of("/mock/app.log"), ignoring.closedFiles());
+    assertEquals(List.of("/mock/app.log"), ignoring.closedSets());
+    assertEquals(List.of(), ignoring.removeClosed("/mock/App.Log", IGNORING).closedFiles());
+    UiState exact =
+        UiState.DEFAULTS.addRecent("/mock/APP.LOG", 7, EXACT).addRecent("/mock/app.log", 7, EXACT);
+    assertEquals(List.of("/mock/app.log", "/mock/APP.LOG"), exact.recentFiles());
   }
 
   @Test
@@ -395,17 +447,18 @@ class StateStoresTest {
   void recentlyClosedKeepsWhichFilesClosedAsSets() {
     UiState state =
         UiState.DEFAULTS
-            .addClosed("/mock/a.log", true)
-            .addClosed("/mock/b.log")
-            .addClosed("/mock/c.log", true);
+            .addClosed("/mock/a.log", true, EXACT)
+            .addClosed("/mock/b.log", false, EXACT)
+            .addClosed("/mock/c.log", true, EXACT);
     assertEquals(List.of("/mock/a.log", "/mock/c.log"), state.closedSets());
     ConfigStore store = new ConfigStore(location());
     assertTrue(store.save(Preferences.DEFAULTS, Preferences.DEFAULTS.withState(state)));
     UiState loaded = new ConfigStore(location()).load().state();
     assertEquals(List.of("/mock/c.log", "/mock/b.log", "/mock/a.log"), loaded.closedFiles());
     assertEquals(List.of("/mock/c.log", "/mock/a.log"), loaded.closedSets());
-    assertEquals(List.of("/mock/a.log"), loaded.removeClosed("/mock/c.log").closedSets());
-    assertEquals(List.of("/mock/c.log"), loaded.addClosed("/mock/a.log").closedSets());
+    assertEquals(List.of("/mock/a.log"), loaded.removeClosed("/mock/c.log", EXACT).closedSets());
+    assertEquals(
+        List.of("/mock/c.log"), loaded.addClosed("/mock/a.log", false, EXACT).closedSets());
   }
 
   @Test

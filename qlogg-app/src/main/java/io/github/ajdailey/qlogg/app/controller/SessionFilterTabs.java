@@ -3,6 +3,7 @@ package io.github.ajdailey.qlogg.app.controller;
 import io.github.ajdailey.qlogg.app.config.Session;
 import io.github.ajdailey.qlogg.app.i18n.UiText;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
+import io.github.ajdailey.qlogg.core.io.PathCase;
 import io.github.ajdailey.qlogg.core.search.ExpressionException;
 import io.github.ajdailey.qlogg.core.search.LineRange;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
@@ -152,14 +153,32 @@ final class SessionFilterTabs {
     resolve();
   }
 
-  private static DocumentController fileTab(ApplicationController window, String path) {
+  /**
+   * Returns the file tab of a session entry: by its path as saved, absolute, or, where names ignore
+   * case, in another case (an entry saved in a typed spelling).
+   */
+  private DocumentController fileTab(ApplicationController window, String path) {
+    Path absolute;
     try {
       Path given = Path.of(path);
       DocumentController tab = window.find(given);
-      return tab != null ? tab : window.find(given.toAbsolutePath().normalize());
+      absolute = given.toAbsolutePath().normalize();
+      if (tab == null) {
+        tab = window.find(absolute);
+      }
+      if (tab != null) {
+        return tab;
+      }
     } catch (InvalidPathException e) {
       return null;
     }
+    PathCase names = set.config().pathCase();
+    for (DocumentController tab : window.documents()) {
+      if (tab.ownsDocument() && names.same(tab.document().path().toString(), absolute.toString())) {
+        return tab;
+      }
+    }
+    return null;
   }
 
   /** Derives every pending tab whose parent is open, then the tabs waiting on those. */

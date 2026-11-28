@@ -17,7 +17,6 @@ import io.github.ajdailey.qlogg.core.model.DocumentServices;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.search.MutableLineSet;
 import io.github.ajdailey.qlogg.core.testkit.Poll;
-import io.github.ajdailey.qlogg.core.util.os.OsTraits;
 import io.github.ajdailey.qlogg.core.watch.FileChange;
 import java.io.File;
 import java.io.IOException;
@@ -64,8 +63,7 @@ class DocumentOpenerTest {
               public boolean getAsBoolean() {
                 return false;
               }
-            },
-            OsTraits.current());
+            });
   }
 
   @AfterEach

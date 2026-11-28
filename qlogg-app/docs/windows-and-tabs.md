@@ -57,6 +57,18 @@ notice "Folders are not opened".
   the tab title, the open-file check, the handoff, the recent list, favorites,
   the session and the `PositionStore`, so a retargeted link reopens under its
   own name.
+- Where names ignore case (`ConfigStore.pathCase()`, Windows and macOS), every
+  open, reload and restore first passes the path through `PathCase.onDisk`:
+  each name takes its directory entry's spelling, so `APP.LOG` opens as
+  `app.log` and finds the tab of `app.log`. A name with no entry keeps its
+  spelling.
+- Stored paths match apart from case there (`PathCase.same`). A
+  `PositionStore` lookup with no entry in the path's own spelling takes the
+  most recently used entry in another case, and an update keeps that entry's
+  key. Adding to Recent Files or Recently Closed drops every entry in another
+  case. A session entry in another case finds its file tab for its filter
+  tabs, and a Search in Folder line finds the tab of a folder typed in another
+  case.
 - Indexing and the `FileMonitor` watch start with the tab. `follow` (`-f`) or
   `follow.onLoad` start it following. Otherwise, without `+line:N`, the
   `PositionStore` entry restores the caret and the top line once indexing
@@ -222,13 +234,12 @@ empty. The tab's filter tabs are derived again over the new document.
 A tab shows a rotated set when its `FileRequest` is `rotated` (`--rotated`, the
 handoff's `ROTATED 1`, a Recently Closed or session entry closed as a set) or
 after Include Rotated Files. `DocumentOpener` then calls
-`LogDocument.openRotated` with `OsTraits.fileNamesIgnoreCase()` and the base
-file's `PositionStore` entry. Where names ignore case, `RotatedTabs.onDisk`
-first replaces each name of the given path with its directory entry's
-spelling, so `APP.LOG.1` opens the set as `app.log`. A set's `path()` is its
-base path, so `find` matches a plain open of the active file, and a rotated
-open typed in another case, to the set's tab; a rotated open that finds the
-file shown alone turns that tab into the set.
+`LogDocument.openRotated` with the case rule and the base file's
+`PositionStore` entry. The on-disk spelling applies first as for any open, so
+`APP.LOG.1` opens the set as `app.log`. A set's `path()` is its base path, so
+`find` matches a plain open of the active file, and a rotated open typed in
+another case, to the set's tab; a rotated open that finds the file shown alone
+turns that tab into the set.
 
 `LineCarry` moves marks and comments into the reopened document on the worker:
 
