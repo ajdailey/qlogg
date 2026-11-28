@@ -96,6 +96,9 @@
         <qlogg.excludedGroups></qlogg.excludedGroups>
         <!-- Extra test JVM options; the macos profile sets them. -->
         <qlogg.test.jvmArgs></qlogg.test.jvmArgs>
+        <!-- The test JVM's user.home under target; the gtk4 profile gives
+             GTK 4 its own, since SWT caches shell trims per home. -->
+        <qlogg.test.home>test-home</qlogg.test.home>
         <qlogg.config.dir>${maven.multiModuleProjectDirectory}/config</qlogg.config.dir>
     </properties>
 
@@ -407,7 +410,7 @@
                         <excludedGroups>${qlogg.excludedGroups}</excludedGroups>
                         <!-- SWT writes ~/.swt/trims.prefs; keep it out of the
                              user's home. -->
-                        <argLine>-Duser.home=${project.build.directory}/test-home --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs}</argLine>
+                        <argLine>-Duser.home=${project.build.directory}/${qlogg.test.home} --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs}</argLine>
                         <!-- GTK prefers Wayland when WAYLAND_DISPLAY is set, which
                              puts test windows on the desktop session instead of
                              the X server DISPLAY names (Xvfb). -->
@@ -647,6 +650,21 @@
             </activation>
             <properties>
                 <qlogg.test.jvmArgs>-XstartOnFirstThread</qlogg.test.jvmArgs>
+            </properties>
+        </profile>
+        <!-- SWT_GTK4=1 runs GTK 4. SWT keeps shell trims in
+             ~/.swt/trims.prefs, and a GTK 3 run's values misplace GTK 4
+             shells, so GTK 4 tests get their own user.home. -->
+        <profile>
+            <id>gtk4</id>
+            <activation>
+                <property>
+                    <name>env.SWT_GTK4</name>
+                    <value>1</value>
+                </property>
+            </activation>
+            <properties>
+                <qlogg.test.home>test-home-gtk4</qlogg.test.home>
             </properties>
         </profile>
 
