@@ -495,7 +495,7 @@ would choose platform code calls a seam instead.
 | `WindowStacking` (`stacking`) | `Win32Stacking` | `CocoaStacking` | `GtkX11Stacking` on X11, else `WindowManagerStacking` | `WindowManagerStacking` | `MainWindow` (Always on Top, Minimize), `MainMenuBar` (tool tip) |
 | `ToolItemSizing` (`toolItemSizing`) | `NativeToolItemSizing` | `NativeToolItemSizing` | `NativeToolItemSizing` | `Gtk4ToolItemSizing` | `ToolIcons` |
 | `ComboListSelection` (`comboListSelection`) | `Win32ComboListSelection`: paints a drop-down combo's open list selection under the dark native setting | `NativeComboListSelection` | `NativeComboListSelection` | `NativeComboListSelection` | every `Combo` at creation ([theme.md](theme.md#combo-list-selection)) |
-| `ListSelection` (`listSelection`) | `Win32ListSelection`: paints a single-selection list's selected row under the dark native setting | `NativeListSelection` | `NativeListSelection` | `NativeListSelection` | `Dialogs.list` ([theme.md](theme.md#list-selection)) |
+| `ListSelection` (`listSelection`) | `Win32ListSelection`: paints a single-selection list's selected row in a dialog created dark | `NativeListSelection` | `NativeListSelection` | `NativeListSelection` | `Dialogs.list` ([theme.md](theme.md#list-selection)) |
 
 ## Platform services
 

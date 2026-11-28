@@ -327,13 +327,16 @@ solid `#ffffff` below the dialog's white text, focused or not (OBERON, 150% and
 `ListSelection.PLATFORM.draw`; `ArchitectureTest.listsOnlyThroughDialogs`
 rejects `new List` elsewhere. `Win32ListSelection` subclasses the ListBox
 window through `Win32ListBox`, the subclass and row painting it shares with
-`Win32ComboListSelection`, and while `DialogColors.nativeDark` holds paints
-the selected row `#626262` with focus and `Win32UnfocusedSelection.BACKGROUND`
-(`#747474`) without, white text, as a dark dialog tree draws its rows. It
-paints after each `WM_PAINT`, into the `WM_PRINTCLIENT` DC, and after any
-message that moves the selection or the focus. The setting is read per
-message, so after a live switch the next paint draws the side switched to.
-The painted row covers the native focus outline. Disposing the list restores
+`Win32ComboListSelection`, and paints the selected row `#626262` with focus
+and `Win32UnfocusedSelection.BACKGROUND` (`#747474`) without, white text, as a
+dark dialog tree draws its rows. It paints after each `WM_PAINT`, into the
+`WM_PRINTCLIENT` DC, and after any message that moves the selection or the
+focus. The side is fixed when the list is created, as its dialog's colors are:
+only a list in a dialog `DialogColors.apply` colored is subclassed, and it
+keeps the painted row after a live switch to light; a list in a dialog created
+light stays native after a switch to dark. The combo list reads
+`DialogColors.nativeDark` per message instead, because the main window's
+combos follow a live switch. The painted row covers the native focus outline. Disposing the list restores
 the window procedure; a `SWT.MULTI` list is left native. If an SWT upgrade
 drops a member, one WARN is logged, the native selection stays and
 `Win32ListSelectionTest` fails on win32. `NativeListSelection` does nothing on

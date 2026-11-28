@@ -82,6 +82,12 @@ final class Win32ComboListSelection implements ComboListSelection {
           });
     }
 
+    /** Follows the dark native setting live: main window combos follow a theme switch. */
+    @Override
+    boolean dark() {
+      return DialogColors.nativeDark(combo.getDisplay());
+    }
+
     @Override
     boolean consume(long msg) {
       if (msg == SHOWN) {

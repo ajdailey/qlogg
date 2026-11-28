@@ -909,7 +909,7 @@ Tools > Preferences (`Ctrl+,`; on macOS, QLogg > Preferences) has these tabs:
 | File | Default encoding | windows-1252 | Used when detection finds no other encoding |
 | File | Use directory change notifications | On (Windows, Linux), Off (macOS) | Notices file changes from system events between checks; on macOS the Java runtime only polls the folder every 2 s, which adds nothing to the check interval |
 | File | Check interval (ms) | 1000 | How often open files are checked for changes, 100 to 60,000 |
-| Shortcuts | The command list | Built-in keys | Add and Remove change the selected command's keys, Default Keys restores them and Restore All Defaults restores every command's; keys another command holds are refused |
+| Shortcuts | The command list | Built-in keys | Add and Remove change the selected command's keys, Default Keys restores them and Restore All Defaults restores every command's; an Add that changes nothing says why, such as keys another command holds |
 | Advanced | Stop a search after this many matches | 0, no limit | Takes effect at the next start |
 | Advanced | Keep file closed | On (Windows), Off (Linux, macOS) | [Keep file closed](#keep-file-closed) |
 | Folding | Entry start pattern, Continuation patterns | The rules in [Folding multi-line entries](#folding-multi-line-entries) | Restore Defaults brings the built-in rules back |

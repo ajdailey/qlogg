@@ -6,17 +6,19 @@ import org.eclipse.swt.widgets.List;
 import org.slf4j.LoggerFactory;
 
 /**
- * win32: under the dark native setting a single-selection {@link List} (a ListBox window) draws its
- * selected row {@link #FOCUSED} with focus and {@link Win32UnfocusedSelection#BACKGROUND} without,
- * text {@link Win32UnfocusedSelection#TEXT}, as a dark dialog tree draws its rows. Windows 11 draws
- * that row solid {@code #ffffff} under SWT's dark theme, below the dialog's white text (OBERON, at
- * 150% and 100%).
+ * win32: a single-selection {@link List} (a ListBox window) in a dialog {@link Win32DialogColors}
+ * colored draws its selected row {@link #FOCUSED} with focus and {@link
+ * Win32UnfocusedSelection#BACKGROUND} without, text {@link Win32UnfocusedSelection#TEXT}, as a dark
+ * dialog tree draws its rows. Windows 11 draws that row solid {@code #ffffff} under SWT's dark
+ * theme, below the dialog's white text (OBERON, at 150% and 100%).
  *
  * <p>{@link #draw} subclasses the list window through {@link Win32ListBox}. The hook paints the
  * selected row over the native drawing after each {@code WM_PAINT}, into the {@code WM_PRINTCLIENT}
- * DC, and after any message that moves the selection or the focus. The setting is read per message,
- * so after a live switch the next paint draws the side switched to. A member that does not resolve
- * logs one WARN and leaves the native selection. Confined to the UI thread.
+ * DC, and after any message that moves the selection or the focus. The side is fixed when {@link
+ * #draw} runs, as its dialog's colors are: a list in a dialog created dark keeps the drawn row
+ * after a live switch to light, and any other list keeps the native selection for its life. A
+ * member that does not resolve logs one WARN and leaves the native selection. Confined to the UI
+ * thread.
  */
 final class Win32ListSelection implements ListSelection {
   /** The focused selected row's background: a dark dialog tree's native focused selection. */
@@ -27,7 +29,7 @@ final class Win32ListSelection implements ListSelection {
 
   @Override
   public void draw(List list) {
-    if ((list.getStyle() & SWT.MULTI) != 0) {
+    if ((list.getStyle() & SWT.MULTI) != 0 || !Win32DialogColors.INSTANCE.colored(list)) {
       return;
     }
     Win32ListBox.Members found = members.get();
@@ -48,6 +50,11 @@ final class Win32ListSelection implements ListSelection {
 
     Hook(List list, Win32ListBox.Members os) {
       super(list, os);
+    }
+
+    @Override
+    boolean dark() {
+      return true;
     }
 
     @Override

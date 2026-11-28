@@ -38,12 +38,12 @@ import org.junit.jupiter.api.Test;
 /**
  * On win32 the selected row of a {@link Dialogs#list} in a {@link Dialogs#shell} dialog, drawn
  * through {@link ListSelection}, reads on the screen: {@code #626262} with focus and {@code
- * #747474} without, text at 4.5 contrast, under a dark start and after a live switch back to dark;
- * natively under a light start and after a live switch to light. The row is read 2 px in from each
- * edge, its fill at its middle pixel row. A selection or focus change repaints it without a {@code
- * redraw}; a live switch takes effect at the next paint, which the test asks for with one. Each
- * case saves the list and its readings to {@code target/diagnostics/win32-list/}. Skipped where the
- * screen does not show the list.
+ * #747474} without, text at 4.5 contrast, in a dialog created dark, before and after a live switch
+ * to light; natively in a dialog created light, before and after a live switch to dark. The row is
+ * read 2 px in from each edge, its fill at its middle pixel row. A selection or focus change
+ * repaints it without a {@code redraw}; after a live switch the test repaints the list with one, so
+ * the read shows a paint made under the new setting. Each case saves the list and its readings to
+ * {@code target/diagnostics/win32-list/}. Skipped where the screen does not show the list.
  */
 @Tag("swt")
 class Win32ListTest {
@@ -103,25 +103,23 @@ class Win32ListTest {
   }
 
   @Test
-  void theFocusedSelectedRowFollowsLiveSwitches() {
+  void aDarkCreatedListStaysDarkAfterASwitchToLight() {
     open(ThemeMode.DARK);
     focus(list);
-    assertEquals(FOCUSED, read(1, true, "switch-focused-dark"));
     switchTo(false);
-    assertNative(read(1, false, "switch-focused-light"));
-    switchTo(true);
-    assertEquals(FOCUSED, read(1, true, "switch-focused-dark-again"));
+    assertEquals(FOCUSED, read(1, true, "dark-created-focused-light"));
+    focus(other);
+    assertEquals(UNFOCUSED, read(1, true, "dark-created-unfocused-light"));
   }
 
   @Test
-  void theUnfocusedSelectedRowFollowsLiveSwitches() {
-    open(ThemeMode.DARK);
-    focus(other);
-    assertEquals(UNFOCUSED, read(1, true, "switch-unfocused-dark"));
-    switchTo(false);
-    assertNative(read(1, false, "switch-unfocused-light"));
+  void aLightCreatedListStaysNativeAfterASwitchToDark() {
+    open(ThemeMode.LIGHT);
+    focus(list);
     switchTo(true);
-    assertEquals(UNFOCUSED, read(1, true, "switch-unfocused-dark-again"));
+    assertNative(read(1, false, "light-created-focused-dark"));
+    focus(other);
+    assertNative(read(1, false, "light-created-unfocused-dark"));
   }
 
   private static void assertNative(RGB fill) {

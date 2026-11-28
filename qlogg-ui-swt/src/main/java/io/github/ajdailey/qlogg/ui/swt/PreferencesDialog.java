@@ -5,6 +5,7 @@ import io.github.ajdailey.qlogg.app.command.CommandGroup;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.KeyStroke;
 import io.github.ajdailey.qlogg.app.command.Keymap;
+import io.github.ajdailey.qlogg.app.command.ShortcutAdd;
 import io.github.ajdailey.qlogg.app.command.ShortcutOverrides;
 import io.github.ajdailey.qlogg.app.config.FoldRulesText;
 import io.github.ajdailey.qlogg.app.config.FollowSettings;
@@ -457,33 +458,17 @@ final class PreferencesDialog {
     fill();
   }
 
-  /** Adds the captured keys to the selected command unless another command holds them. */
+  /** Adds the captured keys to the selected command, or shows why nothing changes. */
   void addCaptured() {
     CommandId command = selected();
-    if (command == null || captured.isEmpty()) {
-      return;
-    }
-    KeyStroke first = captured.get(0);
-    KeyStroke second = captured.size() > 1 ? captured.get(1) : null;
-    Binding candidate =
-        new Binding(
-            command, first, second, ShortcutOverrides.scopeFor(command, first, second, defaults));
-    Keymap current = working();
-    List<Binding> conflicts = current.conflicts(candidate);
-    if (!conflicts.isEmpty()) {
-      message.setText(
-          UiText.SHORTCUTS_CONFLICT.format(
-              candidate.text(SwtKeys.mac()), conflicts.get(0).command().title()));
+    ShortcutAdd add = ShortcutAdd.of(command, captured, working(), defaults, SwtKeys.mac());
+    if (add.bindings() == null) {
+      message.setText(add.message());
       message.getParent().layout(true);
       return;
     }
-    List<Binding> list = new ArrayList<Binding>(current.bindingsFor(command));
-    if (list.contains(candidate) || list.size() >= ShortcutOverrides.MAX_PER_COMMAND) {
-      return;
-    }
-    list.add(candidate);
     clearCaptured();
-    setOverrides(overrides.with(command, list));
+    setOverrides(overrides.with(command, add.bindings()));
   }
 
   /** Removes the selected key binding from the selected command. */
