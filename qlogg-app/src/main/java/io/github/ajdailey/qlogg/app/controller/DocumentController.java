@@ -77,7 +77,8 @@ import org.slf4j.LoggerFactory;
  * <p>Rows map to lines through a {@link RowMap}: {@link ColumnRows} in a file tab, which owns its
  * document ({@link OwnedDocument}), and {@link DerivedRows} in a filter tab, which shares its root
  * tab's document and grows through its {@link Derivation}. The tab's {@link ColumnController} holds
- * its column format and records. Mark jumps step over marks that are not rows ({@link MarkSteps}).
+ * its column format and records. Mark jumps step over marks that are not rows ({@link
+ * MarkStepper}).
  *
  * <p>Folding ({@link FoldController}): a collapsed entry is one row, so rows map to lines through
  * the {@link FoldMap}. A fold change keeps the top line and the selection on their lines. Go to
@@ -136,6 +137,7 @@ public final class DocumentController extends LineViewController {
   private final FoldMap folds;
   private final ColumnController columns;
   private final RowMap rows;
+  private final MarkStepper steps;
   private final DocumentRole role;
   private String autoSet;
   // Keyword triggers.
@@ -215,6 +217,19 @@ public final class DocumentController extends LineViewController {
       this.role = derivation;
       derivation.attach(this);
     }
+    this.steps =
+        new MarkStepper(
+            document,
+            rows,
+            workers,
+            ui,
+            activity,
+            new MarkStepper.Target() {
+              @Override
+              public void stepped(boolean forward, long line) {
+                DocumentController.this.stepped(forward, line);
+              }
+            });
     this.state = buildState(document.status());
     this.updates =
         new UiUpdateQueue(
@@ -421,13 +436,14 @@ public final class DocumentController extends LineViewController {
   }
 
   /**
-   * Cancels a go to time, a mark toggle and the copies and saves of both views. Unless a go to time
-   * was running, also stops loading; growth stays unindexed until a reload.
+   * Cancels a go to time, a mark toggle, a mark step and the copies and saves of both views. Unless
+   * a go to time was running, also stops loading; growth stays unindexed until a reload.
    */
   public void stop() {
     boolean searching = time.running();
     time.cancel();
     cancelMarks();
+    steps.cancel();
     // Copy and save cancel.
     cancelExports();
     filtered.cancelExports();
@@ -868,26 +884,27 @@ public final class DocumentController extends LineViewController {
 
   /** Moves the caret to the first mark after its line among the rows, or shows a notice. */
   public void nextMark() {
-    long caret = Math.max(0, sourceLine(selection().caret().line()));
-    long next = MarkSteps.next(document.marks(), rows.members(), caret + 1);
-    if (next >= 0) {
-      recordJump();
-      showLine(next);
-    } else {
-      notifications().showNotice(UiText.NOTICE_NO_NEXT_MARK.text());
-    }
+    steps.request(Math.max(0, sourceLine(selection().caret().line())), true);
   }
 
   /** Moves the caret to the last mark before its line among the rows, or shows a notice. */
   public void previousMark() {
-    long caret = Math.max(0, sourceLine(selection().caret().line()));
-    long previous =
-        caret == 0 ? -1 : MarkSteps.previous(document.marks(), rows.members(), caret - 1);
-    if (previous >= 0) {
+    steps.request(Math.max(0, sourceLine(selection().caret().line())), false);
+  }
+
+  /** Returns the tab's mark steps. */
+  MarkStepper markSteps() {
+    return steps;
+  }
+
+  private void stepped(boolean forward, long line) {
+    if (line >= 0) {
       recordJump();
-      showLine(previous);
+      showLine(line);
     } else {
-      notifications().showNotice(UiText.NOTICE_NO_PREVIOUS_MARK.text());
+      notifications()
+          .showNotice(
+              forward ? UiText.NOTICE_NO_NEXT_MARK.text() : UiText.NOTICE_NO_PREVIOUS_MARK.text());
     }
   }
 
@@ -1366,6 +1383,7 @@ public final class DocumentController extends LineViewController {
    */
   public void detach() {
     cancelMarks();
+    steps.cancel();
     updates.close();
     role.detached();
     rows.detach();

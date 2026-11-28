@@ -64,6 +64,7 @@ class BusyCoverageTest {
       "controller.DerivedTabs#create",
       "controller.DocumentController#toggleMarks",
       "controller.LineViewController#copy",
+      "controller.MarkStepper#request",
       "controller.OpenPathAtCaret#open",
       "controller.QuickFindController#find",
       "controller.SearchController#selectRange",
