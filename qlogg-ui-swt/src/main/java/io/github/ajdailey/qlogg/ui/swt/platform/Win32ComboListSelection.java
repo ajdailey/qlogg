@@ -32,8 +32,13 @@ import org.slf4j.LoggerFactory;
  * #0078d7} with white text on Windows 11) while the native setting is dark, because the native list
  * takes the dark white-on-white row at a live switch. A main window combo follows the dark native
  * setting live, as the main window follows a theme switch. Under the light setting a combo outside
- * a colored dialog keeps the native drawing. A member that does not resolve logs one WARN and
- * leaves the native selection. Confined to the UI thread.
+ * a colored dialog keeps the native drawing.
+ *
+ * <p>SWT gives the list the {@code DarkMode_Explorer} theme at each drop-down under the dark native
+ * setting and never removes it, and the themed list draws its selected row white on white under
+ * either setting (measured on build 26300). Outside a colored dialog the hook clears that theme at
+ * the list's first message after a switch to light, so the native light row shows. A member that
+ * does not resolve logs one WARN and leaves the native selection. Confined to the UI thread.
  */
 final class Win32ComboListSelection implements ComboListSelection {
   /** Posted to the list when it shows; the hook repaints on it and keeps it from the list. */
@@ -81,6 +86,9 @@ final class Win32ComboListSelection implements ComboListSelection {
     private long painted = -1;
     private boolean shown;
 
+    /** True once the list took a message under the dark native setting. */
+    private boolean themed;
+
     ListHook(Combo combo, Win32ListBox.Members os, Side side) {
       super(combo, os);
       this.combo = combo;
@@ -112,6 +120,23 @@ final class Win32ComboListSelection implements ComboListSelection {
     @Override
     boolean dark() {
       return side == Side.DARK || DialogColors.nativeDark(combo.getDisplay());
+    }
+
+    /**
+     * Outside a colored dialog, clears the list's dark theme at its first message under the light
+     * native setting after a dark one.
+     */
+    @Override
+    void before(long hwnd) throws ReflectiveOperationException {
+      if (side == Side.DARK) {
+        return;
+      }
+      if (DialogColors.nativeDark(combo.getDisplay())) {
+        themed = true;
+      } else if (themed) {
+        themed = false;
+        os.clearTheme(hwnd);
+      }
     }
 
     @Override

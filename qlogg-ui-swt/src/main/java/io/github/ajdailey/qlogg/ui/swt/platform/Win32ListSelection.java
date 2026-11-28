@@ -63,6 +63,9 @@ final class Win32ListSelection implements ListSelection {
     }
 
     @Override
+    void before(long hwnd) {}
+
+    @Override
     void after(long hwnd, long msg, long wParam, long selected)
         throws ReflectiveOperationException {
       boolean focused = focused(hwnd);

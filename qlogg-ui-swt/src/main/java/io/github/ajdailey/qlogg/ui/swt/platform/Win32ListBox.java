@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
  * Win32ComboListSelection} and {@link Win32ListSelection} share. {@link #resolve} finds SWT's
  * {@code Control.handle}, {@code internal.Callback} and the {@code internal.win32.OS} calls and
  * structs in the running SWT; a {@link Hook} subclasses one ListBox window through them and paints
- * its selected row over the native drawing while {@link Hook#dark} holds, read per message.
- * Confined to the UI thread.
+ * its selected row over the native drawing while {@link Hook#dark} holds, read per message. {@link
+ * Win32FieldTheme} clears a text field's theme through the same members. Confined to the UI thread.
  */
 final class Win32ListBox {
   static final int WM_PAINT = 0x000f;
@@ -73,9 +73,7 @@ final class Win32ListBox {
     /** Stops every later call and logs the cause. */
     void failed(Throwable cause) {
       members = cause;
-      log.warn(
-          "Dark lists keep the native selection: a reflective call into SWT internals failed",
-          cause);
+      log.warn("The native drawing stays: a reflective call into SWT internals failed", cause);
     }
   }
 
@@ -125,6 +123,8 @@ final class Win32ListBox {
     found.focus = os.getMethod("GetFocus");
     found.invalidate = os.getMethod("InvalidateRect", long.class, found.rect, boolean.class);
     found.post = os.getMethod("PostMessage", long.class, int.class, long.class, long.class);
+    found.allowDark = os.getMethod("AllowDarkModeForWindow", long.class, boolean.class);
+    found.setTheme = os.getMethod("SetWindowTheme", long.class, char[].class, char[].class);
     return found;
   }
 
@@ -162,6 +162,17 @@ final class Win32ListBox {
     Method focus;
     Method invalidate;
     Method post;
+    Method allowDark;
+    Method setTheme;
+
+    /**
+     * Removes the {@code DarkMode_Explorer} theme SWT gives a window under the dark native setting:
+     * {@code AllowDarkModeForWindow} false and {@code SetWindowTheme} with no theme.
+     */
+    void clearTheme(long hwnd) throws ReflectiveOperationException {
+      os(allowDark, hwnd, false);
+      os(setTheme, hwnd, null, null);
+    }
 
     long os(Method method, Object... args) throws ReflectiveOperationException {
       return number(method.invoke(null, args));
@@ -236,12 +247,19 @@ final class Win32ListBox {
     }
 
     /**
-     * The window procedure: {@link #consume}, else the native one followed by {@link #after} while
-     * {@link #dark} holds. SWT's callback passes every argument as a long.
+     * The window procedure: {@link #consume}, else {@link #before}, the native one, and {@link
+     * #after} while {@link #dark} holds. SWT's callback passes every argument as a long.
      */
     final long windowProc(long hwnd, long msg, long wParam, long lParam) {
       if (consume(msg)) {
         return 0;
+      }
+      if (!broken) {
+        try {
+          before(hwnd);
+        } catch (ReflectiveOperationException | IllegalArgumentException e) {
+          stop(e);
+        }
       }
       long result;
       try {
@@ -282,6 +300,13 @@ final class Win32ListBox {
      * @return true when the message is consumed
      */
     abstract boolean consume(long msg);
+
+    /**
+     * Runs before the native procedure handles each message.
+     *
+     * @param hwnd the window
+     */
+    abstract void before(long hwnd) throws ReflectiveOperationException;
 
     /**
      * Runs after the native procedure handled a message while {@link #dark} holds.

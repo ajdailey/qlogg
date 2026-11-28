@@ -46,6 +46,11 @@ import org.eclipse.swt.widgets.Tree;
  * native field draws {@code #212121} there under any colors. A field is colored again when it
  * becomes empty or takes text ({@code SWT.Modify}).
  *
+ * <p>In a window built under the light native setting, a {@link Text} colored under the dark
+ * setting, which happens while the window waits for its rebuild, takes the dark theme from SWT;
+ * when the window returns to light before the rebuild, {@link Win32FieldTheme#clear} removes it,
+ * since the themed field draws {@code #212121} under light colors.
+ *
  * <p>Push and arrow buttons, lists, tables, trees, spinners, progress bars, a {@link StyledText}, a
  * {@link Browser}, a {@link CTabFolder} and a control with {@link #PALETTE_COLORED} keep their
  * colors, and the walk does not descend into them. A control created later under a surface takes
@@ -71,6 +76,9 @@ final class Win32ChromeColors implements ChromeColors {
 
   /** Control data key: set on a field once it follows {@code SWT.Modify}. */
   private static final String FOLLOWED = Win32ChromeColors.class.getName() + ".followed";
+
+  /** Control data key: set on a light-built window's text field colored under the dark setting. */
+  private static final String THEMED = Win32ChromeColors.class.getName() + ".themed";
 
   private final Display display;
   private final Listener skin =
@@ -224,6 +232,14 @@ final class Win32ChromeColors implements ChromeColors {
     Color lightText = listColors ? display.getSystemColor(SWT.COLOR_LIST_FOREGROUND) : null;
     field.setBackground(darkField ? FIELD : light);
     field.setForeground(darkField ? TEXT : lightText);
+    if (!nativeDark && field instanceof Text text) {
+      if (darkField && DialogColors.nativeDark(display)) {
+        text.setData(THEMED, Boolean.TRUE);
+      } else if (!darkField && !DialogColors.nativeDark(display) && text.getData(THEMED) != null) {
+        text.setData(THEMED, null);
+        Win32FieldTheme.clear(text);
+      }
+    }
     if (field.getData(FOLLOWED) != null) {
       return;
     }

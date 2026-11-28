@@ -550,6 +550,27 @@ class ChromeColorsTest {
   }
 
   /**
+   * A text field holding text, as a context count field does, in a window built light and waiting
+   * for its rebuild through six alternating switches, takes {@link #FIELD} and {@link #TEXT} under
+   * dark and the system colors under light; {@code Win32ContextFieldTest} reads the drawn field.
+   */
+  @Test
+  void aTextFieldInAWaitingLightWindowFollowsAlternatingSwitches() {
+    display.setData(DialogColors.NATIVE_DARK, Boolean.FALSE);
+    setText(fields.get(0), "0");
+    List<RGB> system = fieldColors();
+    ChromeColors chrome = chrome(WIN32);
+    chrome.apply(false);
+    for (int i = 0; i < 6; i++) {
+      boolean dark = i % 2 == 0;
+      display.setData(DialogColors.NATIVE_DARK, dark);
+      chrome.apply(dark);
+      assertEquals(dark ? FIELD : system.get(0), fields.get(0).getBackground().getRGB(), "" + i);
+      assertEquals(dark ? TEXT : system.get(1), fields.get(0).getForeground().getRGB(), "" + i);
+    }
+  }
+
+  /**
    * A checked tool item draws the startup native theme's checked background: dark after a dark
    * start and light after a light start, whatever the row. Its icon takes the light ink only when
    * both the start and the theme are dark, on check and uncheck; its faded disabled copy keeps the

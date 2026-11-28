@@ -231,7 +231,15 @@ keeps it, one instance per window: the side the window's controls were created
 under, also while the window waits for a rebuild with a dialog open. While that
 side is dark, a field holding text keeps the dark colors under light: the
 dark native field draws near-black under any light colors. A switch rebuilds
-the window, so this holds only under a fixed `view.colors` scheme. An empty
+the window, so this holds only under a fixed `view.colors` scheme. SWT 3.135
+gives a `Text` the `DarkMode_Explorer` theme when a color is set on it under
+the dark setting and never removes it, and the themed field draws `#212121`
+under light colors (OBERON, the context fields). In a window built light, which
+takes the dark colors only while it waits for its rebuild with a dialog open,
+`Win32ChromeColors` marks each text field it colors under the dark setting;
+when the window returns to light before the rebuild, `Win32FieldTheme.clear`
+removes the theme (`AllowDarkModeForWindow` false and `SetWindowTheme` with no
+theme, through `Win32ListBox`'s members) and redraws the field. An empty
 `Text` takes the system list colors, set explicitly, because a field with no
 colors draws the dark native field. While a `Text` is empty and unfocused,
 `Win32EmptyField` fills it in its background on either side, the system one
@@ -297,8 +305,8 @@ API sets:
 Under the dark native setting Windows 11 draws the selected row of a drop-down
 combo's open list, which is also the hover row, white on white, read-only or
 editable, whatever the combo's colors (1.00:1, measured at 150% on build
-26300); `windows-2025` at 100% draws it `#0078d4` with white text. Neither
-`SetWindowTheme` nor the `WM_CTLCOLORLISTBOX` answer changes that row. Every
+26300); `windows-2025` at 100% draws it `#0078d4` with white text. No dark
+`SetWindowTheme` theme and no `WM_CTLCOLORLISTBOX` answer changes that row. Every
 `Combo` is created with `ComboListSelection.PLATFORM.draw`.
 `Win32ComboListSelection` subclasses the list window through `Win32ListBox`,
 which reaches SWT's `internal.Callback` and `internal.win32.OS` under an
@@ -319,6 +327,15 @@ the hook paints the row in `SWT.COLOR_LIST_SELECTION` and
 `COLOR_LIST_SELECTION_TEXT`, the selection the light list draws (`#0078d7`
 with white text on Windows 11, `#0078d4` on `windows-2025`); under light it
 leaves the native drawing. `ListHook.dark()` and `colors()` choose the side.
+SWT gives the list `DarkMode_Explorer` at each drop-down under the dark native
+setting (`Combo.updateDropDownTheme`) and never removes it, and the themed list
+draws the white-on-white row under light too: after Light -> Dark -> Light a
+light-created dialog's combo opened under dark shows no selected row (OBERON).
+Outside a colored dialog,
+`ListHook.before` clears the theme at the list's first message under light
+after a dark one (`AllowDarkModeForWindow` false and `SetWindowTheme` with no
+theme, which drew `#0078d7` with white text in the QCaret DEF4 probe on
+OBERON).
 A main window combo (the search row's combos) reads
 `DialogColors.nativeDark` per message, because the main window follows a live
 switch: the switch applies at the next paint, and under light the native
