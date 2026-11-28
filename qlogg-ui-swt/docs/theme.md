@@ -302,7 +302,7 @@ editable, whatever the combo's colors (1.00:1, measured at 150% on build
 `Combo` is created with `ComboListSelection.PLATFORM.draw`.
 `Win32ComboListSelection` subclasses the list window through `Win32ListBox`,
 which reaches SWT's `internal.Callback` and `internal.win32.OS` under an
-`ArchitectureTest` exception, and while `DialogColors.nativeDark` holds paints the selected row in
+`ArchitectureTest` exception, and while `Hook.dark()` holds paints the selected row in
 `Palette.DARK`'s selection, `#2f5f88` with white text, after each `WM_PAINT`
 and `WM_TIMER`, after each selection move, which the list draws without one,
 and into the `WM_PRINTCLIENT` DC. The opening slide renders the list through
@@ -310,11 +310,15 @@ and into the `WM_PRINTCLIENT` DC. The opening slide renders the list through
 on build 26300), so the hook also posts the list a private message
 (`WM_APP + 0xf42`) when it shows and invalidates the list when that arrives; a
 combo `SWT.Selection` on the open list (a keyboard move) invalidates it too.
-The setting is read per message, so a live switch applies at the next paint;
-under light the native selection stays. After a live switch without a window
-rebuild (a dialog open during the switch), the list keeps its light ground and
-text and only the selected row is dark, as other native controls keep their
-creation theme ("Window rebuild"). Disposing the combo restores the window procedure. A
+A dialog combo's side is fixed when it is created, as its dialog's colors are
+and as a `List`'s is: in a dialog `DialogColors.apply` colored, `dark()` is
+true for the combo's life, so the row stays dark after a live switch to light;
+a combo in a dialog created light is never subclassed and stays native after a
+switch to dark. A main window combo (the search row's combos) reads
+`DialogColors.nativeDark` per message, because the main window follows a live
+switch: the switch applies at the next paint, and under light the native
+selection stays. `Win32DialogColors.dialog` tells the two apart: `apply` marks
+every shell it runs on. Disposing the combo restores the window procedure. A
 `SWT.SIMPLE` combo is left native. If an SWT upgrade drops a member, one WARN
 is logged, the native selection stays and `Win32ListSelectionTest` fails
 on win32. `NativeComboListSelection` does nothing on GTK and cocoa.
@@ -334,9 +338,8 @@ dark dialog tree draws its rows. It paints after each `WM_PAINT`, into the
 focus. The side is fixed when the list is created, as its dialog's colors are:
 only a list in a dialog `DialogColors.apply` colored is subclassed, and it
 keeps the painted row after a live switch to light; a list in a dialog created
-light stays native after a switch to dark. The combo list reads
-`DialogColors.nativeDark` per message instead, because the main window's
-combos follow a live switch. The painted row covers the native focus outline. Disposing the list restores
+light stays native after a switch to dark. A dialog combo takes its side the
+same way ("Combo list selection"). The painted row covers the native focus outline. Disposing the list restores
 the window procedure; a `SWT.MULTI` list is left native. If an SWT upgrade
 drops a member, one WARN is logged, the native selection stays and
 `Win32ListSelectionTest` fails on win32. `NativeListSelection` does nothing on

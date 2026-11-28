@@ -27,6 +27,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -36,12 +37,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * On win32 the open list of a read-only or editable {@link Combo} in a {@link Dialogs#shell}
- * dialog, drawn through {@link ComboListSelection}, shows its selected row on a ground of its own
- * with text at 4.5 contrast, read from the screen below the combo: in {@link Palette#DARK}'s
- * selection under a dark start and after a live switch to dark, natively under a light start, under
- * the host's system theme setting. Each case saves the list and its row readings to {@code
- * target/diagnostics/win32-combo-list/}. Skipped where the screen does not show the open list.
+ * On win32 the open list of a read-only or editable {@link Combo}, drawn through {@link
+ * ComboListSelection}, shows its selected row on a ground of its own with text at 4.5 contrast,
+ * read from the screen below the combo, under the host's system theme setting. In a {@link
+ * Dialogs#shell} dialog the row keeps the side the dialog was created on: {@link Palette#DARK}'s
+ * selection when created dark, before and after a live switch to light; native when created light,
+ * before and after a live switch to dark. A main window combo follows a live switch either way.
+ * Each case saves the list and its row readings to {@code target/diagnostics/win32-combo-list/}.
+ * Skipped where the screen does not show the open list.
  */
 @Tag("swt")
 class Win32ComboListTest {
@@ -85,39 +88,60 @@ class Win32ComboListTest {
 
   @Test
   void theSelectedRowReadsUnderADarkStart() {
-    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, 0, "dark"));
+    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, null, true, 0, "dark"));
   }
 
   @Test
   void theSelectedRowReadsAfterKeyboardMovesUnderADarkStart() {
-    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, 2, "dark-down"));
+    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, null, true, 2, "dark-down"));
   }
 
   @Test
   void anEditableComboSelectedRowReadsAfterKeyboardMovesUnderADarkStart() {
     assertEquals(
-        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, 2, "editable-dark-down"));
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, null, true, 2, "editable-dark-down"));
   }
 
   @Test
   void theSelectedRowReadsUnderALightStart() {
-    assertNotEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, false, 0, "light"));
-  }
-
-  @Test
-  void theSelectedRowReadsAfterALiveSwitchToDark() {
-    assertEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, true, 0, "light-to-dark"));
+    assertNotEquals(DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, null, true, 0, "light"));
   }
 
   @Test
   void anEditableComboSelectedRowReadsUnderADarkStart() {
-    assertEquals(DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, 0, "editable-dark"));
+    assertEquals(
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, null, true, 0, "editable-dark"));
   }
 
   @Test
-  void anEditableComboSelectedRowReadsAfterALiveSwitchToDark() {
+  void aDarkCreatedDialogComboStaysDarkAfterASwitchToLight() {
     assertEquals(
-        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, 0, "editable-light-to-dark"));
+        DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.DARK, false, true, 0, "dark-created-light"));
+  }
+
+  @Test
+  void aLightCreatedDialogComboStaysNativeAfterASwitchToDark() {
+    assertNotEquals(
+        DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, true, true, 0, "light-created-dark"));
+  }
+
+  @Test
+  void anEditableLightCreatedDialogComboStaysNativeAfterASwitchToDark() {
+    assertNotEquals(
+        DARK_SELECTION,
+        check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, true, 0, "editable-light-created-dark"));
+  }
+
+  @Test
+  void aMainWindowComboFollowsASwitchToDark() {
+    assertEquals(
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, false, 0, "main-to-dark"));
+  }
+
+  @Test
+  void aMainWindowComboFollowsASwitchToLight() {
+    assertNotEquals(
+        DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, false, 0, "main-to-light"));
   }
 
   /**
@@ -126,31 +150,38 @@ class Win32ComboListTest {
    * fill.
    *
    * @param style {@code SWT.READ_ONLY} or {@code SWT.DROP_DOWN}, an editable combo
-   * @param switchToDark sets the dark native setting after the combo exists, as a live switch does
+   * @param switchTo the native side set after the combo exists, as a live switch does, or null
+   * @param inDialog true for a combo in a {@link Dialogs#shell} dialog, false for a main window's
    */
-  private RGB check(int style, ThemeMode mode, boolean switchToDark, int downs, String name) {
+  private RGB check(
+      int style, ThemeMode mode, Boolean switchTo, boolean inDialog, int downs, String name) {
     assumeTrue("win32".equals(SWT.getPlatform()), "win32 combo list");
     display = new Display();
     SwtThemeService.open(display, mode);
     Shell parent = new Shell(display, SWT.SHELL_TRIM);
-    parent.setBounds(20, 20, 200, 100);
-    parent.open();
-    Shell dialog = Dialogs.shell(parent, "Combo list", true);
-    final Combo combo = new Combo(dialog, style);
+    Shell host = parent;
+    if (inDialog) {
+      parent.setBounds(20, 20, 200, 100);
+      parent.open();
+      host = Dialogs.shell(parent, "Combo list", true);
+    } else {
+      parent.setLayout(new GridLayout(1, false));
+    }
+    final Combo combo = new Combo(host, style);
     ComboListSelection.PLATFORM.draw(combo);
     combo.setItems(ITEMS);
     combo.select(1);
-    dialog.setBounds(60, 60, 320, 220);
-    dialog.open();
-    dialog.forceActive();
+    host.setBounds(60, 60, 320, 220);
+    host.open();
+    host.forceActive();
     settle();
-    if (switchToDark) {
-      PlatformTraits.PLATFORM.themeFollow(display).showOnWindows(true, WindowRebuild.NONE);
+    if (switchTo != null) {
+      PlatformTraits.PLATFORM.themeFollow(display).showOnWindows(switchTo, WindowRebuild.NONE);
     }
     // A pointer left over the list by an earlier test would move its selection.
     display.setCursorLocation(parent.toDisplay(0, 0));
     combo.setFocus();
-    final Shell active = dialog;
+    final Shell active = host;
     assumeTrue(
         EventLoop.runUntil(
             display,
@@ -171,7 +202,8 @@ class Win32ComboListTest {
         "the screen does not show the open list below the combo; body " + hex(body));
     report.setLength(0);
     int[] band = selectedBand(list, mostRows(list));
-    double minimum = mode == ThemeMode.LIGHT && !switchToDark ? NATIVE_CONTRAST : TEXT_CONTRAST;
+    boolean dark = inDialog || switchTo == null ? mode == ThemeMode.DARK : switchTo.booleanValue();
+    double minimum = dark ? TEXT_CONTRAST : NATIVE_CONTRAST;
     RGB fill = readable(list, band, name, minimum);
     if (downs == 0) {
       return fill;

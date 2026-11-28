@@ -16,10 +16,11 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 /**
- * {@link Win32ComboListSelection}: a read-only or editable combo's list window takes another window
- * procedure until the combo is disposed, which restores the native one, and a {@code SWT.SIMPLE}
- * combo's keeps its own. {@code Win32ListSelectionTest} resolves the SWT internals; the painted row
- * is checked on the screen by {@code Win32ComboListTest}.
+ * {@link Win32ComboListSelection}: a read-only or editable main window or dark-created dialog
+ * combo's list window takes another window procedure until the combo is disposed, which restores
+ * the native one; a {@code SWT.SIMPLE} combo's, and a light-created dialog combo's, keeps its own.
+ * {@code Win32ListSelectionTest} resolves the SWT internals; the painted row is checked on the
+ * screen by {@code Win32ComboListTest}.
  */
 @Tag("swt")
 @EnabledOnOs(OS.WINDOWS)
@@ -60,6 +61,42 @@ class Win32ComboListSelectionTest {
           });
       combo.dispose();
       assertEquals(nativeProc, atDispose[0]);
+      shell.dispose();
+    } finally {
+      display.dispose();
+    }
+  }
+
+  @Test
+  void aComboInALightCreatedDialogIsLeftAsItIs() throws ReflectiveOperationException {
+    Display display = new Display();
+    try {
+      Shell shell = new Shell(display);
+      Win32DialogColors.INSTANCE.apply(shell);
+      Combo combo = new Combo(shell, SWT.READ_ONLY);
+      long list = listWindow(combo);
+      long nativeProc = proc(list);
+      display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+      new Win32ComboListSelection().draw(combo);
+      assertEquals(nativeProc, proc(list));
+      shell.dispose();
+    } finally {
+      display.dispose();
+    }
+  }
+
+  @Test
+  void aComboInADarkCreatedDialogIsSubclassed() throws ReflectiveOperationException {
+    Display display = new Display();
+    try {
+      display.setData(DialogColors.NATIVE_DARK, Boolean.TRUE);
+      Shell shell = new Shell(display);
+      Win32DialogColors.INSTANCE.apply(shell);
+      Combo combo = new Combo(shell, SWT.READ_ONLY);
+      long list = listWindow(combo);
+      long nativeProc = proc(list);
+      new Win32ComboListSelection().draw(combo);
+      assertNotEquals(nativeProc, proc(list));
       shell.dispose();
     } finally {
       display.dispose();
