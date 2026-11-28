@@ -41,10 +41,11 @@ import org.junit.jupiter.api.Test;
  * ComboListSelection}, shows its selected row on a ground of its own with text at 4.5 contrast,
  * read from the screen below the combo, under the host's system theme setting. In a {@link
  * Dialogs#shell} dialog the row keeps the side the dialog was created on: {@link Palette#DARK}'s
- * selection when created dark, before and after a live switch to light; native when created light,
- * before and after a live switch to dark. A main window combo follows a live switch either way.
- * Each case saves the list and its row readings to {@code target/diagnostics/win32-combo-list/}.
- * Skipped where the screen does not show the open list.
+ * selection when created dark, before and after a live switch to light; the system list selection
+ * ({@code SWT.COLOR_LIST_SELECTION}) when created light, before and after a live switch to dark,
+ * never the white row the native list takes at that switch. A main window combo follows a live
+ * switch either way. Each case saves the list and its row readings to {@code
+ * target/diagnostics/win32-combo-list/}. Skipped where the screen does not show the open list.
  */
 @Tag("swt")
 class Win32ComboListTest {
@@ -120,16 +121,15 @@ class Win32ComboListTest {
   }
 
   @Test
-  void aLightCreatedDialogComboStaysNativeAfterASwitchToDark() {
-    assertNotEquals(
-        DARK_SELECTION, check(SWT.READ_ONLY, ThemeMode.LIGHT, true, true, 0, "light-created-dark"));
+  void aLightCreatedDialogComboKeepsTheLightSelectionAfterASwitchToDark() {
+    RGB fill = check(SWT.READ_ONLY, ThemeMode.LIGHT, true, true, 0, "light-created-dark");
+    assertEquals(lightSelection(), fill);
   }
 
   @Test
-  void anEditableLightCreatedDialogComboStaysNativeAfterASwitchToDark() {
-    assertNotEquals(
-        DARK_SELECTION,
-        check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, true, 0, "editable-light-created-dark"));
+  void anEditableLightCreatedDialogComboKeepsTheLightSelectionAfterASwitchToDark() {
+    RGB fill = check(SWT.DROP_DOWN, ThemeMode.LIGHT, true, true, 0, "editable-light-created-dark");
+    assertEquals(lightSelection(), fill);
   }
 
   @Test
@@ -142,6 +142,11 @@ class Win32ComboListTest {
   void aMainWindowComboFollowsASwitchToLight() {
     assertNotEquals(
         DARK_SELECTION, check(SWT.DROP_DOWN, ThemeMode.DARK, false, false, 0, "main-to-light"));
+  }
+
+  /** Returns the system list selection, which a light-created dialog's combo keeps under dark. */
+  private RGB lightSelection() {
+    return display.getSystemColor(SWT.COLOR_LIST_SELECTION).getRGB();
   }
 
   /**
