@@ -222,8 +222,7 @@ final class HighlightersDialog {
   }
 
   private static org.eclipse.swt.widgets.List list(Composite parent) {
-    org.eclipse.swt.widgets.List list =
-        new org.eclipse.swt.widgets.List(parent, SWT.SINGLE | SWT.BORDER | SWT.V_SCROLL);
+    org.eclipse.swt.widgets.List list = Dialogs.list(parent);
     GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
     data.widthHint = 180;
     data.heightHint = 220;

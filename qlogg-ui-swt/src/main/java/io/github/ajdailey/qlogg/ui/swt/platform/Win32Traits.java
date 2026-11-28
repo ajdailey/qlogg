@@ -104,6 +104,11 @@ final class Win32Traits implements PlatformTraits {
   }
 
   @Override
+  public ListSelection listSelection() {
+    return new Win32ListSelection();
+  }
+
+  @Override
   public WindowPlacement windowPlacement() {
     return new Win32WindowPlacement();
   }

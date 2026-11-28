@@ -314,7 +314,7 @@ final class PreferencesDialog {
     Composite editor = new Composite(page, SWT.NONE);
     editor.setLayout(new GridLayout(4, false));
     editor.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    keys = new org.eclipse.swt.widgets.List(editor, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
+    keys = Dialogs.list(editor);
     GridData keysData = new GridData(SWT.FILL, SWT.FILL, true, false, 1, 3);
     keysData.heightHint = 72;
     keys.setLayoutData(keysData);
