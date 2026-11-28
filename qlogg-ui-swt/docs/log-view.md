@@ -213,12 +213,13 @@ lists Copy, Copy This Line, Copy with Line Numbers; Locate Source Line; Mark or 
 Comment; Find Selection Forward and Backward; Add Selection to Search, Exclude
 Selection from Search, Replace Search with Selection and the Search Limits
 cascade; Set Selection Start and End; Save Selection to File, Send Selection to
-Scratchpad, Replace Scratchpad with Selection; the Columns cascade (Toggle
-Columns, Copy Raw Lines, Copy Cell, Show Record); Open Path at Caret, Toggle
+Scratchpad, Replace Scratchpad with Selection; the Columns cascade (as View >
+Columns); Open Path at Caret, Toggle
 Fold, Wrap Line, Scroll All Tabs to This Time and the Time Sync cascade; then the Highlighters (None and the sets)
 and Color Label (None and the label names) cascades. A right click outside the
 selection first moves the caret to that row. Each `SWT.Show` applies
-`CommandStates.enabled` to every command item, as the menu bar does.
+`CommandStates.enabled` to every command item and `checked` to the check and
+radio items (`CommandItems`), as the menu bar does.
 
 The menu is built on the canvas's first `MenuDetect`, not with the canvas: it
 costs 35-60 ms per view under GTK 4, which every file open would otherwise pay

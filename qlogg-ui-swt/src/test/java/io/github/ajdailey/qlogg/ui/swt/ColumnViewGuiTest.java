@@ -39,6 +39,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Control;
@@ -495,5 +496,56 @@ class ColumnViewGuiTest {
     assertTrue(selected(CommandId.COLUMNS_CLF));
     assertFalse(window.menuBar().item(CommandId.FIRST_LINE_HEADER).isEnabled());
     assertFalse(window.menuBar().item(CommandId.COLUMNS_TIME).isEnabled());
+  }
+
+  /** Returns the log view context menu's Columns cascade after its {@code SWT.Show}. */
+  private Menu contextColumns() {
+    Event detect = new Event();
+    Point at = view().control().toDisplay(10, 30);
+    detect.x = at.x;
+    detect.y = at.y;
+    view().control().notifyListeners(SWT.MenuDetect, detect);
+    Menu menu = view().control().getMenu();
+    menu.notifyListeners(SWT.Show, new Event());
+    for (MenuItem item : menu.getItems()) {
+      if (UiText.MENU_COLUMNS.text().equals(item.getText())) {
+        return item.getMenu();
+      }
+    }
+    throw new AssertionError("no Columns cascade");
+  }
+
+  private static MenuItem itemOf(Menu menu, CommandId command) {
+    for (MenuItem item : menu.getItems()) {
+      if (item.getData() == command) {
+        return item;
+      }
+    }
+    throw new AssertionError("no item " + command);
+  }
+
+  @Test
+  void theContextColumnsCascadeHasTheFormatItemsAndTheirState() throws Exception {
+    openColumns("context.csv", CSV);
+    Menu columns = contextColumns();
+    MenuItem csv = itemOf(columns, CommandId.COLUMNS_CSV);
+    MenuItem header = itemOf(columns, CommandId.FIRST_LINE_HEADER);
+    assertTrue((csv.getStyle() & SWT.RADIO) != 0);
+    assertTrue((header.getStyle() & SWT.CHECK) != 0);
+    assertTrue(csv.getSelection());
+    assertTrue(header.getSelection());
+    assertTrue(itemOf(columns, CommandId.TOGGLE_COLUMNS).getSelection());
+    MenuItem text = itemOf(columns, CommandId.COLUMNS_TEXT);
+    text.setSelection(true);
+    csv.setSelection(false);
+    csv.notifyListeners(SWT.Selection, new Event());
+    assertTrue(document().columns().shown(), "the cleared radio item runs nothing");
+    text.notifyListeners(SWT.Selection, new Event());
+    assertFalse(document().columns().shown());
+    columns = contextColumns();
+    assertTrue(itemOf(columns, CommandId.COLUMNS_TEXT).getSelection());
+    assertFalse(itemOf(columns, CommandId.COLUMNS_CSV).getSelection());
+    assertTrue(itemOf(columns, CommandId.FIRST_LINE_HEADER).isEnabled());
+    assertFalse(itemOf(columns, CommandId.COLUMNS_TIME).isEnabled());
   }
 }

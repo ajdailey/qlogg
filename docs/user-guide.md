@@ -746,8 +746,7 @@ Text view ignores the field.
 Save Selection and Save Filtered Results ask for the form as the file type:
 Columns, tab-separated, or Original lines. View > Columns > Show Record opens
 the current row as one `Name: value` line per column, full values included.
-The log view's context menu has a Columns cascade with Toggle Columns, Copy
-Raw Lines, Copy Cell and Show Record.
+The log view's context menu has the same Columns cascade.
 
 ## Selecting, copying and saving
 

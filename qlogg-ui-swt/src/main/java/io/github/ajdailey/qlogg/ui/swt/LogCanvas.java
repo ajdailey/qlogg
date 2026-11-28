@@ -293,7 +293,10 @@ public final class LogCanvas {
         cascade = new Menu(menu);
         holder.setMenu(cascade);
       }
-      MenuItem item = new MenuItem(cascade == null ? menu : cascade, SWT.PUSH);
+      if (cascade != null && command.separatorBefore() && cascade.getItemCount() > 0) {
+        new MenuItem(cascade, SWT.SEPARATOR);
+      }
+      MenuItem item = new MenuItem(cascade == null ? menu : cascade, CommandItems.style(command));
       String keys = keymap.menuKeyText(command, mac);
       item.setText(keys.isEmpty() ? command.label() : command.label() + "\t" + keys);
       item.setData(command);
@@ -302,7 +305,9 @@ public final class LogCanvas {
           new Listener() {
             @Override
             public void handleEvent(Event event) {
-              run(command);
+              if (CommandItems.runs((MenuItem) event.widget)) {
+                run(command);
+              }
             }
           });
     }
@@ -339,11 +344,11 @@ public final class LogCanvas {
     return menu;
   }
 
-  /** Enables each command item of a context menu and its cascades as the menu bar does. */
+  /** Syncs each command item of a context menu and its cascades as the menu bar does. */
   private static void enable(Menu menu, CommandStates states) {
     for (MenuItem item : menu.getItems()) {
       if (item.getData() instanceof CommandId command) {
-        item.setEnabled(states.enabled(command));
+        CommandItems.sync(item, command, states);
       } else if (item.getMenu() != null) {
         enable(item.getMenu(), states);
       }
