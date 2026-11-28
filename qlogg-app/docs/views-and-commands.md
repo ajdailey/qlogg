@@ -240,5 +240,12 @@ A window or dialog title made from a label uses `title()` (`UiText.title`,
 `CommandId.title`), which `WindowTitles.plain` strips of mnemonic markers and a
 trailing ellipsis.
 
+Text composed from a value and keys or menu names goes through a pattern
+(`TOOL_TIP_KEYS`, `MENU_PATH`, `SHORTCUTS_KEYS_SCOPE`,
+`STATUS_POSITION_PART`), never concatenation, so
+a translation can reorder it.
+
 `UiTextTest` checks that constants and bundle keys match, and
-`ArchitectureTest` that every constant is read outside `UiText`.
+`ArchitectureTest` that every constant is read outside `UiText`. A test-only
+pseudo locale checks that the windows show only bundle text; see
+[TESTING.md](../TESTING.md#pseudo-locale).

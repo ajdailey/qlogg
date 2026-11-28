@@ -82,21 +82,21 @@ public final class CommandPalette {
   }
 
   /**
-   * Returns the menus a command sits in, outermost first, joined with {@code " > "}.
+   * Returns the menus a command sits in, outermost first, joined through {@link UiText#MENU_PATH}.
    *
    * @param command a menu command
    * @return for example {@code View > Timestamps > Time Spread}
    */
   public static String menuPath(CommandId command) {
-    StringBuilder path = new StringBuilder(command.group().title());
+    String path = command.group().title();
     if (command.submenu() != null) {
-      path.append(" > ").append(command.submenu().replace("&", ""));
+      path = UiText.MENU_PATH.format(path, command.submenu().replace("&", ""));
     }
     UiText nested = MenuTable.nestedCascade(command);
     if (nested != null) {
-      path.append(" > ").append(nested.text().replace("&", ""));
+      path = UiText.MENU_PATH.format(path, nested.text().replace("&", ""));
     }
-    return path.toString();
+    return path;
   }
 
   /**

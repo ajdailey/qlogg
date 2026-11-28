@@ -1543,7 +1543,16 @@ public enum UiText {
   /** Notice: marks left out with the files they were on; their count. */
   NOTICE_SET_MARKS_DROPPED,
   /** Notice: the set's name and the restored marks whose file left the set. */
-  NOTICE_SET_MARKS_NOT_RESTORED;
+  NOTICE_SET_MARKS_NOT_RESTORED,
+  // Text composed with keys or menu names.
+  /** Tooltip naming its keys: the tooltip, the keys. */
+  TOOL_TIP_KEYS,
+  /** One more menu in a menu path: the path so far, the menu. */
+  MENU_PATH,
+  /** A binding in Preferences Shortcuts: the keys, where they apply. */
+  SHORTCUTS_KEYS_SCOPE,
+  /** One more part of the position field: the field so far, the part. */
+  STATUS_POSITION_PART;
 
   private static final String BUNDLE = "io.github.ajdailey.qlogg.app.i18n.messages";
 

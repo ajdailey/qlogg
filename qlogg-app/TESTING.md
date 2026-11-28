@@ -171,6 +171,7 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `ShortcutOverridesTest` | Every default binding parsing back from its text; the zoom keys as window bindings with the keypad keys running without a menu accelerator; overrides replacing a command's bindings in place; a conflict naming the command that holds the keys; scope following the keys; overrides and a `Ctrl` binding round-tripping through properties |
 | `UiTextTest` | Every `UiText` constant with a bundle entry and every entry with a constant; each pattern formatting |
 | `WindowTitlesTest` | `WindowTitles.plain` removing mnemonic markers and a trailing ellipsis, `&&` kept as `&`; every `CommandId.title` plain |
+| `PseudoBundleTest` | The `en-XA` bundle found for its locale with the base keys; every value bracketed, at least 30% longer, with its format specifiers, mnemonic and trailing ellipsis unchanged; each pattern still formatting; the bundle class outside the main classes |
 | `AboutInfoTest` | The OS line: name, version and architecture |
 | `UserGuidePageTest` | Every in-page link of the rendered guide naming a heading anchor; the policy meta after the charset meta, equal to `UserGuide.POLICY` and before the styles; every image a `data:` PNG; on Linux the embedded guide only in per-user mode |
 | `RecentLogTest` | The newest lines kept, long lines cut, concurrent appends keeping the capacity |
@@ -180,6 +181,23 @@ Tests run without a display. Controller tests run over `FakeView` and
 | `ManualUiDispatcherTest` | Submissions run in order and dropped after dispose; `timerExec` off the UI thread refused and failing the next drain; `runUntil` seeing a condition set off the UI thread |
 | `PositionTextTest` | The caret and the selection size, with no char count before it is read; the time difference of a selection over lines |
 | `StatusTextTest` | The top row's size, modification tip and encoding; the notes that apply; sizes in the largest unit under 1024 |
+
+## Pseudo locale
+
+The test class path carries a pseudo locale, `en-XA` (XA is a private-use ISO
+3166 region code), that no jar ships. `messages_en_XA` translates each value of
+`messages.properties` through `PseudoLocale.translate` as it is read: ASCII
+letters accented, `java.util.Formatter` specifiers and `&` plus its character
+copied unchanged, 40% padding, the whole in brackets, a trailing ellipsis after
+the closing bracket. The ui-swt `PseudoLocaleSurfaceTest` reads the windows in
+it. To look at it by hand on Linux, from the repository root:
+
+```sh
+./mvnw test-compile dependency:build-classpath -pl qlogg-launcher -am -Dmdep.outputFile=target/classpath.txt
+java -Duser.language=en -Duser.country=XA \
+  -cp "qlogg-launcher/target/classes:$(cat qlogg-launcher/target/classpath.txt):qlogg-app/target/test-classes" \
+  io.github.ajdailey.qlogg.launcher.Main
+```
 
 ## Single instance
 

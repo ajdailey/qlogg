@@ -132,6 +132,12 @@
             </dependency>
             <dependency>
                 <groupId>io.github.ajdailey.qlogg</groupId>
+                <artifactId>qlogg-app</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+            <dependency>
+                <groupId>io.github.ajdailey.qlogg</groupId>
                 <artifactId>qlogg-ui-swt</artifactId>
                 <version>${project.version}</version>
             </dependency>

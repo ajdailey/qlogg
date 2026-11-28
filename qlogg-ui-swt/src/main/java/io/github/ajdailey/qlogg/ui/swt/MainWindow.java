@@ -595,7 +595,7 @@ public final class MainWindow implements MainView, ApplicationListener {
 
   private String toolTip(CommandId command) {
     String keys = keymap.keysText(command, SwtKeys.mac());
-    return keys.isEmpty() ? command.title() : command.title() + " (" + keys + ")";
+    return keys.isEmpty() ? command.title() : UiText.TOOL_TIP_KEYS.format(command.title(), keys);
   }
 
   /** Enables the document buttons while a tab is shown and checks Follow while it follows. */
@@ -1410,7 +1410,8 @@ public final class MainWindow implements MainView, ApplicationListener {
             selected.selectedChars(),
             TimeText.difference(selected.timeStatus()));
     String member = document.caretMember();
-    boolean changed = set(position, member.isEmpty() ? text : text + "  " + member);
+    boolean changed =
+        set(position, member.isEmpty() ? text : UiText.STATUS_POSITION_PART.format(text, member));
     GridData data = (GridData) position.getLayoutData();
     int width = Math.max(POSITION_WIDTH, position.computeSize(SWT.DEFAULT, SWT.DEFAULT).x);
     if (changed && width != data.widthHint) {

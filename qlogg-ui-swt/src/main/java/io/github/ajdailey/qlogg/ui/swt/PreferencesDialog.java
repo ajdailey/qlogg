@@ -548,7 +548,7 @@ final class PreferencesDialog {
           binding.scope() == Binding.Scope.WINDOW
               ? UiText.SHORTCUTS_WINDOW.text()
               : UiText.SHORTCUTS_VIEW.text();
-      keys.add(binding.text(mac) + "  (" + where + ")");
+      keys.add(UiText.SHORTCUTS_KEYS_SCOPE.format(binding.text(mac), where));
     }
   }
 
@@ -768,8 +768,9 @@ final class PreferencesDialog {
     return viewColors;
   }
 
+  /** Opens the dialog 640 wide, or wider where a page's labels need it. */
   void open() {
-    Dialogs.open(shell, 640, 520);
+    Dialogs.open(shell, Math.max(640, shell.computeSize(SWT.DEFAULT, SWT.DEFAULT).x), 520);
   }
 
   Shell shell() {

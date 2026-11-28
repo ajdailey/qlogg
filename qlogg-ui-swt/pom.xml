@@ -38,6 +38,13 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
+        <!-- The en-XA pseudo bundle. -->
+        <dependency>
+            <groupId>io.github.ajdailey.qlogg</groupId>
+            <artifactId>qlogg-app</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -119,6 +126,20 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <executions>
+                    <!-- The main window and its dialogs in the en-XA pseudo locale.
+                         UiText reads the default locale's bundle once, so the test
+                         runs in a JVM of its own and skips in any other. -->
+                    <execution>
+                        <id>pseudo-locale</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <test>PseudoLocaleSurfaceTest</test>
+                            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                            <argLine>-Duser.home=${project.build.directory}/test-home --enable-native-access=ALL-UNNAMED ${qlogg.test.jvmArgs} -Duser.language=en -Duser.country=XA</argLine>
+                        </configuration>
+                    </execution>
                     <!-- Rounding between points and pixels at 150%, on any
                          monitor; GTK places widgets unscaled. win32 rejects
                          a numeric swt.autoScale while monitor-specific

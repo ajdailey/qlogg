@@ -37,9 +37,15 @@ public final class PositionText {
     long first = selected.start().line();
     long last = selected.end().line();
     if (first == last && selected.end().column() != Long.MAX_VALUE) {
-      return chars < 0 ? text : text + "  " + UiText.STATUS_SELECTED_CHARS.format(chars);
+      return chars < 0
+          ? text
+          : UiText.STATUS_POSITION_PART.format(text, UiText.STATUS_SELECTED_CHARS.format(chars));
     }
-    text += "  " + UiText.STATUS_SELECTED_LINES.format(last - first + 1);
-    return difference.isEmpty() || first == last ? text : text + "  " + difference;
+    text =
+        UiText.STATUS_POSITION_PART.format(
+            text, UiText.STATUS_SELECTED_LINES.format(last - first + 1));
+    return difference.isEmpty() || first == last
+        ? text
+        : UiText.STATUS_POSITION_PART.format(text, difference);
   }
 }

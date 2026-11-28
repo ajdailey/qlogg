@@ -321,7 +321,7 @@ public final class SearchBar {
 
   private String toolTip(UiText tip, CommandId command) {
     String keys = command == null ? "" : keymap.keysText(command, SwtKeys.mac());
-    return keys.isEmpty() ? tip.text() : tip.text() + " (" + keys + ")";
+    return keys.isEmpty() ? tip.text() : UiText.TOOL_TIP_KEYS.format(tip.text(), keys);
   }
 
   /**
