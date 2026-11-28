@@ -210,10 +210,15 @@ timed again with highlight spans and a selection (`nonAsciiSpans`), then with
 whitespace markers as well (`nonAsciiMarked`). Each non-ASCII case is also
 timed scrolling a screen down or up per frame (`...Scroll`), so every row is
 laid out afresh; the repaint cases reuse the last paint's layouts. The
-control-character screen is timed still and scrolling (`controlsScroll`). It
-prints the paint time per frame (p50, p90, p99, max, mean) for each case and
-the ratios of the non-ASCII and the control-character mean to the ASCII
-mean. It runs only when
+control-character screen is timed still and scrolling (`controlsScroll`).
+Two 2,000-record CSV files of six fields, one ASCII (`columns`) and one whose
+message field starts with the CJK text (`columnsWide`), are timed in column
+view still and scrolling, then in text view over the same rows
+(`...AsText`). It prints the paint time per frame (p50, p90, p99, max, mean)
+for each case, the ratios of the non-ASCII and the control-character mean to
+the ASCII mean, and each CSV's column-view to text-view ratios
+(`columnsRatio`, `columnsScrollRatio` and the `columnsWide` pair; the column
+view's budget is 1.5). It runs only when
 `qlogg.bench.rowPaint` is `true`; `-Dqlogg.shots=<dir>` also writes the
 window after each case as `rows-<case>.png` (not under GTK 4, where
 `Control.print` draws nothing). A run can outlast the test hang

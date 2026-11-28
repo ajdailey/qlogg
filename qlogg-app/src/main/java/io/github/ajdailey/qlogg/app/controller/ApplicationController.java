@@ -4,6 +4,7 @@ import io.github.ajdailey.qlogg.app.cli.CommandLineParser;
 import io.github.ajdailey.qlogg.app.cli.FileRequest;
 import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.command.Keymap;
+import io.github.ajdailey.qlogg.app.config.ColumnSettings;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.FollowSettings;
 import io.github.ajdailey.qlogg.app.config.FontSettings;
@@ -1492,12 +1493,16 @@ public final class ApplicationController
   }
 
   /**
-   * Runs a command from a menu or a key. View commands go to the focused view.
+   * Runs a command from a menu or a key. View commands go to the focused view. A command of {@link
+   * CommandStates#OFF_IN_COLUMNS} does nothing while the shown tab shows columns.
    *
    * @param command the command
    */
   public void execute(CommandId command) {
-    if (shuttingDown) {
+    if (shuttingDown
+        || CommandStates.OFF_IN_COLUMNS.contains(command)
+            && active != null
+            && active.columns().shown()) {
       return;
     }
     switch (command) {
@@ -2180,6 +2185,19 @@ public final class ApplicationController
   @Override
   public void showText(String title, String text) {
     view.showText(title, text);
+  }
+
+  @Override
+  public ColumnSettings columnSettings() {
+    return preferences.get().view().columns();
+  }
+
+  @Override
+  public void setColumnSettings(ColumnSettings settings) {
+    Preferences current = preferences.get();
+    if (!settings.equals(current.view().columns())) {
+      setPreferences(current.withView(current.view().withColumns(settings)));
+    }
   }
 
   // Always on Top.

@@ -65,6 +65,24 @@ public final class CommandStates {
           CommandId.ENCODING_AUTO);
 
   /**
+   * Commands off while the shown tab shows columns: text wrap, wrap in place, block selection,
+   * folding and whitespace markers. {@link ApplicationController#execute} ignores them there.
+   */
+  public static final Set<CommandId> OFF_IN_COLUMNS =
+      EnumSet.of(
+          CommandId.TOGGLE_WRAP,
+          CommandId.WRAP_LINE,
+          CommandId.BLOCK_SELECTION,
+          CommandId.EXTEND_BLOCK_UP,
+          CommandId.EXTEND_BLOCK_DOWN,
+          CommandId.EXTEND_BLOCK_LEFT,
+          CommandId.EXTEND_BLOCK_RIGHT,
+          CommandId.TOGGLE_FOLD,
+          CommandId.COLLAPSE_ALL_FOLDS,
+          CommandId.EXPAND_ALL_FOLDS,
+          CommandId.TOGGLE_WHITESPACE);
+
+  /**
    * A highlighter set as the Highlighters menus list it.
    *
    * @param set the set
@@ -139,6 +157,9 @@ public final class CommandStates {
     boolean file = document != null && document.state().hasFile();
     if (FILE_COMMANDS.contains(command)) {
       return file;
+    }
+    if (OFF_IN_COLUMNS.contains(command) && document != null && document.columns().shown()) {
+      return false;
     }
     return switch (command) {
       case MOVE_TO_NEW_WINDOW -> document != null;

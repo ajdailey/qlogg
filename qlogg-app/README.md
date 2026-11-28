@@ -55,7 +55,7 @@ Controllers run work on these `Workers` pools:
 | Thread prefix | Work |
 |---|---|
 | `qlogg-index-` | Open, paste, reload, reopen, session restore; indexing; record scans |
-| `qlogg-read-` | Row reads, copy, save and selected text, Show Record, Open Path at Caret's line read and path check, caret times, the selected char count, the format editor's preview line, fold classification, first-line selector match, marks list |
+| `qlogg-read-` | Row reads and the column fit of the first rows read, copy, save and selected text, Show Record, column-header fits, Open Path at Caret's line or cell read and path check, caret times, the selected char count, the format editor's preview line, fold classification, first-line selector match, marks list |
 | `qlogg-search-` | Search, folder search, quick find, mark toggle, range selection, overview bins, time search, trigger scans, filtered-view snapshots |
 | `qlogg-cpu-N` | CPU steps (`CpuSteps`) of quick find, trigger scans, the linear time search, range matching, mark toggle, context rows, the marks snapshot, and the copy and save text; the worker above parks while a step runs |
 | `qlogg-lifecycle-` | Settings writes, document close, quit, imports and exports, path checks (save target, Open in Editor, Clean Up, Open All), About facts, Help folder and guide actions |

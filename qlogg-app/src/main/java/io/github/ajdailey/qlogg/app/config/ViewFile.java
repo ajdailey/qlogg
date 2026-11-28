@@ -88,7 +88,8 @@ final class ViewFile {
         // View colors.
         colors(properties, defaults.colors()),
         // Columns.
-        flag(properties, COLUMNS_AUTO_KEY, defaults.columnsAuto()));
+        flag(properties, COLUMNS_AUTO_KEY, defaults.columnsAuto()),
+        ColumnFile.load(properties));
   }
 
   /**
@@ -107,6 +108,7 @@ final class ViewFile {
     properties.setProperty(COLORS_KEY, view.colors());
     // Columns.
     properties.setProperty(COLUMNS_AUTO_KEY, Boolean.toString(view.columnsAuto()));
+    ColumnFile.store(view.columns(), properties);
     properties.setProperty(FOLD_START_KEY, view.folds().entryStart());
     List<String> continuation = view.folds().continuation();
     for (int i = 0; i < continuation.size() && i < MAX_CONTINUATION; i++) {

@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.controller;
 
+import io.github.ajdailey.qlogg.app.config.ColumnSettings;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.ActivityIndicator;
@@ -170,5 +171,15 @@ final class TabHost
   @Override
   public void showText(String title, String text) {
     view.showText(title, text);
+  }
+
+  @Override
+  public ColumnSettings columnSettings() {
+    return window.columnSettings();
+  }
+
+  @Override
+  public void setColumnSettings(ColumnSettings settings) {
+    window.setColumnSettings(settings);
   }
 }

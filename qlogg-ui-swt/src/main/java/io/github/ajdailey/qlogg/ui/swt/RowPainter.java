@@ -61,6 +61,8 @@ final class RowPainter {
    * @param selectionFrom the first selected column, negative for none
    * @param selectionTo the column after the selection; {@code Long.MAX_VALUE} past the line end
    * @param context whether the line shows as context of a search result
+   * @param textColumn the display column of the text's first char: the block's first column, or 0
+   *     for a column-view row's frozen cells
    */
   record Row(
       LineBlock block,
@@ -74,7 +76,53 @@ final class RowPainter {
       boolean current,
       long selectionFrom,
       long selectionTo,
-      boolean context) {
+      boolean context,
+      long textColumn) {
+    /**
+     * Creates a row whose text starts at the block's first column.
+     *
+     * @param block see the record
+     * @param line see the record
+     * @param from see the record
+     * @param to see the record
+     * @param last see the record
+     * @param x see the record
+     * @param y see the record
+     * @param right see the record
+     * @param current see the record
+     * @param selectionFrom see the record
+     * @param selectionTo see the record
+     * @param context see the record
+     */
+    Row(
+        LineBlock block,
+        long line,
+        long from,
+        long to,
+        boolean last,
+        int x,
+        int y,
+        int right,
+        boolean current,
+        long selectionFrom,
+        long selectionTo,
+        boolean context) {
+      this(
+          block,
+          line,
+          from,
+          to,
+          last,
+          x,
+          y,
+          right,
+          current,
+          selectionFrom,
+          selectionTo,
+          context,
+          block.firstColumn());
+    }
+
     /**
      * Creates a row that is not a context line.
      *
@@ -225,7 +273,7 @@ final class RowPainter {
     LineBlock block = row.block();
     String text = block.contains(row.line()) ? block.text(row.line()) : null;
     HighlightSpans spans = text == null ? HighlightSpans.NONE : block.spans(row.line());
-    prepare(text, text == null ? 0 : block.firstColumn());
+    prepare(text, text == null ? 0 : row.textColumn());
     int base = PaletteColors.packed(colors.palette.background());
     int under = base;
     if (row.current()) {

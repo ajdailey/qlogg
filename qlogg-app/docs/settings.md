@@ -92,10 +92,27 @@ Two settings can hold text taken from a log:
 |---|---|---|
 | `Preferences` fields | `ui.theme` (`ThemeMode`), search history and size, `search.maxResults`, `search.runOnAdd`, quick find options, `view.splitPercent`, `view.overview`, `follow.*`, predefined filters | `ConfigStore` |
 | `HighlightSettings` | `highlight.*`, `label.*`, `matchHighlight.*` | `HighlightFile` |
-| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors`, `view.columns.auto` | `ViewFile` |
+| `ViewOptions` | Wrap on open, whitespace markers, hidden ANSI colors, fold rules, highlighter selectors, `view.timeSpread`, `view.colors`, `view.columns.auto`, `columns.*` (`ColumnSettings`) | `ViewFile`, `ColumnFile` for `columns.*` |
 | `TimeSettings` | `time.zone`, `time.displayZone`, at most 32 `time.format.N.name`, `.locate` and `.pattern`. An unknown zone reads as the system zone; a format that does not compile, or repeats a name, is dropped | `TimeFile` |
 | `Options` | Font, `recent.count`, `monitor.*`, `encoding.default`, `session.loadLast`, `shortcut.*`, `favorite.N`, `log.file`, `tabs.closeWindowWithLastTab`, `tabs.closeShowsLastUsed` | `OptionsFile` |
 | `UiState` | `window.*`, `searchOption.*`, `view.lineNumbers`, `view.filteredLineNumbers`, `open.directory`, `recent.N`, `closed.N`, `closed.N.rotated`, `dialog.*`, `folderSearch.*` | `OptionsFile` |
+
+### Column layouts
+
+`ColumnSettings` holds, per column format id (`csv`, `tsv`, `clf`, `clef`,
+`log4j-xml`, `time`), the stored width and visibility of each column by name
+and the frozen cell count; files of one format share it, so CSV files with the
+same header names share widths ([layout](document-views.md#layout)).
+
+- `n` counts from 0 for the most recently shown name. A format keeps at most
+  256 names (`ColumnSettings.MAX_NAMES`); a new name pushes out the least
+  recently shown, and a tab that shows a format moves its names first.
+- `.width` is 3 to 4096 grid columns, the gap included; absent, the column fits
+  the first rows read. `.hidden` is `true` or `false`; absent, the format's
+  default. A name with neither is not written.
+- A load reads names from `n = 0` to the first missing one and skips a name
+  over 256 chars or seen before; an invalid width, `.hidden` or `.frozen`
+  reads as absent with one WARN naming the key.
 
 `FoldRulesText.parse` checks the Preferences Folding tab's text. Blank lines are
 dropped and other lines kept as typed. Every pattern must compile; at most 64
@@ -127,6 +144,7 @@ continuation patterns and at least one pattern in all are allowed.
 | `view.hideAnsi` | `true`, `false`: ANSI color sequences are removed for display, copy and search | `false` | View > Hide ANSI Colors |
 | `view.syntaxColors` | `true`, `false`: log structure is colored in both views of every file ([syntax colors](highlighting.md#syntax-colors-and-highlighters)) | `true` | View > Syntax Colors |
 | `view.columns.auto` | `true`, `false`: a file whose column format is detected opens in column view ([columns](document-views.md#columns)) | `true` | Not set from the UI |
+| `columns.<id>.<n>.name`, `.width`, `.hidden`; `columns.<id>.frozen` | Column-view layout per column format id ([column layouts](#column-layouts)) | none | The column header: drag, double-click, its context menu |
 | `fold.entryStart`, `fold.continuation.N` | Regexes: an entry's first line, or continuation lines when `fold.entryStart` is empty | empty; `^\s`, `^at `, `^Caused by:`, `^\.\.\. \d+ more` | Tools > Preferences, Folding |
 | `highlight.selector.N.glob`, `.firstLine`, `.set` | A rule picking a highlighter set for a file as it opens | none | Highlighters > Automatic Highlighters |
 | `font.family`, `font.size` | The log views' font; empty and 0 are the platform's monospace font and size | empty, 0 | Tools > Preferences, View |

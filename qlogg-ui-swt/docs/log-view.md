@@ -2,7 +2,8 @@
 
 `LogCanvas` paints one `LineViewController` snapshot, the main view's or the
 filtered view's; one implementation serves both. `TextGrid` holds the
-geometry, `RowPainter` paints rows, `PaletteColors` caches colors, `SwtKeys`
+geometry, `RowPainter` paints rows, `ColumnRowPainter` and `ColumnHeader` the
+[column view](#column-view), `PaletteColors` caches colors, `SwtKeys`
 translates keys and `OverviewBar` paints the bar beside the main view. Module
 overview: [../README.md](../README.md).
 
@@ -116,6 +117,45 @@ The font, `PaletteColors` and the painter's `TextLayout` are disposed with the
 canvas, the colors also on a palette change. Painting allocates only a
 highlight color seen for the first time; `PaletteColors` keeps at most 512 and
 empties the cache before a paint past that.
+
+## Column view
+
+While the tab shows columns (`ColumnController.shown`) the block is a cell
+view (`LineBlock.cellView`) and each row paints through `ColumnRowPainter`;
+text wrap, the line wrapped in place, block selection and whitespace markers
+do not apply. `CellGrid` holds the geometry: composed column `c` of the
+frozen cells sits at `columnOffset(c)` right of the gutter, a scrolling
+column at `columnOffset(c - firstColumn)`, so the frozen cells stay while the
+rest scroll. `Viewport.columns()` is the width right of the frozen cells, and
+hit testing maps a point over them to their own columns.
+
+`ColumnRowPainter` paints, per row: the ground across the text area
+(selection, gutter color for a header row, current line or context shade),
+the cells through `RowPainter` with each cell's text at its grid x, then a
+one-pixel rule in the middle of each cell's last column, in the line-number
+color at alpha `0x60` over the background (`ruleColor`). A row outside
+printable ASCII paints cell by cell, each clipped at its rule, so a wide or
+CJK glyph laid out in a `TextLayout` cannot push or cover the next cell. A
+printable-ASCII row cannot overrun a cell and paints its frozen part and its
+scrolled part in one pass each. A row that did not parse paints its raw text
+across the cells with no rule. The caret row outlines the current cell;
+selection covers whole rows. A truncated record (`LineBlock.cut`) shows three
+dots in the marker strip, which holds no wrap markers in column view.
+
+`ColumnHeader` is a `Canvas` above the canvas, in a column composite inside
+`frame()`, shown only in column view and as high as a row plus 5 px. It
+paints on the same `CellGrid` in the canvas's font and palette: gutter color
+ground, names in the text color as the format gives them, rules in the rule
+color, and repaints with each read and palette change.
+
+| Input over the header | Effect (`ColumnSizing`) |
+|---|---|
+| Drag within 3 px of a rule | Resizes the cell left of it while the pointer moves, to at least 3 grid columns (`resize`) |
+| Double-click on a rule | Fits that cell to the visible rows on a worker (`fit`) |
+| Context menu | A check item per column of the format (the last shown one cannot be cleared); Hide Column, Freeze Columns Up To Here for the cell under the pointer; Unfreeze; Fit Columns; Reset Columns |
+
+A screen reader reads each header cell as an accessible child named
+`<name> column` (`AccessibleName.Parts`).
 
 ## Scrolling
 

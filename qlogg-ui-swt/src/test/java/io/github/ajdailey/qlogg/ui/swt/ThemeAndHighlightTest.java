@@ -315,10 +315,11 @@ class ThemeAndHighlightTest {
     LogCanvas main = window.canvas();
     Control[] row = main.frame().getChildren();
     assertEquals(3, row.length);
-    assertSame(main.control(), row[0]);
+    // The canvas sits under the column header in a composite of its own.
+    assertSame(main.control().getParent(), row[0]);
     assertSame(window.overviewBar().control(), row[1]);
     assertSame(main.verticalScrollBar(), row[2]);
-    Rectangle text = main.control().getBounds();
+    Rectangle text = row[0].getBounds();
     Rectangle bar = window.overviewBar().control().getBounds();
     assertEquals(text.x + text.width, bar.x);
     assertEquals(bar.x + bar.width, main.verticalScrollBar().getBounds().x);

@@ -2,6 +2,7 @@ package io.github.ajdailey.qlogg.ui.swt;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.ajdailey.qlogg.app.command.CommandId;
 import io.github.ajdailey.qlogg.app.config.ConfigStore;
 import io.github.ajdailey.qlogg.app.config.Preferences;
 import io.github.ajdailey.qlogg.app.config.SettingsLocation;
@@ -57,7 +58,9 @@ import org.junit.jupiter.api.io.TempDir;
  * canvas's own paint listeners alone. The non-ASCII screen is timed again with highlight spans and
  * a selection, then with whitespace markers as well; each non-ASCII case is also timed scrolling a
  * screen per frame, so no row repeats from the paint before. A screen of rows holding control chars
- * ({@link #CONTROLS}) is timed still and scrolling. Prints the results on standard output.
+ * ({@link #CONTROLS}) is timed still and scrolling, and an ASCII CSV file and one whose message
+ * field starts with {@link #WIDE} in column view against the same rows in text view. Prints the
+ * results on standard output.
  */
 @Tag("swt")
 @EnabledIfSystemProperty(named = "qlogg.bench.rowPaint", matches = "true")
@@ -139,6 +142,8 @@ class RowPaintProbe {
       System.out.println(
           String.format(
               Locale.ROOT, "probe.rowPaint.controlsRatio=%.2f", controlsMean / asciiMean));
+      measureColumns(display, window, controller, "columns", "");
+      measureColumns(display, window, controller, "columnsWide", WIDE);
     } finally {
       controller.shutdown();
       final MainWindow closing = window;
@@ -154,6 +159,71 @@ class RowPaintProbe {
       display.dispose();
       workers.close();
     }
+  }
+
+  /**
+   * Opens a CSV file of {@link #LINES} records of about 150 chars in six fields, the message field
+   * starting with {@code lead}, times its first screen in column view still and scrolling, then the
+   * same rows in text view, and prints the column-view to text-view ratios.
+   */
+  private void measureColumns(
+      Display display,
+      MainWindow window,
+      final ApplicationController controller,
+      String name,
+      String lead)
+      throws IOException {
+    final Path file = temp.resolve(name + ".csv");
+    try (Writer out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+      out.write("time,level,thread,logger,message,id\n");
+      for (int i = 0; i < LINES; i++) {
+        out.write(
+            String.format(
+                Locale.ROOT,
+                "2026-11-04 10:00:%02d.%03d,INFO,mock-worker-%d,mock.app.Service%d,"
+                    + "\"%smock record %d, mock record %d, mock record %d, mock\",ID-%05d\n",
+                i % 60,
+                i % 1000,
+                i % 8,
+                i % 5,
+                lead,
+                i,
+                i + 1,
+                i + 2,
+                i));
+      }
+    }
+    controller.openFile(file, 0);
+    final boolean[] cells = {true};
+    BooleanSupplier read =
+        new BooleanSupplier() {
+          @Override
+          public boolean getAsBoolean() {
+            DocumentController document = controller.activeDocument();
+            return document != null
+                && document.state().title().equals(file.getFileName().toString())
+                && !document.state().indexing()
+                && document.columns().shown() == cells[0]
+                && (!cells[0] || !document.columns().layout().unfitted())
+                && document.lines().cellView() == cells[0]
+                && document.lines().contains(document.viewport().topLine());
+          }
+        };
+    assertTrue(EventLoop.runUntil(display, read, BOUND));
+    DocumentController document = controller.activeDocument();
+    double columns = time(display, window, document, name);
+    double columnsScroll = time(display, window, document, name + "Scroll", true);
+    document.viewport().scrollToLine(0);
+    cells[0] = false;
+    controller.execute(CommandId.TOGGLE_COLUMNS);
+    assertTrue(EventLoop.runUntil(display, read, BOUND));
+    double text = time(display, window, document, name + "AsText");
+    double textScroll = time(display, window, document, name + "AsTextScroll", true);
+    System.out.println(
+        String.format(Locale.ROOT, "probe.rowPaint.%sRatio=%.2f", name, columns / text));
+    System.out.println(
+        String.format(
+            Locale.ROOT, "probe.rowPaint.%sScrollRatio=%.2f", name, columnsScroll / textScroll));
   }
 
   /** Lines of about 150 chars, each {@code lead} then words, each word followed by {@code each}. */

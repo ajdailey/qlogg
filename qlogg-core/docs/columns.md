@@ -150,7 +150,7 @@ a record is parsed when it holds the literal or any of
 
 | Component | Content |
 |---|---|
-| `layout` | `ColumnLayout`: the schema columns shown, in order, each width in grid columns, and the frozen cell count. `ColumnLayout.of` shows every column not hidden by default: Time 24, Message, Text and Exception 100, the others 16 or their name's length plus one, at most 60 |
+| `layout` | `ColumnLayout`: the schema columns shown, in order, each width in grid columns, and the frozen cell count. A cell may wait for a fit (`unfitted`); `fitted(widths)` returns the layout with those cells sized. `defaultWidth` is a waiting cell's width until then: Time 24, Message, Text and Exception 100 outside CSV and TSV, the others 16 or their name's length plus one, at most 60. `ColumnLayout.of` gives every column not hidden by default at that width, nothing waiting |
 | `context` | The zone and file date the parser reads stamps with |
 | `time` | `TimeCell`: the display zone and the tab's time offset |
 | `records` | The `RecordLines` of a multi-line format, or null when a line is a record |
@@ -191,6 +191,11 @@ a record is parsed when it holds the literal or any of
   reused while its record has the same lines and byte range and the read has
   the same `ColumnRead`, window, highlighter, syntax-color and ANSI settings;
   any other read empties the cache.
+- `ColumnFit.widths` reads the records of listed lines through a
+  `CellReader` and returns each cell's widest shown value or column name,
+  plus the gap, from 3 to `ColumnLayout.fitLimit` (60, or 200 for Message,
+  Text and Exception, capitalized or lower case); header records and records
+  that do not parse are left out, and the result is empty when none parsed.
 - Cost, measured with `ColumnProbe` (`compose`): see
   [qlogg-bench](../../qlogg-bench/README.md).
 

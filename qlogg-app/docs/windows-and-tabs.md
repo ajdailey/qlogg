@@ -193,7 +193,9 @@ goes to the line. The view goes to the line only: a `:column` is dropped,
 because the caret's column is a display column and the path gives a char
 column. No path, a URL, a relative path without a folder, a missing or
 non-regular file, or a file `SafePaths` rejects shows a notice; a URL is never
-opened. A newer run drops an older result.
+opened. A newer run drops an older result. In column view the text is the
+current cell's full value instead, and the path its first run holding `/` or
+`\`, else its first run; a record that did not parse reads as a line.
 
 ### Moving a tab between windows
 

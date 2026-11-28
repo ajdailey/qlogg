@@ -753,6 +753,20 @@ public enum UiText {
   COMMAND_SHOW_RECORD,
   /** Show Record window title: {@code %d} is the record's first line number. */
   SHOW_RECORD_TITLE,
+  /** Column header menu item. */
+  COLUMN_HIDE,
+  /** Column header menu item. */
+  COLUMN_FREEZE,
+  /** Column header menu item. */
+  COLUMN_UNFREEZE,
+  /** Column header menu item. */
+  COLUMN_FIT,
+  /** Column header menu item. */
+  COLUMN_RESET,
+  /** Accessible name of the column header. */
+  ACCESSIBLE_COLUMN_HEADER,
+  /** Accessible name of a header cell: {@code %s} is the column name. */
+  ACCESSIBLE_COLUMN_CELL,
   /** Notice: no multi-line entry at the current line. */
   NOTICE_NO_FOLD,
   /** Notice: the fold share is full. */

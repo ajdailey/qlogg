@@ -17,6 +17,7 @@ import io.github.ajdailey.qlogg.core.concurrent.MemoryShare;
 import io.github.ajdailey.qlogg.core.concurrent.Workers;
 import io.github.ajdailey.qlogg.core.index.LineIndex;
 import io.github.ajdailey.qlogg.core.model.CellReader;
+import io.github.ajdailey.qlogg.core.model.ColumnFit;
 import io.github.ajdailey.qlogg.core.model.ColumnRead;
 import io.github.ajdailey.qlogg.core.model.Highlighter;
 import io.github.ajdailey.qlogg.core.model.LineBlock;
@@ -27,6 +28,7 @@ import io.github.ajdailey.qlogg.core.model.RowCursor;
 import io.github.ajdailey.qlogg.core.model.Selection;
 import io.github.ajdailey.qlogg.core.model.TextPosition;
 import io.github.ajdailey.qlogg.core.model.Viewport;
+import io.github.ajdailey.qlogg.core.search.RecordLines;
 import io.github.ajdailey.qlogg.core.text.LogText;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -374,6 +376,9 @@ public abstract class LineViewController {
    * @param command the command
    */
   public void execute(CommandId command) {
+    if (CellCaret.execute(this, command)) {
+      return;
+    }
     int rows = viewport.rows();
     switch (command) {
       case COPY -> copySelection();
@@ -437,10 +442,10 @@ public abstract class LineViewController {
   /**
    * Reports whether long lines wrap.
    *
-   * @return true with text wrap on
+   * @return true with text wrap on, false while columns show
    */
   public boolean wrap() {
-    return wrap;
+    return wrap && !owner().columns().shown();
   }
 
   /**
@@ -1427,6 +1432,7 @@ public abstract class LineViewController {
     boolean markers = painting.markers();
     LineBlock block = null;
     LineBlock alone = LineBlock.EMPTY;
+    ColumnRead cells = painting.cells();
     String error = null;
     long charged = 0;
     boolean admitted = document.enter();
@@ -1436,18 +1442,13 @@ public abstract class LineViewController {
       }
       Highlighter.LineMatcher matcher = colors.isEmpty() ? null : colors.matcher();
       LogTokens.LineMatcher kinds = tokens ? LogTokens.matcher() : null;
+      if (cells != null && cells.layout().unfitted() && classified(index, source, cells)) {
+        cells = fit(index, source, cells);
+      }
       block =
-          painting.cells() != null
+          cells != null
               ? cellReader.readRows(
-                  index,
-                  top,
-                  source,
-                  source.length,
-                  firstColumn,
-                  columns,
-                  painting.cells(),
-                  colors,
-                  tokens)
+                  index, top, source, source.length, firstColumn, columns, cells, colors, tokens)
               : reader.readRows(
                   index, top, source, source.length, firstColumn, columns, matcher, kinds, markers);
       if (wrapped.row() >= 0) {
@@ -1483,14 +1484,41 @@ public abstract class LineViewController {
       final LineBlock line = alone;
       final String message = error;
       final long reserved = charged;
+      final ColumnRead fitted = cells == painting.cells() ? null : cells;
       ui.asyncExec(
           new Runnable() {
             @Override
             public void run() {
               linesRead(result, line, message, reserved);
+              if (fitted != null && !closed) {
+                owner().columns().fitted(painting.cells().layout(), fitted.layout());
+              }
             }
           });
     }
+  }
+
+  /** True when the record scan has classified the rows read, so each reads as its whole record. */
+  private static boolean classified(LineIndex index, long[] source, ColumnRead cells) {
+    RecordLines records = cells.records();
+    return records == null
+        || source.length == 0
+        || records.end() > source[source.length - 1]
+        || records.end() >= index.lineCount() - 1;
+  }
+
+  /** Returns a read whose waiting cells fit the rows read, or the same read when none parsed. */
+  @WorkerThread
+  private ColumnRead fit(LineIndex index, long[] source, ColumnRead cells) throws IOException {
+    int[] widths = ColumnFit.widths(cellReader, index, source, source.length, cells);
+    return widths.length == 0
+        ? cells
+        : new ColumnRead(
+            cells.layout().fitted(widths),
+            cells.context(),
+            cells.time(),
+            cells.records(),
+            cells.headers());
   }
 
   private void linesRead(LineBlock block, LineBlock alone, String error, long reserved) {
@@ -1510,7 +1538,11 @@ public abstract class LineViewController {
           alone.count() == 1 && alone.sourceLine(alone.firstLine()) == wrappedLine
               ? alone
               : LineBlock.EMPTY;
-      viewport.setMaxColumns(Math.max(viewport.maxColumns(), block.maxWidth()));
+      // Column view scrolls over the cells after the frozen ones, as wide as the rows read.
+      viewport.setMaxColumns(
+          block.cellView()
+              ? block.maxWidth() - block.frozenColumns()
+              : Math.max(viewport.maxColumns(), block.maxWidth()));
       fireContent();
     } else if (error != null) {
       LOG.warn("Cannot read {}: {}", LogText.oneLine(document.path()), LogText.oneLine(error));

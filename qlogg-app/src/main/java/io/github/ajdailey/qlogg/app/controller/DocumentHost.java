@@ -1,5 +1,6 @@
 package io.github.ajdailey.qlogg.app.controller;
 
+import io.github.ajdailey.qlogg.app.config.ColumnSettings;
 import io.github.ajdailey.qlogg.app.highlight.HighlightSettings;
 import io.github.ajdailey.qlogg.app.theme.Palette;
 import io.github.ajdailey.qlogg.app.view.SearchOptions;
@@ -83,4 +84,20 @@ public interface DocumentHost {
    * @param text the text
    */
   void showText(String title, String text);
+
+  // Columns.
+
+  /**
+   * Returns the stored column-view layouts, shared by every window.
+   *
+   * @return the layouts
+   */
+  ColumnSettings columnSettings();
+
+  /**
+   * Replaces the stored column-view layouts; a worker saves them later.
+   *
+   * @param settings the layouts
+   */
+  void setColumnSettings(ColumnSettings settings);
 }

@@ -270,7 +270,8 @@ and the tab stays.
 The main view's canvas, the filtered view's canvas and the overview bar carry
 accessible names through `AccessibleName` (`UiText.ACCESSIBLE_*`): Log,
 Overview, and Filtered results, which adds the shown set's match count once a
-search has run. A screen reader reads the name on request; no name-change event
+search has run. Each view's column header is Columns, with a child per header
+cell ([column view](log-view.md#column-view)). A screen reader reads the name on request; no name-change event
 is sent. On cocoa (`CocoaAccessibleLabels`) the name is also the
 accessible description and the control reports `ACC.ROLE_GROUP`: VoiceOver
 reads a `Canvas` without a role as `SWTComposite` with a blank description.

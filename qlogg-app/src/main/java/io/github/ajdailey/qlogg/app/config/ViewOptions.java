@@ -19,6 +19,7 @@ import java.util.List;
  * @param colors {@code view.colors}: the log views' scheme id, or {@link ColorSchemes#FOLLOW_THEME}
  * @param columnsAuto {@code view.columns.auto}: a file whose column format is detected opens in
  *     column view
+ * @param columns {@code columns.*}: column-view widths, hidden columns and frozen cells per format
  */
 public record ViewOptions(
     boolean wrapOnOpen,
@@ -32,7 +33,8 @@ public record ViewOptions(
     // View colors.
     String colors,
     // Columns.
-    boolean columnsAuto) {
+    boolean columnsAuto,
+    ColumnSettings columns) {
   /**
    * Syntax colors and detected columns on, every other flag off, the default fold rules, no
    * selectors and the theme's colors.
@@ -47,12 +49,18 @@ public record ViewOptions(
           List.of(),
           SpreadMode.OFF,
           ColorSchemes.FOLLOW_THEME,
-          true);
+          true,
+          ColumnSettings.DEFAULTS);
 
   /** Checks and copies the components. */
   public ViewOptions {
-    if (folds == null || selectors == null || timeSpread == null || colors == null) {
-      throw new IllegalArgumentException("folds, selectors, timeSpread and colors are required");
+    if (folds == null
+        || selectors == null
+        || timeSpread == null
+        || colors == null
+        || columns == null) {
+      throw new IllegalArgumentException(
+          "folds, selectors, timeSpread, colors and columns are required");
     }
     if (selectors.size() > HighlightSelector.MAX_SELECTORS) {
       throw new IllegalArgumentException("too many selectors");
@@ -76,7 +84,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   /**
@@ -95,7 +104,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   /**
@@ -114,7 +124,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   /**
@@ -133,7 +144,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   /**
@@ -152,7 +164,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   /**
@@ -171,7 +184,8 @@ public record ViewOptions(
         list,
         timeSpread,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   // Time spread.
@@ -192,7 +206,8 @@ public record ViewOptions(
         selectors,
         mode,
         colors,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   // View colors.
@@ -213,7 +228,8 @@ public record ViewOptions(
         selectors,
         timeSpread,
         id,
-        columnsAuto);
+        columnsAuto,
+        columns);
   }
 
   // Columns.
@@ -234,6 +250,27 @@ public record ViewOptions(
         selectors,
         timeSpread,
         colors,
+        value,
+        columns);
+  }
+
+  /**
+   * Returns a copy with other column-view layouts.
+   *
+   * @param value the layouts
+   * @return the copy
+   */
+  public ViewOptions withColumns(ColumnSettings value) {
+    return new ViewOptions(
+        wrapOnOpen,
+        showWhitespace,
+        hideAnsi,
+        syntaxColors,
+        folds,
+        selectors,
+        timeSpread,
+        colors,
+        columnsAuto,
         value);
   }
 }

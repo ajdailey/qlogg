@@ -303,9 +303,9 @@ only around the visible rows.
 
 `ColumnController` (`DocumentController.columns()`) holds a tab's column
 format (`ColumnSchema`, null for none), whether column view shows and the
-cells (`ColumnLayout`, `ColumnLayout.of` for a new format; `setLayout`
-re-reads the rows). The column view's painting, header and menus are not
-built yet; the state drives the rows, copies and searches below.
+cells (`ColumnLayout`; `setLayout` re-reads the rows). The state drives the
+rows, copies and searches below; the view paints it (ui-swt
+[Column view](../../qlogg-ui-swt/docs/log-view.md#column-view)).
 
 `ColumnFeatures.configure` sets a new tab's state after its time state:
 
@@ -374,9 +374,45 @@ scrolling; a change of the time offset or zone re-reads the rows.
 | `selectedText` | The full value of the cell at the selection start | The selected chars |
 
 The current cell is the cell holding the caret's composed column
-(`ColumnLayout.cellAt`). The three new commands have no key and no menu item
-yet. Show Record and the cell read run in `CellCommands` on a `qlogg-read-`
-worker inside a document entry, with the busy cursor.
+(`ColumnLayout.cellAt`). In column view `CellCaret` takes `Left` and `Right`
+(`SCROLL_LEFT`, `SCROLL_RIGHT`) to the previous and next cell and `Home` and
+`End` (`LINE_START`, `LINE_END`) to the first and last, keeping the row and a
+selection's anchor, and scrolls a scrolling cell into view. Open Path at Caret
+reads the current cell's value and takes its first run holding `/` or `\`,
+else its first run. The three column commands have no key and no menu item
+yet. Show Record and the cell reads run on a `qlogg-read-` worker inside a
+document entry, with the busy cursor.
+
+Commands in `CommandStates.OFF_IN_COLUMNS` (text wrap, Wrap Line, block
+selection and its extend commands, the fold commands, whitespace markers) are
+disabled while the shown tab shows columns, and `ApplicationController.execute`
+ignores them there. `LineViewController.wrap()` reads false in column view, so
+a tab returns to text view wrapped as it was.
+
+### Layout
+
+`ColumnSizing` (`ColumnController.sizing()`) builds a tab's `ColumnLayout`
+from the stored settings of its format (`DocumentHost.columnSettings`,
+`columns.*` in `qlogg.conf`, [settings](settings.md#column-layouts)) and
+applies the header's edits, storing each through `setColumnSettings`:
+
+- A column takes its stored visibility, else the format's default, and its
+  stored width. A column without one waits for a fit
+  (`ColumnLayout.unfitted`): a view's read fits it to the rows it reads
+  (`ColumnFit`), once the record scan has classified them, and
+  `ColumnController.fitted` takes the result while the layout is unchanged.
+  Fitted widths are not stored. A fit takes the widest shown value or the
+  column name, plus the gap: at least 3, at most 60 grid columns, 200 for
+  Message, Text and Exception, capitalized or lower case (`ColumnLayout.fitLimit`).
+- `resize`, `setShown`, `hide`, `freeze` (the cells up to one; -1
+  unfreezes) store and rebuild at once; the last shown column stays. `fit`
+  reads the visible rows' records on a `qlogg-read-` worker under the busy
+  cursor and stores the widths; a layout changed meanwhile drops them.
+  `reset` removes the format's stored entries for the tab's column names and
+  the frozen count, so the next read fits every column again.
+- A new format moves its column names to the front of the stored entries
+  (`ColumnSettings.Format.shown`). Edits change the tab they run in; another
+  open tab of the format takes them when it next builds its layout.
 
 ## Filter tabs
 
