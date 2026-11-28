@@ -241,6 +241,25 @@ public enum CommandId {
   /** Switch the tab between text view and its column format; checked in column view. */
   TOGGLE_COLUMNS(
       CommandGroup.VIEW, UiText.COMMAND_TOGGLE_COLUMNS, false, true, UiText.MENU_COLUMNS),
+  // Format choice: radio items of the Columns cascade (MenuTable).
+  /** Show the tab as text, remembered for the file as {@code none}. */
+  COLUMNS_TEXT(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_TEXT, true, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as CSV. */
+  COLUMNS_CSV(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_CSV, false, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as TSV. */
+  COLUMNS_TSV(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_TSV, false, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as an Apache access log. */
+  COLUMNS_CLF(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_CLF, false, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as Serilog compact JSON. */
+  COLUMNS_CLEF(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_CLEF, false, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as log4j XML events. */
+  COLUMNS_LOG4J_XML(
+      CommandGroup.VIEW, UiText.COMMAND_COLUMNS_LOG4J_XML, false, true, UiText.MENU_COLUMNS),
+  /** Show the tab's file as its timestamp, then the rest of the line. */
+  COLUMNS_TIME(CommandGroup.VIEW, UiText.COMMAND_COLUMNS_TIME, false, true, UiText.MENU_COLUMNS),
+  /** Make a CSV or TSV file's first line its header, or a row. */
+  FIRST_LINE_HEADER(
+      CommandGroup.VIEW, UiText.COMMAND_FIRST_LINE_HEADER, true, true, UiText.MENU_COLUMNS),
   /** Copy every line of each selected record, as in the file. */
   COPY_RAW_LINES(
       CommandGroup.VIEW, UiText.COMMAND_COPY_RAW_LINES, true, false, UiText.MENU_COLUMNS),

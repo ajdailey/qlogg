@@ -161,6 +161,9 @@ public final class CommandStates {
     if (OFF_IN_COLUMNS.contains(command) && document != null && document.columns().shown()) {
       return false;
     }
+    if (FormatCommands.handles(command)) {
+      return FormatCommands.enabled(command, document);
+    }
     return switch (command) {
       case MOVE_TO_NEW_WINDOW -> document != null;
       // Rotated sets: a file tab, not a filter tab.
@@ -334,7 +337,7 @@ public final class CommandStates {
       case TOGGLE_RANGE -> options.range();
       case TOGGLE_WRAP -> document.wrap();
       case TOGGLE_COLUMNS -> document.columns().shown();
-      default -> false;
+      default -> FormatCommands.handles(command) && FormatCommands.checked(command, document);
     };
   }
 }

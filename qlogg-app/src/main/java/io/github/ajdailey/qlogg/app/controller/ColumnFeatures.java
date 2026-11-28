@@ -8,6 +8,8 @@ import io.github.ajdailey.qlogg.core.columns.ColumnFormat;
 import io.github.ajdailey.qlogg.core.columns.ColumnSchema;
 import io.github.ajdailey.qlogg.core.model.LogDocument;
 import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The window's column commands and each new tab's column state. Confined to the UI thread.
@@ -17,8 +19,9 @@ import io.github.ajdailey.qlogg.core.time.BuiltInFormat;
  * PositionStore#NO_COLUMNS} in text view with the detected format for Toggle Columns, and a
  * detected one in column view when {@code view.columns.auto} is on. {@code .header} overrides the
  * CSV and TSV header guess. A tab whose format is {@code clef} or {@code log4j-xml}, with no
- * timestamp format chosen for the file, takes the timestamp format of the same name. Toggle Columns
- * and {@link #setHeader} apply at once and are recorded for the file; pasted text records nothing.
+ * timestamp format chosen for the file, takes the timestamp format of the same name. Toggle
+ * Columns, the View > Columns format items ({@link FormatCommands}) and {@link #setHeader} apply at
+ * once and are recorded for the file; pasted text records nothing.
  */
 final class ColumnFeatures {
   private final TimeFeaturesHost host;
@@ -32,8 +35,7 @@ final class ColumnFeatures {
   /** Sets a new tab's format, view and, for CLEF and log4j XML, timestamp format. */
   void configure(DocumentController document) {
     LogDocument file = document.document();
-    PositionStore.Entry entry =
-        file.inMemory() ? PositionStore.Entry.NONE : config.positions().get(file.path());
+    PositionStore.Entry entry = entry(document);
     ColumnSchema detected = file.columns();
     ColumnFormat format = detected == null ? null : detected.format();
     boolean shown = format != null && host.preferences().view().columnsAuto();
@@ -80,17 +82,28 @@ final class ColumnFeatures {
   }
 
   /**
-   * Runs a column command.
+   * Runs a column command: Toggle Columns, a format item or First Line Is Header.
    *
    * @return false when the command is not one of them
    */
   boolean execute(CommandId command) {
-    if (command != CommandId.TOGGLE_COLUMNS) {
+    if (command != CommandId.TOGGLE_COLUMNS && !FormatCommands.handles(command)) {
       return false;
     }
     DocumentController document = host.activeDocument();
-    if (document != null) {
+    if (document == null) {
+      return true;
+    }
+    if (command == CommandId.TOGGLE_COLUMNS) {
       toggle(document);
+    } else if (command == CommandId.COLUMNS_TEXT) {
+      document.columns().setShown(false);
+      record(document, PositionStore.NO_COLUMNS, null);
+    } else if (command == CommandId.FIRST_LINE_HEADER) {
+      ColumnSchema schema = document.columns().schema();
+      setHeader(document, schema == null || !schema.header());
+    } else {
+      choose(document, FormatCommands.format(command));
     }
     return true;
   }
@@ -113,20 +126,79 @@ final class ColumnFeatures {
   }
 
   /**
-   * Makes a CSV or TSV tab's first line its header, or a record, and records the choice for the
-   * file.
+   * Shows a tab in a format and records the choice for the file. Every tab of the file takes the
+   * format, so a filter tab reads its parent's records; the others keep their view. A CLEF or log4j
+   * XML choice also sets the timestamp format of the same name when none is chosen for the file.
    *
    * @param document the tab
+   * @param format the format; {@link ColumnFormat#TIME} needs the tab's timestamp format
+   */
+  void choose(DocumentController document, ColumnFormat format) {
+    ColumnSchema current = document.columns().schema();
+    if (current != null && current.format() == format) {
+      document.columns().setShown(true);
+    } else {
+      BuiltInFormat stamps = stampFormat(format);
+      if (stamps != null && entry(document).timeFormat().isEmpty()) {
+        for (DocumentController tab : tabsOf(document)) {
+          TimeController time = tab.time();
+          time.configure(stamps, time.zone(), time.displayZone());
+        }
+      }
+      String header = entry(document).header();
+      ColumnSchema next = schema(document, format, header.isEmpty() ? null : header.equals("1"));
+      if (next == null) {
+        return;
+      }
+      apply(document, next);
+    }
+    record(document, format.id(), null);
+  }
+
+  /**
+   * Makes a CSV or TSV file's first line its header, or a record, in every tab of the file, and
+   * records the choice for the file.
+   *
+   * @param document a tab of the file
    * @param header true for a header line
    */
   void setHeader(DocumentController document, boolean header) {
-    ColumnController columns = document.columns();
-    ColumnSchema current = columns.schema();
+    ColumnSchema current = document.columns().schema();
     if (current == null || current.delimiter() == 0) {
       return;
     }
-    columns.configure(schema(document, current.format(), header), columns.shown());
+    apply(document, schema(document, current.format(), header));
     record(document, null, header);
+  }
+
+  /** Sets a schema on every tab of a document's file, shows it in {@code document}, then scans. */
+  private void apply(DocumentController document, ColumnSchema next) {
+    List<DocumentController> tabs = tabsOf(document);
+    for (DocumentController tab : tabs) {
+      tab.columns().configure(next, tab == document || tab.columns().shown());
+    }
+    for (DocumentController tab : tabs) {
+      tab.columns().scanChosen();
+    }
+  }
+
+  /** Returns the open tabs showing a tab's document: its file tab and the filter tabs over it. */
+  private List<DocumentController> tabsOf(DocumentController document) {
+    List<DocumentController> tabs = new ArrayList<DocumentController>();
+    for (DocumentController tab : host.allDocuments()) {
+      if (tab.document() == document.document()) {
+        tabs.add(tab);
+      }
+    }
+    if (!tabs.contains(document)) {
+      tabs.add(document);
+    }
+    return tabs;
+  }
+
+  private PositionStore.Entry entry(DocumentController document) {
+    LogDocument file = document.document();
+    return file.inMemory() ? PositionStore.Entry.NONE : config.positions().get(file.path());
   }
 
   private void record(DocumentController document, String formatId, Boolean header) {

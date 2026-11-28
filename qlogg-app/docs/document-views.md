@@ -3,7 +3,7 @@
 The controllers of one document's two views in `app.controller` of
 [qlogg-app](../README.md): `LineViewController`, `DocumentController` (the main
 view), `FilteredController`, `FoldController`, the column classes
-(`ColumnController`, `ColumnFeatures`, `ColumnRows`, `RecordScanner`,
+(`ColumnController`, `ColumnFeatures`, `FormatCommands`, `ColumnRows`, `RecordScanner`,
 `CellCommands`, `RecordText`), the
 filter tab classes (`DerivedTabs`, `Derivation`, `DerivedRows`, `RanSearch`,
 `RowRestriction`, `SessionFilterTabs`),
@@ -321,8 +321,24 @@ rows, copies and searches below; the view paints it (ui-swt
   for the file, takes the built-in timestamp format of the same name.
 - Toggle Columns (`TOGGLE_COLUMNS`, View > Columns, `Ctrl+E Ctrl+K`; enabled
   while the tab has a format, checked in column view) switches between text
-  and column view and records the format id or `none` for the file. `ApplicationController.setColumnHeader`
-  rebuilds the schema and records `.header`. Pasted text records nothing.
+  and column view and records the format id or `none` for the file.
+- The View > Columns radio items (`COLUMNS_TEXT` .. `COLUMNS_TIME`,
+  `FormatCommands`) choose the view: Text shows text view and records `none`;
+  a format shows column view on it and records its id. The tab keeps the
+  chosen format, so Toggle Columns returns to it. Timestamp needs the tab's
+  timestamp format and is never detected. A `clef` or `log4j-xml` choice
+  sets the timestamp format of the same name when none is chosen for the
+  file.
+- First Line Is Header (`FIRST_LINE_HEADER`, a check item enabled for a CSV
+  or TSV format) and `ApplicationController.setColumnHeader` rebuild the
+  schema and record `.header`. Off, the columns are numbered and line 0 is a
+  row.
+- A format or header choice sets the schema on every tab of the file: the
+  file tab and the filter tabs over it, which read its records. Only the tab
+  the choice came from switches view. On a multi-line format the file tab's
+  scan starts at once (`ColumnController.scanChosen`) and holds the busy
+  indicator; an indexing document starts it when indexing ends.
+- Pasted text records nothing.
 - A `time` format follows the tab's timestamp format; without one the tab has
   no column format.
 

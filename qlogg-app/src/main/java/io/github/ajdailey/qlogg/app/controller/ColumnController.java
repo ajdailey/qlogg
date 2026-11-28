@@ -107,9 +107,25 @@ public final class ColumnController {
     }
   }
 
-  /** True when two schemas split records alike: the same format and delimiter. */
+  /**
+   * True when two schemas split records alike: the same format, delimiter and header, which decides
+   * a rotated set's repeated headers.
+   */
   private static boolean sameRecords(ColumnSchema a, ColumnSchema b) {
-    return b != null && a.format() == b.format() && a.delimiter() == b.delimiter();
+    return b != null
+        && a.format() == b.format()
+        && a.delimiter() == b.delimiter()
+        && a.header() == b.header();
+  }
+
+  /**
+   * Starts the record scan of a format the user chose under the busy indicator. An indexing
+   * document starts it when indexing ends; a filter tab reads its parent's.
+   */
+  void scanChosen() {
+    if (scanner != null && !owner.state().indexing()) {
+      scanner.request(true);
+    }
   }
 
   /**

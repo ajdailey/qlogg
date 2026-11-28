@@ -90,7 +90,7 @@ public final class MenuTable {
 
   /**
    * Commands shown as radio items, each a {@link CommandId#check()} command: View > Theme, View >
-   * Filtered View's modes, Encoding > Auto and Time Spread.
+   * Filtered View's modes, Encoding > Auto, Time Spread and the Columns formats.
    */
   public static final Set<CommandId> RADIO =
       EnumSet.of(
@@ -103,7 +103,14 @@ public final class MenuTable {
           CommandId.ENCODING_AUTO,
           CommandId.TIME_SPREAD_OFF,
           CommandId.TIME_SPREAD_ACTIVITY,
-          CommandId.TIME_SPREAD_PAUSES);
+          CommandId.TIME_SPREAD_PAUSES,
+          CommandId.COLUMNS_TEXT,
+          CommandId.COLUMNS_CSV,
+          CommandId.COLUMNS_TSV,
+          CommandId.COLUMNS_CLF,
+          CommandId.COLUMNS_CLEF,
+          CommandId.COLUMNS_LOG4J_XML,
+          CommandId.COLUMNS_TIME);
 
   /**
    * Reports whether a command's item is a radio item.

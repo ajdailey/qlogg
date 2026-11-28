@@ -662,9 +662,22 @@ QLogg detects these formats when a file opens:
 
 A file in a detected format opens in column view while Tools > Preferences,
 View, Open a file in a detected column format in column view is on, the
-default. View > Columns > Toggle Columns (`Ctrl+E Ctrl+K`) switches the tab
-between column and text view, and QLogg remembers the choice for the file.
-Text files match no format and open as text.
+default. Text files match no format and open as text.
+
+View > Columns chooses the view of the tab's file, and QLogg remembers the
+choice for the file:
+
+- Text, CSV, TSV, Apache Access Log, Serilog CLEF, log4j XML and Timestamp
+  are radio items; the checked one is the tab's view. Timestamp splits each
+  line into its [timestamp](#timestamps) and the rest, and needs a timestamp
+  format; QLogg never detects it.
+- Toggle Columns (`Ctrl+E Ctrl+K`) switches between text view and the
+  detected or last chosen format.
+- First Line Is Header, for CSV and TSV: on, the first line names the
+  columns and is not a row; off, the columns are numbered and the first line
+  is a row.
+- A filter tab and a [rotated set](#rotated-files) use the format of the file
+  they show, and a choice in either applies to that file.
 
 - A row is a record: a log4j event, or a CSV record whose quoted field holds a
   line break, is one row. Line numbers stay the file's.
@@ -733,7 +746,8 @@ Text view ignores the field.
 Save Selection and Save Filtered Results ask for the form as the file type:
 Columns, tab-separated, or Original lines. View > Columns > Show Record opens
 the current row as one `Name: value` line per column, full values included.
-The log view's context menu has the same Columns cascade.
+The log view's context menu has a Columns cascade with Toggle Columns, Copy
+Raw Lines, Copy Cell and Show Record.
 
 ## Selecting, copying and saving
 
@@ -954,7 +968,7 @@ parentheses. Help > Keyboard Shortcuts lists the keys.
 | Edit | Copy, Copy This Line, Copy with Line Numbers, Select All; Set Selection Start, Set Selection End, Block Selection; Copy Full Path, Copy File Name |
 | Search | Find, Find Next, Find Previous; Search Field, Clear Results, Filter to Tab, Search All Open Files, Search in Folder, Next Folder Match, Previous Folder Match; Add Selection to Search, Exclude Selection from Search, Replace Search with Selection, Select Range Around Line; Search Options (Match Case, Regular Expression, Inverse Match, Combine Expressions, Range Search; Auto-Refresh, Keep Results, Search After Add, Exclude or Replace), Search Limits (Set Search Start, Set Search End, Clear Search Limits); Edit Search History, Clear Search History |
 | Go | Go to Line, Go to Time, Go to Top, Go to Bottom; Go Back, Go Forward, Locate Source Line; Mark or Unmark, Next Mark, Previous Mark, Edit Mark Comment, Marks List; Scroll All Tabs to This Time |
-| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Columns (Toggle Columns; Copy Raw Lines, Copy Cell, Show Record), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
+| View | Follow File, Follow New Files, Follow on Overscroll; Reload, Stop Loading; Overview Bar, Line Numbers, Line Numbers in Filtered View; Text Wrap, Wrap Line, Wrap New Files, Show Whitespace, Hide ANSI Colors, Syntax Colors; Folding (Toggle Fold, Fold All, Unfold All), Columns (Toggle Columns; Text, CSV, TSV, Apache Access Log, Serilog CLEF, log4j XML, Timestamp; First Line Is Header; Copy Raw Lines, Copy Cell, Show Record), Timestamps (Format; Edit Formats; Time Zone, Time Offset; Time Spread (Off, Activity, Pauses)), Filtered View (Marks and Matches, Marks, Matches; Next Filtered View Mode, Previous Filtered View Mode; Grow Main View, Shrink Main View, Save Splitter Position); Zoom In, Zoom Out, Reset Zoom; Theme (Light, Dark, System), Always on Top, Full Screen; Command Palette |
 | Highlighters | Configure Highlighters, Automatic Highlighters; None and the highlighter sets; Highlight Search Matches; Next Color Label, Clear Color Labels, Color Label (None and the nine labels) |
 | Encoding | Auto; the common encodings, Other |
 | Tools | Predefined Filters, Save as Filter; Scratchpad; Preferences |

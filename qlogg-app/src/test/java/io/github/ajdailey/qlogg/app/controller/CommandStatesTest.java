@@ -48,6 +48,14 @@ class CommandStatesTest {
     row(CommandId.RELOAD, "-- -e -e");
     row(CommandId.INCLUDE_ROTATED, "-- -e -e");
     row(CommandId.TOGGLE_COLUMNS, "-- -- --");
+    row(CommandId.COLUMNS_TEXT, "-- ce ce");
+    row(CommandId.COLUMNS_CSV, "-- -e -e");
+    row(CommandId.COLUMNS_TSV, "-- -e -e");
+    row(CommandId.COLUMNS_CLF, "-- -e -e");
+    row(CommandId.COLUMNS_CLEF, "-- -e -e");
+    row(CommandId.COLUMNS_LOG4J_XML, "-- -e -e");
+    row(CommandId.COLUMNS_TIME, "-- -- --");
+    row(CommandId.FIRST_LINE_HEADER, "-- -- --");
     row(CommandId.COPY_RAW_LINES, "-- -- --");
     row(CommandId.COPY_CELL, "-- -- --");
     row(CommandId.SHOW_RECORD, "-- -- --");

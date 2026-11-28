@@ -464,4 +464,36 @@ class ColumnViewGuiTest {
     assertFalse(document().wrap());
     assertFalse(view().header().shown());
   }
+
+  /** Selects a radio or check item of the menu bar as a click does. */
+  private void click(CommandId command) {
+    MenuItem item = window.menuBar().item(command);
+    assertTrue(item.isEnabled(), command.name());
+    item.setSelection(!item.getSelection() || (item.getStyle() & SWT.RADIO) != 0);
+    item.notifyListeners(SWT.Selection, new Event());
+  }
+
+  private boolean selected(CommandId command) {
+    window.syncMenu();
+    return window.menuBar().item(command).getSelection();
+  }
+
+  @Test
+  void theFormatItemsAndFirstLineIsHeaderFollowTheTab() throws Exception {
+    openColumns("menu.csv", CSV);
+    assertTrue(selected(CommandId.COLUMNS_CSV));
+    assertFalse(selected(CommandId.COLUMNS_TEXT));
+    assertTrue(selected(CommandId.FIRST_LINE_HEADER));
+    click(CommandId.FIRST_LINE_HEADER);
+    assertFalse(selected(CommandId.FIRST_LINE_HEADER));
+    assertEquals("1", document().columns().schema().columns().get(0).name());
+    click(CommandId.COLUMNS_TEXT);
+    assertTrue(selected(CommandId.COLUMNS_TEXT));
+    assertFalse(selected(CommandId.COLUMNS_CSV));
+    assertFalse(document().columns().shown());
+    click(CommandId.COLUMNS_CLF);
+    assertTrue(selected(CommandId.COLUMNS_CLF));
+    assertFalse(window.menuBar().item(CommandId.FIRST_LINE_HEADER).isEnabled());
+    assertFalse(window.menuBar().item(CommandId.COLUMNS_TIME).isEnabled());
+  }
 }

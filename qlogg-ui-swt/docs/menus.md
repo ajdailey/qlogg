@@ -35,7 +35,7 @@ Favorites, Search > Search Options, View > Folding).
   on every platform and `Cmd+M` (Minimize) on macOS.
 - A `check()` command is a check item, or a radio item when it is in
   `MenuTable.RADIO`: View > Theme, View > Filtered View's modes, Encoding >
-  Auto and Time Spread.
+  Auto, Time Spread and the View > Columns formats.
 - View > Syntax Colors is a check item without a shortcut; it sets
   `view.syntaxColors` for both views of every open file.
 - Every item of a menu, cascade or context menu has a mnemonic of its own;

@@ -28,10 +28,11 @@ import org.slf4j.LoggerFactory;
  * thread, except the pass.
  *
  * <p>While a pass runs, a tick every {@link #PROGRESS_MILLIS} ms flushes the rows and shows
- * "Reading records N%". A {@code RESULTS} refusal stops the scan for good with one notice; the
- * lines from it on stay one row each. In a rotated set with a CSV or TSV header, a member's first
- * line that equals line 0 is a repeated header ({@link #headers}). {@link #detach} cancels the pass
- * and empties the record set, on the pass's thread when one runs.
+ * "Reading records N%"; the pass a format choice starts also holds the busy indicator. A {@code
+ * RESULTS} refusal stops the scan for good with one notice; the lines from it on stay one row each.
+ * In a rotated set with a CSV or TSV header, a member's first line that equals line 0 is a repeated
+ * header ({@link #headers}). {@link #detach} cancels the pass and empties the record set, on the
+ * pass's thread when one runs.
  */
 final class RecordScanner {
   /** Least interval between progress notices and row flushes while a pass runs. */
@@ -96,6 +97,15 @@ final class RecordScanner {
 
   /** Starts a pass over the indexed lines past the last one, unless one runs or none grew. */
   void request() {
+    request(false);
+  }
+
+  /**
+   * Starts a pass as {@link #request} does.
+   *
+   * @param busy true to hold the busy indicator while the pass runs, for a format the user chose
+   */
+  void request(final boolean busy) {
     if (detached || scan.refused()) {
       return;
     }
@@ -112,6 +122,9 @@ final class RecordScanner {
     final CancellationToken token = new CancellationToken();
     running = token;
     active.set(true);
+    if (busy) {
+      owner.activity().setActive();
+    }
     boolean started =
         owner
             .workers()
@@ -120,12 +133,21 @@ final class RecordScanner {
                 new Runnable() {
                   @Override
                   public void run() {
-                    pass(document, index, token);
+                    try {
+                      pass(document, index, token);
+                    } finally {
+                      if (busy) {
+                        owner.activity().setIdle();
+                      }
+                    }
                   }
                 });
     if (!started) {
       running = null;
       finished();
+      if (busy) {
+        owner.activity().setIdle();
+      }
       return;
     }
     owner.ui().timerExec(PROGRESS_MILLIS, tick(token, index.indexedBytes()));
